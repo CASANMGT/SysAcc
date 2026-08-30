@@ -16,6 +16,7 @@ let transaksiPage = 1;
 const pageSize = 20;
 let searchBound = false;
 
+const APP_VERSION = '1.2.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -64,6 +65,17 @@ function handleLogin(e) {
 function showApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appRoot').classList.remove('hidden');
+  // version display
+  const vs = document.getElementById('appVersionSidebar');
+  const vf = document.getElementById('appVersionFooter');
+  if (vs) vs.textContent = APP_VERSION;
+  if (vf) vf.textContent = APP_VERSION;
+  // version check
+  const stored = localStorage.getItem('wynara_version');
+  if (stored && stored !== APP_VERSION) {
+    UI.showInfo(`Diperbarui ke v${APP_VERSION} (dari v${stored}) — lihat Changelog`);
+  }
+  localStorage.setItem('wynara_version', APP_VERSION);
   loadData();
   bindEvents();
   render();
@@ -267,6 +279,20 @@ function bindEvents() {
     });
   });
 
+  document.getElementById('changelogLink')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    UI.showInfo('v' + APP_VERSION + ' — lihat CHANGELOG.md untuk detail');
+    const w = window.open('', '_blank');
+    if (w) {
+      fetch('CHANGELOG.md').then(r => r.text()).then(t => {
+        w.document.write('<pre style="font-family:monospace;white-space:pre-wrap;padding:20px">' + t.replace(/</g,'&lt;') + '</pre>');
+        w.document.close();
+      }).catch(() => {
+        w.document.write('<p>Changelog v' + APP_VERSION + '</p><p>Lihat file CHANGELOG.md di repo.</p>');
+        w.document.close();
+      });
+    }
+  });
   // transaksi view filters
   document.getElementById('transaksiSearch')?.addEventListener('input', (e) => {
     const main = document.getElementById('searchInput');
