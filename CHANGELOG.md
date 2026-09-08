@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.3.1] - 2026-09-08
+
+### Changed
+- **Bahasa anak 10 tahun di seluruh app** — modal Tambah Transaksi (`Uang berapa?`, `Uang masuk atau keluar?`, `Buat apa?`), hint `Uang masuk ke kamu — saldo nambah` / `Uang keluar dari kamu — saldo berkurang`, sublabel kategori spesifik (`Gajian kamu`, `Jajan & makan`…), panel pinjaman (`Kasih pinjam ke siapa?`, `Pinjam dari siapa?`, `Bayarnya gimana?`), modal bayar (`Berapa uang?`, `Tanggal berapa?`, `Bayar semua`), kartu pinjaman (`Sudah`, `Belum lunas`, `Bayaran berikutnya`, `Telat N hari`), validasi ramah (`Tanggalnya diisi dulu ya`, `Ketik dulu nama temanmu`, `Kebanyakan! Sisa cuma …`), header tabel (`CATATAN`, `BAYAR PAKAI`, `MASUK/KELUAR`, `UANG`)
+- **Ringkasan bayar** — `Total uang` / `Sudah dibayar` / `Sisa`, jadwal `Ke-N/M` + badge `Sudah` / `Sekarang` / `Belum`
+
+### Fixed
+- Tag `<label>` tak tertutup di modal bayar (`index.html` `repayAmount`)
+
+---
+
 ## [1.3.0] - 2026-09-08
 
 ### Added
@@ -79,6 +90,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.3.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.3.1
 [1.2.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.2.0
 [1.1.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.1.0
 [1.0.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.0.0
