@@ -47,7 +47,7 @@ export function renderArusKasChart(entries, opts) {
   const hasAny = data.some(d => d.income > 0 || d.expense > 0);
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   const labels = data.map(d => {
-    const [y, m] = d.month.split('-').map(Number);
+    const m = Number(d.month.split('-')[1]);
     return monthNames[m - 1] || m;
   });
   if (monthsEl) monthsEl.innerHTML = labels.map(l => `<span>${l}</span>`).join('');

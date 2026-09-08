@@ -69,6 +69,23 @@ describe('renderLoans', () => {
     expect(html).toMatch(/Sisa:/);
     expect(html).toMatch(/Bunga 10%/);
   });
+  it('lewat jadwal → hitungan dijepit (2/2, bukan 3/2)', () => {
+    const l = {
+      id: 'l3', direction: 'taken', contactType: 'person', loanType: 'cicilan',
+      installmentAmount: 500000, person: 'Ani', amount: 1000000,
+      date: '2026-01-15', dueDate: '', description: '', status: 'active', interestRate: 0
+    };
+    const few = [
+      { id: 'a', loanId: 'l3', amount: 100000, date: '2026-02-15' },
+      { id: 'b', loanId: 'l3', amount: 100000, date: '2026-03-15' },
+      { id: 'c', loanId: 'l3', amount: 100000, date: '2026-04-15' },
+    ];
+    UI.renderLoans([l], few, { piutangOutstanding: 0, hutangOutstanding: 700000, net: -700000, piutangCount: 0, hutangCount: 1 }, [l]);
+    const html = document.getElementById('loanList').innerHTML;
+    expect(html).toMatch(/2\/2 kali/);
+    expect(html).not.toMatch(/3\/2/);
+    expect(html).not.toMatch(/ke-4\/2/);
+  });
   it('lunas → badge Lunas, tanpa tombol bayar', () => {
     const paid = { ...loan, id: 'l2', status: 'paid' };
     UI.renderLoans([paid], [], { ...summary, piutangOutstanding: 0 }, [paid]);

@@ -32,7 +32,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.5.2';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -246,6 +246,7 @@ function bindEvents() {
   UI.bindFilters(handleFilterChange);
   window.__onFilterChange = handleFilterChange;
   UI.bindExportImport(handleImport);
+  document.getElementById('exportExcelBtn')?.addEventListener('click', handleExportExcel);
   document.getElementById('exportCsvBtn').addEventListener('click', handleExportCsv);
   UI.bindReport(handleReportOpen, handleReportClose, handleReportTabChange, handleCustomDateApply);
 
@@ -385,13 +386,6 @@ function bindEvents() {
       if (main) { main.value = e.target.value; main.dispatchEvent(new Event('input')); }
     });
   }
-  // Sync hidden functional buttons with sidebar
-  const syncBtn = (visibleId, hiddenId) => {
-    const v = document.getElementById(visibleId);
-    const h = document.getElementById(hiddenId);
-    if (v && h) v.addEventListener('click', () => h.click());
-  };
-
   // pagination + budget + settings
   document.getElementById('prevPage')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; render(); } });
   document.getElementById('nextPage')?.addEventListener('click', () => { currentPage++; render(); });

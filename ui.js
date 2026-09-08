@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, getCategoryType, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
+import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
 
 const elements = {
@@ -1173,10 +1173,6 @@ function populateSettlePicker(direction) {
   });
 }
 
-function populateHutangPicker() {
-  populateSettlePicker('taken');
-}
-
 function populateQuickSelectPiutang() {
   const chipsContainer = document.getElementById('quickSelectChips');
   if (!chipsContainer) return;
@@ -1872,8 +1868,12 @@ export function renderLoans(loans, repayments, summary, allLoans) {
     const dirClass = isTaken ? 'taken' : 'given';
     const isCicilan = l.loanType === 'cicilan';
     const instAmt = l.installmentAmount || 0;
-    const tenor = isCicilan && instAmt > 0 ? Math.ceil(l.amount / instAmt) : (isCicilan ? 0 : 1);
+    const tenor = isCicilan ? (instAmt > 0 ? calcTenor(l) : 0) : 1;
     const monthsLeft = isCicilan && instAmt > 0 ? Math.ceil(Math.max(outstanding, 0) / instAmt) : 0;
+    // Jumlah bayar bisa melebihi tenor (cicilan kecil-kecil) — jepit tampilan
+    const doneShown = tenor > 0 ? Math.min(reps.length, tenor) : reps.length;
+    const pastSchedule = tenor > 0 && reps.length >= tenor;
+    const overpaid = Math.max(paid - owed, 0);
     // derived overdue (works even when dueDate empty — schedule from start date)
     const nextDue = nextDueUi(l, reps.length);
     const diffDays = nextDue ? Math.ceil((nextDue - todayMid) / 86400000) : null;
@@ -1899,21 +1899,21 @@ export function renderLoans(loans, repayments, summary, allLoans) {
           ${isCicilan && instAmt > 0 ? `<span>💳 ${formatCurrency(instAmt)}/bulan</span>` : ''}
           ${isCicilan && tenor ? `<span>📊 Lama: ${tenor} bulan</span>` : ''}
           ${interestRateOf(l) > 0 ? `<span>🌸 Bunga ${interestRateOf(l)}% (+${formatCurrency(interestAmount(l))}) • Total ${formatCurrency(totalOwed(l))}</span>` : ''}
-          ${isCicilan && monthsLeft > 0 && l.status !== 'paid' ? `<span>⏳ Sisa ${monthsLeft} bulan • ${reps.length}/${tenor} kali</span>` : ''}
-          ${isCicilan && instAmt > 0 && l.status !== 'paid' ? `<span>💰 Bayar ke-${nextNum}/${tenor}: ${formatCurrency(nextAmt)}</span>` : ''}
+          ${isCicilan && monthsLeft > 0 && l.status !== 'paid' ? `<span>⏳ Sisa ${monthsLeft} bulan • ${doneShown}/${tenor} kali</span>` : ''}
+          ${isCicilan && instAmt > 0 && l.status !== 'paid' ? (pastSchedule ? `<span>💰 Bayar • Sisa ${formatCurrency(nextAmt)}</span>` : `<span>💰 Bayar ke-${nextNum}/${tenor}: ${formatCurrency(nextAmt)}</span>`) : ''}
           ${l.status !== 'paid' && dueLabel ? `<span class="${isOverdue ? 'overdue-date' : ''}">⏰ ${isCicilan ? 'Bayaran berikutnya' : 'Harus dibayar'}: ${dueLabel}${isOverdue ? ` • Telat ${Math.abs(diffDays)} hari` : ''}</span>` : ''}
           ${l.description ? `<span>📝 ${escapeHtml(l.description)}</span>` : ''}
         </div>
         <div class="loan-meta">
           <span class="loan-outstanding">Sisa: ${formatCurrency(Math.max(outstanding, 0))}</span>
-          <span>Sudah: ${formatCurrency(paid)}</span>
+          <span>Sudah: ${formatCurrency(paid)}${overpaid > 0 ? ` <small style="color:#b45309">(kelebihan ${formatCurrency(overpaid)})</small>` : ''}</span>
           <span>${l.status === 'paid' ? '✅ Lunas' : '⏳ Belum lunas'}</span>
         </div>
         <div class="loan-progress">
           <div class="loan-progress-fill" style="width: ${pct}%"></div>
         </div>
         <div class="loan-actions">
-          ${l.status !== 'paid' && isCicilan && nextAmt > 0 ? `<button class="btn repay-btn pay-next-btn" data-id="${l.id}" data-amount="${nextAmt}" title="${isTaken ? `Bayar loan cicilan ke-${nextNum} sebesar ${formatCurrency(nextAmt)}` : `Terima cicilan ke-${nextNum} sebesar ${formatCurrency(nextAmt)}`}">${isTaken ? `💰 Bayar ${nextNum}/${tenor} • ${formatCurrencyCompact(nextAmt)}` : `💰 Terima ${nextNum}/${tenor} • ${formatCurrencyCompact(nextAmt)}`}</button>` : ''}
+          ${l.status !== 'paid' && isCicilan && nextAmt > 0 ? `<button class="btn repay-btn pay-next-btn" data-id="${l.id}" data-amount="${nextAmt}" title="${isTaken ? `Bayar loan ${pastSchedule ? '' : `cicilan ke-${nextNum} `}sebesar ${formatCurrency(nextAmt)}` : `Terima ${pastSchedule ? '' : `cicilan ke-${nextNum} `}sebesar ${formatCurrency(nextAmt)}`}">${isTaken ? `💰 Bayar ${pastSchedule ? '' : `${nextNum}/${tenor} • `}${formatCurrencyCompact(nextAmt)}` : `💰 Terima ${pastSchedule ? '' : `${nextNum}/${tenor} • `}${formatCurrencyCompact(nextAmt)}`}</button>` : ''}
           ${l.status !== 'paid' && !isCicilan ? `<button class="btn repay-btn repay-loan-btn" data-id="${l.id}">${isTaken ? '💰 Bayar' : '💰 Terima'}</button>` : ''}
           ${l.status !== 'paid' && isCicilan ? `<button class="btn btn-secondary repay-loan-btn" data-id="${l.id}" title="Bayar nominal lain (sebagian / pelunasan)">Nominal lain</button>` : ''}
           ${isCicilan && tenor ? `<button class="btn btn-ghost schedule-toggle-btn" data-id="${l.id}" aria-expanded="false">Lihat jadwal ▾</button>` : ''}
@@ -1950,7 +1950,6 @@ export function openRepayModal(loanId, outstanding, presetAmount, presetLabel, d
   const instAmt = Number(d.instAmt) || 0;
   const out = Math.max(Number(outstanding) || 0, 0);
   const isTakenRepay = d.direction !== 'given';
-  const verbRepay = isTakenRepay ? 'dibayar' : 'diterima';
   const amt = (presetAmount && presetAmount > 0) ? Math.min(presetAmount, out) : out;
   // NOTE: repayAmount adalah <input type=number> — isi angka mentah (tanpa titik ribuan) supaya tidak diblank browser
   elements.repayAmount.value = amt > 0 ? String(Math.round(amt)) : '';

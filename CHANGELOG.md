@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.5.2] - 2026-09-09
+
+### Fixed
+- **Tombol Export Excel mati** — `exportExcelBtn` tidak punya listener (ketahuan oleh eslint `no-unused-vars`); kini terhubung ke `handleExportExcel`
+- **Hitungan cicilan bisa lewat tenor** — banyak bayaran kecil bikin label `ke-21/12`; kini dijepit (`2/2 kali`, tombol `Bayar • Sisa …`) + catatan kelebihan bayar; tenor kartu ikut total berbunga (dulu pakai pokok)
+- **Rentang tanggal satu sisi diabaikan diam-diam** — `filterEntries` kini dukung open-ended (cuma start / cuma akhir) + tanggal terbalik tetap ditukar
+
+### Added
+- **ESLint** — `npm run lint` / `npm run check` (lint + test); bersih dari 14 temuan (kode mati: `syncBtn`, `VALID_TYPES`, `EMPTY_LOAN_SUMMARY`, `verbRepay`, `populateHutangPicker`, dead code `clearAllLoans`/CSV; global `Event` didaftarkan)
+
+---
+
 ## [1.5.1] - 2026-09-08
 
 ### Fixed (hasil audit keamanan + logika)
@@ -139,6 +151,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.5.2]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.2
 [1.5.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.1
 [1.5.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.0
 [1.4.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.4.0

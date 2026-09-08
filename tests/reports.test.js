@@ -39,6 +39,18 @@ describe('filterEntries', () => {
     const r = filterEntries(entries, { period: 'all', type: 'all', category: 'all' });
     expect(r[0].id).toBe('3');
   });
+  it('custom open-ended: cuma start', () => {
+    const r = filterEntries(entries, { period: 'custom', type: 'all', category: 'all', startDate: '2026-08-01' });
+    expect(r.map(e => e.id).sort()).toEqual(['1', '2', '3']);
+  });
+  it('custom open-ended: cuma end', () => {
+    const r = filterEntries(entries, { period: 'custom', type: 'all', category: 'all', endDate: '2026-07-15' });
+    expect(r.map(e => e.id).sort()).toEqual(['4', '5']);
+  });
+  it('custom terbalik ditukar otomatis', () => {
+    const r = filterEntries(entries, { period: 'custom', type: 'all', category: 'all', startDate: '2026-08-31', endDate: '2026-08-01' });
+    expect(r.map(e => e.id).sort()).toEqual(['1', '2', '3']);
+  });
 });
 
 describe('computeCategoryBreakdown', () => {

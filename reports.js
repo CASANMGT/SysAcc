@@ -41,11 +41,16 @@ export function filterEntries(entries, { period, type, category, startDate, endD
       }
     }
 
-    if (start && end && !isNaN(start) && !isNaN(end)) {
+    // Open-ended didukung: cuma start (dari tanggal itu maju) atau cuma end (sampai tanggal itu)
+    const s = start && !isNaN(start) ? start : null;
+    const en = end && !isNaN(end) ? end : null;
+    if (s || en) {
+      const from = s || new Date(-8640000000000000);
+      const to = en || new Date(8640000000000000);
       filtered = filtered.filter(e => {
         const d = new Date(e.date);
         if (isNaN(d)) return false;
-        return d >= start && d <= end;
+        return d >= from && d <= to;
       });
     }
   }
@@ -359,8 +364,6 @@ export function getPaymentIcon(payment) {
   const found = PAYMENT_OPTIONS.find(p => p.value === payment);
   return found ? found.icon : '📦';
 }
-
-const EMPTY_LOAN_SUMMARY = { piutangTotal: 0, hutangTotal: 0, piutangOutstanding: 0, hutangOutstanding: 0, piutangPaid: 0, hutangPaid: 0, piutangCount: 0, hutangCount: 0, net: 0 };
 
 export function computeLoanSummary(loans, repayments) {
   if (!Array.isArray(loans)) loans = [];

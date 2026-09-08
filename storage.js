@@ -446,7 +446,6 @@ export function importExcel(file) {
 }
 
 const MAX_IMPORT_ROWS = 50000;
-const VALID_TYPES = ['income', 'expense'];
 const VALID_PAYMENTS = ['cash', 'credit', 'qris', 'transfer', 'debit', 'ewallet', 'paylater', 'other'];
 
 function isValidDateStr(s) {
@@ -639,9 +638,8 @@ function importCSVFile(file) {
         // simple CSV parse: assume first non-empty after header is data
         // Try to detect if Transaksi section
         const rows = [];
-        let inTransaksi = false;
         for (const line of lines) {
-          if (line.includes('Tanggal') && line.includes('Jenis')) { inTransaksi = line.includes('Transaksi') || true; continue; }
+          if (line.includes('Tanggal') && line.includes('Jenis')) continue;
           if (line.includes('=== PINJAMAN') || line.includes('=== PEMBAYARAN')) break;
           const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
           if (cols.length >= 6 && cols[0] && !isNaN(new Date(cols[0]))) {
@@ -913,10 +911,7 @@ export function clearAllLoans() {
   // remove orphan ledger entries
   const loanEntryIds = new Set([...loans.map(l => l.entryId), ...reps.map(r => r.entryId)].filter(Boolean));
   if (loanEntryIds.size) {
-    const entries = getEntries().filter(e => !loanEntryIds.has(e.id) && !e.loanId);
-    // keep non-loan entries, but also filter by loanId
-    const filtered = getEntries().filter(e => !e.loanId || !loans.some(l => l.id === e.loanId));
-    // Simpler: remove all entries with loanId
+    // remove all entries with loanId (principal + repayments)
     const clean = getEntries().filter(e => !e.loanId);
     saveEntries(clean);
   }
@@ -997,7 +992,6 @@ export function updatePerson(id, name, type) {
 }
 
 export function deletePerson(id) {
-  const person = getPeopleList().find(p => p.id === id);
   const people = getPeopleList().filter(p => p.id !== id);
   savePeopleList(people);
   // keep loans but they will show orphan - not delete
