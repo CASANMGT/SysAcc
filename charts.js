@@ -3,6 +3,10 @@
 
 import { computeCashflow, getMonthsBetween, getCategoryLabel } from './reports.js';
 
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 export function fmtCompactRp(v) {
   const n = Number(v) || 0;
   if (n >= 1000000000) return `Rp${(n / 1000000000).toFixed(1)}M`;
@@ -117,7 +121,7 @@ export function renderDonut(categories) {
   if (legend) {
     legend.innerHTML = expenseCats.slice(0, 4).map((c, i) => {
       const pct = ((c.total / total) * 100).toFixed(0);
-      return `<div class="donut-legend-item"><span><span class="donut-dot" style="background:${colors[i % colors.length]}"></span> ${getCategoryLabel(c.category)}</span><span style="color:#64748b">${pct}%</span></div>`;
+      return `<div class="donut-legend-item"><span><span class="donut-dot" style="background:${colors[i % colors.length]}"></span> ${esc(getCategoryLabel(c.category))}</span><span style="color:#64748b">${pct}%</span></div>`;
     }).join('');
   }
   if (arc) {

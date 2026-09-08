@@ -3,7 +3,7 @@
 // - CDN fallback (xlsx): network-first, cache kalau sempat
 // - Selain itu: network-first, fallback cache
 
-const CACHE = 'wynara-v1-4-0';
+const CACHE = 'wynara-v1-5-0';
 const CORE = [
   './',
   './index.html',

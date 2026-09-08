@@ -2,6 +2,12 @@ import { totalOwed } from './loanmath.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
+// Kategori custom bisa diketik user / datang dari file import —
+// buang karakter HTML supaya tidak bisa jadi injeksi script di render.
+export function sanitizeCategory(cat) {
+  return String(cat || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
+}
+
 function generateId() {
   try {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -50,7 +56,7 @@ export function createEntry(entry) {
     id: generateId(),
     date: entry.date,
     type: entry.type === 'income' ? 'income' : 'expense',
-    category: String(entry.category || '').trim() || 'lainnya',
+    category: sanitizeCategory(entry.category) || 'lainnya',
     payment: entry.payment || 'cash',
     paymentDetail: String(entry.paymentDetail || '').slice(0, 60),
     description: String(entry.description || '').slice(0, 120),
@@ -340,7 +346,7 @@ export function importExcel(file) {
             id: generateId(),
             date: String(r.Tanggal || '').slice(0, 10),
             type: r.Jenis === 'Pemasukan' ? 'income' : 'expense',
-            category: String(r.Kategori || '').trim(),
+            category: sanitizeCategory(r.Kategori),
             payment: String(r['Cara Bayar'] || 'cash').trim() || 'cash',
             paymentDetail: String(r['Detail Bayar'] || r['Detail'] || '').slice(0, 60),
             description: String(r.Deskripsi || '').slice(0, 120),
@@ -452,7 +458,7 @@ function sanitizeEntry(ent) {
   const amount = Number(ent.amount);
   const date = String(ent.date || '').slice(0, 10);
   const type = ent.type === 'income' ? 'income' : (ent.type === 'expense' ? 'expense' : null);
-  const category = String(ent.category || '').trim().slice(0, 60);
+  const category = sanitizeCategory(ent.category);
   if (!isValidDateStr(date) || !type || !category || !isFinite(amount) || amount <= 0) return null;
   const payment = VALID_PAYMENTS.includes(ent.payment) ? ent.payment : 'cash';
   return {
@@ -646,7 +652,7 @@ function importCSVFile(file) {
           id: generateId(),
           date: cols[0],
           type: cols[1] === 'Pemasukan' ? 'income' : 'expense',
-          category: cols[2],
+          category: sanitizeCategory(cols[2]),
           payment: cols[3] || 'cash',
           description: cols[4] || '',
           amount: Number(cols[5]),
@@ -735,7 +741,9 @@ function loanEntryData(loan, isRepayment, amount, date, payment, paymentDetail) 
     const type = isPiutang ? 'expense' : 'income';
     const category = isPiutang ? 'Piutang' : 'Hutang';
     const desc = (isPiutang ? 'Kasih pinjam ke ' : 'Pinjam dari ') + loan.person;
-    return { type, category, amount: loan.amount, date: loan.date, description: desc, person: loan.person, loanId: loan.id, payment: pay, paymentDetail: String(payDetail).slice(0, 60), loanDue: loan.dueDate || '', loanType: loan.loanType || 'lunas', installmentAmount: loan.installmentAmount || 0, contactType: loan.contactType || 'person' };
+    // Jangan timpa catatan user saat loan diedit (updateLoan pakai fungsi ini juga)
+    const keepDesc = String(loan.description || '').trim() || desc;
+    return { type, category, amount: loan.amount, date: loan.date, description: keepDesc, person: loan.person, loanId: loan.id, payment: pay, paymentDetail: String(payDetail).slice(0, 60), loanDue: loan.dueDate || '', loanType: loan.loanType || 'lunas', installmentAmount: loan.installmentAmount || 0, contactType: loan.contactType || 'person' };
   }
   const type = isPiutang ? 'income' : 'expense';
   const category = isPiutang ? 'Piutang' : 'Hutang';
@@ -808,6 +816,13 @@ export function updateLoan(id, updates) {
   }
   loans[index] = { ...loans[index], ...sanitized };
   const loan = loans[index];
+  // Status ikut kebenaran: lunas kalau terbayar >= total (kecuali status diset eksplisit)
+  if (sanitized.status === undefined) {
+    try {
+      const total = getRepayments().filter(r => r.loanId === id).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      loan.status = total >= totalOwed(loan) ? 'paid' : 'active';
+    } catch {}
+  }
   // cascade rename if person changed
   if (oldPerson !== loan.person) {
     // update related entries person field

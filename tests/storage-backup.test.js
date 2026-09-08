@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createLoan, addRepayment, getLoanById, updateLoan } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -56,5 +56,20 @@ describe('importEntries', () => {
   it('file rusak → throw pesan jelas', () => {
     expect(() => importEntries('bukan json')).toThrow(/invalid/i);
     expect(() => clearAllEntries()).not.toThrow();
+  });
+});
+
+describe('updateLoan', () => {
+  it('status ikut kebenaran saat pokok dikecilkan di bawah terbayar', () => {
+    const loan = createLoan({ direction: 'given', person: 'Budi', amount: 1000000, date: '2026-08-01' });
+    addRepayment({ loanId: loan.id, amount: 600000, date: '2026-08-10' });
+    expect(getLoanById(loan.id).status).toBe('active');
+    updateLoan(loan.id, { amount: 500000 });
+    expect(getLoanById(loan.id).status).toBe('paid');
+  });
+  it('status eksplisit dihormati', () => {
+    const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
+    updateLoan(loan.id, { status: 'paid' });
+    expect(getLoanById(loan.id).status).toBe('paid');
   });
 });

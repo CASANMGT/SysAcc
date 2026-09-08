@@ -221,7 +221,7 @@ export function renderEntries(entries) {
       <tr data-id="${e.id}" class="${rowClass}">
         <td style="white-space:nowrap;width:34px"><input type="checkbox" class="row-select" data-id="${e.id}" ${checked} ${checkDisabled} aria-label="Pilih transaksi"></td>
         <td style="white-space:nowrap">${formatDate(e.date)}</td>
-        <td><span class="category-tag">${getCategoryIcon(e.category)} ${getCategoryLabel(e.category)}</span></td>
+        <td><span class="category-tag">${getCategoryIcon(e.category)} ${escapeHtml(getCategoryLabel(e.category))}</span></td>
         <td title="${escapeHtml(desc)}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(desc)}</td>
         <td><span class="payment-tag" title="${escapeHtml(e.paymentDetail || getPaymentLabel(e.payment))}">${getPaymentIcon(e.payment)} ${getPaymentLabel(e.payment)}</span></td>
         <td><span class="type-badge ${isIncome ? 'income' : 'expense'}" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap">${isIncome ? '📥 Masuk' : '📤 Keluar'}</span></td>
@@ -282,7 +282,7 @@ export function renderCategoryBreakdown(categories) {
     return `
       <div class="category-row">
         <div class="category-info">
-          <span class="category-name">${getCategoryIcon(c.category)} ${getCategoryLabel(c.category)}</span>
+          <span class="category-name">${getCategoryIcon(c.category)} ${escapeHtml(getCategoryLabel(c.category))}</span>
           <span class="category-amount ${typeClass}">${formatCurrency(c.total)}</span>
         </div>
         <div class="category-bar">
@@ -668,6 +668,9 @@ export function openModal(entry = null) {
         }
       }
       if (elements.entryInterestRate) elements.entryInterestRate.value = entry.interestRate ? String(entry.interestRate) : '';
+      // Pastikan field bunga kelihatan saat edit pinjaman (mode lama bisa settle)
+      const bungaFieldEdit = document.getElementById('loanBungaField');
+      if (bungaFieldEdit) bungaFieldEdit.hidden = false;
       updateBungaHint();
     } else {
       elements.loanFieldsGroup.hidden = true;
@@ -1210,7 +1213,7 @@ export function getFormData() {
     category = sel ? sel.dataset.value : '';
   }
   if (category === '__custom' || !category) {
-    category = elements.customCategory.value.trim().toLowerCase().replace(/\s+/g, '-');
+    category = elements.customCategory.value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[<>"'&]/g, '');
     if (!category) category = 'lain-custom';
   }
   const isLoan = category === 'Piutang' || category === 'Hutang';
@@ -1244,7 +1247,8 @@ export function getFormData() {
     paymentDetail = document.getElementById('paymentTransferBank')?.value || '';
   }
   const loanMode = (isLoan && elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
-  const interestRate = isLoan && loanMode === 'new' ? readBungaRate() : 0;
+  // Catatan: settle/addRepayment mengabaikan interestRate; edit loan butuh nilainya
+  const interestRate = isLoan ? readBungaRate() : 0;
   return {
     id: elements.entryId.value || null,
     date: elements.entryDate.value,
@@ -1378,7 +1382,7 @@ function renderReceiptPreview() {
     </div>
     <table style="width:100%;font-size:13px;border-collapse:collapse">
       <tr><td style="padding:4px 0;color:#64748b;width:110px">Jenis</td><td><b>${e.type === 'income' ? '📥 Uang masuk' : '📤 Uang keluar'}</b></td></tr>
-      <tr><td style="padding:4px 0;color:#64748b">Kategori</td><td>${getCategoryIcon(e.category)} ${getCategoryLabel(e.category)}</td></tr>
+      <tr><td style="padding:4px 0;color:#64748b">Kategori</td><td>${getCategoryIcon(e.category)} ${escapeHtml(getCategoryLabel(e.category))}</td></tr>
       ${e.person ? `<tr><td style="padding:4px 0;color:#64748b">Teman</td><td>${escapeHtml(e.person)}</td></tr>` : ''}
       <tr><td style="padding:4px 0;color:#64748b">Bayar pakai</td><td>${payLabel}</td></tr>
       ${e.description ? `<tr><td style="padding:4px 0;color:#64748b">Catatan</td><td>${escapeHtml(e.description)}</td></tr>` : ''}
@@ -1458,7 +1462,7 @@ export function renderCategoryFilterChips(categories) {
   const prevValue = prev ? prev.dataset.value : 'all';
   const base = '<button type="button" class="chip category-chip" data-value="all">Semua</button>';
   const chips = categories.map(c =>
-    `<button type="button" class="chip category-chip" data-value="${c}">${getCategoryIcon(c)} ${getCategoryLabel(c)}</button>`
+    `<button type="button" class="chip category-chip" data-value="${escapeHtml(c)}">${getCategoryIcon(c)} ${escapeHtml(getCategoryLabel(c))}</button>`
   ).join('');
   group.innerHTML = base + chips;
   const keep = categories.includes(prevValue) ? prevValue : 'all';
@@ -1665,7 +1669,7 @@ function renderCategoryTable(categories, total, type) {
           const pct = total > 0 ? ((c.total / total) * 100).toFixed(1) : 0;
           return `
             <tr>
-              <td>${getCategoryIcon(c.category)} ${getCategoryLabel(c.category)}</td>
+              <td>${getCategoryIcon(c.category)} ${escapeHtml(getCategoryLabel(c.category))}</td>
               <td class="amount-col ${type}">${formatCurrency(c.total)}</td>
               <td>
                 <div class="category-bar" style="max-width: 150px;">
@@ -1793,8 +1797,8 @@ function renderTopExpensesReport(topExpenses) {
         <div class="top-expense-item">
           <div class="top-expense-rank">${index + 1}</div>
           <div class="top-expense-info">
-            <div class="top-expense-name">${getCategoryIcon(item.category)} ${item.description || getCategoryLabel(item.category)}</div>
-            <div class="top-expense-category">${getCategoryLabel(item.category)} • ${item.count}x transaksi</div>
+            <div class="top-expense-name">${getCategoryIcon(item.category)} ${escapeHtml(item.description || getCategoryLabel(item.category))}</div>
+            <div class="top-expense-category">${escapeHtml(getCategoryLabel(item.category))} • ${item.count}x transaksi</div>
           </div>
           <div class="top-expense-amount">${formatCurrency(item.total)}</div>
         </div>
@@ -1888,7 +1892,7 @@ export function renderLoans(loans, repayments, summary, allLoans) {
             <span class="loan-type-badge">${isCicilan ? `📅 Cicilan${tenor ? ` ${tenor} bln` : ''}` : '💵 Lunas (1x)'}</span>
         ${isOverdue ? '<span class="loan-overdue-badge">⚠️ Terlambat</span>' : ''}
           </div>
-          <div class="loan-amount ${dirClass}">${formatCurrency(l.amount)}</div>
+          <div class="loan-amount ${dirClass}" title="${interestRateOf(l) > 0 ? `Pokok ${formatCurrency(l.amount)} + bunga ${formatCurrency(interestAmount(l))}` : ''}">${formatCurrency(totalOwed(l))}</div>
         </div>
         <div class="loan-meta">
           <span>📅 ${formatDate(l.date)}</span>
@@ -1948,7 +1952,8 @@ export function openRepayModal(loanId, outstanding, presetAmount, presetLabel, d
   const isTakenRepay = d.direction !== 'given';
   const verbRepay = isTakenRepay ? 'dibayar' : 'diterima';
   const amt = (presetAmount && presetAmount > 0) ? Math.min(presetAmount, out) : out;
-  elements.repayAmount.value = amt > 0 ? formatIdrInput(amt) : '';
+  // NOTE: repayAmount adalah <input type=number> — isi angka mentah (tanpa titik ribuan) supaya tidak diblank browser
+  elements.repayAmount.value = amt > 0 ? String(Math.round(amt)) : '';
   elements.repayDate.value = new Date().toISOString().split('T')[0];
   const title = document.getElementById('repayModalTitle');
   if (title) title.textContent = presetLabel || 'Catat Pembayaran';
@@ -1995,7 +2000,7 @@ export function openRepayModal(loanId, outstanding, presetAmount, presetLabel, d
       chipsBox.querySelectorAll('.repay-chip').forEach(btn => {
         btn.addEventListener('click', () => {
           const a = Number(btn.dataset.amount) || 0;
-          elements.repayAmount.value = a > 0 ? formatIdrInput(a) : '';
+          elements.repayAmount.value = a > 0 ? String(Math.round(a)) : '';
           markSelected(btn);
           updateHint(btn.dataset.n, a);
         });

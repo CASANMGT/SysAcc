@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.5.1] - 2026-09-08
+
+### Fixed (hasil audit keamanan + logika)
+- **Stored XSS via kategori custom & deskripsi** — nama kategori/deskripsi ber-HTML kini dinetralkan di perbatasan storage (`sanitizeCategory`) + di-escape di semua render (tabel, laporan, donut, kwitansi, filter chips, pengaturan). Vektor termasuk file import jahat (Excel/CSV/JSON)
+- **Preset nominal pelunasan kosong** — `formatIdrInput` menulis `250.000` ke `<input type=number>` sehingga browser mengosongkannya; tombol Bayar N/M, chip cicilan & Lunasi kini isi angka mentah
+- **Edit pinjaman menimpa catatan** — `updateLoan` kini pertahankan deskripsi user di entry pokok (bukan reset ke teks otomatis)
+- **Edit pinjaman bisa hapus bunga** — field bunga selalu terbaca & terlihat saat edit (tidak tergantung mode lama)
+- **Status tidak ikut kebenaran** — `updateLoan` hitung ulang lunas/aktif dari terbayar vs total (mis. pokok dikecilkan di bawah terbayar → otomatis lunas); sisa dropdown kontak ikut total berbunga
+- **Submit tanpa pengaman error** — `handleFormSubmit`/`handleRepaySubmit` kini tangkap error storage (mis. penyimpanan penuh) jadi toast, bukan diam
+- Cache service worker ketinggalan versi (`v1-4-0` → `v1-5-0`); `computeLoanSummary` kembalikan objek nol (bukan array) untuk input rusak; kartu pinjaman tampilkan total (pokok+bunga) sebagai headline
+
+---
+
 ## [1.5.0] - 2026-09-08
 
 ### Added
@@ -126,6 +139,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.5.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.1
 [1.5.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.0
 [1.4.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.4.0
 [1.3.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.3.1

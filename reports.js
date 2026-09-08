@@ -360,9 +360,11 @@ export function getPaymentIcon(payment) {
   return found ? found.icon : '📦';
 }
 
+const EMPTY_LOAN_SUMMARY = { piutangTotal: 0, hutangTotal: 0, piutangOutstanding: 0, hutangOutstanding: 0, piutangPaid: 0, hutangPaid: 0, piutangCount: 0, hutangCount: 0, net: 0 };
+
 export function computeLoanSummary(loans, repayments) {
-  if (!Array.isArray(loans)) return [];
-  if (!Array.isArray(repayments)) return [];
+  if (!Array.isArray(loans)) loans = [];
+  if (!Array.isArray(repayments)) repayments = [];
   let piutangTotal = 0;
   let hutangTotal = 0;
   let piutangPaid = 0;

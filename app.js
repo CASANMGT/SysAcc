@@ -32,7 +32,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.1';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -614,8 +614,7 @@ function bindEvents() {
 
     const loanSummary = new Map();
     loans.forEach(l => {
-      const repaid = repayments.filter(r => r.loanId === l.id).reduce((s, r) => s + r.amount, 0);
-      const outstanding = l.amount - repaid;
+      const outstanding = outstandingOf(l, repayments.filter(r => r.loanId === l.id));
       if (outstanding > 0) {
         const existing = loanSummary.get(l.person) || { given: 0, taken: 0 };
         if (l.direction === 'given') existing.given += outstanding;
@@ -704,6 +703,20 @@ function handleFormSubmit() {
     return;
   }
 
+  try {
+    submitFormData(data);
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menyimpan — coba lagi');
+    return;
+  }
+
+  const recCb = document.getElementById('entryRecurring');
+  if (recCb) recCb.checked = false;
+  UI.closeModal();
+  refresh();
+}
+
+function submitFormData(data) {
   const isLoan = LOAN_CATEGORIES.includes(data.category);
 
   if (isLoan) {
@@ -797,16 +810,11 @@ function handleFormSubmit() {
         const list = Storage.getRecurring();
         list.push({ ...data, recurringId: Date.now().toString(36), createdAt: new Date().toISOString() });
         Storage.saveRecurring(list);
-        UI.showInfo('Recurring diaktifkan: akan diingatkan tiap bulan');
+        UI.showInfo('Recurring aktif: otomatis dibuat tiap bulan');
       }
       UI.showSuccess('Transaksi ditambahkan');
     }
   }
-
-  const recCb = document.getElementById('entryRecurring');
-  if (recCb) recCb.checked = false;
-  UI.closeModal();
-  refresh();
 }
 
 function handleEdit(id) {
@@ -1235,7 +1243,7 @@ function renderCategoryBudgets(entries) {
     try { label = Reports.getCategoryLabel(c) || c; } catch {}
     return `<div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:#475569;margin-bottom:3px">
-        <span>${label}</span>
+        <span>${escapeHtml(label)}</span>
         <span style="font-weight:600;color:${over ? '#ef4444' : '#0f172a'}">${fmt(spent)} / ${fmt(lim)}${over ? ' ⚠️' : ''}</span>
       </div>
       <div class="budget-bar" style="height:6px"><div class="budget-fill${over ? ' over' : ''}" style="width:${pct}%"></div></div>
@@ -1382,7 +1390,7 @@ function renderFullTransaksi() {
     const cara = `${Reports.getPaymentIcon(e.payment)} ${Reports.getPaymentLabel(e.payment)}${e.paymentDetail ? ' • ' + escapeHtml(e.paymentDetail) : ''}`;
     return `<tr style="border-bottom:1px solid #f8fafc">
       <td style="padding:12px;white-space:nowrap;font-size:13px">${Reports.formatDate(e.date)}</td>
-      <td style="padding:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:9999px;background:#f1f5f9;font-size:12px">${ikon} ${kategori}</span></td>
+      <td style="padding:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:9999px;background:#f1f5f9;font-size:12px">${ikon} ${escapeHtml(kategori)}</span></td>
       <td style="padding:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description||'')}">${escapeHtml(e.description||'-')}</td>
       <td style="padding:12px;white-space:nowrap;font-size:13px">${kontak}</td>
       <td style="padding:12px;white-space:nowrap;font-size:12px"><span style="background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:9999px">${cara}</span></td>
@@ -1568,7 +1576,11 @@ function handleRepaySubmit() {
     return UI.showError(`Jumlah melebihi sisa: ${new Intl.NumberFormat('id-ID', {style:'currency',currency:'IDR'}).format(outstanding)}`);
   }
 
-  Storage.addRepayment(data);
+  try {
+    Storage.addRepayment(data);
+  } catch (err) {
+    return UI.showError(err && err.message ? err.message : 'Gagal menyimpan pembayaran');
+  }
   const afterPaid = paid + data.amount;
   const left = Math.max(totalOwed(loan) - afterPaid, 0);
   const tenor = calcTenor(loan);
@@ -1676,8 +1688,8 @@ function openSettings() {
         let label = c;
         try { label = Reports.getCategoryLabel(c) || c; } catch {}
         return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:6px 10px">
-          <span style="flex:1">${label} • <b>${fmt(all[c])}</b></span>
-          <button data-catdel="${c}" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
+          <span style="flex:1">${escapeHtml(label)} • <b>${fmt(all[c])}</b></span>
+          <button data-catdel="${escapeHtml(c)}" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
         </div>`;
       }).join('')
       : '<span style="font-size:11px;color:#94a3b8">Belum ada — tambah mis. Makanan Rp500rb</span>';
@@ -1694,7 +1706,13 @@ function openSettings() {
     const predefined = Reports.CATEGORY_OPTIONS.expense.map(o => o.value);
     const customs = [...new Set(currentEntries.filter(e => e.type === 'expense').map(e => e.category))].filter(c => !predefined.includes(c));
     const labelOf = (c) => { try { return Reports.getCategoryLabel(c) || c; } catch { return c; } };
-    catSel.innerHTML = predefined.concat(customs).map(c => `<option value="${c}">${labelOf(c)}</option>`).join('');
+    catSel.innerHTML = '';
+    predefined.concat(customs).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = labelOf(c);
+      catSel.appendChild(opt);
+    });
   }
   if (catAdd && !catAdd.dataset.bound) {
     catAdd.dataset.bound = '1';
@@ -1721,7 +1739,7 @@ function openSettings() {
       recList.innerHTML = templates.map(t => `
         <div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">
           <span>${t.type === 'income' ? '📥' : '📤'}</span>
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.category || 'Lainnya'} • ${fmt(Number(t.amount) || 0)}/bln${t.paused ? ' <small style="color:#94a3b8">(jeda)</small>' : ''}</span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.category || 'Lainnya')} • ${fmt(Number(t.amount) || 0)}/bln${t.paused ? ' <small style="color:#94a3b8">(jeda)</small>' : ''}</span>
           <button data-rec="${t.recurringId}" data-act="pause" class="btn btn-ghost" style="font-size:11px;padding:2px 8px">${t.paused ? '▶️' : '⏸️'}</button>
           <button data-rec="${t.recurringId}" data-act="del" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
         </div>`).join('');
@@ -1751,7 +1769,7 @@ function openSettings() {
     if (!customs.length) list.innerHTML = '<span style="font-size:11px;color:#94a3b8">Tidak ada kategori custom</span>';
     else list.innerHTML = customs.map(c => {
       const cnt = currentEntries.filter(e => e.category === c).length;
-      return `<span class="chip" style="font-size:11px">${c} <small>(${cnt})</small> <button data-cat="${c}" class="del-cat" style="margin-left:4px;background:none;border:none;cursor:pointer;color:#ef4444">×</button></span>`;
+      return `<span class="chip" style="font-size:11px">${escapeHtml(c)} <small>(${cnt})</small> <button data-cat="${escapeHtml(c)}" class="del-cat" style="margin-left:4px;background:none;border:none;cursor:pointer;color:#ef4444">×</button></span>`;
     }).join('');
     list.querySelectorAll('.del-cat').forEach(btn => {
       btn.addEventListener('click', () => {
