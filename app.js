@@ -166,6 +166,19 @@ function bindEvents() {
     UI.openModal();
   });
 
+  document.getElementById('onboardAddBtn')?.addEventListener('click', () => {
+    UI.renderPeopleDatalist(Storage.getAllPeople());
+    UI.openModal();
+  });
+  document.getElementById('onboardLoanBtn')?.addEventListener('click', () => {
+    UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans());
+  });
+  document.getElementById('onboardReportBtn')?.addEventListener('click', handleReportOpen);
+  document.getElementById('settingTheme')?.addEventListener('change', (e) => {
+    document.body.classList.toggle('dark-mode', e.target.checked);
+    safeLocalSet('theme', e.target.checked ? 'dark' : 'light');
+  });
+
   UI.bindCategoryChange(UI.handleCategoryChange);
   UI.bindTypeButtons(() => {});
   UI.bindFormSubmit(handleFormSubmit);
@@ -627,14 +640,14 @@ function handleFormSubmit() {
 
   if (isLoan) {
     const mode = data.loanMode || 'new';
-    // 4 flows: Piutang Baru (beri, keluar) / Terima Pelunasan (masuk) / Hutang Baru (pinjam, masuk) / Bayar Hutang (keluar)
+    // 4 flows: Pinjemin 📤 / Balikin 📥 (terima) vs Ambil Loan 📥 / Balikin 📤 (bayar)
     if (mode === 'settle') {
       if (data.id) {
-        UI.showError('Pelunasan tidak bisa diubah dari sini. Gunakan panel Pinjaman.');
+        UI.showError('Balikin tidak bisa diubah dari sini. Gunakan panel Pinjaman.');
         return;
       }
       const loanId = data.loanId || null;
-      if (!loanId) return UI.showError(data.category === 'Hutang' ? 'Pilih dulu hutang yang mau dibalikin' : 'Pilih dulu pinjaman yang mau dibalikin');
+      if (!loanId) return UI.showError(data.category === 'Hutang' ? 'Pilih dulu loan yang mau kamu balikin' : 'Pilih dulu siapa yang balikin ke kamu');
       const loan = Storage.getLoanById(loanId);
       if (!loan) return UI.showError('Pinjaman terpilih tidak ditemukan — pilih ulang');
       const expectedDir = data.category === 'Hutang' ? 'taken' : 'given';
@@ -649,15 +662,15 @@ function handleFormSubmit() {
         loanId,
         amount: data.amount,
         date: data.date,
-        description: data.description || (data.category === 'Hutang' ? `Bayar Hutang: ${loan.person}` : `Terima Piutang: ${loan.person}`)
+        description: data.description || (data.category === 'Hutang' ? `Balikin ke ${loan.person}` : `Dibalikin dari ${loan.person}`)
       });
       const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v);
       UI.showSuccess(data.category === 'Hutang'
-        ? `Balikin hutang ke ${loan.person} ${fmt(data.amount)}`
-        : `Balikin pinjaman dari ${loan.person} diterima ${fmt(data.amount)}`);
+        ? `Oke, kamu balikin ${fmt(data.amount)} ke ${loan.person} 👍`
+        : `${loan.person} sudah balikin ${fmt(data.amount)} ke kamu 👍`);
     } else {
       const direction = data.category === 'Piutang' ? 'given' : 'taken';
-      if (!data.person) return UI.showError(data.category === 'Hutang' ? 'Nama pemberi hutang wajib diisi' : 'Nama yang dipinjami wajib diisi');
+      if (!data.person) return UI.showError(data.category === 'Hutang' ? 'Tulis dulu dari siapa ambil loan' : 'Tulis dulu ke siapa kasih pinjam');
 
       if (data.id) {
         const existing = Storage.getEntryById(data.id);
@@ -690,7 +703,7 @@ function handleFormSubmit() {
           dueDate: data.loanDue,
           description: data.description
         });
-        UI.showSuccess(data.category === 'Hutang' ? 'Hutang dicatat (uang masuk)' : 'Pinjamin dicatat (uang keluar)');
+        UI.showSuccess(data.category === 'Hutang' ? `Oke, kamu pinjam ${Reports.formatCurrency(data.amount)} dari ${data.person} 💰` : `Kasih pinjam ${Reports.formatCurrency(data.amount)} ke ${data.person} 📤`);
       }
     }
   } else {
@@ -980,6 +993,8 @@ function render() {
 
   UI.renderEntries(paginated);
   updateBulkBar();
+  const ob = document.getElementById('onboardingCard');
+  if (ob) ob.classList.toggle('hidden', currentEntries.length > 0);
   // pagination UI
   const pagerNum = document.getElementById('pagerNum');
   const prevBtn = document.getElementById('prevPage');
@@ -1166,7 +1181,7 @@ function renderDonut(categories) {
   const arc = document.getElementById('donutArc');
   const expenseCats = categories.filter(c => c.type === 'expense');
   const total = expenseCats.reduce((a,b)=>a+b.total,0);
-  if (totalEl) totalEl.textContent = new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:2}).format(total);
+  if (totalEl) totalEl.textContent = new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(total);
   if (!expenseCats.length) {
     if (arc) { arc.setAttribute('stroke-dasharray','2 8'); arc.setAttribute('stroke','#e2e8f0'); }
     if (legend) legend.innerHTML = '';
@@ -1357,7 +1372,7 @@ function renderFullTransaksi() {
       <td style="padding:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description||'')}">${escapeHtml(e.description||'-')}</td>
       <td style="padding:12px;white-space:nowrap;font-size:13px">${kontak}</td>
       <td style="padding:12px;white-space:nowrap;font-size:12px"><span style="background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:9999px">${cara}</span></td>
-      <td style="padding:12px"><span style="background:${isIncome?'#ecfdf5':'#fff1f2'};color:${isIncome?'#047857':'#be123c'};padding:2px 8px;border-radius:9999px;font-size:11px">${isIncome?'↗ Masuk':'↘ Keluar'}</span></td>
+      <td style="padding:12px"><span style="background:${isIncome?'#ecfdf5':'#fff1f2'};color:${isIncome?'#047857':'#be123c'};padding:2px 8px;border-radius:9999px;font-size:11px">${isIncome?'📥 Masuk':'📤 Keluar'}</span></td>
       <td style="padding:12px;text-align:right;white-space:nowrap;font-weight:700;color:${isIncome?'#059669':'#dc2626'};font-family:monospace">${sign} ${amt}</td>
       <td style="padding:12px;text-align:right">
         <button class="btn btn-ghost" onclick="document.dispatchEvent(new CustomEvent('wynara:edit',{detail:'${e.id}'}))" style="padding:2px 6px;font-size:12px">✎</button>
@@ -1512,13 +1527,16 @@ function handleRepayClick(loanId, presetAmount) {
   const outstanding = loan.amount - paid;
   const instAmt = Number(loan.installmentAmount) || 0;
   const tenor = loan.loanType === 'cicilan' && instAmt > 0 ? Math.ceil(loan.amount / instAmt) : 1;
-  const label = loan.loanType === 'cicilan' && tenor > 1 ? `Bayar Cicilan ${Math.min(reps.length + 1, tenor)}/${tenor} — ${loan.person}` : undefined;
+  const isTaken = loan.direction !== 'given';
+  const verb = isTaken ? 'Bayar' : 'Terima';
+  const label = loan.loanType === 'cicilan' && tenor > 1 ? `${verb} Cicilan ${Math.min(reps.length + 1, tenor)}/${tenor} — ${loan.person}` : `${verb} — ${loan.person}`;
   UI.openRepayModal(loanId, outstanding, presetAmount, label, {
     total: loan.amount,
     paid,
     paidCount: reps.length,
     tenor,
-    instAmt
+    instAmt,
+    direction: loan.direction
   });
 }
 
@@ -1542,11 +1560,12 @@ function handleRepaySubmit() {
   const tenor = loan.loanType === 'cicilan' && instAmt > 0 ? Math.ceil(loan.amount / instAmt) : 1;
   const doneCount = Storage.getLoanRepayments(data.loanId).length;
   const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v);
+  const verbDone = loan.direction !== 'given' ? 'Dibayar' : 'Diterima';
   UI.showSuccess(left <= 0.01
     ? `Lunas! ${loan.person} — total ${fmt(loan.amount)}`
     : (tenor > 1
-      ? `Cicilan ${doneCount}/${tenor} dibayar ${fmt(data.amount)} — sisa ${fmt(left)}`
-      : `Dibayar ${fmt(data.amount)} — sisa ${fmt(left)}`));
+      ? `Cicilan ${doneCount}/${tenor} ${verbDone.toLowerCase()} ${fmt(data.amount)} — sisa ${fmt(left)}`
+      : `${verbDone} ${fmt(data.amount)} — sisa ${fmt(left)}`));
   UI.closeRepayModal();
   refreshLoans();
 }
@@ -1609,6 +1628,8 @@ function openSettings() {
   if (lang) lang.value = safeLocalGet('wynara_lang') || 'id';
   const notif = document.getElementById('settingNotif');
   if (notif) notif.checked = safeLocalGet('wynara_notif') !== 'false';
+  const themeBox = document.getElementById('settingTheme');
+  if (themeBox) themeBox.checked = document.body.classList.contains('dark-mode');
   const list = document.getElementById('customCategoryList');
   if (list) {
     const cats = Storage.getCategories();

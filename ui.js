@@ -192,7 +192,7 @@ export function renderEntries(entries) {
         <td><span class="category-tag">${getCategoryIcon(e.category)} ${getCategoryLabel(e.category)}</span></td>
         <td title="${escapeHtml(desc)}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(desc)}</td>
         <td><span class="payment-tag" title="${escapeHtml(e.paymentDetail || getPaymentLabel(e.payment))}">${getPaymentIcon(e.payment)} ${getPaymentLabel(e.payment)}</span></td>
-        <td><span class="type-badge ${isIncome ? 'income' : 'expense'}" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap">${isIncome ? '↗ Masuk' : '↘ Keluar'}</span></td>
+        <td><span class="type-badge ${isIncome ? 'income' : 'expense'}" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap">${isIncome ? '📥 Masuk' : '📤 Keluar'}</span></td>
         <td class="amount-col ${isIncome ? 'income' : 'expense'}" style="white-space:nowrap;text-align:right;font-weight:700;font-size:13px">${sign} ${amtStr}${payDetail}</td>
         <td class="actions-col">${actions}</td>
       </tr>
@@ -229,7 +229,7 @@ export function renderLoanTotals(piutang, hutang, piutangCount, hutangCount) {
     netVal.textContent = formatCurrency(Math.abs(net));
     netVal.className = 'dash-card-value ' + (net >= 0 ? 'income' : 'expense');
   }
-  if (netSub) netSub.textContent = 'Pinjaman − Hutangan';
+  if (netSub) netSub.textContent = 'Pinjemin − Ambil Loan';
   const trend = document.getElementById('dashLoanTrend');
   if (trend) {
     const surplus = net >= 0;
@@ -353,7 +353,7 @@ function updateTxMetaBar() {
     const arrow = cat === 'Hutang' ? '←' : '→';
     loanExtra = ` ${arrow} ${escapeHtml(elements.entryLoanPerson.value)} • ${elements.entryLoanType.value}`;
   }
-  bar.innerHTML = `<span>Amount: ${escapeHtml(amtStr)}</span><span class="capitalize">${escapeHtml(jenis)}</span><span>${escapeHtml(catLabel)}</span>${loanExtra ? `<span class="tx-meta-blue">${loanExtra}</span>` : ''}`;
+  bar.innerHTML = `<span>Nominal: ${escapeHtml(amtStr)}</span><span class="capitalize">${escapeHtml(jenis)}</span><span>${escapeHtml(catLabel)}</span>${loanExtra ? `<span class="tx-meta-blue">${loanExtra}</span>` : ''}`;
 }
 function updateTxContactSelected() {
   const wrap = document.getElementById('txContactSelected');
@@ -514,7 +514,7 @@ export function openModal(entry = null) {
     const bg = document.getElementById('txSegmentBg');
     if (bg) bg.className = 'tx-segment-bg ' + (entry.type === 'income' ? 'tx-segment-income' : 'tx-segment-expense');
     const hint = document.getElementById('txJenisHint');
-    if (hint) hint.innerHTML = entry.type === 'income' ? '<span class="tx-dot tx-dot-income"></span> Uang masuk • Saldo bertambah, kategori pemasukan' : '<span class="tx-dot tx-dot-expense"></span> Uang keluar • Saldo berkurang, kategori pengeluaran & piutang';
+    if (hint) hint.innerHTML = entry.type === 'income' ? '<span class="tx-dot tx-dot-income"></span> 💰 Uang masuk ke kamu — saldo nambah' : '<span class="tx-dot tx-dot-expense"></span> 💸 Uang keluar dari kamu — saldo berkurang';
     renderCategoryButtons(entry.type);
     selectCategory(entry.category);
     elements.entryPayment.value = entry.payment || 'cash';
@@ -603,7 +603,7 @@ export function openModal(entry = null) {
     const bg = document.getElementById('txSegmentBg');
     if (bg) bg.className = 'tx-segment-bg tx-segment-expense';
     const hint = document.getElementById('txJenisHint');
-    if (hint) hint.innerHTML = '<span class="tx-dot tx-dot-expense"></span> Uang keluar • Saldo berkurang, kategori pengeluaran & piutang';
+    if (hint) hint.innerHTML = '<span class="tx-dot tx-dot-expense"></span> 💸 Uang keluar dari kamu — saldo berkurang';
     renderCategoryButtons('expense');
     setSelected(elements.paymentGroup, 'cash');
     updatePaymentDetail('cash');
@@ -666,17 +666,32 @@ function setSelected(group, value) {
 
 function renderCategoryButtons(type) {
   const options = type === 'income' ? CATEGORY_OPTIONS.income : CATEGORY_OPTIONS.expense;
+  const subMap = {
+    gaji: 'Gajian kamu',
+    freelance: 'Kerja lepas',
+    investasi: 'Uang nambah',
+    hadiah: 'Dapat hadiah',
+    kos: 'Bayar kos/rumah',
+    utilitas: 'Listrik, air, wifi',
+    makanan: 'Jajan & makan',
+    transport: 'Ongkos jalan',
+    hiburan: 'Main & nonton',
+    kesehatan: 'Dokter & obat',
+    belanja: 'Beli barang',
+    pendidikan: 'Sekolah & les',
+    Piutang: 'Kamu kasih pinjam',
+    Hutang: 'Kamu pinjam uang'
+  };
   const totalOpts = options.length + 1;
   elements.categoryGroup.innerHTML = options.map(opt => {
-    const isLoanCat = opt.value === 'Piutang' || opt.value === 'Hutang';
-    const sub = isLoanCat ? 'Pinjaman' : 'Pilih';
+    const sub = subMap[opt.value] || 'Pilih';
     return `<button type="button" class="select-btn" data-value="${opt.value}">
       <span class="tx-cat-icon">${opt.icon}</span>
       <span class="tx-cat-label">${opt.label}</span>
       <span class="tx-cat-sub">${sub}</span>
       <span class="tx-cat-check">✓</span>
     </button>`;
-  }).join('') + `<button type="button" class="select-btn" data-value="__custom"><span class="tx-cat-icon">➕</span><span class="tx-cat-label">Lainnya</span><span class="tx-cat-sub">Custom</span><span class="tx-cat-check">✓</span></button>`;
+  }).join('') + `<button type="button" class="select-btn" data-value="__custom"><span class="tx-cat-icon">➕</span><span class="tx-cat-label">Lainnya</span><span class="tx-cat-sub">Lain-lain</span><span class="tx-cat-check">✓</span></button>`;
   const countEl = document.getElementById('txCategoryCount');
   if (countEl) countEl.textContent = `${totalOpts} pilihan • 1 terpilih`;
   elements.categoryGroup.querySelectorAll('.select-btn').forEach(btn => {
@@ -729,10 +744,10 @@ export function bindTypeButtons(handler) {
     }
     if (hint) {
       if (val === 'income') {
-        hint.innerHTML = '<span class="tx-dot tx-dot-income"></span> Uang masuk • Saldo bertambah, kategori pemasukan';
+        hint.innerHTML = '<span class="tx-dot tx-dot-income"></span> 💰 Uang masuk ke kamu — saldo kamu nambah';
         if (dot) { dot.className = 'tx-dot tx-dot-income'; }
       } else {
-        hint.innerHTML = '<span class="tx-dot tx-dot-expense"></span> Uang keluar • Saldo berkurang, kategori pengeluaran & piutang';
+        hint.innerHTML = '<span class="tx-dot tx-dot-expense"></span> 💸 Uang keluar dari kamu — saldo kamu berkurang';
         if (dot) { dot.className = 'tx-dot tx-dot-expense'; }
       }
     }
@@ -796,6 +811,23 @@ function setLoanModeUI(mode) {
   if (elements.entryLoanMode) elements.entryLoanMode.value = mode;
 }
 
+// Mode labels always carry money-flow direction: 📤 KELUAR (red) / 📥 MASUK (green)
+function flowSub(flow) {
+  const isIn = flow === 'MASUK';
+  return `<span class="tx-mode-sub ${isIn ? 'in' : 'out'}">${isIn ? '📥 UANG MASUK' : '📤 UANG KELUAR'}</span>`;
+}
+function setModeLabels(newEl, settleEl, newTxt, newFlow, settleTxt, settleFlow) {
+  if (newEl) newEl.innerHTML = `${newTxt}${flowSub(newFlow)}`;
+  if (settleEl) settleEl.innerHTML = `${settleTxt}${flowSub(settleFlow)}`;
+}
+
+function setPanelBadge(badgeEl, flow) {
+  if (!badgeEl) return;
+  badgeEl.textContent = flow === 'MASUK' ? 'Masuk' : 'Keluar';
+  badgeEl.classList.toggle('in', flow === 'MASUK');
+  badgeEl.classList.toggle('out', flow !== 'MASUK');
+}
+
 function applyLoanMode(category) {
   const mode = (elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
   const isPiutang = category === 'Piutang';
@@ -814,14 +846,13 @@ function applyLoanMode(category) {
   const qsSection = document.getElementById('quickSelectPiutang');
   const selWrap = document.getElementById('txContactSelected');
   if (isPiutang) {
-    if (newLabel) newLabel.textContent = '📤 Pinjamin';
-    if (settleLabel) settleLabel.textContent = '📥 Balikin';
+    setModeLabels(newLabel, settleLabel, '📤 Kasih Pinjam', 'KELUAR', '📥 Dibalikin', 'MASUK');
     if (mode === 'settle') {
-      if (panelTitle) panelTitle.textContent = 'Balikin Pinjaman';
-      if (panelBadge) panelBadge.textContent = 'Masuk';
-      if (panelSub) panelSub.textContent = 'Pilih pinjaman aktif — terisi cicilan berikutnya, bisa lunasi penuh';
+      if (panelTitle) panelTitle.textContent = 'Dibalikin';
+      setPanelBadge(panelBadge, 'MASUK');
+      if (panelSub) panelSub.textContent = 'Uang kembali ke kamu — pilih siapa yang balikin';
       if (pickerField) pickerField.hidden = false;
-      if (pickerLabel) pickerLabel.textContent = 'Pilih pinjaman yang mau dibalikin';
+      if (pickerLabel) pickerLabel.textContent = 'Siapa yang balikin ke kamu?';
       if (contactTypeField) contactTypeField.hidden = true;
       if (personField) personField.hidden = true;
       if (termsField) termsField.hidden = true;
@@ -831,9 +862,9 @@ function applyLoanMode(category) {
       if (selWrap) { selWrap.classList.add('hidden'); selWrap.innerHTML = ''; }
       populateSettlePicker('given');
     } else {
-      if (panelTitle) panelTitle.textContent = 'Pinjamin';
-      if (panelBadge) panelBadge.textContent = 'Keluar';
-      if (panelSub) panelSub.textContent = 'Tulis siapa yang dipinjami — 1x lunas atau cicilan';
+      if (panelTitle) panelTitle.textContent = 'Kasih Pinjam';
+      setPanelBadge(panelBadge, 'KELUAR');
+      if (panelSub) panelSub.textContent = 'Kasih uang ke temanmu. Mau dibalikin 1x langsung atau dicicil tiap bulan?';
       if (pickerField) pickerField.hidden = true;
       if (contactTypeField) contactTypeField.hidden = false;
       if (personField) personField.hidden = false;
@@ -844,22 +875,21 @@ function applyLoanMode(category) {
       const label = document.getElementById('loanPersonLabel');
       const hint = document.getElementById('quickSelectHint');
       const qsLabel = document.getElementById('quickSelectLabel');
-      if (label) label.textContent = 'Ke siapa?';
-      if (hint) hint.textContent = 'Pilih atau ketik nama yang dipinjami';
+      if (label) label.textContent = 'Kasih pinjam ke siapa?';
+      if (hint) hint.textContent = 'Ketik nama temanmu';
       if (qsLabel) qsLabel.textContent = 'Pilih dari kontak tersimpan:';
       if (qsSection) qsSection.classList.remove('hidden');
       populateQuickSelectPiutang();
       updateTxContactSelected();
     }
   } else {
-    if (newLabel) newLabel.textContent = '📥 Hutang';
-    if (settleLabel) settleLabel.textContent = '📤 Balikin';
+    setModeLabels(newLabel, settleLabel, '📥 Pinjam Uang', 'MASUK', '📤 Balikin', 'KELUAR');
     if (mode === 'settle') {
-      if (panelTitle) panelTitle.textContent = 'Balikin Hutang';
-      if (panelBadge) panelBadge.textContent = 'Keluar';
-      if (panelSub) panelSub.textContent = 'Pilih hutang aktif — terisi cicilan berikutnya, bisa lunasi penuh';
+      if (panelTitle) panelTitle.textContent = 'Balikin';
+      setPanelBadge(panelBadge, 'KELUAR');
+      if (panelSub) panelSub.textContent = 'Kamu balikin uang ke teman — pilih loan yang mau dibalikin';
       if (pickerField) pickerField.hidden = false;
-      if (pickerLabel) pickerLabel.textContent = 'Pilih hutang yang mau dibalikin';
+      if (pickerLabel) pickerLabel.textContent = 'Loan mana yang kamu balikin?';
       if (contactTypeField) contactTypeField.hidden = true;
       if (personField) personField.hidden = true;
       if (termsField) termsField.hidden = true;
@@ -869,9 +899,9 @@ function applyLoanMode(category) {
       if (selWrap) { selWrap.classList.add('hidden'); selWrap.innerHTML = ''; }
       populateSettlePicker('taken');
     } else {
-      if (panelTitle) panelTitle.textContent = 'Hutang';
-      if (panelBadge) panelBadge.textContent = 'Masuk';
-      if (panelSub) panelSub.textContent = 'Tulis dari siapa berhutang — 1x lunas atau cicilan';
+      if (panelTitle) panelTitle.textContent = 'Pinjam Uang';
+      setPanelBadge(panelBadge, 'MASUK');
+      if (panelSub) panelSub.textContent = 'Pinjam uang dari teman. Nanti kamu balikin 1x atau dicicil?';
       if (pickerField) pickerField.hidden = true;
       if (contactTypeField) contactTypeField.hidden = false;
       if (personField) personField.hidden = false;
@@ -882,8 +912,8 @@ function applyLoanMode(category) {
       const label = document.getElementById('loanPersonLabel');
       const hint = document.getElementById('quickSelectHint');
       const qsLabel = document.getElementById('quickSelectLabel');
-      if (label) label.textContent = 'Dari siapa?';
-      if (hint) hint.textContent = 'Pilih atau ketik nama pemberi hutangan';
+      if (label) label.textContent = 'Pinjam dari siapa?';
+      if (hint) hint.textContent = 'Ketik nama temanmu';
       if (qsLabel) qsLabel.textContent = 'Pilih dari kontak tersimpan:';
       if (qsSection) qsSection.classList.remove('hidden');
       populateQuickSelectPiutang();
@@ -987,17 +1017,17 @@ function populateSettlePicker(direction) {
   if (!list) return;
   const isPiutang = direction === 'given';
   const items = getOutstandingLoans(direction);
-  const emptyNoun = isPiutang ? 'pinjaman' : 'hutang';
+  const emptyTxt = isPiutang ? 'Belum ada teman yang kamu kasih pinjam' : 'Belum ada loan yang kamu ambil';
   if (!items.length) {
-    list.innerHTML = `<div class="hutang-empty">Tidak ada ${emptyNoun} aktif.<br>Kelola via menu <strong>Pinjaman</strong>.</div>`;
-    if (hint) hint.textContent = `Tidak ada ${emptyNoun} yang bisa dibalikin`;
+    list.innerHTML = `<div class="hutang-empty">${emptyTxt}.<br>Kelola via menu <strong>Pinjaman</strong>.</div>`;
+    if (hint) hint.textContent = emptyTxt;
     elements.entryLoanId.value = '';
     elements.entryLoanPerson.value = '';
     updateTxAmountVisual();
     updateTxMetaBar();
     return;
   }
-  if (hint && !elements.entryLoanId.value) hint.textContent = `${items.length} ${emptyNoun} aktif — ketuk untuk memilih cicilan berikutnya`;
+  if (hint && !elements.entryLoanId.value) hint.textContent = `${items.length} ${isPiutang ? 'teman belum balikin' : 'loan belum dibalikin'} — ketuk untuk memilih cicilan berikutnya`;
   const selectedId = elements.entryLoanId.value || '';
   list.innerHTML = items.map(h => {
     const initial = (h.person || '?')[0]?.toUpperCase() || '?';
@@ -1136,29 +1166,29 @@ export function getFormData() {
 }
 
 export function validateForm(data) {
-  if (!data.date) return 'Tanggal wajib diisi';
-  if (!data.type) return 'Jenis wajib dipilih';
-  if (!data.category) return 'Kategori wajib dipilih';
-  if (data.amount !== undefined && data.amount < 100) return 'Jumlah minimal Rp100';
+  if (!data.date) return 'Tanggalnya diisi dulu ya';
+  if (!data.type) return 'Pilih dulu: masuk atau keluar?';
+  if (!data.category) return 'Pilih dulu kategorinya';
+  if (data.amount !== undefined && data.amount < 100) return 'Minimal Rp100 ya';
   const mode = data.loanMode || 'new';
   if (data.category === 'Hutang') {
     if (mode === 'settle') {
-      if (!data.loanId) return 'Pilih dulu hutang yang mau dibalikin';
+      if (!data.loanId) return 'Pilih dulu siapa yang mau dibalikin';
       const found = getOutstandingHutang().find(x => x.id === data.loanId);
-      if (!found) return 'Hutang terpilih tidak ditemukan / sudah lunas — pilih ulang';
-      if (data.amount > found.outstanding + 0.01) return `Nominal melebihi sisa ${formatCurrency(found.outstanding)}`;
+      if (!found) return 'Sudah lunas atau tidak ditemukan — pilih ulang';
+      if (data.amount > found.outstanding + 0.01) return `Kebanyakan! Sisa cuma ${formatCurrency(found.outstanding)}`;
     } else {
-      if (!data.person) return 'Nama pemberi hutang wajib diisi';
+      if (!data.person) return 'Ketik dulu nama temanmu';
     }
   }
   if (data.category === 'Piutang') {
     if (mode === 'settle') {
-      if (!data.loanId) return 'Pilih dulu pinjaman yang mau dibalikin';
+      if (!data.loanId) return 'Pilih dulu siapa yang mau balikin ke kamu';
       const found = getOutstandingPiutang().find(x => x.id === data.loanId);
-      if (!found) return 'Pinjaman terpilih tidak ditemukan / sudah lunas — pilih ulang';
-      if (data.amount > found.outstanding + 0.01) return `Nominal melebihi sisa ${formatCurrency(found.outstanding)}`;
+      if (!found) return 'Sudah lunas atau tidak ditemukan — pilih ulang';
+      if (data.amount > found.outstanding + 0.01) return `Kebanyakan! Sisa cuma ${formatCurrency(found.outstanding)}`;
     } else {
-      if (!data.person) return 'Nama yang dipinjami wajib diisi';
+      if (!data.person) return 'Ketik dulu nama temanmu';
     }
   }
   return null;
@@ -1613,12 +1643,13 @@ function buildScheduleRows(loan, reps, tenor, instAmt) {
     d.setMonth(d.getMonth() + (i - 1));
     const monthLabel = d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
     const badge = paidThis
-      ? '<span class="sched-badge done">Lunas</span>'
-      : (isNext ? '<span class="sched-badge next">Berikutnya</span>' : '<span class="sched-badge todo">Belum</span>');
+      ? '<span class="sched-badge done">✅ Sudah</span>'
+      : (isNext ? '<span class="sched-badge next">👉 Sekarang</span>' : '<span class="sched-badge todo">⏳ Belum</span>');
+    const verb = loan.direction !== 'given' ? 'Bayar' : 'Terima';
     const btn = (!paidThis && isNext)
-      ? `<button class="btn repay-btn pay-next-btn" data-id="${loan.id}" data-amount="${amt}" style="font-size:11px;padding:4px 10px">Bayar ${formatCurrency(amt)}</button>`
+      ? `<button class="btn repay-btn pay-next-btn" data-id="${loan.id}" data-amount="${amt}" style="font-size:11px;padding:4px 10px">${verb} ${formatCurrency(amt)}</button>`
       : '';
-    rows.push(`<div class="loan-schedule-row"><span style="min-width:0"><strong>Cicilan ${i}/${tenor}</strong> • ${monthLabel}<br><span style="color:var(--text-muted)">${formatCurrency(amt)}</span></span><span style="display:flex;align-items:center;gap:6px">${badge}${btn}</span></div>`);
+    rows.push(`<div class="loan-schedule-row"><span style="min-width:0"><strong>Ke-${i}/${tenor}</strong> • ${monthLabel}<br><span style="color:var(--text-muted)">${formatCurrency(amt)}</span></span><span style="display:flex;align-items:center;gap:6px">${badge}${btn}</span></div>`);
     remaining -= amt;
   }
   return rows.join('');
@@ -1647,7 +1678,7 @@ export function renderLoans(loans, repayments, summary, allLoans) {
   document.querySelectorAll('#loanTabs .chip').forEach(b => {
     const v = b.dataset.value;
     const n = v === 'all' ? counts.all : (counts[v] || 0);
-    const base = v === 'all' ? 'Semua' : (v === 'given' ? '🟢 Pinjaman' : '🔴 Hutangan');
+    const base = v === 'all' ? 'Semua' : (v === 'given' ? '🟢 Pinjemin' : '🔴 Ambil Loan');
     b.textContent = `${base} (${n})`;
   });
 
@@ -1665,7 +1696,7 @@ export function renderLoans(loans, repayments, summary, allLoans) {
     const outstanding = l.amount - paid;
     const pct = l.amount > 0 ? Math.min(100, (paid / l.amount) * 100) : 0;
     const isTaken = l.direction !== 'given';
-    const dirLabel = isTaken ? 'Hutangan' : 'Pinjaman';
+    const dirLabel = isTaken ? 'Ambil Loan' : 'Pinjemin';
     const dirClass = isTaken ? 'taken' : 'given';
     const isCicilan = l.loanType === 'cicilan';
     const instAmt = l.installmentAmount || 0;
@@ -1694,25 +1725,25 @@ export function renderLoans(loans, repayments, summary, allLoans) {
         <div class="loan-meta">
           <span>📅 ${formatDate(l.date)}</span>
           ${isCicilan && instAmt > 0 ? `<span>💳 ${formatCurrency(instAmt)}/bulan</span>` : ''}
-          ${isCicilan && tenor ? `<span>📊 Tenor ${tenor} bulan</span>` : ''}
-          ${isCicilan && monthsLeft > 0 && l.status !== 'paid' ? `<span>⏳ Sisa ${monthsLeft} bulan • ${reps.length}/${tenor} cicilan</span>` : ''}
-          ${isCicilan && instAmt > 0 && l.status !== 'paid' ? `<span>💰 Cicilan ${nextNum}/${tenor} • ${formatCurrency(nextAmt)}</span>` : ''}
-          ${l.status !== 'paid' && dueLabel ? `<span class="${isOverdue ? 'overdue-date' : ''}">⏰ ${isCicilan ? 'Cicilan berikutnya' : 'Jatuh tempo'}: ${dueLabel}${isOverdue ? ` • Terlambat ${Math.abs(diffDays)} hari` : ''}</span>` : ''}
+          ${isCicilan && tenor ? `<span>📊 Lama: ${tenor} bulan</span>` : ''}
+          ${isCicilan && monthsLeft > 0 && l.status !== 'paid' ? `<span>⏳ Sisa ${monthsLeft} bulan • ${reps.length}/${tenor} kali</span>` : ''}
+          ${isCicilan && instAmt > 0 && l.status !== 'paid' ? `<span>💰 Bayar ke-${nextNum}/${tenor}: ${formatCurrency(nextAmt)}</span>` : ''}
+          ${l.status !== 'paid' && dueLabel ? `<span class="${isOverdue ? 'overdue-date' : ''}">⏰ ${isCicilan ? 'Bayaran berikutnya' : 'Harus dibayar'}: ${dueLabel}${isOverdue ? ` • Telat ${Math.abs(diffDays)} hari` : ''}</span>` : ''}
           ${l.description ? `<span>📝 ${escapeHtml(l.description)}</span>` : ''}
         </div>
         <div class="loan-meta">
           <span class="loan-outstanding">Sisa: ${formatCurrency(Math.max(outstanding, 0))}</span>
-          <span>Dibayar: ${formatCurrency(paid)}</span>
-          <span>Status: ${l.status === 'paid' ? '✅ Lunas' : '⏳ Aktif'}</span>
+          <span>Sudah: ${formatCurrency(paid)}</span>
+          <span>${l.status === 'paid' ? '✅ Lunas' : '⏳ Belum lunas'}</span>
         </div>
         <div class="loan-progress">
           <div class="loan-progress-fill" style="width: ${pct}%"></div>
         </div>
         <div class="loan-actions">
-          ${l.status !== 'paid' && isCicilan && nextAmt > 0 ? `<button class="btn repay-btn pay-next-btn" data-id="${l.id}" data-amount="${nextAmt}" title="${isTaken ? `Bayar hutang cicilan ke-${nextNum} sebesar ${formatCurrency(nextAmt)}` : `Bayar cicilan ke-${nextNum} sebesar ${formatCurrency(nextAmt)}`}">${isTaken ? `💰 Bayar hutang ${nextNum}/${tenor} • ${formatCurrencyCompact(nextAmt)}` : `💰 Bayar cicilan ${nextNum}/${tenor} • ${formatCurrencyCompact(nextAmt)}`}</button>` : ''}
-          ${l.status !== 'paid' && !isCicilan ? `<button class="btn repay-btn repay-loan-btn" data-id="${l.id}">${isTaken ? '💰 Bayar hutang' : '💰 Bayar'}</button>` : ''}
+          ${l.status !== 'paid' && isCicilan && nextAmt > 0 ? `<button class="btn repay-btn pay-next-btn" data-id="${l.id}" data-amount="${nextAmt}" title="${isTaken ? `Bayar loan cicilan ke-${nextNum} sebesar ${formatCurrency(nextAmt)}` : `Terima cicilan ke-${nextNum} sebesar ${formatCurrency(nextAmt)}`}">${isTaken ? `💰 Bayar ${nextNum}/${tenor} • ${formatCurrencyCompact(nextAmt)}` : `💰 Terima ${nextNum}/${tenor} • ${formatCurrencyCompact(nextAmt)}`}</button>` : ''}
+          ${l.status !== 'paid' && !isCicilan ? `<button class="btn repay-btn repay-loan-btn" data-id="${l.id}">${isTaken ? '💰 Bayar' : '💰 Terima'}</button>` : ''}
           ${l.status !== 'paid' && isCicilan ? `<button class="btn btn-secondary repay-loan-btn" data-id="${l.id}" title="Bayar nominal lain (sebagian / pelunasan)">Nominal lain</button>` : ''}
-          ${isCicilan && tenor ? `<button class="btn btn-ghost schedule-toggle-btn" data-id="${l.id}" aria-expanded="false">Jadwal ▾</button>` : ''}
+          ${isCicilan && tenor ? `<button class="btn btn-ghost schedule-toggle-btn" data-id="${l.id}" aria-expanded="false">Lihat jadwal ▾</button>` : ''}
           <button class="btn btn-danger delete-loan-btn" data-id="${l.id}">🗑 Hapus</button>
         </div>
         ${isCicilan && tenor ? `
@@ -1745,21 +1776,23 @@ export function openRepayModal(loanId, outstanding, presetAmount, presetLabel, d
   const tenor = Number(d.tenor) || 1;
   const instAmt = Number(d.instAmt) || 0;
   const out = Math.max(Number(outstanding) || 0, 0);
+  const isTakenRepay = d.direction !== 'given';
+  const verbRepay = isTakenRepay ? 'dibayar' : 'diterima';
   const amt = (presetAmount && presetAmount > 0) ? Math.min(presetAmount, out) : out;
   elements.repayAmount.value = amt > 0 ? formatIdrInput(amt) : '';
   elements.repayDate.value = new Date().toISOString().split('T')[0];
   const title = document.getElementById('repayModalTitle');
-  if (title) title.textContent = presetLabel || 'Bayar Pinjaman';
+  if (title) title.textContent = presetLabel || 'Catat Pembayaran';
   // summary: total / sudah dibayar / sisa (+ cicilan info)
   const sumBox = document.getElementById('repaySummary');
   if (sumBox) {
     const pct = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
     const schedLine = tenor > 1
-      ? `<div class="repay-row"><span>Cicilan</span><strong>${formatCurrency(instAmt)}/bulan • ${Math.min(paidCount, tenor)}/${tenor} terbayar</strong></div>`
+      ? `<div class="repay-row"><span>Tiap bulan</span><strong>${formatCurrency(instAmt)} • ${Math.min(paidCount, tenor)}/${tenor} sudah dibayar</strong></div>`
       : '';
     sumBox.innerHTML = `
-      <div class="repay-row"><span>Total pinjaman</span><strong>${formatCurrency(total)}</strong></div>
-      <div class="repay-row"><span>Sudah dibayar${tenor > 1 ? ` (${Math.min(paidCount, tenor)}/${tenor})` : ''}</span><strong class="green">${formatCurrency(paid)}</strong></div>
+      <div class="repay-row"><span>Total uang</span><strong>${formatCurrency(total)}</strong></div>
+      <div class="repay-row"><span>Sudah dibayar</span><strong class="green">${formatCurrency(paid)}</strong></div>
       <div class="repay-row"><span>Sisa</span><strong class="red">${formatCurrency(out)}</strong></div>
       ${schedLine}
       <div class="repay-progress"><div class="repay-progress-fill" style="width:${pct}%"></div></div>`;
@@ -1778,16 +1811,16 @@ export function openRepayModal(loanId, outstanding, presetAmount, presetLabel, d
         const a = Math.min(n * instAmt, out);
         html += `<button type="button" class="repay-chip${n === 1 ? ' selected' : ''}" data-n="${n}" data-amount="${a}" title="${n} cicilan = ${formatCurrency(a)}">${n}x • ${formatCurrencyCompact(a)}</button>`;
       }
-      if (remaining > show) html += `<span style="font-size:11px;color:#64748b;align-self:center">…${remaining} cicilan tersisa</span>`;
-      html += `<button type="button" class="repay-chip lunasi" data-n="full" data-amount="${out}" title="Lunasi sisa ${formatCurrency(out)}">Lunasi ${formatCurrencyCompact(out)}</button>`;
+      if (remaining > show) html += `<span style="font-size:11px;color:#64748b;align-self:center">…${remaining} lagi</span>`;
+      html += `<button type="button" class="repay-chip lunasi" data-n="full" data-amount="${out}" title="Bayar semua ${formatCurrency(out)} — lunas">Bayar semua ${formatCurrencyCompact(out)}</button>`;
       chipsBox.innerHTML = html;
       const markSelected = (btn) => {
         chipsBox.querySelectorAll('.repay-chip').forEach(b => b.classList.toggle('selected', b === btn));
       };
       const updateHint = (n, a) => {
         if (hint) {
-          if (n === 'full') hint.textContent = `Pelunasan penuh ${formatCurrency(a)} — hutang lunas`;
-          else hint.textContent = `Bayar ${n} cicilan (ke-${paidCount + 1} s/d ${paidCount + Number(n)} dari ${tenor}) = ${formatCurrency(a)}`;
+          if (n === 'full') hint.textContent = `Bayar semua ${formatCurrency(a)} — lunas!`;
+          else hint.textContent = `${isTakenRepay ? 'Bayar' : 'Terima'} ${n}x (ke-${paidCount + 1} s/d ${paidCount + Number(n)} dari ${tenor}) = ${formatCurrency(a)}`;
         }
       };
       chipsBox.querySelectorAll('.repay-chip').forEach(btn => {
@@ -1844,7 +1877,7 @@ export function bindLoanActions(onRepay, onDelete, onDeleteRepayment) {
       if (panel) {
         const open = panel.classList.toggle('hidden');
         schedBtn.setAttribute('aria-expanded', String(!open));
-        schedBtn.textContent = open ? 'Jadwal ▾' : 'Tutup ▴';
+        schedBtn.textContent = open ? 'Lihat jadwal ▾' : 'Tutup ▴';
       }
       return;
     }

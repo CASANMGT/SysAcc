@@ -2584,6 +2584,14 @@ tr:hover .table-row-actions {
   color: #0f172a !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
 }
+#loanModeGroup .select-btn { flex-direction: column; gap: 2px; padding: 10px 8px !important; line-height: 1.2; }
+.tx-mode-sub { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; opacity: 0.65; }
+.tx-mode-sub.out { color: #dc2626; }
+.tx-mode-sub.in { color: #059669; }
+#loanModeGroup .select-btn.selected .tx-mode-sub { opacity: 1; }
+.tx-piutang-badge.in { background: #059669; }
+.tx-piutang-badge.out { background: #dc2626; }
+.loan-flow-legend { font-size: 11px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; line-height: 1.6; }
 .tx-search-wrap {
   position: relative;
   display: flex;

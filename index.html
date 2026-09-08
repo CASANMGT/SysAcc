@@ -105,7 +105,7 @@
           <button class="sidebar-item" id="sidebarTransaksi">🧾 Transaksi</button>
           <button class="sidebar-item" id="reportBtnSidebar">📄 Laporan</button>
           <button class="sidebar-item" id="contactsBtnSidebar">👥 Kontak</button>
-          <button class="sidebar-item" id="loanBtnSidebar">🤝 Pinjaman</button>
+          <button class="sidebar-item" id="loanBtnSidebar">🤝 Pinjemin</button>
           <button class="sidebar-item" id="themeToggleSidebar">⚙️ Pengaturan</button>
         </nav>
         <div class="sidebar-help">
@@ -163,6 +163,16 @@
           <button class="btn btn-primary topbar-cta" id="addEntryBtn">＋ Tambah transaksi</button>
         </div>
 
+        <div id="onboardingCard" class="dash-panel hidden" style="margin-bottom:20px;border:2px dashed #bfdbfe;background:#eff6ff">
+          <h3 style="margin-bottom:4px">👋 Mulai dalam 3 langkah</h3>
+          <p style="font-size:13px;color:#475569;margin-bottom:12px">Catat uang masuk dan keluar dulu — sisanya ngikutin otomatis.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" id="onboardAddBtn">1️⃣ ＋ Transaksi pertama</button>
+            <button class="btn btn-ghost" id="onboardLoanBtn">2️⃣ 🤝 Coba Pinjemin / Ambil Loan</button>
+            <button class="btn btn-ghost" id="onboardReportBtn">3️⃣ 📊 Lihat laporan</button>
+          </div>
+        </div>
+
         <!-- Metric cards - redesigned -->
         <div class="dashboard-cards dashboard-cards-new" id="dashboardCards">
           <div class="metric-card metric-emerald">
@@ -197,11 +207,11 @@
               <div class="metric-icon">👥</div>
               <span class="metric-trend neutral" id="dashLoanTrend">Stabil</span>
             </div>
-            <div class="metric-label">Pinjaman / Hutangan</div>
+            <div class="metric-label">Pinjemin / Ambil Loan</div>
             <div class="metric-split">
-              <div class="metric-split-row"><span>🟢 Pinjaman</span><strong id="dashPiutangVal">Rp0</strong></div>
+              <div class="metric-split-row"><span>🟢 Kasih Pinjam</span><strong id="dashPiutangVal">Rp0</strong></div>
               <div class="metric-split-sub" id="dashPiutangCount">0 aktif</div>
-              <div class="metric-split-row"><span>🔴 Hutangan</span><strong id="dashHutangVal2">Rp0</strong></div>
+              <div class="metric-split-row"><span>🔴 Pinjam Uang</span><strong id="dashHutangVal2">Rp0</strong></div>
               <div class="metric-split-sub" id="dashHutangCount2">0 aktif</div>
             </div>
             <!-- hidden hutang/net for JS compatibility -->
@@ -316,8 +326,8 @@
             <div class="tx-filter-bar" id="txFilterBar">
               <div class="chip-group" id="txTypeFilter">
                 <button type="button" class="chip selected" data-value="all">Semua</button>
-                <button type="button" class="chip" data-value="income">↗ Masuk</button>
-                <button type="button" class="chip" data-value="expense">↘ Keluar</button>
+                <button type="button" class="chip" data-value="income">📥 Masuk</button>
+                <button type="button" class="chip" data-value="expense">📤 Keluar</button>
               </div>
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 <span id="txFilterCount" style="font-size:11px;color:#64748b"></span>
@@ -342,10 +352,10 @@
                     <th style="width:34px"><input type="checkbox" id="selectAllRows" aria-label="Pilih semua"></th>
                     <th class="sortable-col" data-sort="date">TANGGAL <span class="sort-arrow">⇅</span></th>
                     <th class="sortable-col" data-sort="category">KATEGORI <span class="sort-arrow">⇅</span></th>
-                    <th>DESKRIPSI</th>
-                    <th>CARA BAYAR</th>
-                    <th>JENIS</th>
-                    <th class="sortable-col amount-col" data-sort="amount">JUMLAH <span class="sort-arrow">⇅</span></th>
+                    <th>CATATAN</th>
+                    <th>BAYAR PAKAI</th>
+                    <th>MASUK/KELUAR</th>
+                    <th class="sortable-col amount-col" data-sort="amount">UANG <span class="sort-arrow">⇅</span></th>
                     <th class="actions-col"></th>
                   </tr>
                 </thead>
@@ -406,11 +416,11 @@
                   <tr style="font-size:11px;letter-spacing:0.08em;color:#94a3b8;border-bottom:1px solid #f1f5f9">
                     <th style="padding:12px;text-align:left;white-space:nowrap">TANGGAL</th>
                     <th style="padding:12px;text-align:left">KATEGORI</th>
-                    <th style="padding:12px;text-align:left">DESKRIPSI</th>
-                    <th style="padding:12px;text-align:left">KONTAK</th>
-                    <th style="padding:12px;text-align:left">CARA BAYAR</th>
-                    <th style="padding:12px;text-align:left">JENIS</th>
-                    <th style="padding:12px;text-align:right;white-space:nowrap">JUMLAH</th>
+                    <th style="padding:12px;text-align:left">CATATAN</th>
+                    <th style="padding:12px;text-align:left">TEMAN</th>
+                    <th style="padding:12px;text-align:left">BAYAR PAKAI</th>
+                    <th style="padding:12px;text-align:left">MASUK/KELUAR</th>
+                    <th style="padding:12px;text-align:right;white-space:nowrap">UANG</th>
                     <th style="padding:12px;width:48px"></th>
                   </tr>
                 </thead>
@@ -459,7 +469,7 @@
         <div class="tx-card">
           <div class="tx-hero">
             <div class="tx-hero-top">
-              <span class="tx-hero-label">Nominal Transaksi</span>
+              <span class="tx-hero-label">Uang berapa?</span>
               <button type="button" id="txDatePill" class="tx-date-pill">
                 <span class="tx-date-icon">📅</span>
                 <span id="txDateLabel">29 Agu 2026</span>
@@ -477,19 +487,19 @@
 
           <div class="tx-section tx-section-muted">
             <div class="tx-label-row">
-              <span class="tx-label">Jenis Transaksi</span><span class="tx-badge">Wajib</span>
+              <span class="tx-label">Uang masuk atau keluar?</span><span class="tx-badge">Wajib</span>
             </div>
             <div id="typeGroup" class="tx-segmented">
               <div id="txSegmentBg" class="tx-segment-bg tx-segment-expense"></div>
               <button type="button" class="select-btn type-income tx-seg-btn" data-value="income"><span class="tx-seg-icon">↘</span> Pemasukan</button>
               <button type="button" class="select-btn type-expense tx-seg-btn selected" data-value="expense"><span class="tx-seg-icon">↗</span> Pengeluaran</button>
             </div>
-            <p id="txJenisHint" class="tx-help"><span class="tx-dot tx-dot-expense"></span> Uang keluar • Saldo berkurang, kategori pengeluaran &amp; piutang</p>
+            <p id="txJenisHint" class="tx-help"><span class="tx-dot tx-dot-expense"></span> 💸 Uang keluar dari kamu — saldo berkurang</p>
           </div>
 
           <div class="tx-section">
             <div class="tx-label-row">
-              <span class="tx-label">Kategori</span><span id="txCategoryCount" class="tx-count"></span>
+              <span class="tx-label">Buat apa?</span><span id="txCategoryCount" class="tx-count"></span>
             </div>
             <div id="categoryGroup" class="tx-category-grid"></div>
             <input type="text" id="customCategory" placeholder="Kategori custom..." hidden class="tx-custom-input">
@@ -502,7 +512,7 @@
                   <div class="tx-piutang-icon">🤝</div>
                   <div>
                     <div class="tx-piutang-title-row"><h3 id="loanPanelTitle">Detail Piutang</h3><span class="tx-piutang-badge" id="loanPanelBadge">Aktif</span></div>
-                    <p id="loanPanelSub">Siapa yang meminjam dan bagaimana pembayarannya</p>
+                    <p id="loanPanelSub">Tulis siapa, berapa, dan kapan dibalikin</p>
                   </div>
                 </div>
                 <span class="tx-piutang-sparkle">✦</span>
@@ -515,12 +525,12 @@
               </div>
               <div class="tx-piutang-body">
                 <div class="tx-piutang-field" id="hutangPickerField" hidden>
-                  <label class="tx-piutang-label" id="hutangPickerLabel">Pilih yang Dibayar</label>
+                  <label class="tx-piutang-label" id="hutangPickerLabel">Pilih yang mau dibalikin</label>
                   <div id="hutangList" class="hutang-list"></div>
                   <div class="quick-select-hint" id="hutangPickerHint">Hanya yang aktif dengan sisa &gt; 0</div>
                 </div>
                 <div class="tx-piutang-field" id="loanContactTypeField">
-                  <label class="tx-piutang-label">Tipe Kontak</label>
+                  <label class="tx-piutang-label">Teman / Perusahaan?</label>
                   <div id="contactTypeGroup" class="tx-pill-group">
                     <button type="button" class="select-btn selected" data-value="person">👤 Orang</button>
                     <button type="button" class="select-btn" data-value="perusahaan">🏢 Perusahaan</button>
@@ -543,7 +553,7 @@
                   <div id="txContactDropdown" class="tx-contact-dropdown hidden"></div>
                 </div>
                 <div class="tx-piutang-field" id="loanTermsField">
-                  <label class="tx-piutang-label">Tipe Pembayaran</label>
+                  <label class="tx-piutang-label">Bayarnya gimana?</label>
                   <div id="loanTypeGroup" class="tx-loan-type-grid">
                     <button type="button" class="select-btn tx-loan-card selected" data-value="lunas">
                       <span class="tx-loan-card-title">Sekali Bayar 1x</span>
@@ -559,7 +569,7 @@
                 </div>
                 <div class="tx-cicilan-row" id="installmentGroup" hidden>
                   <div class="form-group">
-                    <label for="entryInstallment">Nominal Cicilan / Bulan <span class="tx-opsional">Opsional</span></label>
+                    <label for="entryInstallment">Bayar berapa tiap bulan? <span class="tx-opsional">Opsional</span></label>
                     <div class="tx-input-prefix-wrap">
                       <span>Rp</span><input type="text" id="entryInstallment" placeholder="0" inputmode="numeric" autocomplete="off">
                     </div>
@@ -567,7 +577,7 @@
                     <div id="txTenorInfo" class="tx-tenor-info"></div>
                   </div>
                   <div class="form-group">
-                    <label for="entryTenor">Tenor / Jumlah Bulan</label>
+                    <label for="entryTenor">Berapa bulan?</label>
                     <div class="tx-input-prefix-wrap">
                       <input type="number" id="entryTenor" min="1" max="360" placeholder="12" inputmode="numeric">
                       <span style="position:absolute;right:14px;left:auto;color:#64748b;font-size:12px;pointer-events:none">bulan</span>
@@ -581,7 +591,7 @@
           </div>
 
           <div id="paymentGroupWrap" class="tx-section">
-            <span class="tx-label">Cara Bayar</span>
+            <span class="tx-label">Bayar pakai apa?</span>
             <div id="paymentGroup" class="tx-payment-grid">
               <button type="button" class="select-btn selected" data-value="cash">💵 Tunai</button>
               <button type="button" class="select-btn" data-value="credit">💳 Credit Card</button>
@@ -596,7 +606,7 @@
               <div id="paymentDetailCC" class="payment-detail" hidden>
                 <div class="form-row">
                   <div class="form-group">
-                    <label>Bank CC</label>
+                    <label>Bank kartu kreditnya apa?</label>
                     <select id="paymentCCBank">
                       <option value="">Pilih Bank</option>
                       <option>BCA</option>
@@ -611,14 +621,14 @@
                     </select>
                   </div>
                   <div class="form-group">
-                    <label>4 Digit Terakhir</label>
+                    <label>4 angka belakang kartu</label>
                     <input type="text" id="paymentCCLast4" placeholder="1234" maxlength="4" inputmode="numeric" pattern="\d{4}">
                   </div>
                 </div>
               </div>
               <div id="paymentDetailQRIS" class="payment-detail" hidden>
                 <div class="form-group">
-                  <label>Penyedia QRIS</label>
+                  <label>QRIS pakai apa?</label>
                   <select id="paymentQRISProvider">
                     <option value="">Pilih Penyedia</option>
                     <option>BCA QRIS</option>
@@ -635,7 +645,7 @@
               </div>
               <div id="paymentDetailEWallet" class="payment-detail" hidden>
                 <div class="form-group">
-                  <label>E-Wallet</label>
+                  <label>E-Walletnya apa?</label>
                   <select id="paymentEWalletProvider">
                     <option value="">Pilih E-Wallet</option>
                     <option>DANA</option>
@@ -650,7 +660,7 @@
               </div>
               <div id="paymentDetailPaylater" class="payment-detail" hidden>
                 <div class="form-group">
-                  <label>Platform Paylater</label>
+                  <label>Paylater pakai apa?</label>
                   <select id="paymentPaylaterProvider">
                     <option value="">Pilih Platform</option>
                     <option>Shopee Paylater</option>
@@ -666,7 +676,7 @@
               </div>
               <div id="paymentDetailTransfer" class="payment-detail" hidden>
                 <div class="form-group">
-                  <label>Bank Transfer</label>
+                  <label>Transfer ke bank apa?</label>
                   <select id="paymentTransferBank">
                     <option value="">Pilih Bank</option>
                     <option>BCA</option>
@@ -682,7 +692,7 @@
               <div id="paymentDetailDebit" class="payment-detail" hidden>
                 <div class="form-row">
                   <div class="form-group">
-                    <label>Bank Debit</label>
+                    <label>Bank debitnya apa?</label>
                     <select id="paymentDebitBank">
                       <option value="">Pilih Bank</option>
                       <option>BCA</option>
@@ -693,7 +703,7 @@
                     </select>
                   </div>
                   <div class="form-group">
-                    <label>4 Digit Terakhir</label>
+                    <label>4 angka belakang kartu</label>
                     <input type="text" id="paymentDebitLast4" placeholder="1234" maxlength="4" inputmode="numeric">
                   </div>
                 </div>
@@ -702,14 +712,14 @@
           </div>
 
           <div class="tx-section">
-            <label for="entryDescription" class="tx-label">Deskripsi</label>
+            <label for="entryDescription" class="tx-label">Catatan <span style="font-weight:400;opacity:0.6">(boleh kosong)</span></label>
             <div class="tx-textarea-wrap">
               <textarea id="entryDescription" rows="3" placeholder="Untuk apa transaksi ini? (opsional)" maxlength="100"></textarea>
               <span id="txDescCount" class="tx-desc-count">0/100</span>
             </div>
           </div>
           <div class="tx-section" style="padding-top:0;border-top:none">
-            <label class="login-check" style="font-size:13px"><input type="checkbox" id="entryRecurring"> 🔁 Ulangi transaksi ini tiap bulan (recurring)</label>
+            <label class="login-check" style="font-size:13px"><input type="checkbox" id="entryRecurring"> 🔁 Ulangi otomatis tiap bulan</label>
           </div>
         </div>
       </div>
@@ -743,7 +753,7 @@
   <dialog id="loansModal" class="modal">
     <div class="modal-content modal-xl">
       <header class="modal-header">
-        <h2>💰 Pinjaman & Hutangan</h2>
+        <h2>💰 Kasih Pinjam & Pinjam Uang</h2>
         <div class="modal-header-actions">
           <button type="button" class="btn btn-primary" id="addLoanBtn">＋ Tambah</button>
           <button type="button" class="modal-close" id="closeLoansBtn">&times;</button>
@@ -752,15 +762,15 @@
       <div class="modal-body">
         <div class="loan-summary" id="loanSummary">
           <div class="summary-item">
-            <span class="label">Total Pinjaman</span>
+            <span class="label">Total Kasih Pinjam</span>
             <span class="value income" id="totalPiutang">Rp0</span>
           </div>
           <div class="summary-item">
-            <span class="label">Total Hutangan</span>
+            <span class="label">Total Pinjam Uang</span>
             <span class="value expense" id="totalHutang">Rp0</span>
           </div>
           <div class="summary-item">
-            <span class="label">Posisi Bersih</span>
+            <span class="label">Selisih</span>
             <span class="value" id="loanNet">Rp0</span>
           </div>
         </div>
@@ -768,10 +778,11 @@
           <input type="search" id="loanSearch" class="loan-search" placeholder="🔍 Cari nama orang/perusahaan..." style="flex:1;min-width:200px">
           <label class="login-check" style="font-size:12px;white-space:nowrap"><input type="checkbox" id="hidePaidLoans"> Sembunyikan lunas</label>
         </div>
+        <div class="loan-flow-legend">📤 <b>Uang keluar</b>: Kasih pinjam &amp; Balikin &nbsp;•&nbsp; 📥 <b>Uang masuk</b>: Dibalikin &amp; Ambil loan</div>
         <div class="chip-group" id="loanTabs" role="tablist" aria-label="Filter pinjaman" style="margin-bottom:12px">
           <button type="button" class="chip selected" data-value="all" role="tab">Semua</button>
-          <button type="button" class="chip" data-value="given" role="tab">🟢 Pinjaman</button>
-          <button type="button" class="chip" data-value="taken" role="tab">🔴 Hutangan</button>
+          <button type="button" class="chip" data-value="given" role="tab">🟢 Kasih Pinjam</button>
+          <button type="button" class="chip" data-value="taken" role="tab">🔴 Pinjam Uang</button>
         </div>
         <div class="loan-list" id="loanList"></div>
       </div>
@@ -804,27 +815,27 @@
   <dialog id="repayModal" class="modal">
     <form id="repayForm" class="modal-content" style="max-width: 460px;">
       <header class="modal-header">
-        <h2 id="repayModalTitle">Bayar Pinjaman</h2>
+        <h2 id="repayModalTitle">Catat Bayar/Terima</h2>
         <button type="button" class="modal-close" id="repayModalClose">&times;</button>
       </header>
       <div class="modal-body">
         <input type="hidden" id="repayLoanId">
         <div id="repaySummary" class="repay-summary"></div>
         <div class="form-group" id="repayCicilanWrap" hidden>
-          <label>Bayar berapa cicilan?</label>
+          <label>Bayar/Terima berapa kali?</label>
           <div id="repayCicilanChips" class="repay-chips"></div>
           <div class="quick-select-hint" id="repayCicilanHint"></div>
         </div>
         <div class="form-group">
-          <label for="repayAmount">Jumlah Bayar (Rp)</label>
+          <label for="repayAmount">Berapa uang?
           <input type="number" id="repayAmount" step="0.01" min="1" required>
         </div>
         <div class="form-group">
-          <label for="repayDate">Tanggal Bayar</label>
+          <label for="repayDate">Tanggal berapa?</label>
           <input type="date" id="repayDate" required>
         </div>
         <div class="form-group">
-          <label for="repayDesc">Keterangan (Opsional)</label>
+          <label for="repayDesc">Catatan <span style="font-weight:400;opacity:0.6">(opsional)</span></label>
           <input type="text" id="repayDesc" placeholder="Catatan" maxlength="100">
         </div>
       </div>
@@ -904,6 +915,9 @@
         </div>
         <div class="form-group" style="margin-top:16px">
           <label class="login-check"><input type="checkbox" id="settingNotif" checked> Notifikasi pinjaman jatuh tempo</label>
+        </div>
+        <div class="form-group">
+          <label class="login-check"><input type="checkbox" id="settingTheme"> 🌙 Mode gelap</label>
         </div>
         <div class="form-group">
           <label>Backup &amp; Restore</label>

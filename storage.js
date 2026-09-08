@@ -601,12 +601,12 @@ function loanEntryData(loan, isRepayment, amount, date) {
   if (!isRepayment) {
     const type = isPiutang ? 'expense' : 'income';
     const category = isPiutang ? 'Piutang' : 'Hutang';
-    const desc = (isPiutang ? 'Piutang → ' : 'Hutang ← ') + loan.person;
+    const desc = (isPiutang ? 'Kasih pinjam → ' : 'Pinjam uang ← ') + loan.person;
     return { type, category, amount: loan.amount, date: loan.date, description: desc, person: loan.person, loanId: loan.id, payment: 'cash', loanDue: loan.dueDate || '', loanType: loan.loanType || 'lunas', installmentAmount: loan.installmentAmount || 0, contactType: loan.contactType || 'person' };
   }
   const type = isPiutang ? 'income' : 'expense';
   const category = isPiutang ? 'Piutang' : 'Hutang';
-  const desc = (isPiutang ? 'Bayar Piutang: ' : 'Bayar Hutang: ') + loan.person;
+  const desc = (isPiutang ? 'Dibalikin: ' : 'Balikin: ') + loan.person;
   return { type, category, amount, date, description: desc, person: loan.person, loanId: loan.id, payment: 'cash' };
 }
 

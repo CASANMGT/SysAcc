@@ -197,11 +197,11 @@ export function formatCurrency(amount) {
     return new Intl.NumberFormat(LOCALE, {
       style: 'currency',
       currency: CURRENCY,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(safe);
   } catch {
-    return `Rp${safe.toLocaleString('id-ID')},00`;
+    return `Rp${safe.toLocaleString('id-ID')}`;
   }
 }
 
@@ -267,8 +267,8 @@ export function getCategoryLabel(category) {
     belanja: 'Belanja',
     pendidikan: 'Pendidikan',
     'lain-expense': 'Lainnya',
-    Piutang: 'Pinjaman',
-    Hutang: 'Hutangan'
+    Piutang: 'Kasih Pinjam',
+    Hutang: 'Pinjam Uang'
   };
   return labels[category] || String(category || '-');
 }
@@ -322,7 +322,7 @@ export const CATEGORY_OPTIONS = {
     { value: 'freelance', label: 'Freelance', icon: '💻' },
     { value: 'investasi', label: 'Investasi', icon: '📈' },
     { value: 'hadiah', label: 'Hadiah', icon: '🎁' },
-    { value: 'Hutang', label: 'Hutangan', icon: '🔴' }
+    { value: 'Hutang', label: 'Pinjam Uang', icon: '🔴' }
   ],
   expense: [
     { value: 'kos', label: 'Kos/Sewa', icon: '🏠' },
@@ -333,7 +333,7 @@ export const CATEGORY_OPTIONS = {
     { value: 'kesehatan', label: 'Kesehatan', icon: '🏥' },
     { value: 'belanja', label: 'Belanja', icon: '🛍️' },
     { value: 'pendidikan', label: 'Pendidikan', icon: '📚' },
-    { value: 'Piutang', label: 'Pinjaman', icon: '🟢' }
+    { value: 'Piutang', label: 'Kasih Pinjam', icon: '🟢' }
   ]
 };
 
