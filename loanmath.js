@@ -3,11 +3,28 @@
 
 export function calcTenor(loan) {
   const instAmt = Number(loan && loan.installmentAmount) || 0;
-  const amount = Number(loan && loan.amount) || 0;
-  if (loan && loan.loanType === 'cicilan' && instAmt > 0 && amount > 0) {
-    return Math.ceil(amount / instAmt);
+  const total = totalOwed(loan);
+  if (loan && loan.loanType === 'cicilan' && instAmt > 0 && total > 0) {
+    return Math.ceil(total / instAmt);
   }
   return 1;
+}
+
+// Bunga flat (% dari pokok, 0–100). Total wajib dibalikin = pokok + bunga.
+export function interestRateOf(loan) {
+  const r = Number(loan && loan.interestRate);
+  if (!isFinite(r) || r <= 0) return 0;
+  return Math.min(r, 100);
+}
+
+export function interestAmount(loan) {
+  const principal = Number(loan && loan.amount) || 0;
+  return Math.round(principal * interestRateOf(loan) / 100);
+}
+
+export function totalOwed(loan) {
+  const principal = Number(loan && loan.amount) || 0;
+  return principal + interestAmount(loan);
 }
 
 export function paidOf(repayments) {
@@ -16,8 +33,7 @@ export function paidOf(repayments) {
 }
 
 export function outstandingOf(loan, repayments) {
-  const amount = Number(loan && loan.amount) || 0;
-  return Math.max(amount - paidOf(repayments), 0);
+  return Math.max(totalOwed(loan) - paidOf(repayments), 0);
 }
 
 export function nextInstallmentAmount(loan, repayments) {
@@ -46,7 +62,7 @@ export function scheduleData(loan, repayments) {
   const instAmt = Number(loan && loan.installmentAmount) || 0;
   const base = new Date(loan && loan.date);
   const rows = [];
-  let remaining = Number(loan && loan.amount) || 0;
+  let remaining = totalOwed(loan);
   for (let i = 1; i <= tenor; i++) {
     const amt = i < tenor ? instAmt : Math.max(remaining, 0);
     const d = isNaN(base) ? new Date() : new Date(base);

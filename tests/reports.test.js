@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   filterEntries, computeTotals, computeCategoryBreakdown,
-  computeCashflow, getMonthsBetween, formatCurrency
+  computeCashflow, getMonthsBetween, formatCurrency, computeLoanSummary
 } from '../reports.js';
 
 const entries = [
@@ -69,6 +69,26 @@ describe('getMonthsBetween', () => {
   it('rentang inklusif', () => {
     const r = getMonthsBetween(new Date(2026, 5, 1), new Date(2026, 7, 1));
     expect(r).toEqual(['2026-06', '2026-07', '2026-08']);
+  });
+});
+
+describe('computeLoanSummary', () => {
+  const loans = [
+    { id: 'l1', direction: 'given', amount: 1000000, interestRate: 10, status: 'active' },
+    { id: 'l2', direction: 'taken', amount: 500000, interestRate: 0, status: 'active' },
+  ];
+  const repayments = [{ id: 'r1', loanId: 'l1', amount: 300000 }];
+  it('sisa termasuk bunga', () => {
+    const s = computeLoanSummary(loans, repayments);
+    expect(s.piutangOutstanding).toBe(800000); // 1.100.000 − 300.000
+    expect(s.hutangOutstanding).toBe(500000);
+    expect(s.net).toBe(300000);
+    expect(s.piutangCount).toBe(1);
+  });
+  it('kosong aman', () => {
+    const s = computeLoanSummary([], []);
+    expect(s.piutangOutstanding).toBe(0);
+    expect(s.net).toBe(0);
   });
 });
 

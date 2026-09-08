@@ -1,3 +1,5 @@
+import { totalOwed } from './loanmath.js';
+
 const CURRENCY = 'IDR';
 const LOCALE = 'id-ID';
 
@@ -359,8 +361,8 @@ export function getPaymentIcon(payment) {
 }
 
 export function computeLoanSummary(loans, repayments) {
-  if (!Array.isArray(loans)) loans = [];
-  if (!Array.isArray(repayments)) repayments = [];
+  if (!Array.isArray(loans)) return [];
+  if (!Array.isArray(repayments)) return [];
   let piutangTotal = 0;
   let hutangTotal = 0;
   let piutangPaid = 0;
@@ -372,7 +374,7 @@ export function computeLoanSummary(loans, repayments) {
     const repaid = repayments
       .filter(r => r.loanId === l.id)
       .reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    const amt = Number(l.amount) || 0;
+    const amt = totalOwed(l);
     if (l.direction === 'given') {
       piutangTotal += amt;
       piutangPaid += repaid;

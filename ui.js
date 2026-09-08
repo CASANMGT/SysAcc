@@ -1,5 +1,5 @@
 import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, getCategoryType, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
-import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue } from './loanmath.js';
+import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
 
 const elements = {
   entriesBody: document.getElementById('entriesBody'),
@@ -28,6 +28,7 @@ const elements = {
   entryInstallment: document.getElementById('entryInstallment'),
   entryLoanType: document.getElementById('entryLoanType'),
   entryInstallmentAmount: document.getElementById('entryInstallmentAmount'),
+  entryInterestRate: document.getElementById('entryInterestRate'),
   contactTypeGroup: document.getElementById('contactTypeGroup'),
   entryContactType: document.getElementById('entryContactType'),
   reportSection: document.getElementById('reportModal'),
@@ -424,6 +425,30 @@ function updateTxContactSelected() {
   const btn = document.getElementById('txContactChangeBtn');
   if (btn) btn.addEventListener('click', () => { input.value = ''; input.focus(); updateTxContactSelected(); document.getElementById('quickSelectPiutang')?.classList.remove('hidden'); });
 }
+export function readBungaRate() {
+  const el = document.getElementById('entryInterestRate');
+  if (!el) return 0;
+  const n = Number(String(el.value).replace(',', '.'));
+  if (!isFinite(n) || n <= 0) return 0;
+  return Math.min(Math.round(n * 100) / 100, 100);
+}
+
+function updateBungaHint() {
+  const hint = document.getElementById('bungaHint');
+  if (!hint) return;
+  const amt = parseFormattedNumber(elements.entryAmount?.value || '');
+  const rate = readBungaRate();
+  if (!rate) {
+    hint.textContent = 'Tanpa bunga — dibalikin sesuai pokok';
+    return;
+  }
+  const bunga = Math.round(amt * rate / 100);
+  const total = amt + bunga;
+  hint.innerHTML = amt > 0
+    ? `Bunga ${rate}% = ${formatCurrency(bunga)} • Total dibalikin <strong>${formatCurrency(total)}</strong>`
+    : `Bunga ${rate}% dari pokok — isi nominal dulu biar kelihatan totalnya`;
+}
+
 let tenorSyncing = false;
 function updateTxTenorInfo() {
   const info = document.getElementById('txTenorInfo');
@@ -442,19 +467,22 @@ function updateTxTenorInfo() {
     info.innerHTML = 'Masukkan nominal transaksi di atas untuk menghitung cicilan/tenor';
     return;
   }
+  // Cicilan melunasi TOTAL (pokok + bunga), bukan cuma pokok
+  const rate = readBungaRate();
+  const base = amt + Math.round(amt * rate / 100);
   if ((!cicilan || cicilan <= 0) && (!tenorVal || tenorVal <= 0)) {
     info.classList.add('show');
-    info.innerHTML = `Pinjaman <strong>${formatCurrency(amt)}</strong> • Isi <strong>cicilan/bulan</strong> atau <strong>tenor</strong>, sistem hitung otomatis`;
+    info.innerHTML = `Pinjaman <strong>${formatCurrency(amt)}</strong>${rate ? ` + bunga ${formatCurrency(base - amt)}` : ''} • Isi <strong>cicilan/bulan</strong> atau <strong>tenor</strong>, sistem hitung otomatis`;
     return;
   }
   // auto-sync the empty field
   if (!tenorSyncing) {
     tenorSyncing = true;
     if (cicilan && cicilan > 0 && (!tenorVal || tenorVal <= 0 || document.activeElement === cicilanInput)) {
-      const tenorCalc = Math.ceil(amt / cicilan);
+      const tenorCalc = Math.ceil(base / cicilan);
       if (tenorInput && tenorCalc > 0 && tenorCalc <= 360) tenorInput.value = String(tenorCalc);
     } else if (tenorVal && tenorVal > 0 && (!cicilan || cicilan <= 0 || document.activeElement === tenorInput)) {
-      const cicilanCalc = Math.ceil(amt / tenorVal);
+      const cicilanCalc = Math.ceil(base / tenorVal);
       if (cicilanInput && cicilanCalc > 0) cicilanInput.value = formatIdrInput(cicilanCalc);
     }
     setTimeout(() => { tenorSyncing = false; }, 50);
@@ -462,16 +490,16 @@ function updateTxTenorInfo() {
   const finalCicilan = parseFormattedNumber(cicilanInput?.value || '');
   const finalTenor = tenorInput ? parseInt(String(tenorInput.value).replace(/[^0-9]/g,''), 10) || 0 : 0;
   if (finalCicilan && finalCicilan > 0) {
-    const tenor = Math.ceil(amt / finalCicilan);
-    const last = amt - finalCicilan * (tenor - 1);
+    const tenor = Math.ceil(base / finalCicilan);
+    const last = base - finalCicilan * (tenor - 1);
     info.classList.add('show');
-    if (tenor === 1) info.innerHTML = `Tenor <strong>1 bulan</strong> • Lunas ${formatCurrency(amt)}`;
-    else if (last <= 0 || last === finalCicilan) info.innerHTML = `Tenor <strong>${tenor} bulan</strong> • ${formatCurrency(finalCicilan)} × ${tenor} • Total ${formatCurrency(amt)}`;
-    else info.innerHTML = `Tenor <strong>${tenor} bulan</strong> • ${formatCurrency(finalCicilan)} × ${tenor-1} + ${formatCurrency(last)} • Total ${formatCurrency(amt)}`;
+    if (tenor === 1) info.innerHTML = `Tenor <strong>1 bulan</strong> • Lunas ${formatCurrency(base)}`;
+    else if (last <= 0 || last === finalCicilan) info.innerHTML = `Tenor <strong>${tenor} bulan</strong> • ${formatCurrency(finalCicilan)} × ${tenor} • Total ${formatCurrency(base)}`;
+    else info.innerHTML = `Tenor <strong>${tenor} bulan</strong> • ${formatCurrency(finalCicilan)} × ${tenor-1} + ${formatCurrency(last)} • Total ${formatCurrency(base)}`;
   } else if (finalTenor && finalTenor > 0) {
-    const cicilanCalc = Math.ceil(amt / finalTenor);
+    const cicilanCalc = Math.ceil(base / finalTenor);
     info.classList.add('show');
-    info.innerHTML = `Cicilan <strong>${formatCurrency(cicilanCalc)}/bulan</strong> • Tenor ${finalTenor} bulan • Total ${formatCurrency(amt)}`;
+    info.innerHTML = `Cicilan <strong>${formatCurrency(cicilanCalc)}/bulan</strong> • Tenor ${finalTenor} bulan • Total ${formatCurrency(base)}`;
   }
 }
 
@@ -487,8 +515,12 @@ function bindTxOnce() {
     hiddenDate.addEventListener('change', syncTxDate);
   }
   if (elements.entryAmount) {
-    elements.entryAmount.addEventListener('input', () => { updateTxAmountVisual(); updateTxMetaBar(); updateTxTenorInfo(); });
-    elements.entryAmount.addEventListener('blur', () => { updateTxAmountVisual(); updateTxTenorInfo(); });
+    elements.entryAmount.addEventListener('input', () => { updateTxAmountVisual(); updateTxMetaBar(); updateBungaHint(); updateTxTenorInfo(); });
+    elements.entryAmount.addEventListener('blur', () => { updateTxAmountVisual(); updateBungaHint(); updateTxTenorInfo(); });
+  }
+  const bungaEl = document.getElementById('entryInterestRate');
+  if (bungaEl) {
+    bungaEl.addEventListener('input', () => { updateBungaHint(); updateTxMetaBar(); updateTxTenorInfo(); });
   }
   if (elements.entryDescription) {
     elements.entryDescription.addEventListener('input', () => { updateTxDescCount(); });
@@ -627,12 +659,16 @@ export function openModal(entry = null) {
       const tenorElEdit = document.getElementById('entryTenor');
       if (tenorElEdit) {
         if (entry.installmentAmount && entry.amount) {
-          const t = Math.ceil(Number(entry.amount) / Number(entry.installmentAmount));
+          const rateEdit = Number(entry.interestRate) || 0;
+          const totalEdit = Number(entry.amount) + Math.round(Number(entry.amount) * rateEdit / 100);
+          const t = Math.ceil(totalEdit / Number(entry.installmentAmount));
           tenorElEdit.value = String(t > 0 && t <= 360 ? t : '');
         } else {
           tenorElEdit.value = '';
         }
       }
+      if (elements.entryInterestRate) elements.entryInterestRate.value = entry.interestRate ? String(entry.interestRate) : '';
+      updateBungaHint();
     } else {
       elements.loanFieldsGroup.hidden = true;
       elements.entryLoanPerson.value = '';
@@ -679,6 +715,8 @@ export function openModal(entry = null) {
     elements.entryInstallmentAmount.value = 0;
     const tenorElNew = document.getElementById('entryTenor');
     if (tenorElNew) tenorElNew.value = '';
+    if (elements.entryInterestRate) elements.entryInterestRate.value = '';
+    updateBungaHint();
     elements.entryContactType.value = 'person';
     setSelected(elements.contactTypeGroup, 'person');
     if (elements.entryLoanMode) elements.entryLoanMode.value = 'new';
@@ -974,6 +1012,10 @@ function applyLoanMode(category) {
       updateTxContactSelected();
     }
   }
+  // Bunga hanya untuk pinjaman baru (bukan pelunasan)
+  const bungaField = document.getElementById('loanBungaField');
+  if (bungaField) bungaField.hidden = mode !== 'new';
+  updateBungaHint();
   updateTxTenorInfo();
   updateTxMetaBar();
 }
@@ -1177,8 +1219,10 @@ export function getFormData() {
   const tenorVal = tenorEl ? parseInt(String(tenorEl.value).replace(/[^0-9]/g,''), 10) || 0 : 0;
   let installmentAmount = parseFormattedNumber(elements.entryInstallment.value);
   const amtForCalc = parseFormattedNumber(elements.entryAmount.value);
-  if (isLoan && elements.entryLoanType.value === 'cicilan' && (!installmentAmount || installmentAmount <= 0) && tenorVal > 0 && amtForCalc > 0) {
-    installmentAmount = Math.ceil(amtForCalc / tenorVal);
+  const rateForCalc = readBungaRate();
+  const totalForCalc = amtForCalc + Math.round(amtForCalc * rateForCalc / 100);
+  if (isLoan && elements.entryLoanType.value === 'cicilan' && (!installmentAmount || installmentAmount <= 0) && tenorVal > 0 && totalForCalc > 0) {
+    installmentAmount = Math.ceil(totalForCalc / tenorVal);
   }
   const payment = elements.entryPayment.value || 'cash';
   let paymentDetail = '';
@@ -1200,12 +1244,14 @@ export function getFormData() {
     paymentDetail = document.getElementById('paymentTransferBank')?.value || '';
   }
   const loanMode = (isLoan && elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
+  const interestRate = isLoan && loanMode === 'new' ? readBungaRate() : 0;
   return {
     id: elements.entryId.value || null,
     date: elements.entryDate.value,
     type: elements.entryType.value,
     category,
     loanMode,
+    interestRate,
     payment,
     paymentDetail,
     description: elements.entryDescription.value.trim(),
@@ -1815,7 +1861,8 @@ export function renderLoans(loans, repayments, summary, allLoans) {
     const reps = repayments.filter(r => r.loanId === l.id).sort((a, b) => new Date(a.date) - new Date(b.date));
     const paid = paidOf(reps);
     const outstanding = outstandingOf(l, reps);
-    const pct = l.amount > 0 ? Math.min(100, (paid / l.amount) * 100) : 0;
+    const owed = totalOwed(l);
+    const pct = owed > 0 ? Math.min(100, (paid / owed) * 100) : 0;
     const isTaken = l.direction !== 'given';
     const dirLabel = isTaken ? 'Ambil Loan' : 'Pinjemin';
     const dirClass = isTaken ? 'taken' : 'given';
@@ -1847,6 +1894,7 @@ export function renderLoans(loans, repayments, summary, allLoans) {
           <span>📅 ${formatDate(l.date)}</span>
           ${isCicilan && instAmt > 0 ? `<span>💳 ${formatCurrency(instAmt)}/bulan</span>` : ''}
           ${isCicilan && tenor ? `<span>📊 Lama: ${tenor} bulan</span>` : ''}
+          ${interestRateOf(l) > 0 ? `<span>🌸 Bunga ${interestRateOf(l)}% (+${formatCurrency(interestAmount(l))}) • Total ${formatCurrency(totalOwed(l))}</span>` : ''}
           ${isCicilan && monthsLeft > 0 && l.status !== 'paid' ? `<span>⏳ Sisa ${monthsLeft} bulan • ${reps.length}/${tenor} kali</span>` : ''}
           ${isCicilan && instAmt > 0 && l.status !== 'paid' ? `<span>💰 Bayar ke-${nextNum}/${tenor}: ${formatCurrency(nextAmt)}</span>` : ''}
           ${l.status !== 'paid' && dueLabel ? `<span class="${isOverdue ? 'overdue-date' : ''}">⏰ ${isCicilan ? 'Bayaran berikutnya' : 'Harus dibayar'}: ${dueLabel}${isOverdue ? ` • Telat ${Math.abs(diffDays)} hari` : ''}</span>` : ''}

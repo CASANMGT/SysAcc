@@ -2,7 +2,7 @@ import * as Storage from './storage.js';
 import * as Reports from './reports.js';
 import * as UI from './ui.js';
 import * as IDB from './idb.js';
-import { calcTenor, paidOf, outstandingOf, nextDue } from './loanmath.js';
+import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
 
 let currentEntries = [];
@@ -32,7 +32,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -642,21 +642,21 @@ function bindEvents() {
     const repayments = Storage.getAllRepayments();
     return loans.map(l => {
       const reps = repayments.filter(r => r.loanId === l.id);
-      const paid = reps.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-      const outstanding = (Number(l.amount) || 0) - paid;
+      const paid = paidOf(reps);
+      const outstanding = outstandingOf(l, reps);
       const instAmt = Number(l.installmentAmount) || 0;
-      const tenor = instAmt > 0 ? Math.ceil((Number(l.amount) || 0) / instAmt) : 1;
+      const tenor = calcTenor(l);
       return {
         id: l.id,
         person: l.person,
         contactType: l.contactType || 'person',
-        amount: Number(l.amount) || 0,
+        amount: totalOwed(l),
         paid,
         paidCount: reps.length,
         instAmt,
-        outstanding: Math.max(outstanding, 0),
+        outstanding,
         tenor,
-        nextAmt: instAmt > 0 ? Math.min(instAmt, Math.max(outstanding, 0)) : Math.max(outstanding, 0),
+        nextAmt: instAmt > 0 ? Math.min(instAmt, outstanding) : outstanding,
         date: l.date
       };
     }).filter(x => x.outstanding > 0.009)
@@ -749,6 +749,7 @@ function handleFormSubmit() {
             contactType: data.contactType,
             loanType: data.loanType,
             installmentAmount: data.installmentAmount,
+            interestRate: data.interestRate,
             person: data.person,
             amount: data.amount,
             date: data.date,
@@ -768,6 +769,7 @@ function handleFormSubmit() {
           contactType: data.contactType,
           loanType: data.loanType,
           installmentAmount: data.installmentAmount,
+          interestRate: data.interestRate,
           person: data.person,
           amount: data.amount,
           date: data.date,
@@ -811,6 +813,10 @@ function handleEdit(id) {
   const entry = Storage.getEntryById(id);
   if (entry) {
     UI.renderPeopleDatalist(Storage.getAllPeople());
+    if (entry.loanId) {
+      const loan = Storage.getLoanById(entry.loanId);
+      if (loan && Number(loan.interestRate) > 0) entry.interestRate = Number(loan.interestRate);
+    }
     UI.openModal(entry);
   }
 }
@@ -1540,7 +1546,7 @@ function handleRepayClick(loanId, presetAmount) {
   const verb = isTaken ? 'Bayar' : 'Terima';
   const label = loan.loanType === 'cicilan' && tenor > 1 ? `${verb} Cicilan ${Math.min(reps.length + 1, tenor)}/${tenor} — ${loan.person}` : `${verb} — ${loan.person}`;
   UI.openRepayModal(loanId, outstanding, presetAmount, label, {
-    total: loan.amount,
+    total: totalOwed(loan),
     paid,
     paidCount: reps.length,
     tenor,
@@ -1564,13 +1570,13 @@ function handleRepaySubmit() {
 
   Storage.addRepayment(data);
   const afterPaid = paid + data.amount;
-  const left = Math.max(loan.amount - afterPaid, 0);
+  const left = Math.max(totalOwed(loan) - afterPaid, 0);
   const tenor = calcTenor(loan);
   const doneCount = Storage.getLoanRepayments(data.loanId).length;
   const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v);
   const verbDone = loan.direction !== 'given' ? 'Dibayar' : 'Diterima';
   UI.showSuccess(left <= 0.01
-    ? `Lunas! ${loan.person} — total ${fmt(loan.amount)}`
+    ? `Lunas! ${loan.person} — total ${fmt(totalOwed(loan))}`
     : (tenor > 1
       ? `Cicilan ${doneCount}/${tenor} ${verbDone.toLowerCase()} ${fmt(data.amount)} — sisa ${fmt(left)}`
       : `${verbDone} ${fmt(data.amount)} — sisa ${fmt(left)}`));
@@ -1599,7 +1605,7 @@ function handleRepayDelete(repayId) {
     const loan = Storage.getLoanById(repSnap.loanId);
     if (loan) {
       const total = Storage.getLoanRepayments(repSnap.loanId).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-      Storage.updateLoan(loan.id, { status: total >= (Number(loan.amount) || 0) ? 'paid' : 'active' });
+      Storage.updateLoan(loan.id, { status: total >= totalOwed(loan) ? 'paid' : 'active' });
     }
     UI.showSuccess('Pembayaran dikembalikan');
     refreshLoans();

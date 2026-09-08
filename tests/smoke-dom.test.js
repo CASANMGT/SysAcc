@@ -54,8 +54,9 @@ describe('renderEntries', () => {
 describe('renderLoans', () => {
   const loan = {
     id: 'l1', direction: 'given', contactType: 'person', loanType: 'cicilan',
-    installmentAmount: 250000, person: 'Budi', amount: 3000000,
-    date: '2026-01-15', dueDate: '', description: '', status: 'active'
+    installmentAmount: 275000, person: 'Budi', amount: 3000000,
+    date: '2026-01-15', dueDate: '', description: '', status: 'active',
+    interestRate: 10
   };
   const summary = { piutangOutstanding: 2750000, hutangOutstanding: 0, net: 2750000, piutangCount: 1, hutangCount: 0 };
   it('kartu + jadwal cicilan', () => {
@@ -66,6 +67,7 @@ describe('renderLoans', () => {
     expect(html).toMatch(/Sudah/);
     expect(html).toMatch(/Sekarang/);
     expect(html).toMatch(/Sisa:/);
+    expect(html).toMatch(/Bunga 10%/);
   });
   it('lunas → badge Lunas, tanpa tombol bayar', () => {
     const paid = { ...loan, id: 'l2', status: 'paid' };

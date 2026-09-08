@@ -1,3 +1,5 @@
+import { totalOwed } from './loanmath.js';
+
 const STORAGE_KEY = 'ledger_entries';
 
 function generateId() {
@@ -161,6 +163,7 @@ export function exportExcel() {
     Jumlah: l.amount,
     'Tipe Pinjaman': l.loanType === 'cicilan' ? 'Cicilan' : 'Lunas (1x)',
     'Cicilan/Bulan': l.installmentAmount || '',
+    'Bunga %': Number(l.interestRate) || '',
     'Jatuh Tempo': l.dueDate || '',
     Keterangan: l.description || '',
     Status: l.status === 'paid' ? 'Lunas' : 'Aktif'
@@ -263,7 +266,7 @@ export function exportCSV() {
 
   rows.push([]);
   rows.push(['=== PINJAMAN ===']);
-  rows.push(['Tanggal', 'Direksi', 'Tipe Kontak', 'Nama', 'Jumlah', 'Tipe Pinjaman', 'Cicilan/Bulan', 'Jatuh Tempo', 'Keterangan', 'Status']);
+  rows.push(['Tanggal', 'Direksi', 'Tipe Kontak', 'Nama', 'Jumlah', 'Tipe Pinjaman', 'Cicilan/Bulan', 'Bunga %', 'Jatuh Tempo', 'Keterangan', 'Status']);
   loans.forEach(l => {
     rows.push([
       l.date,
@@ -273,6 +276,7 @@ export function exportCSV() {
       l.amount,
       l.loanType === 'cicilan' ? 'Cicilan' : 'Lunas (1x)',
       l.installmentAmount || '',
+      Number(l.interestRate) || '',
       l.dueDate || '',
       l.description || '',
       l.status === 'paid' ? 'Lunas' : 'Aktif'
@@ -362,6 +366,7 @@ export function importExcel(file) {
             amount: Number(r.Jumlah),
             loanType: r['Tipe Pinjaman'] === 'Cicilan' ? 'cicilan' : 'lunas',
             installmentAmount: Number(r['Cicilan/Bulan']) || 0,
+            interestRate: clampInterestRate(r['Bunga %']),
             date: String(r.Tanggal || '').slice(0, 10),
             dueDate: String(r['Jatuh Tempo'] || '').slice(0, 10),
             description: String(r.Keterangan || '').slice(0, 120),
@@ -402,7 +407,7 @@ export function importExcel(file) {
               const loan = getLoanById(r.loanId);
               if (loan) {
                 const total = getRepayments().filter(x => x.loanId === loan.id).reduce((s, x) => s + x.amount, 0);
-                if (total >= loan.amount) updateLoan(loan.id, { status: 'paid' });
+                if (total >= totalOwed(loan)) updateLoan(loan.id, { status: 'paid' });
               }
             });
           }
@@ -461,6 +466,12 @@ function sanitizeEntry(ent) {
   };
 }
 
+function clampInterestRate(r) {
+  const n = Number(r);
+  if (!isFinite(n) || n <= 0) return 0;
+  return Math.min(Math.round(n * 100) / 100, 100);
+}
+
 function sanitizeLoan(l) {
   if (!l || typeof l !== 'object') return null;
   const amount = Number(l.amount);
@@ -473,6 +484,7 @@ function sanitizeLoan(l) {
     contactType: l.contactType === 'perusahaan' ? 'perusahaan' : 'person',
     loanType: l.loanType === 'cicilan' ? 'cicilan' : 'lunas',
     installmentAmount: Math.max(Number(l.installmentAmount) || 0, 0),
+    interestRate: clampInterestRate(l.interestRate),
     person, amount, date,
     dueDate: isValidDateStr(l.dueDate) ? String(l.dueDate).slice(0, 10) : '',
     description: String(l.description || '').slice(0, 120),
@@ -584,7 +596,7 @@ function importJSONFile(file) {
                 const loan = getLoanById(r.loanId);
                 if (loan) {
                   const total = getRepayments().filter(x => x.loanId === loan.id).reduce((s, x) => s + (Number(x.amount) || 0), 0);
-                  if (total >= (Number(loan.amount) || 0)) updateLoan(loan.id, { status: 'paid' });
+                  if (total >= totalOwed(loan)) updateLoan(loan.id, { status: 'paid' });
                 }
               });
             }
@@ -760,6 +772,7 @@ export function createLoan(loan) {
     description: String(loan.description || '').slice(0, 120),
     payment: loan.payment || 'cash',
     paymentDetail: String(loan.paymentDetail || '').slice(0, 60),
+    interestRate: clampInterestRate(loan.interestRate),
     status: 'active',
     createdAt: new Date().toISOString()
   };
@@ -789,6 +802,9 @@ export function updateLoan(id, updates) {
     const n = Number(sanitized.amount);
     if (!isFinite(n) || n <= 0) throw new Error('Jumlah tidak valid');
     sanitized.amount = n;
+  }
+  if (sanitized.interestRate !== undefined) {
+    sanitized.interestRate = clampInterestRate(sanitized.interestRate);
   }
   loans[index] = { ...loans[index], ...sanitized };
   const loan = loans[index];
@@ -846,7 +862,7 @@ export function addRepayment(repayment) {
   const totalRepaid = repayments
     .filter(r => r.loanId === loan.id)
     .reduce((sum, r) => sum + r.amount, 0);
-  if (totalRepaid >= loan.amount) {
+  if (totalRepaid >= totalOwed(loan)) {
     updateLoan(loan.id, { status: 'paid' });
   }
   return newRep;
@@ -863,7 +879,7 @@ export function deleteRepayment(id) {
       const total = repayments
         .filter(r => r.loanId === loan.id)
         .reduce((sum, r) => sum + r.amount, 0);
-      updateLoan(loan.id, { status: total >= loan.amount ? 'paid' : 'active' });
+      updateLoan(loan.id, { status: total >= totalOwed(loan) ? 'paid' : 'active' });
     }
   }
 }

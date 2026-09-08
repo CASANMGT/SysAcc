@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   calcTenor, paidOf, outstandingOf, nextInstallmentAmount,
-  scheduleData, nextDue, monthLabelId
+  scheduleData, nextDue, monthLabelId,
+  interestRateOf, interestAmount, totalOwed
 } from '../loanmath.js';
 
 const loan = (over = {}) => ({
@@ -101,6 +102,38 @@ describe('nextDue', () => {
   });
   it('tanggal rusak → null', () => {
     expect(nextDue(loan({ date: 'xxx' }), 0)).toBeNull();
+  });
+});
+
+describe('bunga flat', () => {
+  const withRate = loan({ amount: 1000000, installmentAmount: 0, loanType: 'lunas', interestRate: 5 });
+  it('rate dijepit 0–100, rusak → 0', () => {
+    expect(interestRateOf(withRate)).toBe(5);
+    expect(interestRateOf(loan())).toBe(0);
+    expect(interestRateOf(loan({ interestRate: 250 }))).toBe(100);
+    expect(interestRateOf(loan({ interestRate: -3 }))).toBe(0);
+    expect(interestRateOf(loan({ interestRate: 'x' }))).toBe(0);
+  });
+  it('1jt + 5% = 1.050.000', () => {
+    expect(interestAmount(withRate)).toBe(50000);
+    expect(totalOwed(withRate)).toBe(1050000);
+  });
+  it('tanpa bunga total = pokok', () => {
+    expect(totalOwed(loan())).toBe(3000000);
+  });
+  it('sisa termasuk bunga', () => {
+    expect(outstandingOf(withRate, reps([200000], 'l1'))).toBe(850000);
+  });
+  it('jadwal lunas bunga 1 baris = total', () => {
+    const rows = scheduleData(withRate, []);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount).toBe(1050000);
+  });
+  it('jadwal cicilan berbunga totalnya pas', () => {
+    const l = loan({ amount: 1000000, installmentAmount: 200000, interestRate: 10 });
+    const rows = scheduleData(l, []);
+    expect(rows.reduce((s, r) => s + r.amount, 0)).toBe(1100000);
+    expect(calcTenor(l)).toBe(6);
   });
 });
 

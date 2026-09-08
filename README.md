@@ -2,7 +2,7 @@
 
 > Clean, offline-first accounting for UMKM Indonesia — pemasukan, pengeluaran, piutang/hutang cicilan, laporan & kontak.
 
-![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Version](https://img.shields.io/badge/version-1.5.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%2B%20LocalStorage-lightgrey)
 
@@ -48,6 +48,7 @@ Live: `http://localhost:3456` — login `admin / admin`
 - `Lihat jadwal ▾` per cicilan 1..N + tombol `Bayar/Terima N/M` one-click + modal bayar ringkasan (`Total uang / Sudah dibayar / Sisa` + progress) + chip `1x..Nx` + `Bayar semua`
 - Kartu: `Sudah`, `Sisa`, `Belum lunas/Lunas`, `Bayaran berikutnya/Harus dibayar`, badge `Telat N hari`, progress bar, bayar/hapus, riwayat pembayaran
 - Tab `Semua (n) / 🟢 Kasih Pinjam (n) / 🔴 Pinjam Uang (n)` + `Sembunyikan lunas` (persisted) + legenda alur uang
+- **Bunga flat opsional** 0–100%: total dibalikin = pokok + bunga; cicilan, jadwal, sisa & lunas ikut total
 - Dashboard kartu ganda + `Surplus/Defisit`, pengingat dinamis (badge bell + kartu overdue)
 
 **Lainnya**
@@ -122,9 +123,9 @@ accounting-system/
 
 ## 🔖 Version
 
-Current: **1.4.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
+Current: **1.5.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
 
-Test: `npm install` sekali, lalu `npm test` (vitest, 55 tes).
+Test: `npm install` sekali, lalu `npm test` (vitest, 63 tes).
 
 Versioning: `MAJOR.MINOR.PATCH` — storage `version:1` in JSON backup.
 

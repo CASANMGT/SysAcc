@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.5.0] - 2026-09-08
+
+### Added
+- **Bunga pinjaman (%)** — opsional 0–100% saat buat pinjaman baru; model flat: total wajib dibalikin = pokok + bunga (mis. 1jt + 5% = 1.050.000)
+- Cicilan/tenor otomatis dihitung dari **total** (bukan pokok); jadwal, sisa, progress, ringkasan bayar, validasi nominal, dan status lunas semuanya ikut total
+- Kartu pinjaman tunjukkan `🌸 Bunga X% (+Rp…) • Total Rp…`; hint live di form (`Bunga 5% = Rp50rb • Total dibalikin …`); kolom `Bunga %` di export/import Excel + backup JSON
+
+---
+
 ## [1.4.0] - 2026-09-08
 
 ### Added
@@ -117,6 +126,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.5.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.0
 [1.4.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.4.0
 [1.3.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.3.1
 [1.2.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.2.0

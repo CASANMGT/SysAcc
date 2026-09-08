@@ -118,7 +118,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.4.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.5.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -395,7 +395,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.4.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.5.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -577,6 +577,14 @@
                       <span class="tx-loan-radio"></span>
                     </button>
                   </div>
+                </div>
+                <div class="tx-piutang-field" id="loanBungaField">
+                  <label for="entryInterestRate" class="tx-piutang-label">Bunga? <span class="tx-opsional">Opsional</span></label>
+                  <div class="tx-input-prefix-wrap">
+                    <input type="number" id="entryInterestRate" min="0" max="100" step="0.5" placeholder="0" inputmode="decimal" style="padding-right:40px">
+                    <span style="position:absolute;right:14px;left:auto;color:#64748b;font-size:12px;pointer-events:none">%</span>
+                  </div>
+                  <p class="tx-field-hint" id="bungaHint">Tanpa bunga — dibalikin sesuai pokok</p>
                 </div>
                 <div class="tx-cicilan-row" id="installmentGroup" hidden>
                   <div class="form-group">
