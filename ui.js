@@ -18,6 +18,7 @@ const elements = {
   entryDescription: document.getElementById('entryDescription'),
   entryAmount: document.getElementById('entryAmount'),
   entryLoanId: document.getElementById('entryLoanId'),
+  entryLoanMode: document.getElementById('entryLoanMode'),
   loanFieldsGroup: document.getElementById('loanFieldsGroup'),
   entryLoanPerson: document.getElementById('entryLoanPerson'),
   entryLoanDue: document.getElementById('entryLoanDue'),
@@ -163,11 +164,14 @@ export function renderEntries(entries) {
   }
 
   empty.classList.add('hidden');
+  const selected = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
   body.innerHTML = entries.map((e) => {
     const isIncome = e.type === 'income';
     const sign = isIncome ? '+' : '-';
     const isLoan = !!e.loanId;
     const amt = Number(e.amount) || 0;
+    const checked = selected.has(e.id) ? 'checked' : '';
+    const checkDisabled = isLoan ? 'disabled title="Pinjaman dikelola dari menu Pinjaman"' : '';
     const actions = isLoan
       ? '<span class="muted-tag">di Pinjaman</span>'
       : `<div class="table-row-actions">
@@ -180,14 +184,16 @@ export function renderEntries(entries) {
     // For piutang, show person in description if empty
     const desc = e.description || (isLoan && e.person ? `→ ${e.person}` : '-');
     const rowClass = isLoan ? 'loan-row' : (isIncome ? 'tr-income' : 'tr-expense');
+    const payDetail = e.paymentDetail ? `<span class="pay-sub" title="${escapeHtml(e.paymentDetail)}">${escapeHtml(e.paymentDetail)}</span>` : '';
     return `
       <tr data-id="${e.id}" class="${rowClass}">
+        <td style="white-space:nowrap;width:34px"><input type="checkbox" class="row-select" data-id="${e.id}" ${checked} ${checkDisabled} aria-label="Pilih transaksi"></td>
         <td style="white-space:nowrap">${formatDate(e.date)}</td>
         <td><span class="category-tag">${getCategoryIcon(e.category)} ${getCategoryLabel(e.category)}</span></td>
         <td title="${escapeHtml(desc)}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(desc)}</td>
-        <td><span class="payment-tag" title="${escapeHtml(e.paymentDetail || '')}">${getPaymentIcon(e.payment)} ${getPaymentLabel(e.payment)}${e.paymentDetail ? ' • ' + escapeHtml(e.paymentDetail) : ''}</span></td>
+        <td><span class="payment-tag" title="${escapeHtml(e.paymentDetail || getPaymentLabel(e.payment))}">${getPaymentIcon(e.payment)} ${getPaymentLabel(e.payment)}</span></td>
         <td><span class="type-badge ${isIncome ? 'income' : 'expense'}" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap">${isIncome ? '↗ Masuk' : '↘ Keluar'}</span></td>
-        <td class="amount-col ${isIncome ? 'income' : 'expense'}" style="white-space:nowrap;text-align:right;font-weight:700;font-size:13px">${sign} ${amtStr}</td>
+        <td class="amount-col ${isIncome ? 'income' : 'expense'}" style="white-space:nowrap;text-align:right;font-weight:700;font-size:13px">${sign} ${amtStr}${payDetail}</td>
         <td class="actions-col">${actions}</td>
       </tr>
     `;
@@ -208,18 +214,28 @@ export function renderSummary({ income, expense, net, incomeCount, expenseCount 
 export function renderLoanTotals(piutang, hutang, piutangCount, hutangCount) {
   if (elements.dashPiutangVal) elements.dashPiutangVal.textContent = formatCurrency(piutang);
   if (elements.dashHutangVal) elements.dashHutangVal.textContent = formatCurrency(hutang);
+  const hv2 = document.getElementById('dashHutangVal2');
+  if (hv2) hv2.textContent = formatCurrency(hutang);
   const pc = document.getElementById('dashPiutangCount');
   const hc = document.getElementById('dashHutangCount');
-  if (pc) pc.textContent = piutangCount + ' pinjaman aktif';
+  const hc2 = document.getElementById('dashHutangCount2');
+  if (pc) pc.textContent = piutangCount + ' aktif';
   if (hc) hc.textContent = hutangCount + ' pinjaman aktif';
+  if (hc2) hc2.textContent = hutangCount + ' aktif';
   const netVal = document.getElementById('dashNetLoanVal');
   const netSub = document.getElementById('dashNetLoanSub');
+  const net = piutang - hutang;
   if (netVal) {
-    const net = piutang - hutang;
     netVal.textContent = formatCurrency(Math.abs(net));
     netVal.className = 'dash-card-value ' + (net >= 0 ? 'income' : 'expense');
   }
-  if (netSub) netSub.textContent = 'Piutang − Hutang';
+  if (netSub) netSub.textContent = 'Pinjaman − Hutangan';
+  const trend = document.getElementById('dashLoanTrend');
+  if (trend) {
+    const surplus = net >= 0;
+    trend.textContent = surplus ? 'Surplus' : 'Defisit';
+    trend.className = 'metric-trend ' + (surplus ? 'up' : 'down');
+  }
 }
 
 export function renderCategoryBreakdown(categories) {
@@ -317,8 +333,26 @@ function updateTxMetaBar() {
   const jenis = elements.entryType.value === 'income' ? 'pemasukan' : 'pengeluaran';
   const catSel = document.querySelector('#categoryGroup .select-btn.selected');
   const catLabel = catSel ? catSel.querySelector('.tx-cat-label')?.textContent || catSel.textContent.trim() : '—';
-  const isLoan = elements.entryCategory.value === 'Piutang' || elements.entryCategory.value === 'Hutang';
-  const loanExtra = isLoan && elements.entryLoanPerson.value ? ` → ${escapeHtml(elements.entryLoanPerson.value)} • ${elements.entryLoanType.value}` : '';
+  const cat = elements.entryCategory.value;
+  const mode = (elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
+  let loanExtra = '';
+  const schedTag = (found) => {
+    if (!found || !(found.tenor > 1)) return '';
+    const n = Math.min((found.paidCount || 0) + 1, found.tenor);
+    return ` • Cicilan ${n}/${found.tenor}`;
+  };
+  if (cat === 'Hutang' && mode === 'settle') {
+    const found = getOutstandingHutang().find(x => x.id === elements.entryLoanId.value);
+    if (found) loanExtra = `Balikin → ${escapeHtml(found.person)}${schedTag(found)} • Sisa ${escapeHtml(formatCurrency(found.outstanding))}`;
+    else if (elements.entryLoanPerson.value) loanExtra = `Balikin → ${escapeHtml(elements.entryLoanPerson.value)}`;
+  } else if (cat === 'Piutang' && mode === 'settle') {
+    const found = getOutstandingPiutang().find(x => x.id === elements.entryLoanId.value);
+    if (found) loanExtra = `Balikin ← ${escapeHtml(found.person)}${schedTag(found)} • Sisa ${escapeHtml(formatCurrency(found.outstanding))}`;
+    else if (elements.entryLoanPerson.value) loanExtra = `Balikin ← ${escapeHtml(elements.entryLoanPerson.value)}`;
+  } else if ((cat === 'Piutang' || cat === 'Hutang') && elements.entryLoanPerson.value) {
+    const arrow = cat === 'Hutang' ? '←' : '→';
+    loanExtra = ` ${arrow} ${escapeHtml(elements.entryLoanPerson.value)} • ${elements.entryLoanType.value}`;
+  }
   bar.innerHTML = `<span>Amount: ${escapeHtml(amtStr)}</span><span class="capitalize">${escapeHtml(jenis)}</span><span>${escapeHtml(catLabel)}</span>${loanExtra ? `<span class="tx-meta-blue">${loanExtra}</span>` : ''}`;
 }
 function updateTxContactSelected() {
@@ -347,7 +381,8 @@ function updateTxTenorInfo() {
   const tenorVal = tenorInput ? parseInt(String(tenorInput.value).replace(/[^0-9]/g,''), 10) || 0 : 0;
   const isCicilan = elements.entryLoanType?.value === 'cicilan';
   const loanVisible = elements.loanFieldsGroup && !elements.loanFieldsGroup.hidden;
-  if (!loanVisible || !isCicilan) { info.classList.remove('show'); info.innerHTML=''; return; }
+  const mode = (elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
+  if (!loanVisible || !isCicilan || mode !== 'new') { info.classList.remove('show'); info.innerHTML=''; return; }
   if (!amt) {
     info.classList.add('show');
     info.innerHTML = 'Masukkan nominal transaksi di atas untuk menghitung cicilan/tenor';
@@ -428,6 +463,16 @@ function bindTxOnce() {
   if (elements.entryAmount) {
     const loanToggles = elements.loanTypeGroup?.querySelectorAll('.select-btn');
     loanToggles?.forEach(btn => btn.addEventListener('click', () => setTimeout(updateTxTenorInfo, 50)));
+  }
+  const modeGroup = document.getElementById('loanModeGroup');
+  if (modeGroup) {
+    modeGroup.querySelectorAll('.select-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setLoanModeUI(btn.dataset.value || 'new');
+        const cat = elements.entryCategory.value;
+        if (cat === 'Piutang' || cat === 'Hutang') applyLoanMode(cat);
+      });
+    });
   }
 }
 
@@ -582,13 +627,18 @@ export function openModal(entry = null) {
     if (tenorElNew) tenorElNew.value = '';
     elements.entryContactType.value = 'person';
     setSelected(elements.contactTypeGroup, 'person');
+    if (elements.entryLoanMode) elements.entryLoanMode.value = 'new';
+    setLoanModeUI('new');
   }
   syncTxDate();
   updateTxAmountVisual();
   updateTxDescCount();
+  if (elements.entryLoanMode) elements.entryLoanMode.value = 'new';
+  setLoanModeUI('new');
   updateTxMetaBar();
   updateTxContactSelected();
   updateTxTenorInfo();
+  if (elements.entryCategory.value === 'Piutang' || elements.entryCategory.value === 'Hutang') applyLoanMode(elements.entryCategory.value);
   bindTxOnce();
   if (!elements.entryModal.open) {
     elements.entryModal.showModal();
@@ -694,6 +744,8 @@ export function bindTypeButtons(handler) {
       updateSegment(btn.dataset.value);
       renderCategoryButtons(btn.dataset.value);
       elements.loanFieldsGroup.hidden = true;
+      if (elements.entryLoanMode) elements.entryLoanMode.value = 'new';
+      setLoanModeUI('new');
       const paymentWrap = document.getElementById('paymentGroupWrap');
       if (paymentWrap) paymentWrap.hidden = false;
       handler(btn.dataset.value);
@@ -738,36 +790,137 @@ export function bindTypeButtons(handler) {
   }
 }
 
+function setLoanModeUI(mode) {
+  const group = document.getElementById('loanModeGroup');
+  if (group) setSelected(group, mode);
+  if (elements.entryLoanMode) elements.entryLoanMode.value = mode;
+}
+
+function applyLoanMode(category) {
+  const mode = (elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
+  const isPiutang = category === 'Piutang';
+  const isHutang = category === 'Hutang';
+  if (!isPiutang && !isHutang) return;
+  const panelTitle = document.getElementById('loanPanelTitle');
+  const panelBadge = document.getElementById('loanPanelBadge');
+  const panelSub = document.getElementById('loanPanelSub');
+  const pickerField = document.getElementById('hutangPickerField');
+  const pickerLabel = document.getElementById('hutangPickerLabel');
+  const contactTypeField = document.getElementById('loanContactTypeField');
+  const personField = document.getElementById('loanPersonField');
+  const termsField = document.getElementById('loanTermsField');
+  const newLabel = document.getElementById('loanModeNewLabel');
+  const settleLabel = document.getElementById('loanModeSettleLabel');
+  const qsSection = document.getElementById('quickSelectPiutang');
+  const selWrap = document.getElementById('txContactSelected');
+  if (isPiutang) {
+    if (newLabel) newLabel.textContent = '📤 Pinjamin';
+    if (settleLabel) settleLabel.textContent = '📥 Balikin';
+    if (mode === 'settle') {
+      if (panelTitle) panelTitle.textContent = 'Balikin Pinjaman';
+      if (panelBadge) panelBadge.textContent = 'Masuk';
+      if (panelSub) panelSub.textContent = 'Pilih pinjaman aktif — terisi cicilan berikutnya, bisa lunasi penuh';
+      if (pickerField) pickerField.hidden = false;
+      if (pickerLabel) pickerLabel.textContent = 'Pilih pinjaman yang mau dibalikin';
+      if (contactTypeField) contactTypeField.hidden = true;
+      if (personField) personField.hidden = true;
+      if (termsField) termsField.hidden = true;
+      elements.installmentGroup.hidden = true;
+      elements.entryLoanPerson.required = false;
+      if (qsSection) qsSection.classList.add('hidden');
+      if (selWrap) { selWrap.classList.add('hidden'); selWrap.innerHTML = ''; }
+      populateSettlePicker('given');
+    } else {
+      if (panelTitle) panelTitle.textContent = 'Pinjamin';
+      if (panelBadge) panelBadge.textContent = 'Keluar';
+      if (panelSub) panelSub.textContent = 'Tulis siapa yang dipinjami — 1x lunas atau cicilan';
+      if (pickerField) pickerField.hidden = true;
+      if (contactTypeField) contactTypeField.hidden = false;
+      if (personField) personField.hidden = false;
+      if (termsField) termsField.hidden = false;
+      elements.entryLoanPerson.required = true;
+      const lt = elements.entryLoanType.value || 'lunas';
+      elements.installmentGroup.hidden = lt !== 'cicilan';
+      const label = document.getElementById('loanPersonLabel');
+      const hint = document.getElementById('quickSelectHint');
+      const qsLabel = document.getElementById('quickSelectLabel');
+      if (label) label.textContent = 'Ke siapa?';
+      if (hint) hint.textContent = 'Pilih atau ketik nama yang dipinjami';
+      if (qsLabel) qsLabel.textContent = 'Pilih dari kontak tersimpan:';
+      if (qsSection) qsSection.classList.remove('hidden');
+      populateQuickSelectPiutang();
+      updateTxContactSelected();
+    }
+  } else {
+    if (newLabel) newLabel.textContent = '📥 Hutang';
+    if (settleLabel) settleLabel.textContent = '📤 Balikin';
+    if (mode === 'settle') {
+      if (panelTitle) panelTitle.textContent = 'Balikin Hutang';
+      if (panelBadge) panelBadge.textContent = 'Keluar';
+      if (panelSub) panelSub.textContent = 'Pilih hutang aktif — terisi cicilan berikutnya, bisa lunasi penuh';
+      if (pickerField) pickerField.hidden = false;
+      if (pickerLabel) pickerLabel.textContent = 'Pilih hutang yang mau dibalikin';
+      if (contactTypeField) contactTypeField.hidden = true;
+      if (personField) personField.hidden = true;
+      if (termsField) termsField.hidden = true;
+      elements.installmentGroup.hidden = true;
+      elements.entryLoanPerson.required = false;
+      if (qsSection) qsSection.classList.add('hidden');
+      if (selWrap) { selWrap.classList.add('hidden'); selWrap.innerHTML = ''; }
+      populateSettlePicker('taken');
+    } else {
+      if (panelTitle) panelTitle.textContent = 'Hutang';
+      if (panelBadge) panelBadge.textContent = 'Masuk';
+      if (panelSub) panelSub.textContent = 'Tulis dari siapa berhutang — 1x lunas atau cicilan';
+      if (pickerField) pickerField.hidden = true;
+      if (contactTypeField) contactTypeField.hidden = false;
+      if (personField) personField.hidden = false;
+      if (termsField) termsField.hidden = false;
+      elements.entryLoanPerson.required = true;
+      const lt = elements.entryLoanType.value || 'lunas';
+      elements.installmentGroup.hidden = lt !== 'cicilan';
+      const label = document.getElementById('loanPersonLabel');
+      const hint = document.getElementById('quickSelectHint');
+      const qsLabel = document.getElementById('quickSelectLabel');
+      if (label) label.textContent = 'Dari siapa?';
+      if (hint) hint.textContent = 'Pilih atau ketik nama pemberi hutangan';
+      if (qsLabel) qsLabel.textContent = 'Pilih dari kontak tersimpan:';
+      if (qsSection) qsSection.classList.remove('hidden');
+      populateQuickSelectPiutang();
+      updateTxContactSelected();
+    }
+  }
+  updateTxTenorInfo();
+  updateTxMetaBar();
+}
+
 export function handleCategoryChange(category) {
   const isLoan = category === 'Piutang' || category === 'Hutang';
   elements.loanFieldsGroup.hidden = !isLoan;
   const paymentWrap = document.getElementById('paymentGroupWrap');
   if (paymentWrap) paymentWrap.hidden = false;
+  const pickerField = document.getElementById('hutangPickerField');
+  const contactTypeField = document.getElementById('loanContactTypeField');
+  const personField = document.getElementById('loanPersonField');
+  const termsField = document.getElementById('loanTermsField');
+  const modeRow = document.getElementById('loanModeRow');
   if (isLoan) {
-    elements.entryLoanPerson.required = true;
-    const lt = elements.entryLoanType.value || 'lunas';
-    elements.installmentGroup.hidden = lt !== 'cicilan';
-    const label = document.getElementById('loanPersonLabel');
-    const hint = document.getElementById('quickSelectHint');
-    const qsSection = document.getElementById('quickSelectPiutang');
-    const qsLabel = document.getElementById('quickSelectLabel');
-    if (category === 'Hutang') {
-      if (label) label.textContent = 'Dari siapa?';
-      if (hint) hint.textContent = 'Pilih atau ketik nama pemberi pinjaman';
-      if (qsLabel) qsLabel.textContent = 'Pilih dari kontak tersimpan:';
-    } else {
-      if (label) label.textContent = 'Ke siapa?';
-      if (hint) hint.textContent = 'Pilih atau ketik nama penerima pinjaman';
-      if (qsLabel) qsLabel.textContent = 'Pilih dari kontak tersimpan:';
+    if (modeRow) modeRow.hidden = false;
+    if (!elements.entryLoanMode || !elements.entryLoanMode.value) {
+      if (elements.entryLoanMode) elements.entryLoanMode.value = 'new';
     }
-    if (qsSection) qsSection.classList.remove('hidden');
-    populateQuickSelectPiutang();
-    updateTxContactSelected();
+    setLoanModeUI(elements.entryLoanMode.value || 'new');
+    applyLoanMode(category);
   } else {
     elements.entryLoanPerson.required = false;
     elements.entryLoanPerson.value = '';
     elements.entryLoanDue.value = '';
+    elements.entryLoanId.value = '';
     elements.installmentGroup.hidden = true;
+    if (pickerField) pickerField.hidden = true;
+    if (contactTypeField) contactTypeField.hidden = false;
+    if (personField) personField.hidden = false;
+    if (termsField) termsField.hidden = false;
     const qsSection = document.getElementById('quickSelectPiutang');
     if (qsSection) qsSection.classList.add('hidden');
     const selWrap = document.getElementById('txContactSelected');
@@ -806,6 +959,93 @@ export function updatePaymentDetail(payment) {
     group.hidden = true;
     group.querySelectorAll('.payment-detail').forEach(d => d.hidden = true);
   }
+}
+
+export function getOutstandingHutang() {
+  if (typeof window.__getOutstandingHutang === 'function') {
+    try { return window.__getOutstandingHutang() || []; } catch { return []; }
+  }
+  return [];
+}
+
+export function getOutstandingPiutang() {
+  if (typeof window.__getOutstandingPiutang === 'function') {
+    try { return window.__getOutstandingPiutang() || []; } catch { return []; }
+  }
+  return [];
+}
+
+export function getOutstandingLoans(direction) {
+  if (direction === 'given') return getOutstandingPiutang();
+  if (direction === 'taken') return getOutstandingHutang();
+  return [];
+}
+
+function populateSettlePicker(direction) {
+  const list = document.getElementById('hutangList');
+  const hint = document.getElementById('hutangPickerHint');
+  if (!list) return;
+  const isPiutang = direction === 'given';
+  const items = getOutstandingLoans(direction);
+  const emptyNoun = isPiutang ? 'pinjaman' : 'hutang';
+  if (!items.length) {
+    list.innerHTML = `<div class="hutang-empty">Tidak ada ${emptyNoun} aktif.<br>Kelola via menu <strong>Pinjaman</strong>.</div>`;
+    if (hint) hint.textContent = `Tidak ada ${emptyNoun} yang bisa dibalikin`;
+    elements.entryLoanId.value = '';
+    elements.entryLoanPerson.value = '';
+    updateTxAmountVisual();
+    updateTxMetaBar();
+    return;
+  }
+  if (hint && !elements.entryLoanId.value) hint.textContent = `${items.length} ${emptyNoun} aktif — ketuk untuk memilih cicilan berikutnya`;
+  const selectedId = elements.entryLoanId.value || '';
+  list.innerHTML = items.map(h => {
+    const initial = (h.person || '?')[0]?.toUpperCase() || '?';
+    const sel = h.id === selectedId ? ' selected' : '';
+    const paidCount = h.paidCount || 0;
+    const schedTxt = h.tenor > 1
+      ? `Cicilan ${Math.min(paidCount + 1, h.tenor)}/${h.tenor} • ${formatCurrency(h.nextAmt)}`
+      : 'Lunas 1x';
+    return `<button type="button" class="hutang-item${isPiutang ? ' piutang-pick' : ''}${sel}" data-loan-id="${h.id}">
+      <span class="hutang-avatar">${escapeHtml(initial)}</span>
+      <span style="flex:1;min-width:0">
+        <span class="hutang-name">${escapeHtml(h.person)}</span>
+        <span class="hutang-sub" style="display:block">${schedTxt} • Sisa ${escapeHtml(formatCurrency(h.outstanding))}</span>
+      </span>
+      <span class="hutang-amt"><strong>${escapeHtml(formatCurrency(h.nextAmt))}</strong><span>cicilan</span></span>
+    </button>`;
+  }).join('');
+  list.querySelectorAll('.hutang-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.loanId;
+      const found = getOutstandingLoans(direction).find(x => x.id === id);
+      if (!found) return;
+      elements.entryLoanId.value = found.id;
+      elements.entryLoanPerson.value = found.person || '';
+      elements.entryContactType.value = found.contactType || 'person';
+      const ctGroup = elements.contactTypeGroup;
+      if (ctGroup) setSelected(ctGroup, found.contactType || 'person');
+      // Default = cicilan berikutnya (bukan lunas penuh)
+      elements.entryAmount.value = formatIdrInput(found.nextAmt);
+      list.querySelectorAll('.hutang-item').forEach(b => b.classList.toggle('selected', b.dataset.loanId === id));
+      const paidCount = found.paidCount || 0;
+      const schedTxt = found.tenor > 1 ? `Cicilan ${Math.min(paidCount + 1, found.tenor)}/${found.tenor} • ` : '';
+      if (hint) hint.innerHTML = `Terpilih: ${escapeHtml(found.person)} • ${schedTxt}${escapeHtml(formatCurrency(found.nextAmt))} <button type="button" id="hutangFillFull" class="hutang-lunasi">Lunasi ${escapeHtml(formatCurrency(found.outstanding))}</button>`;
+      const fullBtn = document.getElementById('hutangFillFull');
+      if (fullBtn) fullBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        elements.entryAmount.value = formatIdrInput(found.outstanding);
+        updateTxAmountVisual();
+        updateTxMetaBar();
+      });
+      updateTxAmountVisual();
+      updateTxMetaBar();
+    });
+  });
+}
+
+function populateHutangPicker() {
+  populateSettlePicker('taken');
 }
 
 function populateQuickSelectPiutang() {
@@ -875,11 +1115,13 @@ export function getFormData() {
   } else if (payment === 'transfer') {
     paymentDetail = document.getElementById('paymentTransferBank')?.value || '';
   }
+  const loanMode = (isLoan && elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
   return {
     id: elements.entryId.value || null,
     date: elements.entryDate.value,
     type: elements.entryType.value,
     category,
+    loanMode,
     payment,
     paymentDetail,
     description: elements.entryDescription.value.trim(),
@@ -898,6 +1140,27 @@ export function validateForm(data) {
   if (!data.type) return 'Jenis wajib dipilih';
   if (!data.category) return 'Kategori wajib dipilih';
   if (data.amount !== undefined && data.amount < 100) return 'Jumlah minimal Rp100';
+  const mode = data.loanMode || 'new';
+  if (data.category === 'Hutang') {
+    if (mode === 'settle') {
+      if (!data.loanId) return 'Pilih dulu hutang yang mau dibalikin';
+      const found = getOutstandingHutang().find(x => x.id === data.loanId);
+      if (!found) return 'Hutang terpilih tidak ditemukan / sudah lunas — pilih ulang';
+      if (data.amount > found.outstanding + 0.01) return `Nominal melebihi sisa ${formatCurrency(found.outstanding)}`;
+    } else {
+      if (!data.person) return 'Nama pemberi hutang wajib diisi';
+    }
+  }
+  if (data.category === 'Piutang') {
+    if (mode === 'settle') {
+      if (!data.loanId) return 'Pilih dulu pinjaman yang mau dibalikin';
+      const found = getOutstandingPiutang().find(x => x.id === data.loanId);
+      if (!found) return 'Pinjaman terpilih tidak ditemukan / sudah lunas — pilih ulang';
+      if (data.amount > found.outstanding + 0.01) return `Nominal melebihi sisa ${formatCurrency(found.outstanding)}`;
+    } else {
+      if (!data.person) return 'Nama yang dipinjami wajib diisi';
+    }
+  }
   return null;
 }
 
@@ -1327,9 +1590,9 @@ function renderTopExpensesReport(topExpenses) {
 }
 
 // ===== Loans UI =====
-export function openLoans(loans, repayments, summary) {
+export function openLoans(loans, repayments, summary, allLoans) {
   if (!elements.loansSection.open) elements.loansSection.showModal();
-  renderLoans(loans, repayments, summary);
+  renderLoans(loans, repayments, summary, allLoans);
 }
 
 export function closeLoans() {
@@ -1338,31 +1601,84 @@ export function closeLoans() {
   }
 }
 
-export function renderLoans(loans, repayments, summary) {
+function buildScheduleRows(loan, reps, tenor, instAmt) {
+  const base = new Date(loan.date);
+  const rows = [];
+  let remaining = Number(loan.amount) || 0;
+  for (let i = 1; i <= tenor; i++) {
+    const amt = i < tenor ? instAmt : Math.max(remaining, 0);
+    const paidThis = i <= reps.length;
+    const isNext = i === reps.length + 1 && loan.status !== 'paid';
+    const d = new Date(base);
+    d.setMonth(d.getMonth() + (i - 1));
+    const monthLabel = d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+    const badge = paidThis
+      ? '<span class="sched-badge done">Lunas</span>'
+      : (isNext ? '<span class="sched-badge next">Berikutnya</span>' : '<span class="sched-badge todo">Belum</span>');
+    const btn = (!paidThis && isNext)
+      ? `<button class="btn repay-btn pay-next-btn" data-id="${loan.id}" data-amount="${amt}" style="font-size:11px;padding:4px 10px">Bayar ${formatCurrency(amt)}</button>`
+      : '';
+    rows.push(`<div class="loan-schedule-row"><span style="min-width:0"><strong>Cicilan ${i}/${tenor}</strong> • ${monthLabel}<br><span style="color:var(--text-muted)">${formatCurrency(amt)}</span></span><span style="display:flex;align-items:center;gap:6px">${badge}${btn}</span></div>`);
+    remaining -= amt;
+  }
+  return rows.join('');
+}
+
+function nextDueUi(loan, paidCount) {
+  if (loan.status === 'paid') return null;
+  const base = loan.dueDate ? new Date(loan.dueDate) : new Date(loan.date);
+  if (isNaN(base)) return null;
+  const d = new Date(base);
+  if (loan.loanType === 'cicilan') d.setMonth(d.getMonth() + paidCount);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function renderLoans(loans, repayments, summary, allLoans) {
   elements.totalPiutang.textContent = formatCurrency(summary.piutangOutstanding);
   elements.totalHutang.textContent = formatCurrency(summary.hutangOutstanding);
   elements.loanNet.textContent = formatCurrency(summary.net);
   elements.loanNet.className = 'value ' + (summary.net >= 0 ? 'income' : 'expense');
 
+  // tab counts from unfiltered list
+  const source = Array.isArray(allLoans) ? allLoans : loans;
+  const counts = { all: source.length, given: 0, taken: 0 };
+  source.forEach(l => { if (l.direction === 'taken') counts.taken++; else counts.given++; });
+  document.querySelectorAll('#loanTabs .chip').forEach(b => {
+    const v = b.dataset.value;
+    const n = v === 'all' ? counts.all : (counts[v] || 0);
+    const base = v === 'all' ? 'Semua' : (v === 'given' ? '🟢 Pinjaman' : '🔴 Hutangan');
+    b.textContent = `${base} (${n})`;
+  });
+
   if (!loans.length) {
-    elements.loanList.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:30px;">Belum ada pinjaman. Klik "+ Tambah Pinjaman".</p>';
+    elements.loanList.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:30px;">Belum ada pinjaman di filter ini. Klik "＋ Tambah" atau ubah filter.</p>';
     return;
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const todayMid = new Date();
+  todayMid.setHours(0, 0, 0, 0);
 
   elements.loanList.innerHTML = loans.map(l => {
-    const reps = repayments.filter(r => r.loanId === l.id);
+    const reps = repayments.filter(r => r.loanId === l.id).sort((a, b) => new Date(a.date) - new Date(b.date));
     const paid = reps.reduce((s, r) => s + r.amount, 0);
     const outstanding = l.amount - paid;
-    const pct = l.amount > 0 ? (paid / l.amount) * 100 : 0;
-    const dirLabel = l.direction === 'given' ? 'Piutang' : 'Hutang';
-    const dirClass = l.direction === 'given' ? 'given' : 'taken';
+    const pct = l.amount > 0 ? Math.min(100, (paid / l.amount) * 100) : 0;
+    const isTaken = l.direction !== 'given';
+    const dirLabel = isTaken ? 'Hutangan' : 'Pinjaman';
+    const dirClass = isTaken ? 'taken' : 'given';
     const isCicilan = l.loanType === 'cicilan';
     const instAmt = l.installmentAmount || 0;
-    const monthsLeft = isCicilan && instAmt > 0 ? Math.ceil(outstanding / instAmt) : 0;
-    const isOverdue = l.status !== 'paid' && l.dueDate && l.dueDate < today;
+    const tenor = isCicilan && instAmt > 0 ? Math.ceil(l.amount / instAmt) : (isCicilan ? 0 : 1);
+    const monthsLeft = isCicilan && instAmt > 0 ? Math.ceil(Math.max(outstanding, 0) / instAmt) : 0;
+    // derived overdue (works even when dueDate empty — schedule from start date)
+    const nextDue = nextDueUi(l, reps.length);
+    const diffDays = nextDue ? Math.ceil((nextDue - todayMid) / 86400000) : null;
+    const isOverdue = l.status !== 'paid' && diffDays !== null && diffDays < 0;
+    const dueLabel = nextDue ? nextDue.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
     const cardClass = `loan-card ${l.status === 'paid' ? 'paid' : ''} ${isOverdue ? 'overdue' : ''}`;
+    const nextNum = reps.length + 1;
+    const nextAmt = isCicilan && instAmt > 0 ? Math.min(instAmt, Math.max(outstanding, 0)) : Math.max(outstanding, 0);
 
     return `
       <div class="${cardClass}" data-id="${l.id}">
@@ -1370,7 +1686,7 @@ export function renderLoans(loans, repayments, summary) {
           <div>
             <div class="loan-person">${l.contactType === 'perusahaan' ? '🏢' : '👤'} ${escapeHtml(l.person)}</div>
             <span class="loan-direction ${dirClass}">${dirLabel}</span>
-            <span class="loan-type-badge">${isCicilan ? '📅 Cicilan' : '💵 Lunas (1x)'}</span>
+            <span class="loan-type-badge">${isCicilan ? `📅 Cicilan${tenor ? ` ${tenor} bln` : ''}` : '💵 Lunas (1x)'}</span>
         ${isOverdue ? '<span class="loan-overdue-badge">⚠️ Terlambat</span>' : ''}
           </div>
           <div class="loan-amount ${dirClass}">${formatCurrency(l.amount)}</div>
@@ -1378,9 +1694,10 @@ export function renderLoans(loans, repayments, summary) {
         <div class="loan-meta">
           <span>📅 ${formatDate(l.date)}</span>
           ${isCicilan && instAmt > 0 ? `<span>💳 ${formatCurrency(instAmt)}/bulan</span>` : ''}
-          ${isCicilan && instAmt > 0 ? `<span>📊 Tenor ${Math.ceil(l.amount / instAmt)} bulan</span>` : ''}
-          ${isCicilan && monthsLeft > 0 ? `<span>⏳ Sisa ${monthsLeft} bulan • ${reps.length}/${Math.ceil(l.amount / instAmt)} cicilan</span>` : ''}
-          ${isCicilan && instAmt > 0 ? `<span>💰 Cicilan ${reps.length + 1}/${Math.ceil(l.amount / instAmt)}</span>` : ''}
+          ${isCicilan && tenor ? `<span>📊 Tenor ${tenor} bulan</span>` : ''}
+          ${isCicilan && monthsLeft > 0 && l.status !== 'paid' ? `<span>⏳ Sisa ${monthsLeft} bulan • ${reps.length}/${tenor} cicilan</span>` : ''}
+          ${isCicilan && instAmt > 0 && l.status !== 'paid' ? `<span>💰 Cicilan ${nextNum}/${tenor} • ${formatCurrency(nextAmt)}</span>` : ''}
+          ${l.status !== 'paid' && dueLabel ? `<span class="${isOverdue ? 'overdue-date' : ''}">⏰ ${isCicilan ? 'Cicilan berikutnya' : 'Jatuh tempo'}: ${dueLabel}${isOverdue ? ` • Terlambat ${Math.abs(diffDays)} hari` : ''}</span>` : ''}
           ${l.description ? `<span>📝 ${escapeHtml(l.description)}</span>` : ''}
         </div>
         <div class="loan-meta">
@@ -1392,9 +1709,17 @@ export function renderLoans(loans, repayments, summary) {
           <div class="loan-progress-fill" style="width: ${pct}%"></div>
         </div>
         <div class="loan-actions">
-          ${l.status !== 'paid' ? `<button class="btn repay-btn repay-loan-btn" data-id="${l.id}">💰 Bayar</button>` : ''}
+          ${l.status !== 'paid' && isCicilan && nextAmt > 0 ? `<button class="btn repay-btn pay-next-btn" data-id="${l.id}" data-amount="${nextAmt}" title="${isTaken ? `Bayar hutang cicilan ke-${nextNum} sebesar ${formatCurrency(nextAmt)}` : `Bayar cicilan ke-${nextNum} sebesar ${formatCurrency(nextAmt)}`}">${isTaken ? `💰 Bayar hutang ${nextNum}/${tenor} • ${formatCurrencyCompact(nextAmt)}` : `💰 Bayar cicilan ${nextNum}/${tenor} • ${formatCurrencyCompact(nextAmt)}`}</button>` : ''}
+          ${l.status !== 'paid' && !isCicilan ? `<button class="btn repay-btn repay-loan-btn" data-id="${l.id}">${isTaken ? '💰 Bayar hutang' : '💰 Bayar'}</button>` : ''}
+          ${l.status !== 'paid' && isCicilan ? `<button class="btn btn-secondary repay-loan-btn" data-id="${l.id}" title="Bayar nominal lain (sebagian / pelunasan)">Nominal lain</button>` : ''}
+          ${isCicilan && tenor ? `<button class="btn btn-ghost schedule-toggle-btn" data-id="${l.id}" aria-expanded="false">Jadwal ▾</button>` : ''}
           <button class="btn btn-danger delete-loan-btn" data-id="${l.id}">🗑 Hapus</button>
         </div>
+        ${isCicilan && tenor ? `
+          <div class="loan-schedule hidden" id="sched-${l.id}">
+            ${buildScheduleRows(l, reps, tenor, instAmt)}
+          </div>
+        ` : ''}
         ${reps.length ? `
           <div class="loan-repayments">
             ${reps.slice().reverse().map(r => `
@@ -1410,11 +1735,87 @@ export function renderLoans(loans, repayments, summary) {
   }).join('');
 }
 
-export function openRepayModal(loanId, outstanding) {
+export function openRepayModal(loanId, outstanding, presetAmount, presetLabel, detail) {
   elements.repayLoanId.value = loanId;
   elements.repayForm.reset();
-  elements.repayAmount.value = outstanding > 0 ? formatIdrInput(outstanding) : '';
+  const d = detail || {};
+  const total = Number(d.total) || 0;
+  const paid = Number(d.paid) || 0;
+  const paidCount = Number(d.paidCount) || 0;
+  const tenor = Number(d.tenor) || 1;
+  const instAmt = Number(d.instAmt) || 0;
+  const out = Math.max(Number(outstanding) || 0, 0);
+  const amt = (presetAmount && presetAmount > 0) ? Math.min(presetAmount, out) : out;
+  elements.repayAmount.value = amt > 0 ? formatIdrInput(amt) : '';
   elements.repayDate.value = new Date().toISOString().split('T')[0];
+  const title = document.getElementById('repayModalTitle');
+  if (title) title.textContent = presetLabel || 'Bayar Pinjaman';
+  // summary: total / sudah dibayar / sisa (+ cicilan info)
+  const sumBox = document.getElementById('repaySummary');
+  if (sumBox) {
+    const pct = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+    const schedLine = tenor > 1
+      ? `<div class="repay-row"><span>Cicilan</span><strong>${formatCurrency(instAmt)}/bulan • ${Math.min(paidCount, tenor)}/${tenor} terbayar</strong></div>`
+      : '';
+    sumBox.innerHTML = `
+      <div class="repay-row"><span>Total pinjaman</span><strong>${formatCurrency(total)}</strong></div>
+      <div class="repay-row"><span>Sudah dibayar${tenor > 1 ? ` (${Math.min(paidCount, tenor)}/${tenor})` : ''}</span><strong class="green">${formatCurrency(paid)}</strong></div>
+      <div class="repay-row"><span>Sisa</span><strong class="red">${formatCurrency(out)}</strong></div>
+      ${schedLine}
+      <div class="repay-progress"><div class="repay-progress-fill" style="width:${pct}%"></div></div>`;
+  }
+  // cicilan-count picker (only when meaningful)
+  const wrap = document.getElementById('repayCicilanWrap');
+  const chipsBox = document.getElementById('repayCicilanChips');
+  const hint = document.getElementById('repayCicilanHint');
+  if (wrap && chipsBox) {
+    const remaining = tenor > 1 ? Math.max(tenor - paidCount, 0) : 0;
+    if (remaining > 1) {
+      wrap.hidden = false;
+      const show = Math.min(remaining, 12);
+      let html = '';
+      for (let n = 1; n <= show; n++) {
+        const a = Math.min(n * instAmt, out);
+        html += `<button type="button" class="repay-chip${n === 1 ? ' selected' : ''}" data-n="${n}" data-amount="${a}" title="${n} cicilan = ${formatCurrency(a)}">${n}x • ${formatCurrencyCompact(a)}</button>`;
+      }
+      if (remaining > show) html += `<span style="font-size:11px;color:#64748b;align-self:center">…${remaining} cicilan tersisa</span>`;
+      html += `<button type="button" class="repay-chip lunasi" data-n="full" data-amount="${out}" title="Lunasi sisa ${formatCurrency(out)}">Lunasi ${formatCurrencyCompact(out)}</button>`;
+      chipsBox.innerHTML = html;
+      const markSelected = (btn) => {
+        chipsBox.querySelectorAll('.repay-chip').forEach(b => b.classList.toggle('selected', b === btn));
+      };
+      const updateHint = (n, a) => {
+        if (hint) {
+          if (n === 'full') hint.textContent = `Pelunasan penuh ${formatCurrency(a)} — hutang lunas`;
+          else hint.textContent = `Bayar ${n} cicilan (ke-${paidCount + 1} s/d ${paidCount + Number(n)} dari ${tenor}) = ${formatCurrency(a)}`;
+        }
+      };
+      chipsBox.querySelectorAll('.repay-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const a = Number(btn.dataset.amount) || 0;
+          elements.repayAmount.value = a > 0 ? formatIdrInput(a) : '';
+          markSelected(btn);
+          updateHint(btn.dataset.n, a);
+        });
+      });
+      // default select first chip
+      const first = chipsBox.querySelector('.repay-chip');
+      if (first) updateHint(first.dataset.n, Number(first.dataset.amount) || 0);
+      // typing custom amount clears chip selection
+      elements.repayAmount.oninput = () => {
+        chipsBox.querySelectorAll('.repay-chip').forEach(b => b.classList.remove('selected'));
+        if (hint) {
+          const v = parseFormattedNumber(elements.repayAmount.value);
+          hint.textContent = v > 0 ? `Nominal manual ${formatCurrency(v)}${v >= out - 0.01 ? ' — akan lunas' : ` — sisa ${formatCurrency(Math.max(out - v, 0))}`}` : '';
+        }
+      };
+    } else {
+      wrap.hidden = true;
+      chipsBox.innerHTML = '';
+      if (hint) hint.textContent = '';
+      elements.repayAmount.oninput = null;
+    }
+  }
   if (!elements.repayModal.open) elements.repayModal.showModal();
   elements.repayAmount.focus();
 }
@@ -1437,6 +1838,21 @@ export function getRepayFormData() {
 
 export function bindLoanActions(onRepay, onDelete, onDeleteRepayment) {
   elements.loanList.addEventListener('click', (e) => {
+    const schedBtn = e.target.closest('.schedule-toggle-btn');
+    if (schedBtn) {
+      const panel = document.getElementById(`sched-${schedBtn.dataset.id}`);
+      if (panel) {
+        const open = panel.classList.toggle('hidden');
+        schedBtn.setAttribute('aria-expanded', String(!open));
+        schedBtn.textContent = open ? 'Jadwal ▾' : 'Tutup ▴';
+      }
+      return;
+    }
+    const payNext = e.target.closest('.pay-next-btn');
+    if (payNext) {
+      onRepay(payNext.dataset.id, Number(payNext.dataset.amount) || undefined);
+      return;
+    }
     const repayBtn = e.target.closest('.repay-loan-btn');
     const deleteBtn = e.target.closest('.delete-loan-btn');
     const deleteRepayBtn = e.target.closest('.delete-repay-btn');
@@ -1681,10 +2097,21 @@ export function bindContactFormTypeButtons() {
 }
 
 export function openLoanEntry() {
+  openLoanEntryFor('Piutang', 'new');
+}
+
+export function openLoanEntryFor(category, mode) {
   openModal();
-  elements.entryType.value = 'expense';
-  setSelected(elements.typeGroup, 'expense');
-  renderCategoryButtons('expense');
-  selectCategory('Piutang');
+  const isHutang = category === 'Hutang';
+  const type = isHutang ? 'income' : 'expense';
+  elements.entryType.value = type;
+  setSelected(elements.typeGroup, type);
+  const bg = document.getElementById('txSegmentBg');
+  if (bg) bg.className = 'tx-segment-bg ' + (type === 'income' ? 'tx-segment-income' : 'tx-segment-expense');
+  renderCategoryButtons(type);
+  if (elements.entryLoanMode) elements.entryLoanMode.value = mode || 'new';
+  setLoanModeUI(mode || 'new');
+  selectCategory(category);
+  updateTxMetaBar();
   elements.entryDate.focus();
 }

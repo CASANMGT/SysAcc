@@ -6,6 +6,27 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.3.0] - 2026-09-08
+
+### Added
+- **Pinjaman/Hutangan split flows** — `Pinjamin` (keluar) / `Balikin Pinjaman` (terima cicilan) dan `Hutang` (masuk) / `Balikin Hutang` (bayar cicilan) via mode toggle + picker sisa (`index.html:506` `ui.js:755` `app.js:513`)
+- **Cicilan schedule per loan** — `Jadwal ▾` 1..N + `Bayar cicilan k/N` one-click + repay modal ringkasan (total/sudah/sisa) + chip 1x..Nx + `Lunasi` (`ui.js:1341`)
+- **Bulk actions + export tampilan** — checkbox baris, hapus terpilih, export Excel terpilih/tampilan (`storage.js:180` `app.js:547`)
+- **Arus Kas controls** — range 3/6/12, toggle Masuk/Keluar, tooltip + sumbu-y (`app.js:731`)
+- **Pengingat dinamis** — badge bell dari jadwal turunan + kartu overdue (`app.js:868` `ui.js:1617`)
+- **Boot watchdog** — pesanDiagnostik di login jika modul gagal (`index.html:919`)
+
+### Changed
+- **Tabel Transaksi** — kolom JUMLAH nowrap Rp, filter `Masuk/Keluar`, density Padat/Nyaman, sembunyikan Cara Bayar, paginasi 20
+- **Dashboard** — kartu Pinjaman+Hutangan dua baris + Surplus/Defisit; tab Pinjaman ada hitungan; toggle sembunyikan lunas
+- **Login** — trim + case-insensitive, guard storage, link mati jadi toast
+
+### Fixed
+- `SyntaxError: return not in function` di `validateForm` (`ui.js:1144`) — modul mati total, login ikut mati
+- `exportCSV` `esc(0)`, saldo kronologis,BYTE/BLoB revoke, print ikut filter+sort
+
+---
+
 ## [1.2.0] - 2026-08-30
 
 ### Added

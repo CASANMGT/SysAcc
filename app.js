@@ -6,6 +6,8 @@ let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
 let customRange = { start: null, end: null };
 let loanSearchTerm = '';
+let loanDirectionFilter = 'all';
+let loanHidePaid = safeLocalGet('wynara_hidePaidLoans') === '1';
 let sortColumn = 'date';
 let sortDirection = 'desc';
 let currentReportType = 'monthly';
@@ -15,11 +17,23 @@ let currentPage = 1;
 let transaksiPage = 1;
 const pageSize = 20;
 let searchBound = false;
+function safeLocalGet(k) {
+  try { return localStorage.getItem(k); } catch { return null; }
+}
+let arusKasRange = Number(safeLocalGet('wynara_arusRange')) || 6;
+if (![3, 6, 12].includes(arusKasRange)) arusKasRange = 6;
+let arusKasShow = { income: true, expense: true };
+try {
+  const saved = JSON.parse(safeLocalGet('wynara_arusShow') || 'null');
+  if (saved && typeof saved.income === 'boolean') arusKasShow = saved;
+} catch {}
+window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
+  window.__appBooted = true;
   if (!isLoggedIn()) {
     showLogin();
     return;
@@ -27,8 +41,19 @@ function init() {
   showApp();
 }
 
+function safeSessionGet(k) {
+  try { return sessionStorage.getItem(k); } catch { return null; }
+}
+function safeSessionSet(k, v) {
+  try { sessionStorage.setItem(k, v); return true; }
+  catch { UI.showError('Browser memblokir penyimpanan sesi — login tidak bisa disimpan'); return false; }
+}
+function safeLocalSet(k, v) {
+  try { localStorage.setItem(k, v); } catch {}
+}
+
 function isLoggedIn() {
-  return sessionStorage.getItem('wynara_logged_in') === 'true';
+  return safeSessionGet('wynara_logged_in') === 'true';
 }
 
 let loginListenerAdded = false;
@@ -45,20 +70,41 @@ function showLogin() {
       pass.type = isText ? 'password' : 'text';
       eye.textContent = isText ? '👁️' : '🙈';
     });
+    // clear error as soon as user retypes
+    ['loginUser', 'loginPass'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => {
+        document.getElementById('loginError')?.classList.add('hidden');
+      });
+    });
+    // dead links/buttons on login screen -> info instead of jumping to #
+    document.querySelector('.login-forgot')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      UI.showInfo('Reset password belum tersedia di versi demo — pakai admin / admin');
+    });
+    document.querySelector('.login-hint-new a')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      UI.showInfo('Pendaftaran belum dibuka — pakai admin / admin');
+    });
+    document.querySelector('.login-google')?.addEventListener('click', () => {
+      UI.showInfo('Login Google segera hadir — pakai admin / admin');
+    });
     loginListenerAdded = true;
   }
+  document.getElementById('loginError')?.classList.add('hidden');
+  setTimeout(() => document.getElementById('loginUser')?.focus(), 50);
 }
 
 function handleLogin(e) {
   e.preventDefault();
-  const user = document.getElementById('loginUser').value.trim();
-  const pass = document.getElementById('loginPass').value;
+  const user = (document.getElementById('loginUser').value || '').trim().toLowerCase();
+  const pass = (document.getElementById('loginPass').value || '').trim();
   if (user === 'admin' && pass === 'admin') {
-    sessionStorage.setItem('wynara_logged_in', 'true');
+    if (!safeSessionSet('wynara_logged_in', 'true')) return;
     document.getElementById('loginError').classList.add('hidden');
     showApp();
   } else {
     document.getElementById('loginError').classList.remove('hidden');
+    document.getElementById('loginPass')?.select();
   }
 }
 
@@ -71,14 +117,24 @@ function showApp() {
   if (vs) vs.textContent = APP_VERSION;
   if (vf) vf.textContent = APP_VERSION;
   // version check
-  const stored = localStorage.getItem('wynara_version');
+  const stored = safeLocalGet('wynara_version');
   if (stored && stored !== APP_VERSION) {
     UI.showInfo(`Diperbarui ke v${APP_VERSION} (dari v${stored}) — lihat Changelog`);
   }
-  localStorage.setItem('wynara_version', APP_VERSION);
+  safeLocalSet('wynara_version', APP_VERSION);
   loadData();
-  bindEvents();
-  render();
+  try {
+    bindEvents();
+  } catch (err) {
+    console.error(err);
+    UI.showError('Gagal menyiapkan aplikasi: ' + (err.message || err));
+  }
+  try {
+    render();
+  } catch (err) {
+    console.error(err);
+    UI.showError('Gagal menampilkan data: ' + (err.message || err));
+  }
   UI.initIdrInputs();
   if (!keyboardBound) {
     document.addEventListener('keydown', handleKeyboardShortcut);
@@ -132,24 +188,42 @@ function bindEvents() {
   });
   document.addEventListener('click', () => exportMenu.classList.add('hidden'));
 
-  const savedTheme = localStorage.getItem('theme');
+  const savedTheme = safeLocalGet('theme');
   if (savedTheme === 'dark') {
     document.body.classList.add('dark-mode');
   }
   document.getElementById('themeToggle').addEventListener('click', handleThemeToggle);
 
   document.getElementById('loanBtn').addEventListener('click', () => {
-    UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary());
+    UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans());
   });
   document.getElementById('closeLoansBtn').addEventListener('click', UI.closeLoans);
   document.getElementById('loanSearch').addEventListener('input', (e) => {
     loanSearchTerm = e.target.value;
-    UI.renderLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary());
+    renderLoansView();
   });
+  document.querySelectorAll('#loanTabs .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#loanTabs .chip').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      loanDirectionFilter = btn.dataset.value || 'all';
+      renderLoansView();
+    });
+  });
+  const hidePaidBox = document.getElementById('hidePaidLoans');
+  if (hidePaidBox) {
+    hidePaidBox.checked = loanHidePaid;
+    hidePaidBox.addEventListener('change', () => {
+      loanHidePaid = hidePaidBox.checked;
+      safeLocalSet('wynara_hidePaidLoans', loanHidePaid ? '1' : '0');
+      renderLoansView();
+    });
+  }
   document.getElementById('addLoanBtn').addEventListener('click', () => {
     UI.closeLoans();
     UI.renderPeopleDatalist(Storage.getAllPeople());
-    UI.openLoanEntry();
+    if (loanDirectionFilter === 'taken') UI.openLoanEntryFor('Hutang', 'new');
+    else UI.openLoanEntryFor('Piutang', 'new');
   });
   UI.bindLoanActions(handleRepayClick, handleLoanDelete, handleRepayDelete);
   UI.bindRepayModalClose(UI.closeRepayModal);
@@ -186,7 +260,7 @@ function bindEvents() {
   }
   document.getElementById('reportBtnSidebar')?.addEventListener('click', handleReportOpen);
   document.getElementById('contactsBtnSidebar')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
-  document.getElementById('loanBtnSidebar')?.addEventListener('click', () => UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary()));
+  document.getElementById('loanBtnSidebar')?.addEventListener('click', () => UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans()));
   document.getElementById('themeToggleSidebar')?.addEventListener('click', handleThemeToggle);
   function showView(viewId) {
     document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
@@ -215,7 +289,17 @@ function bindEvents() {
       overlay?.classList.add('hidden');
     });
   });
-  document.getElementById('notifBtn')?.addEventListener('click', () => UI.showInfo('Notifikasi: 3 baru'));
+  document.getElementById('notifBtn')?.addEventListener('click', () => {
+    const alerts = getLoanAlerts();
+    if (!alerts.length) { UI.showSuccess('Tidak ada pinjaman jatuh tempo 🎉'); return; }
+    const lines = alerts.slice(0, 5).map(a => {
+      const name = a.loan.person || 'Tanpa nama';
+      const when = a.diffDays < 0 ? `terlambat ${Math.abs(a.diffDays)} hari` : (a.diffDays === 0 ? 'hari ini' : `H-${a.diffDays}`);
+      return `• ${name} — ${when}`;
+    }).join('\n');
+    UI.showWarning(`${alerts.length} pengingat pinjaman:\n${lines}`);
+    UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans());
+  });
   document.getElementById('aksiTambahTransaksi')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
   document.getElementById('addEntryBtn2')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
   document.getElementById('aksiTambahKontak')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
@@ -248,6 +332,26 @@ function bindEvents() {
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
   document.getElementById('importJsonBtn')?.addEventListener('click', () => document.getElementById('importJsonFile')?.click());
   document.getElementById('importJsonFile')?.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleImport(f); e.target.value = ''; });
+  // Export mengikuti tampilan terfilter (bukan seluruh DB)
+  document.getElementById('exportExcelBtn2')?.addEventListener('click', () => {
+    try {
+      const rows = getCurrentViewEntries();
+      if (!rows.length) { UI.showInfo('Tidak ada data pada tampilan ini'); return; }
+      Storage.exportExcelEntries(rows, `wynara-tampilan-${new Date().toISOString().split('T')[0]}.xlsx`);
+      UI.showSuccess(`${rows.length} baris diexport ke Excel`);
+    } catch (err) { UI.showError(err.message); }
+  });
+  document.getElementById('exportCsvBtn2')?.addEventListener('click', () => {
+    try {
+      const rows = getCurrentViewEntries();
+      if (!rows.length) { UI.showInfo('Tidak ada data pada tampilan ini'); return; }
+      Storage.exportCSVEntries(rows, `wynara-tampilan-${new Date().toISOString().split('T')[0]}.csv`);
+      UI.showSuccess(`${rows.length} baris diexport ke CSV`);
+    } catch (err) { UI.showError(err.message); }
+  });
+  document.getElementById('importAnyBtn')?.addEventListener('click', () => document.getElementById('importAnyFile')?.click());
+  document.getElementById('importAnyFile')?.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleImport(f); e.target.value = ''; });
+  document.getElementById('printBtn2')?.addEventListener('click', handlePrint);
   const budgetInputEl = document.getElementById('budgetInput');
   if (budgetInputEl) {
     budgetInputEl.addEventListener('focus', () => { const raw = budgetInputEl.value.replace(/[^0-9]/g,''); budgetInputEl.value = raw; });
@@ -277,6 +381,99 @@ function bindEvents() {
       currentPage = 1;
       render();
     });
+  });
+
+  // P1: density + column chooser (persisted)
+  const applyDensity = () => {
+    const panel = document.querySelector('.dash-panel-table');
+    const mode = safeLocalGet('wynara_density') || 'padat';
+    if (panel) { panel.classList.remove('density-padat', 'density-nyaman'); panel.classList.add(mode === 'nyaman' ? 'density-nyaman' : 'density-padat'); }
+    document.querySelectorAll('#densityGroup .chip').forEach(b => b.classList.toggle('selected', b.dataset.value === mode));
+  };
+  document.querySelectorAll('#densityGroup .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      safeLocalSet('wynara_density', btn.dataset.value);
+      applyDensity();
+    });
+  });
+  const applyPayCol = () => {
+    const hide = safeLocalGet('wynara_hidePay') === '1';
+    document.querySelector('.dash-panel-table')?.classList.toggle('hide-pay', hide);
+    document.getElementById('transaksiTable')?.classList.toggle('hide-pay', hide);
+    const t = document.getElementById('togglePayCol');
+    if (t) { t.textContent = hide ? 'Cara Bayar: OFF' : 'Cara Bayar: ON'; t.setAttribute('aria-pressed', String(hide)); t.classList.toggle('selected', !hide); }
+  };
+  document.getElementById('togglePayCol')?.addEventListener('click', () => {
+    const hide = safeLocalGet('wynara_hidePay') === '1';
+    safeLocalSet('wynara_hidePay', hide ? '0' : '1');
+    applyPayCol();
+  });
+  applyDensity();
+  applyPayCol();
+
+  // P2: arus kas range + toggle
+  document.querySelectorAll('#arusRange .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      arusKasRange = Number(btn.dataset.value) || 6;
+      safeLocalSet('wynara_arusRange', String(arusKasRange));
+      renderArusKasChart(getCurrentViewEntriesRaw());
+    });
+  });
+  document.querySelectorAll('#arusToggle .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.value;
+      arusKasShow[k] = !arusKasShow[k];
+      safeLocalSet('wynara_arusShow', JSON.stringify(arusKasShow));
+      renderArusKasChart(getCurrentViewEntriesRaw());
+    });
+  });
+
+  // P3: bulk select (delegated, survives re-render)
+  document.getElementById('entriesBody')?.addEventListener('change', (e) => {
+    const cb = e.target.closest('.row-select');
+    if (!cb || cb.disabled) return;
+    if (cb.checked) window.__selectedIds.add(cb.dataset.id);
+    else window.__selectedIds.delete(cb.dataset.id);
+    updateBulkBar();
+  });
+  document.getElementById('selectAllRows')?.addEventListener('change', (e) => {
+    document.querySelectorAll('#entriesBody .row-select:not(:disabled)').forEach(cb => {
+      cb.checked = e.target.checked;
+      if (e.target.checked) window.__selectedIds.add(cb.dataset.id);
+      else window.__selectedIds.delete(cb.dataset.id);
+    });
+    updateBulkBar();
+  });
+  document.getElementById('bulkClearBtn')?.addEventListener('click', () => { window.__selectedIds.clear(); render(); updateBulkBar(); });
+  document.getElementById('bulkDeleteBtn')?.addEventListener('click', handleBulkDelete);
+  document.getElementById('bulkExportBtn')?.addEventListener('click', () => {
+    const rows = getCurrentViewEntries().filter(e => window.__selectedIds.has(e.id));
+    if (!rows.length) { UI.showInfo('Pilih dulu baris yang mau diexport'); return; }
+    Storage.exportExcelEntries(rows, `wynara-terpilih-${new Date().toISOString().split('T')[0]}.xlsx`);
+    UI.showSuccess(`${rows.length} baris diexport ke Excel`);
+  });
+  document.getElementById('exportViewBtn')?.addEventListener('click', () => {
+    const rows = getCurrentViewEntries();
+    if (!rows.length) { UI.showInfo('Tidak ada data pada tampilan ini'); return; }
+    Storage.exportExcelEntries(rows, `wynara-tampilan-${new Date().toISOString().split('T')[0]}.xlsx`);
+    UI.showSuccess(`${rows.length} baris (tampilan + filter + pencarian) diexport`);
+  });
+  updateBulkBar();
+
+  // delegated: filter pills reset (no inline onclick)
+  document.getElementById('filterPills')?.addEventListener('click', (e) => {
+    if (e.target.closest('[data-action="reset-filters"]')) resetAllFilters();
+  });
+  // topbar pills: account info + period opens custom range
+  document.getElementById('topbarAccount')?.addEventListener('click', () => {
+    UI.showInfo('Akun utama (demo) — admin');
+  });
+  document.getElementById('topbarPeriod')?.addEventListener('click', () => {
+    UI.openCustomDateModal();
+  });
+  // sidebar help
+  document.querySelector('.sidebar-help-btn')?.addEventListener('click', () => {
+    UI.showInfo('Pusat bantuan segera hadir — Ctrl+N tambah, / cari, Esc tutup');
   });
 
   document.getElementById('changelogLink')?.addEventListener('click', (e) => {
@@ -359,6 +556,33 @@ function bindEvents() {
     });
     return result;
   };
+  const buildOutstanding = (direction) => {
+    const loans = Storage.getAllLoans().filter(l => l.direction === direction && l.status !== 'paid');
+    const repayments = Storage.getAllRepayments();
+    return loans.map(l => {
+      const reps = repayments.filter(r => r.loanId === l.id);
+      const paid = reps.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const outstanding = (Number(l.amount) || 0) - paid;
+      const instAmt = Number(l.installmentAmount) || 0;
+      const tenor = instAmt > 0 ? Math.ceil((Number(l.amount) || 0) / instAmt) : 1;
+      return {
+        id: l.id,
+        person: l.person,
+        contactType: l.contactType || 'person',
+        amount: Number(l.amount) || 0,
+        paid,
+        paidCount: reps.length,
+        instAmt,
+        outstanding: Math.max(outstanding, 0),
+        tenor,
+        nextAmt: instAmt > 0 ? Math.min(instAmt, Math.max(outstanding, 0)) : Math.max(outstanding, 0),
+        date: l.date
+      };
+    }).filter(x => x.outstanding > 0.009)
+      .sort((a, b) => b.outstanding - a.outstanding);
+  };
+  window.__getOutstandingHutang = () => buildOutstanding('taken');
+  window.__getOutstandingPiutang = () => buildOutstanding('given');
   UI.bindRepayFormSubmit(handleRepaySubmit);
 
   document.getElementById('logoutBtn').addEventListener('click', handleLogout);
@@ -374,12 +598,20 @@ function computeLoanSummary() {
 
 function getFilteredLoans() {
   const term = (loanSearchTerm || '').trim().toLowerCase();
-  const all = Storage.getAllLoans();
-  return term ? all.filter(l => l.person.toLowerCase().includes(term)) : all;
+  let all = Storage.getAllLoans();
+  if (loanDirectionFilter === 'given' || loanDirectionFilter === 'taken') {
+    all = all.filter(l => l.direction === loanDirectionFilter);
+  }
+  if (loanHidePaid) all = all.filter(l => l.status !== 'paid');
+  return term ? all.filter(l => (l.person || '').toLowerCase().includes(term)) : all;
+}
+
+function renderLoansView() {
+  UI.renderLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans());
 }
 
 function refreshLoans() {
-  UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary());
+  UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans());
   refresh();
 }
 
@@ -394,13 +626,60 @@ function handleFormSubmit() {
   const isLoan = LOAN_CATEGORIES.includes(data.category);
 
   if (isLoan) {
-    const direction = data.category === 'Piutang' ? 'given' : 'taken';
-    if (!data.person) return UI.showError('Nama orang wajib diisi untuk pinjaman');
+    const mode = data.loanMode || 'new';
+    // 4 flows: Piutang Baru (beri, keluar) / Terima Pelunasan (masuk) / Hutang Baru (pinjam, masuk) / Bayar Hutang (keluar)
+    if (mode === 'settle') {
+      if (data.id) {
+        UI.showError('Pelunasan tidak bisa diubah dari sini. Gunakan panel Pinjaman.');
+        return;
+      }
+      const loanId = data.loanId || null;
+      if (!loanId) return UI.showError(data.category === 'Hutang' ? 'Pilih dulu hutang yang mau dibalikin' : 'Pilih dulu pinjaman yang mau dibalikin');
+      const loan = Storage.getLoanById(loanId);
+      if (!loan) return UI.showError('Pinjaman terpilih tidak ditemukan — pilih ulang');
+      const expectedDir = data.category === 'Hutang' ? 'taken' : 'given';
+      if (loan.direction !== expectedDir) return UI.showError('Pinjaman terpilih tidak sesuai kategori — pilih ulang');
+      const reps = Storage.getLoanRepayments(loanId);
+      const paid = reps.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const outstanding = (Number(loan.amount) || 0) - paid;
+      if (data.amount > outstanding + 0.01) {
+        return UI.showError(`Nominal melebihi sisa ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.max(outstanding, 0))}`);
+      }
+      Storage.addRepayment({
+        loanId,
+        amount: data.amount,
+        date: data.date,
+        description: data.description || (data.category === 'Hutang' ? `Bayar Hutang: ${loan.person}` : `Terima Piutang: ${loan.person}`)
+      });
+      const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v);
+      UI.showSuccess(data.category === 'Hutang'
+        ? `Balikin hutang ke ${loan.person} ${fmt(data.amount)}`
+        : `Balikin pinjaman dari ${loan.person} diterima ${fmt(data.amount)}`);
+    } else {
+      const direction = data.category === 'Piutang' ? 'given' : 'taken';
+      if (!data.person) return UI.showError(data.category === 'Hutang' ? 'Nama pemberi hutang wajib diisi' : 'Nama yang dipinjami wajib diisi');
 
-    if (data.id) {
-      const existing = Storage.getEntryById(data.id);
-      if (existing && existing.loanId) {
-        Storage.updateLoan(existing.loanId, {
+      if (data.id) {
+        const existing = Storage.getEntryById(data.id);
+        if (existing && existing.loanId) {
+          Storage.updateLoan(existing.loanId, {
+            direction,
+            contactType: data.contactType,
+            loanType: data.loanType,
+            installmentAmount: data.installmentAmount,
+            person: data.person,
+            amount: data.amount,
+            date: data.date,
+            dueDate: data.loanDue,
+            description: data.description
+          });
+        } else {
+          Storage.updateEntry(data.id, data);
+        }
+        UI.showSuccess('Transaksi diperbarui');
+      } else {
+        Storage.savePerson(data.person, data.contactType);
+        Storage.createLoan({
           direction,
           contactType: data.contactType,
           loanType: data.loanType,
@@ -411,24 +690,8 @@ function handleFormSubmit() {
           dueDate: data.loanDue,
           description: data.description
         });
-      } else {
-        Storage.updateEntry(data.id, data);
+        UI.showSuccess(data.category === 'Hutang' ? 'Hutang dicatat (uang masuk)' : 'Pinjamin dicatat (uang keluar)');
       }
-      UI.showSuccess('Transaksi diperbarui');
-    } else {
-      Storage.savePerson(data.person, data.contactType);
-      Storage.createLoan({
-        direction,
-        contactType: data.contactType,
-        loanType: data.loanType,
-        installmentAmount: data.installmentAmount,
-        person: data.person,
-        amount: data.amount,
-        date: data.date,
-        dueDate: data.loanDue,
-        description: data.description
-      });
-      UI.showSuccess('Pinjaman ditambahkan');
     }
   } else {
     if (data.id) {
@@ -556,6 +819,58 @@ function handleExportCsv() {
   UI.showSuccess('Data diekspor ke CSV');
 }
 
+function getCurrentSearchFiltered() {
+  const filtered = Reports.filterEntries(currentEntries, currentFilters);
+  const searchTerm = UI.getSearchTerm();
+  return searchTerm
+    ? filtered.filter(e =>
+        (e.description && e.description.toLowerCase().includes(searchTerm)) ||
+        (e.category && e.category.toLowerCase().includes(searchTerm)) ||
+        (e.payment && e.payment.toLowerCase().includes(searchTerm)) ||
+        (e.paymentDetail && e.paymentDetail.toLowerCase().includes(searchTerm)) ||
+        (e.person && e.person.toLowerCase().includes(searchTerm))
+      )
+    : filtered;
+}
+function getCurrentViewEntriesRaw() {
+  return getCurrentSearchFiltered();
+}
+function getCurrentViewEntries() {
+  return sortEntries(Reports.computeRunningBalance(getCurrentSearchFiltered()));
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const count = document.getElementById('bulkCount');
+  if (!bar || !count) return;
+  const n = window.__selectedIds.size;
+  bar.classList.toggle('hidden', n === 0);
+  count.textContent = `${n} dipilih`;
+  const selAll = document.getElementById('selectAllRows');
+  if (selAll) {
+    const visibleIds = (document.querySelectorAll('#entriesBody .row-select:not(:disabled)'));
+    const checked = document.querySelectorAll('#entriesBody .row-select:checked:not(:disabled)');
+    selAll.checked = visibleIds.length > 0 && checked.length === visibleIds.length;
+    selAll.indeterminate = checked.length > 0 && checked.length < visibleIds.length;
+  }
+}
+
+function handleBulkDelete() {
+  if (!window.__selectedIds.size) return;
+  const ids = [...window.__selectedIds];
+  const loanLinked = ids.filter(id => { const e = Storage.getEntryById(id); return e && e.loanId; });
+  if (loanLinked.length) {
+    UI.showError(`${loanLinked.length} baris pinjaman dilewati (hapus via menu Pinjaman)`);
+  }
+  const deletable = ids.filter(id => { const e = Storage.getEntryById(id); return e && !e.loanId; });
+  if (!deletable.length) return;
+  if (!confirm(`Hapus ${deletable.length} transaksi terpilih?`)) return;
+  deletable.forEach(id => Storage.deleteEntry(id));
+  window.__selectedIds.clear();
+  UI.showSuccess(`${deletable.length} transaksi dihapus`);
+  refresh();
+}
+
 function handleImport(file) {
   Storage.importExcel(file).then((result) => {
     const parts = [];
@@ -584,7 +899,8 @@ function handleReportOpen() {
 }
 
 function handleReportClose() {
-  document.getElementById('reportModal').close();
+  const m = document.getElementById('reportModal');
+  if (m && m.open) { try { m.close(); } catch {} }
 }
 
 function handleReportTabChange(reportType) {
@@ -639,13 +955,14 @@ function sortEntries(entries) {
 function render() {
   const filtered = Reports.filterEntries(currentEntries, currentFilters);
   
-  // Apply search filter
+  // Apply search filter (includes paymentDetail)
   const searchTerm = UI.getSearchTerm();
-  const searchFiltered = searchTerm 
-    ? filtered.filter(e => 
+  const searchFiltered = searchTerm
+    ? filtered.filter(e =>
         (e.description && e.description.toLowerCase().includes(searchTerm)) ||
         (e.category && e.category.toLowerCase().includes(searchTerm)) ||
         (e.payment && e.payment.toLowerCase().includes(searchTerm)) ||
+        (e.paymentDetail && e.paymentDetail.toLowerCase().includes(searchTerm)) ||
         (e.person && e.person.toLowerCase().includes(searchTerm))
       )
     : filtered;
@@ -662,6 +979,7 @@ function render() {
   const paginated = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   UI.renderEntries(paginated);
+  updateBulkBar();
   // pagination UI
   const pagerNum = document.getElementById('pagerNum');
   const prevBtn = document.getElementById('prevPage');
@@ -719,7 +1037,29 @@ function renderFilterPills() {
     container.innerHTML = '<span style="font-size:12px;color:#94a3b8">Semua transaksi</span>';
     return;
   }
-  container.innerHTML = pills.map(p => `<span class="chip selected" style="font-size:11px;padding:4px 10px">${p}</span>`).join('') + ' <button class="chip" style="font-size:11px" onclick="document.querySelectorAll(\'#periodGroup .chip[data-value=all],#typeGroupFilter .chip[data-value=all],#categoryGroupFilter .chip[data-value=all]\').forEach(b=>b.click());document.getElementById(\'searchInput\').value=\'\';document.getElementById(\'searchInputTop\').value=\'\';">Reset</button>';
+  container.innerHTML = pills.map(p => `<span class="chip selected" style="font-size:11px;padding:4px 10px">${p}</span>`).join('') + ' <button class="chip" style="font-size:11px" data-action="reset-filters">Reset</button>';
+}
+
+function resetAllFilters() {
+  ['periodGroup', 'typeGroupFilter', 'categoryGroupFilter'].forEach(g => {
+    const all = document.querySelector(`#${g} .chip[data-value="all"]`);
+    if (all) {
+      document.querySelectorAll(`#${g} .chip`).forEach(b => b.classList.remove('selected'));
+      all.classList.add('selected');
+    }
+  });
+  document.querySelectorAll('#txTypeFilter .chip').forEach(b => b.classList.toggle('selected', b.dataset.value === 'all'));
+  const s1 = document.getElementById('searchInput');
+  const s2 = document.getElementById('searchInputTop');
+  const s3 = document.getElementById('transaksiSearch');
+  if (s1) s1.value = '';
+  if (s2) s2.value = '';
+  if (s3) s3.value = '';
+  currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
+  customRange = { start: null, end: null };
+  currentPage = 1;
+  transaksiPage = 1;
+  render();
 }
 
 function syncTopSearch() {
@@ -728,6 +1068,13 @@ function syncTopSearch() {
   if (top && main && top.value !== main.value) top.value = main.value;
 }
 
+function fmtCompactRp(v) {
+  const n = Number(v) || 0;
+  if (n >= 1000000000) return `Rp${(n/1000000000).toFixed(1)}M`;
+  if (n >= 1000000) return `Rp${(n/1000000).toFixed(1)}jt`;
+  if (n >= 1000) return `Rp${Math.round(n/1000)}rb`;
+  return `Rp${n}`;
+}
 function renderArusKasChart(entries) {
   const svg = document.getElementById('arusKasChart');
   const monthsEl = document.getElementById('chartMonths');
@@ -735,67 +1082,79 @@ function renderArusKasChart(entries) {
   const rataEl = document.getElementById('chartRata');
   const growthEl = document.getElementById('chartGrowth');
   if (!svg) return;
+  // sync control UI
+  document.querySelectorAll('#arusRange .chip').forEach(b => b.classList.toggle('selected', Number(b.dataset.value) === arusKasRange));
+  document.querySelectorAll('#arusToggle .chip').forEach(b => {
+    const on = !!arusKasShow[b.dataset.value];
+    b.classList.toggle('selected', on);
+    b.classList.toggle('off', !on);
+  });
   const monthly = Reports.computeCashflow(entries);
-  // Build 6-month window ending at current month (or last entry month if data exists)
   const now = new Date();
-  // If we have entries, use the latest entry month as end, otherwise now
   let endDate = new Date(now.getFullYear(), now.getMonth(), 1);
   if (monthly.length) {
-    const last = monthly[monthly.length - 1].month; // e.g. 2026-08
+    const last = monthly[monthly.length - 1].month;
     const [y, m] = last.split('-').map(Number);
     if (y && m) endDate = new Date(y, m - 1, 1);
   }
   const startDate = new Date(endDate);
-  startDate.setMonth(startDate.getMonth() - 5);
+  startDate.setMonth(startDate.getMonth() - (arusKasRange - 1));
   const keys = Reports.getMonthsBetween(startDate, endDate);
   const map = new Map(monthly.map(d => [d.month, d]));
   const data = keys.map(k => map.get(k) || { month: k, income: 0, expense: 0 });
   const hasAny = data.some(d => d.income > 0 || d.expense > 0);
+  const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const labels = data.map(d => {
+    const [y, m] = d.month.split('-').map(Number);
+    return monthNames[m-1] || m;
+  });
+  if (monthsEl) monthsEl.innerHTML = labels.map(l => `<span>${l}</span>`).join('');
+  const total = data.reduce((a,b)=>a+b.income,0);
+  const activeMonths = data.filter(d => d.income > 0 || d.expense > 0).length || 1;
+  if (totalEl) totalEl.textContent = new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(total);
+  if (rataEl) rataEl.textContent = new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Math.round(total / activeMonths));
   if (!hasAny) {
-    svg.innerHTML = '<text x="300" y="90" text-anchor="middle" fill="#94a3b8" font-size="12">Belum ada data</text>';
-    if (monthsEl) monthsEl.innerHTML = data.map(d => `<span>${d.month.split('-')[1]}/${d.month.split('-')[0].slice(2)}</span>`).join('');
-    if (totalEl) totalEl.textContent = 'Rp 0';
-    if (rataEl) rataEl.textContent = 'Rp 0';
-    if (growthEl) growthEl.textContent = '—';
+    svg.innerHTML = '<text x="300" y="80" text-anchor="middle" fill="#94a3b8" font-size="12">Belum ada data</text><text x="300" y="100" text-anchor="middle" fill="#cbd5e1" font-size="11">Tambah transaksi untuk melihat tren</text>';
+    if (growthEl) { growthEl.textContent = '—'; growthEl.style.color = '#64748b'; }
     return;
   }
-  const W = 600, H = 180, pad = { l: 0, r: 0, t: 10, b: 20 };
-  const max = Math.max(...data.flatMap(d => [d.income, d.expense]), 1);
-  // Avoid flat line at bottom when max is small
+  const W = 600, H = 180, pad = { l: 44, r: 8, t: 10, b: 20 };
+  const n = data.length;
+  const max = Math.max(...data.flatMap(d => [arusKasShow.income ? d.income : 0, arusKasShow.expense ? d.expense : 0]), 1);
   const yMax = max * 1.15;
-  const stepX = (W - pad.l - pad.r) / 5;
+  const stepX = n > 1 ? (W - pad.l - pad.r) / (n - 1) : 0;
   const y = (v) => H - pad.b - (v / yMax) * (H - pad.t - pad.b);
   const x = (i) => pad.l + i * stepX;
   const incomePts = data.map((d, i) => `${x(i)},${y(d.income)}`).join(' L ');
   const expensePts = data.map((d, i) => `${x(i)},${y(d.expense)}`).join(' L ');
-  const areaIncome = `M ${incomePts} L ${x(5)},${H-pad.b} L ${x(0)},${H-pad.b} Z`;
-  const incomeHasData = data.some(d => d.income > 0);
-  const expenseHasData = data.some(d => d.expense > 0);
-  svg.innerHTML = `
-    ${[0,1,2,3].map(i => `<line x1="0" x2="600" y1="${pad.t + i*((H-pad.t-pad.b)/3)}" y2="${pad.t + i*((H-pad.t-pad.b)/3)}" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="4 6"/>`).join('')}
-    ${incomeHasData ? `<path d="${areaIncome}" fill="#10b981" fill-opacity="0.12"/>` : ''}
-    ${incomeHasData ? `<path d="M ${incomePts}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
-    ${expenseHasData ? `<path d="M ${expensePts}" fill="none" stroke="#fb7185" stroke-width="2" stroke-dasharray="6 6" opacity="0.7"/>` : ''}
-    ${data.map((d,i) => `<circle cx="${x(i)}" cy="${y(d.income)}" r="${i===5 ? 5 : 3}" fill="${d.income>0 ? '#10b981' : '#cbd5e1'}" stroke="white" stroke-width="2"/>`).join('')}
-  `;
-  const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-  if (monthsEl) monthsEl.innerHTML = data.map(d => {
-    const [y, m] = d.month.split('-').map(Number);
-    const label = monthNames[m-1] || m;
-    return `<span>${label}</span>`;
+  const lastIdx = n - 1;
+  const areaIncome = n > 1 ? `M ${incomePts} L ${x(lastIdx)},${H-pad.b} L ${x(0)},${H-pad.b} Z` : '';
+  const yTicks = [0, 1, 2, 3].map(i => {
+    const v = (yMax / 3) * i;
+    const yy = pad.t + (3 - i) * ((H - pad.t - pad.b) / 3);
+    return { v, yy };
+  });
+  const dots = data.map((d, i) => {
+    const tip = `${labels[i]} • Masuk ${fmtCompactRp(d.income)} • Keluar ${fmtCompactRp(d.expense)}`;
+    return `<g><title>${tip}</title><circle cx="${x(i)}" cy="${y(d.income)}" r="${i===lastIdx ? 5 : 3.5}" fill="${d.income>0 ? '#10b981' : '#cbd5e1'}" stroke="white" stroke-width="2"><title>${tip}</title></circle></g>`;
   }).join('');
-  const total = data.reduce((a,b)=>a+b.income,0);
-  if (totalEl) totalEl.textContent = new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(total);
-  if (rataEl) rataEl.textContent = new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Math.round(total / 6));
+  svg.innerHTML = `
+    ${yTicks.map(t => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${t.yy}" y2="${t.yy}" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="4 6"/><text x="${pad.l - 6}" y="${t.yy + 4}" text-anchor="end" fill="#94a3b8" font-size="9">${fmtCompactRp(Math.round(t.v))}</text>`).join('')}
+    ${arusKasShow.income && n > 1 ? `<path d="${areaIncome}" fill="#10b981" fill-opacity="0.12"/>` : ''}
+    ${arusKasShow.income && n > 1 ? `<path d="M ${incomePts}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+    ${arusKasShow.income && n === 1 && data[0].income > 0 ? `<circle cx="${x(0)}" cy="${y(data[0].income)}" r="6" fill="#10b981" stroke="white" stroke-width="2"><title>${labels[0]} • ${fmtCompactRp(data[0].income)}</title></circle>` : ''}
+    ${arusKasShow.expense && n > 1 ? `<path d="M ${expensePts}" fill="none" stroke="#fb7185" stroke-width="2" stroke-dasharray="6 6" opacity="0.7"/>` : ''}
+    ${dots}
+  `;
   if (growthEl) {
-    const last = data[5].income;
-    const prev = data[4].income;
+    const last = data[lastIdx].income;
+    const prev = n > 1 ? data[lastIdx - 1].income : 0;
     if (prev === 0 && last > 0) { growthEl.textContent = '+100%'; growthEl.style.color = '#047857'; }
     else if (prev === 0 && last === 0) { growthEl.textContent = '—'; growthEl.style.color = '#64748b'; }
     else {
-      const pct = Math.round(((last - prev)/ (prev||1))*100);
-      growthEl.textContent = (pct>0?'+':'')+pct+'%';
-      growthEl.style.color = pct>=0 ? '#047857' : '#be123c';
+      const pct = Math.round(((last - prev) / (prev || 1)) * 100);
+      growthEl.textContent = (pct > 0 ? '+' : '') + pct + '%';
+      growthEl.style.color = pct >= 0 ? '#047857' : '#be123c';
     }
   }
 }
@@ -865,20 +1224,72 @@ function renderBudget(entries) {
   if (hint) hint.textContent = pct >= 100 ? '⚠️ Melebihi anggaran!' : pct >= 80 ? 'Hampir mencapai limit' : 'Kelola pengeluaran dengan bijak';
 }
 
+function addMonths(dateStr, n) {
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+function nextDueForLoan(l, paidCount) {
+  if (l.status === 'paid') return null;
+  if (l.dueDate) {
+    if (l.loanType === 'cicilan') {
+      const d = new Date(l.dueDate);
+      if (isNaN(d)) return null;
+      d.setMonth(d.getMonth() + paidCount);
+      return d;
+    }
+    return new Date(l.dueDate);
+  }
+  // no dueDate: derive from start date + tenor progress (cicilan) or start date (lunas)
+  if (l.loanType === 'cicilan') {
+    return addMonths(l.date, paidCount);
+  }
+  return new Date(l.date);
+}
+function getLoanAlerts() {
+  const loans = Storage.getAllLoans();
+  const reps = Storage.getAllRepayments();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const out = [];
+  loans.forEach(l => {
+    if (l.status === 'paid') return;
+    const paidCount = reps.filter(r => r.loanId === l.id).length;
+    const due = nextDueForLoan(l, paidCount);
+    if (!due || isNaN(due)) return;
+    due.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((due - today) / 86400000);
+    if (diffDays < 0) out.push({ loan: l, kind: 'overdue', diffDays, due, paidCount });
+    else if (diffDays <= 3) out.push({ loan: l, kind: 'soon', diffDays, due, paidCount });
+  });
+  out.sort((a, b) => a.diffDays - b.diffDays);
+  return out;
+}
+function updateNotifBadge() {
+  const badge = document.querySelector('#notifBtn .notif-badge');
+  if (!badge) return;
+  const alerts = getLoanAlerts();
+  badge.textContent = String(alerts.length);
+  badge.style.display = alerts.length ? 'flex' : 'none';
+  const btn = document.getElementById('notifBtn');
+  if (btn) btn.setAttribute('aria-label', alerts.length ? `${alerts.length} pengingat pinjaman` : 'Tidak ada pengingat');
+}
 let overdueNotified = false;
 function checkOverdue() {
+  updateNotifBadge();
   if (overdueNotified) return;
   const setting = document.getElementById('settingNotif');
   const enabled = setting ? setting.checked : true;
-  const stored = localStorage.getItem('wynara_notif');
+  const stored = safeLocalGet('wynara_notif');
   const isEnabled = stored ? stored === 'true' : enabled;
   if (!isEnabled) return;
-  const loans = Storage.getAllLoans();
-  const today = new Date().toISOString().split('T')[0];
-  const overdue = loans.filter(l => l.status !== 'paid' && l.dueDate && l.dueDate < today);
-  if (overdue.length) {
+  const alerts = getLoanAlerts();
+  if (alerts.length) {
     overdueNotified = true;
-    UI.showWarning(`${overdue.length} pinjaman terlambat! Cek menu Pinjaman.`);
+    const over = alerts.filter(a => a.kind === 'overdue').length;
+    const soon = alerts.length - over;
+    UI.showWarning(over ? `${over} pinjaman terlambat${soon ? `, ${soon} jatuh tempo ≤3 hari` : ''}! Cek menu Pinjaman.` : `${soon} pinjaman jatuh tempo ≤3 hari. Cek menu Pinjaman.`);
   }
 }
 
@@ -1039,6 +1450,7 @@ function handlePrint() {
         (e.description && e.description.toLowerCase().includes(searchTerm)) ||
         (e.category && e.category.toLowerCase().includes(searchTerm)) ||
         (e.payment && e.payment.toLowerCase().includes(searchTerm)) ||
+        (e.paymentDetail && e.paymentDetail.toLowerCase().includes(searchTerm)) ||
         (e.person && e.person.toLowerCase().includes(searchTerm))
       )
     : filtered;
@@ -1048,7 +1460,8 @@ function handlePrint() {
 
   const rows = sorted.map(e => {
     const sign = e.type === 'income' ? '+' : '-';
-    return `<tr><td>${e.date}</td><td>${e.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}</td><td>${e.category}</td><td>${e.payment || ''}</td><td>${e.description || ''}</td><td style="text-align:right">${sign} Rp${Number(e.amount).toLocaleString('id-ID')}</td><td style="text-align:right">Rp${Number(e.balance).toLocaleString('id-ID')}</td></tr>`;
+    const pay = e.paymentDetail ? `${e.payment} (${e.paymentDetail})` : (e.payment || '');
+    return `<tr><td>${e.date}</td><td>${e.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}</td><td>${e.category}</td><td>${pay}</td><td>${e.description || ''}</td><td style="text-align:right">${sign} Rp${Number(e.amount).toLocaleString('id-ID')}</td><td style="text-align:right">Rp${Number(e.balance).toLocaleString('id-ID')}</td></tr>`;
   }).join('');
 
   const html = `<!DOCTYPE html><html><head><title>Wynara - ${new Date().toLocaleDateString('id-ID')}</title>
@@ -1083,7 +1496,7 @@ function handlePrint() {
 function handleThemeToggle() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  safeLocalSet('theme', isDark ? 'dark' : 'light');
   const btn = document.getElementById('themeToggle');
   const btn2 = document.getElementById('themeToggleSidebar');
   if (btn) btn.setAttribute('aria-label', isDark ? 'Light mode' : 'Dark mode');
@@ -1091,13 +1504,22 @@ function handleThemeToggle() {
   UI.showInfo(isDark ? 'Mode gelap aktif' : 'Mode terang aktif');
 }
 
-function handleRepayClick(loanId) {
+function handleRepayClick(loanId, presetAmount) {
   const loan = Storage.getLoanById(loanId);
   if (!loan) return;
   const reps = Storage.getLoanRepayments(loanId);
   const paid = reps.reduce((s, r) => s + r.amount, 0);
   const outstanding = loan.amount - paid;
-  UI.openRepayModal(loanId, outstanding);
+  const instAmt = Number(loan.installmentAmount) || 0;
+  const tenor = loan.loanType === 'cicilan' && instAmt > 0 ? Math.ceil(loan.amount / instAmt) : 1;
+  const label = loan.loanType === 'cicilan' && tenor > 1 ? `Bayar Cicilan ${Math.min(reps.length + 1, tenor)}/${tenor} — ${loan.person}` : undefined;
+  UI.openRepayModal(loanId, outstanding, presetAmount, label, {
+    total: loan.amount,
+    paid,
+    paidCount: reps.length,
+    tenor,
+    instAmt
+  });
 }
 
 function handleRepaySubmit() {
@@ -1114,7 +1536,17 @@ function handleRepaySubmit() {
   }
 
   Storage.addRepayment(data);
-  UI.showSuccess('Pembayaran dicatat');
+  const afterPaid = paid + data.amount;
+  const left = Math.max(loan.amount - afterPaid, 0);
+  const instAmt = Number(loan.installmentAmount) || 0;
+  const tenor = loan.loanType === 'cicilan' && instAmt > 0 ? Math.ceil(loan.amount / instAmt) : 1;
+  const doneCount = Storage.getLoanRepayments(data.loanId).length;
+  const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v);
+  UI.showSuccess(left <= 0.01
+    ? `Lunas! ${loan.person} — total ${fmt(loan.amount)}`
+    : (tenor > 1
+      ? `Cicilan ${doneCount}/${tenor} dibayar ${fmt(data.amount)} — sisa ${fmt(left)}`
+      : `Dibayar ${fmt(data.amount)} — sisa ${fmt(left)}`));
   UI.closeRepayModal();
   refreshLoans();
 }
@@ -1174,9 +1606,9 @@ function openSettings() {
   const input = document.getElementById('budgetInput');
   if (input) input.value = budget && budget.amount ? Number(budget.amount).toLocaleString('id-ID') : '';
   const lang = document.getElementById('settingLang');
-  if (lang) lang.value = localStorage.getItem('wynara_lang') || 'id';
+  if (lang) lang.value = safeLocalGet('wynara_lang') || 'id';
   const notif = document.getElementById('settingNotif');
-  if (notif) notif.checked = localStorage.getItem('wynara_notif') !== 'false';
+  if (notif) notif.checked = safeLocalGet('wynara_notif') !== 'false';
   const list = document.getElementById('customCategoryList');
   if (list) {
     const cats = Storage.getCategories();
@@ -1212,11 +1644,11 @@ function saveSettings() {
   const raw = input ? input.value.replace(/[^0-9]/g,'') : '';
   const amount = raw ? Number(raw) : 0;
   if (amount) Storage.saveBudget({ amount, updatedAt: new Date().toISOString() });
-  else localStorage.removeItem('wynara_budget');
+  else { try { localStorage.removeItem('wynara_budget'); } catch {} }
   const lang = document.getElementById('settingLang');
-  if (lang) localStorage.setItem('wynara_lang', lang.value);
+  if (lang) safeLocalSet('wynara_lang', lang.value);
   const notif = document.getElementById('settingNotif');
-  if (notif) localStorage.setItem('wynara_notif', String(notif.checked));
+  if (notif) safeLocalSet('wynara_notif', String(notif.checked));
   closeSettings();
   UI.showSuccess('Pengaturan disimpan');
   render();

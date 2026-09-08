@@ -116,7 +116,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.2.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.3.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -132,7 +132,7 @@
         <div class="topbar-left">
           <button id="sidebarToggle" class="topbar-burger" aria-label="Menu">☰</button>
           <div class="topbar-pills desktop-only">
-            <button class="topbar-pill"><span class="topbar-avatar">A</span> Akun utama ▾</button>
+            <button class="topbar-pill" id="topbarAccount"><span class="topbar-avatar">A</span> Akun utama ▾</button>
             <button class="topbar-pill" id="topbarPeriod">Agustus 2026 ▾</button>
           </div>
           <div class="topbar-mobile-title mobile-only"><span class="topbar-avatar sm">A</span> Akun utama</div>
@@ -142,12 +142,12 @@
             <span>🔍</span>
             <input type="search" id="searchInputTop" placeholder="Cari transaksi..." aria-label="Cari transaksi">
           </div>
-          <button class="topbar-icon-btn" id="notifBtn" aria-label="Notifikasi"><span>🔔</span><span class="notif-badge">3</span></button>
+          <button class="topbar-icon-btn" id="notifBtn" aria-label="Notifikasi"><span>🔔</span><span class="notif-badge" style="display:none">0</span></button>
           <div class="topbar-avatar-main">AD</div>
           <div class="topbar-actions-hidden" style="display:none">
             <button id="printBtn"></button>
             <div id="exportDropdown"><button id="exportBtn"></button><div id="exportMenu" class="hidden"><button id="exportExcelBtn"></button><button id="exportCsvBtn"></button></div></div>
-            <input type="file" id="importFile" hidden>
+            <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.json" hidden>
             <button id="importBtn"></button>
           </div>
         </div>
@@ -195,16 +195,20 @@
           <div class="metric-card metric-violet" id="dashPiutang">
             <div class="metric-top">
               <div class="metric-icon">👥</div>
-              <span class="metric-trend neutral">Stabil</span>
+              <span class="metric-trend neutral" id="dashLoanTrend">Stabil</span>
             </div>
-            <div class="metric-label">Piutang / Hutang</div>
-            <div class="metric-value" id="dashPiutangVal">Rp0</div>
-            <div class="metric-sub" id="dashPiutangCount">Belum tertagih</div>
+            <div class="metric-label">Pinjaman / Hutangan</div>
+            <div class="metric-split">
+              <div class="metric-split-row"><span>🟢 Pinjaman</span><strong id="dashPiutangVal">Rp0</strong></div>
+              <div class="metric-split-sub" id="dashPiutangCount">0 aktif</div>
+              <div class="metric-split-row"><span>🔴 Hutangan</span><strong id="dashHutangVal2">Rp0</strong></div>
+              <div class="metric-split-sub" id="dashHutangCount2">0 aktif</div>
+            </div>
             <!-- hidden hutang/net for JS compatibility -->
             <span id="dashHutangVal" hidden>Rp0</span>
             <span id="dashHutangCount" hidden>0</span>
             <span id="dashNetLoanVal" hidden>Rp0</span>
-            <span id="dashNetLoanSub" hidden>Piutang − Hutang</span>
+            <span id="dashNetLoanSub" hidden>Pinjaman − Hutangan</span>
           </div>
         </div>
 
@@ -251,7 +255,17 @@
           <div class="dash-panel dash-panel-chart">
             <div class="dash-panel-head">
               <div><h3>Arus Kas</h3><p>Pemasukan vs Pengeluaran</p></div>
-              <button class="dash-panel-pill" id="arusKasPeriod">6 bulan terakhir ▾</button>
+              <div class="chart-controls">
+                <div class="chart-range" id="arusRange">
+                  <button type="button" class="chip" data-value="3">3 bln</button>
+                  <button type="button" class="chip selected" data-value="6">6 bln</button>
+                  <button type="button" class="chip" data-value="12">12 bln</button>
+                </div>
+                <div class="chart-toggle" id="arusToggle">
+                  <button type="button" class="chip selected" data-value="income">Masuk</button>
+                  <button type="button" class="chip selected" data-value="expense">Keluar</button>
+                </div>
+              </div>
             </div>
             <div class="dash-panel-legend"><span class="legend-dot emerald"></span> Pemasukan <span class="legend-dot rose"></span> Pengeluaran</div>
             <div class="chart-wrap">
@@ -305,12 +319,27 @@
                 <button type="button" class="chip" data-value="income">↗ Masuk</button>
                 <button type="button" class="chip" data-value="expense">↘ Keluar</button>
               </div>
-              <span id="txFilterCount" style="font-size:11px;color:#64748b"></span>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span id="txFilterCount" style="font-size:11px;color:#64748b"></span>
+                <div class="chip-group" id="densityGroup" role="group" aria-label="Kepadatan">
+                  <button type="button" class="chip selected" data-value="padat" title="Tampilan padat">Padat</button>
+                  <button type="button" class="chip" data-value="nyaman" title="Tampilan nyaman">Nyaman</button>
+                </div>
+                <button type="button" class="chip" id="togglePayCol" aria-pressed="false" title="Tampilkan/sembunyikan kolom Cara Bayar">Cara Bayar: ON</button>
+              </div>
+            </div>
+            <div class="bulk-bar hidden" id="bulkBar">
+              <span id="bulkCount">0 dipilih</span>
+              <button type="button" class="btn btn-ghost" id="bulkExportBtn" style="font-size:11px;padding:4px 10px">Export terpilih (Excel)</button>
+              <button type="button" class="btn btn-danger" id="bulkDeleteBtn" style="font-size:11px;padding:4px 10px">Hapus terpilih</button>
+              <button type="button" class="btn btn-ghost" id="bulkClearBtn" style="font-size:11px;padding:4px 10px">Batal</button>
+              <button type="button" class="btn btn-ghost" id="exportViewBtn" style="font-size:11px;padding:4px 10px;margin-left:auto">Export tampilan (Excel)</button>
             </div>
             <div class="table-wrapper">
               <table id="entriesTable">
                 <thead>
                   <tr>
+                    <th style="width:34px"><input type="checkbox" id="selectAllRows" aria-label="Pilih semua"></th>
                     <th class="sortable-col" data-sort="date">TANGGAL <span class="sort-arrow">⇅</span></th>
                     <th class="sortable-col" data-sort="category">KATEGORI <span class="sort-arrow">⇅</span></th>
                     <th>DESKRIPSI</th>
@@ -338,19 +367,6 @@
             </div>
           </div>
 
-          <div class="dash-panel dash-panel-actions">
-            <h3>Aksi Cepat</h3>
-            <div class="aksi-grid">
-              <button class="aksi-card" id="aksiTambahTransaksi"><span class="aksi-icon blue">🧾</span><strong>Tambah transaksi</strong><span>Catat masuk / keluar</span></button>
-              <button class="aksi-card" id="aksiTambahKontak"><span class="aksi-icon violet">👤</span><strong>Tambah kontak</strong><span>Pelanggan &amp; vendor</span></button>
-              <button class="aksi-card" id="aksiLaporan"><span class="aksi-icon amber">📄</span><strong>Laporan bulanan</strong><span>Export PDF / Excel</span></button>
-              <button class="aksi-card" id="aksiKategori"><span class="aksi-icon emerald">⚙️</span><strong>Kelola kategori</strong><span>Atur kategori custom</span></button>
-            </div>
-            <div class="aksi-pajak">
-              <div><strong>Butuh laporan pajak?</strong><span>Otomatis hitung PPh bulanan</span></div>
-              <button class="btn btn-secondary">Coba</button>
-            </div>
-          </div>
         </div>
 
         <div class="category-breakdown hidden" id="categoryBreakdown">
@@ -358,7 +374,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.2.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.3.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -426,6 +442,7 @@
       <input type="hidden" id="entryCategory" value="">
       <input type="hidden" id="entryPayment" value="cash">
       <input type="hidden" id="entryLoanId" value="">
+      <input type="hidden" id="entryLoanMode" value="new">
       <input type="hidden" id="entryLoanType" value="lunas">
       <input type="hidden" id="entryInstallmentAmount" value="0">
       <input type="hidden" id="entryContactType" value="person">
@@ -484,21 +501,32 @@
                 <div class="tx-piutang-head-left">
                   <div class="tx-piutang-icon">🤝</div>
                   <div>
-                    <div class="tx-piutang-title-row"><h3>Detail Piutang</h3><span class="tx-piutang-badge">Aktif</span></div>
-                    <p>Siapa yang meminjam dan bagaimana pembayarannya</p>
+                    <div class="tx-piutang-title-row"><h3 id="loanPanelTitle">Detail Piutang</h3><span class="tx-piutang-badge" id="loanPanelBadge">Aktif</span></div>
+                    <p id="loanPanelSub">Siapa yang meminjam dan bagaimana pembayarannya</p>
                   </div>
                 </div>
                 <span class="tx-piutang-sparkle">✦</span>
               </div>
+              <div class="tx-mode-row" id="loanModeRow">
+                <div id="loanModeGroup" class="tx-pill-group" role="group" aria-label="Mode pinjaman">
+                  <button type="button" class="select-btn selected" data-value="new"><span id="loanModeNewLabel">📤 Baru</span></button>
+                  <button type="button" class="select-btn" data-value="settle"><span id="loanModeSettleLabel">📥 Pelunasan</span></button>
+                </div>
+              </div>
               <div class="tx-piutang-body">
-                <div class="tx-piutang-field">
+                <div class="tx-piutang-field" id="hutangPickerField" hidden>
+                  <label class="tx-piutang-label" id="hutangPickerLabel">Pilih yang Dibayar</label>
+                  <div id="hutangList" class="hutang-list"></div>
+                  <div class="quick-select-hint" id="hutangPickerHint">Hanya yang aktif dengan sisa &gt; 0</div>
+                </div>
+                <div class="tx-piutang-field" id="loanContactTypeField">
                   <label class="tx-piutang-label">Tipe Kontak</label>
                   <div id="contactTypeGroup" class="tx-pill-group">
                     <button type="button" class="select-btn selected" data-value="person">👤 Orang</button>
                     <button type="button" class="select-btn" data-value="perusahaan">🏢 Perusahaan</button>
                   </div>
                 </div>
-                <div class="tx-piutang-field">
+                <div class="tx-piutang-field" id="loanPersonField">
                   <label for="entryLoanPerson" id="loanPersonLabel" class="tx-piutang-label">Ke siapa?</label>
                   <div class="tx-search-wrap">
                     <span class="tx-search-icon">🔍</span>
@@ -514,7 +542,7 @@
                   </div>
                   <div id="txContactDropdown" class="tx-contact-dropdown hidden"></div>
                 </div>
-                <div class="tx-piutang-field">
+                <div class="tx-piutang-field" id="loanTermsField">
                   <label class="tx-piutang-label">Tipe Pembayaran</label>
                   <div id="loanTypeGroup" class="tx-loan-type-grid">
                     <button type="button" class="select-btn tx-loan-card selected" data-value="lunas">
@@ -715,7 +743,7 @@
   <dialog id="loansModal" class="modal">
     <div class="modal-content modal-xl">
       <header class="modal-header">
-        <h2>💰 Pinjaman (Piutang & Hutang)</h2>
+        <h2>💰 Pinjaman & Hutangan</h2>
         <div class="modal-header-actions">
           <button type="button" class="btn btn-primary" id="addLoanBtn">＋ Tambah</button>
           <button type="button" class="modal-close" id="closeLoansBtn">&times;</button>
@@ -724,11 +752,11 @@
       <div class="modal-body">
         <div class="loan-summary" id="loanSummary">
           <div class="summary-item">
-            <span class="label">Total Piutang</span>
+            <span class="label">Total Pinjaman</span>
             <span class="value income" id="totalPiutang">Rp0</span>
           </div>
           <div class="summary-item">
-            <span class="label">Total Hutang</span>
+            <span class="label">Total Hutangan</span>
             <span class="value expense" id="totalHutang">Rp0</span>
           </div>
           <div class="summary-item">
@@ -736,8 +764,14 @@
             <span class="value" id="loanNet">Rp0</span>
           </div>
         </div>
-        <div class="loan-toolbar">
-          <input type="search" id="loanSearch" class="loan-search" placeholder="🔍 Cari nama orang/perusahaan...">
+        <div class="loan-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="search" id="loanSearch" class="loan-search" placeholder="🔍 Cari nama orang/perusahaan..." style="flex:1;min-width:200px">
+          <label class="login-check" style="font-size:12px;white-space:nowrap"><input type="checkbox" id="hidePaidLoans"> Sembunyikan lunas</label>
+        </div>
+        <div class="chip-group" id="loanTabs" role="tablist" aria-label="Filter pinjaman" style="margin-bottom:12px">
+          <button type="button" class="chip selected" data-value="all" role="tab">Semua</button>
+          <button type="button" class="chip" data-value="given" role="tab">🟢 Pinjaman</button>
+          <button type="button" class="chip" data-value="taken" role="tab">🔴 Hutangan</button>
         </div>
         <div class="loan-list" id="loanList"></div>
       </div>
@@ -768,13 +802,19 @@
   </dialog>
 
   <dialog id="repayModal" class="modal">
-    <form id="repayForm" class="modal-content" style="max-width: 420px;">
+    <form id="repayForm" class="modal-content" style="max-width: 460px;">
       <header class="modal-header">
         <h2 id="repayModalTitle">Bayar Pinjaman</h2>
         <button type="button" class="modal-close" id="repayModalClose">&times;</button>
       </header>
       <div class="modal-body">
         <input type="hidden" id="repayLoanId">
+        <div id="repaySummary" class="repay-summary"></div>
+        <div class="form-group" id="repayCicilanWrap" hidden>
+          <label>Bayar berapa cicilan?</label>
+          <div id="repayCicilanChips" class="repay-chips"></div>
+          <div class="quick-select-hint" id="repayCicilanHint"></div>
+        </div>
         <div class="form-group">
           <label for="repayAmount">Jumlah Bayar (Rp)</label>
           <input type="number" id="repayAmount" step="0.01" min="1" required>
@@ -874,6 +914,17 @@
           </div>
         </div>
         <div class="form-group">
+          <label>Export / Import / Cetak</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost" id="exportExcelBtn2">📊 Excel</button>
+            <button type="button" class="btn btn-ghost" id="exportCsvBtn2">📄 CSV</button>
+            <button type="button" class="btn btn-ghost" id="importAnyBtn">⬆️ Import File</button>
+            <input type="file" id="importAnyFile" accept=".xlsx,.xls,.csv,.json" hidden>
+            <button type="button" class="btn btn-ghost" id="printBtn2">🖨️ Cetak</button>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Export mengikuti filter &amp; pencarian yang aktif. Import: Excel / CSV / JSON.</div>
+        </div>
+        <div class="form-group">
           <label>Kategori Custom</label>
           <div id="customCategoryList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
           <div style="font-size:11px;color:#64748b;margin-top:4px">Hapus kategori custom yang tidak terpakai (hanya yang tanpa transaksi)</div>
@@ -886,6 +937,26 @@
     </div>
   </dialog>
 
+  <script>
+    // Boot watchdog: if the ES module fails (blocked storage, file:// , syntax),
+    // tell the user on the login screen instead of failing silently.
+    window.__bootError = null;
+    window.addEventListener('error', function (e) {
+      if (!window.__appBooted && e && e.message) window.__bootError = e.message;
+    }, true);
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        if (window.__appBooted) return;
+        var box = document.getElementById('loginError');
+        if (box) {
+          box.classList.remove('hidden');
+          box.textContent = 'Aplikasi gagal dimuat'
+            + (window.__bootError ? ': ' + window.__bootError : '.')
+            + ' Buka via http://localhost:3456 (bukan file langsung) lalu Ctrl+F5.';
+        }
+      }, 2500);
+    });
+  </script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

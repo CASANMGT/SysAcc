@@ -267,8 +267,8 @@ export function getCategoryLabel(category) {
     belanja: 'Belanja',
     pendidikan: 'Pendidikan',
     'lain-expense': 'Lainnya',
-    Piutang: 'Piutang',
-    Hutang: 'Hutang'
+    Piutang: 'Pinjaman',
+    Hutang: 'Hutangan'
   };
   return labels[category] || String(category || '-');
 }
@@ -322,7 +322,7 @@ export const CATEGORY_OPTIONS = {
     { value: 'freelance', label: 'Freelance', icon: '💻' },
     { value: 'investasi', label: 'Investasi', icon: '📈' },
     { value: 'hadiah', label: 'Hadiah', icon: '🎁' },
-    { value: 'Hutang', label: 'Hutang', icon: '🔴' }
+    { value: 'Hutang', label: 'Hutangan', icon: '🔴' }
   ],
   expense: [
     { value: 'kos', label: 'Kos/Sewa', icon: '🏠' },
@@ -333,7 +333,7 @@ export const CATEGORY_OPTIONS = {
     { value: 'kesehatan', label: 'Kesehatan', icon: '🏥' },
     { value: 'belanja', label: 'Belanja', icon: '🛍️' },
     { value: 'pendidikan', label: 'Pendidikan', icon: '📚' },
-    { value: 'Piutang', label: 'Piutang', icon: '🟢' }
+    { value: 'Piutang', label: 'Pinjaman', icon: '🟢' }
   ]
 };
 

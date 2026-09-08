@@ -837,6 +837,7 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
 
 .payment-tag {
   display: inline-block;
+  max-width: 120px;
   padding: var(--space-1) var(--space-2);
   background: var(--success-light);
   color: var(--success);
@@ -844,6 +845,20 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
   font-size: var(--text-xs);
   font-weight: 500;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.pay-sub {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+  margin-top: 2px;
 }
 
 .dark-mode .payment-tag {
@@ -2794,6 +2809,41 @@ tr:hover .table-row-actions {
 .tx-tenor-info { margin-top: 8px; font-size: 12px; color: #1d4ed8; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 8px; padding: 8px 10px; display: none; line-height: 1.4; }
 .tx-tenor-info.show { display: block; }
 .tx-tenor-info strong { color: #1e40af; }
+.hutang-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.hutang-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; cursor: pointer; transition: all 150ms ease; }
+.hutang-item:hover { border-color: #93c5fd; background: #f8fafc; }
+.hutang-item.selected { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+.hutang-item .hutang-avatar { width: 34px; height: 34px; border-radius: 9999px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.hutang-item .hutang-name { font-size: 13px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hutang-item .hutang-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.hutang-item .hutang-amt { margin-left: auto; text-align: right; flex-shrink: 0; }
+.hutang-item .hutang-amt strong { display: block; font-size: 13px; color: #b91c1c; font-variant-numeric: tabular-nums; }
+.hutang-item .hutang-amt span { font-size: 10px; color: #64748b; }
+.hutang-empty { padding: 16px; text-align: center; font-size: 12px; color: #64748b; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 12px; line-height: 1.5; }
+.hutang-lunasi { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 9999px; background: #fff; border: 1px solid #bfdbfe; color: #1d4ed8; cursor: pointer; }
+.hutang-lunasi:hover { background: #eff6ff; }
+/* Repay modal summary + cicilan picker */
+.repay-summary { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+.repay-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 12px; padding: 3px 0; }
+.repay-row span:first-child { color: #64748b; }
+.repay-row strong { font-variant-numeric: tabular-nums; color: #0f172a; }
+.repay-row strong.green { color: #059669; }
+.repay-row strong.red { color: #b91c1c; }
+.repay-progress { height: 6px; background: #e2e8f0; border-radius: 9999px; overflow: hidden; margin-top: 10px; }
+.repay-progress-fill { height: 100%; background: #059669; border-radius: 9999px; transition: width 300ms ease; }
+.repay-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.repay-chip { padding: 6px 12px; border: 1px solid #e2e8f0; background: #fff; border-radius: 9999px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; transition: all 150ms ease; }
+.repay-chip:hover { border-color: #2563eb; color: #1d4ed8; }
+.repay-chip.selected { background: #0f172a; border-color: #0f172a; color: #fff; }
+.repay-chip.lunasi { border-color: #bfdbfe; color: #1d4ed8; }
+.repay-chip.lunasi.selected { background: #2563eb; border-color: #2563eb; color: #fff; }
+.tx-mode-row { padding: 12px 24px 0; background: transparent; }
+.tx-mode-row .tx-pill-group { width: 100%; display: flex !important; }
+.tx-mode-row .tx-pill-group .select-btn { flex: 1; justify-content: center; }
+#loanTabs .chip.selected[data-value="given"] { background: var(--success); border-color: var(--success); }
+#loanTabs .chip.selected[data-value="taken"] { background: var(--danger); border-color: var(--danger); }
+.hutang-item.piutang-pick.selected { border-color: var(--success); background: #f0fdf4; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
+.hutang-item.piutang-pick .hutang-amt strong { color: var(--success); }
 .tx-input-date-wrap input {
   width: 100%;
   height: 44px;
@@ -3386,6 +3436,12 @@ tr:hover .table-row-actions {
 .metric-value { margin-top: 4px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
 .metric-sub { margin-top: 4px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 4px; }
 .metric-sub::before { content: ""; width: 4px; height: 4px; border-radius: 9999px; background: #cbd5e1; }
+.metric-split { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+.metric-split-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; color: #64748b; }
+.metric-split-row strong { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.metric-split-sub { font-size: 11px; color: #94a3b8; text-align: right; margin-top: -2px; margin-bottom: 4px; }
+.dark-mode .metric-split-row { color: #94a3b8; }
+.dark-mode .metric-split-row strong { color: #f1f5f9; }
 
 .filterbar-visible { margin-bottom: 16px; }
 .filter-pills { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -3442,11 +3498,34 @@ tr:hover .table-row-actions {
   gap: 8px;
   align-items: flex-start;
 }
-.dashboard-bottom { display: grid; grid-template-columns: 1.7fr 1fr; gap: 16px; margin-top: 24px; }
-@media (max-width: 1280px) { .dashboard-bottom { grid-template-columns: 1fr; } }
-.dash-panel-table { padding: 16px 20px; overflow-x: auto; }
+.dashboard-bottom { display: block; margin-top: 24px; }
+.dash-panel-table { padding: 16px 20px; overflow-x: hidden; }
 .dash-panel-table .table-wrapper { border: none; box-shadow: none; border-radius: 0; overflow-x: auto; }
-.dash-panel-table table { min-width: 680px; table-layout: fixed; }
+.dash-panel-table table { min-width: 640px; width: 100%; table-layout: fixed; }
+/* density modes */
+.dash-panel-table.density-padat td { padding: 6px 10px; font-size: 12px; }
+.dash-panel-table.density-padat tr { height: 36px; }
+.dash-panel-table.density-nyaman td { padding: 12px 10px; font-size: 13px; }
+.dash-panel-table.density-nyaman tr { height: 52px; }
+/* column chooser: hide Cara Bayar (col 5 in entriesTable with checkbox, col 5 in transaksiTable) */
+#transaksiTable.hide-pay th:nth-child(5),
+#transaksiTable.hide-pay td:nth-child(5) { display: none; }
+/* bulk bar */
+.bulk-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
+/* chart controls */
+.chart-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.chart-range { display: flex; gap: 4px; }
+.chart-range .chip { font-size: 11px; padding: 4px 10px; }
+.chart-toggle { display: flex; gap: 4px; }
+.chart-toggle .chip.off { opacity: 0.45; }
+/* loan schedule */
+.loan-schedule { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.loan-schedule-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.loan-schedule-row:last-child { border-bottom: none; }
+.sched-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; }
+.sched-badge.done { background: var(--success-light); color: var(--success); }
+.sched-badge.next { background: #dbeafe; color: #1d4ed8; }
+.sched-badge.todo { background: var(--bg); color: var(--text-muted); }
 .view-section.hidden { display: none !important; }
 .view-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
 .view-header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
@@ -3458,17 +3537,21 @@ tr:hover .table-row-actions {
 .tx-filter-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0 12px; border-bottom: 1px solid #f1f5f9; margin-bottom: 8px; flex-wrap: wrap; }
 .tx-filter-bar .chip { font-size: 12px; padding: 6px 14px; }
 .dash-panel-table th { font-size: 11px; letter-spacing: 0.08em; color: #94a3b8; border-bottom: 1px solid #f1f5f9; padding: 10px 10px; background: transparent; white-space: nowrap; }
-.dash-panel-table th:nth-child(1) { width: 110px; }
-.dash-panel-table th:nth-child(2) { width: 130px; }
-.dash-panel-table th:nth-child(3) { width: auto; }
-.dash-panel-table th:nth-child(4) { width: 110px; }
-.dash-panel-table th:nth-child(5) { width: 90px; }
-.dash-panel-table th:nth-child(6) { width: 130px; text-align: right; }
-.dash-panel-table th:nth-child(7) { width: 48px; }
+.dash-panel-table th:nth-child(1) { width: 34px; }
+.dash-panel-table th:nth-child(2) { width: 96px; }
+.dash-panel-table th:nth-child(3) { width: 122px; }
+.dash-panel-table th:nth-child(4) { width: auto; }
+.dash-panel-table th:nth-child(5) { width: 96px; }
+.dash-panel-table th:nth-child(6) { width: 84px; }
+.dash-panel-table th:nth-child(7) { width: 132px; text-align: right; }
+.dash-panel-table th:nth-child(8) { width: 48px; }
 .dash-panel-table td { padding: 10px 10px; font-size: 13px; border-bottom: 1px solid #f8fafc; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dash-panel-table td:nth-child(3),
-.dash-panel-table td:nth-child(4) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dash-panel-table td:nth-child(6) { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.dash-panel-table td:nth-child(4),
+.dash-panel-table td:nth-child(5) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-panel-table td:nth-child(7) { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+/* column chooser: hide Cara Bayar (col 5 now) */
+.dash-panel-table.hide-pay th:nth-child(5),
+.dash-panel-table.hide-pay td:nth-child(5) { display: none; }
 .dash-panel-table tr { height: 48px; }
 .dash-link { font-size: 13px; font-weight: 500; color: #2563eb; text-decoration: none; display: flex; align-items: center; gap: 4px; }
 .table-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid #f1f5f9; margin-top: 16px; font-size: 12px; color: #64748b; }

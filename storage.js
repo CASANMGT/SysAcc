@@ -177,6 +177,49 @@ export function exportExcel() {
   XLSX.writeFile(wb, `wynara-${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
+export function exportExcelEntries(list, filename) {
+  if (typeof XLSX === 'undefined') throw new Error('Excel library belum dimuat');
+  const wb = XLSX.utils.book_new();
+  const rows = (Array.isArray(list) ? list : []).map(e => ({
+    Tanggal: e.date,
+    Jenis: e.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
+    Kategori: e.category,
+    'Cara Bayar': e.payment || '',
+    'Detail Bayar': e.paymentDetail || '',
+    Deskripsi: e.description || '',
+    Jumlah: e.amount,
+    Person: e.person || '',
+    LoanId: e.loanId || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Transaksi');
+  XLSX.writeFile(wb, filename || `wynara-tampilan-${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+export function exportCSVEntries(list, filename) {
+  const esc = (v) => {
+    if (v === 0) return '"0"';
+    if (v === null || v === undefined || v === '') return '""';
+    return '"' + String(v).replace(/"/g, '""') + '"';
+  };
+  const rows = [];
+  rows.push(['Tanggal', 'Jenis', 'Kategori', 'Cara Bayar', 'Detail Bayar', 'Deskripsi', 'Jumlah', 'Person']);
+  (Array.isArray(list) ? list : []).forEach(e => {
+    rows.push([e.date, e.type === 'income' ? 'Pemasukan' : 'Pengeluaran', e.category, e.payment || '', e.paymentDetail || '', e.description || '', e.amount, e.person || '']);
+  });
+  const csv = rows.map(r => r.map(esc).join(',')).join('\n');
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || `wynara-tampilan-${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function exportCSV() {
   const entries = getEntries();
   const loans = getLoans();
