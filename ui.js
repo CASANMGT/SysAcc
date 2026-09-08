@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, getCategoryType, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
+import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue } from './loanmath.js';
 
 const elements = {
   entriesBody: document.getElementById('entriesBody'),
@@ -54,6 +55,8 @@ const elements = {
   repayForm: document.getElementById('repayForm'),
   repayLoanId: document.getElementById('repayLoanId'),
   repayAmount: document.getElementById('repayAmount'),
+  repayPayment: document.getElementById('repayPayment'),
+  repayPaymentDetail: document.getElementById('repayPaymentDetail'),
   repayDate: document.getElementById('repayDate'),
   repayDesc: document.getElementById('repayDesc'),
   searchInput: document.getElementById('searchInput'),
@@ -150,6 +153,33 @@ export function showInfo(message) {
   showToast(message, 'info', 3000);
 }
 
+/* Toast dengan tombol Urungkan — untuk hapus yang bisa dibatalkan */
+export function showUndoToast(message, onUndo, duration = 6000) {
+  const container = elements.toastContainer;
+  if (!container) { return; }
+  const toast = document.createElement('div');
+  toast.className = 'toast warning';
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'polite');
+  toast.innerHTML = `
+    <span class="toast-icon">🗑️</span>
+    <span class="toast-message">${escapeHtml(message)}</span>
+    <button class="toast-undo">Urungkan</button>
+    <button class="toast-close" aria-label="Tutup">&times;</button>
+  `;
+  let done = false;
+  const dismiss = () => { if (!done) { done = true; removeToast(toast); } };
+  toast.querySelector('.toast-undo').addEventListener('click', () => {
+    if (done) return;
+    done = true;
+    try { onUndo(); } catch {}
+    removeToast(toast);
+  });
+  toast.querySelector('.toast-close').addEventListener('click', dismiss);
+  container.appendChild(toast);
+  setTimeout(dismiss, duration);
+}
+
 export function renderEntries(entries) {
   const body = elements.entriesBody;
   const empty = elements.emptyState;
@@ -175,9 +205,10 @@ export function renderEntries(entries) {
     const actions = isLoan
       ? '<span class="muted-tag">di Pinjaman</span>'
       : `<div class="table-row-actions">
-         <button class="btn btn-ghost edit-btn" data-id="${e.id}" aria-label="Edit" title="Edit">✎</button>
-         <button class="btn btn-ghost duplicate-btn" data-id="${e.id}" aria-label="Duplikasi" title="Duplikasi">📋</button>
-         <button class="btn btn-danger delete-btn" data-id="${e.id}" aria-label="Hapus" title="Hapus">🗑</button>
+          <button class="btn btn-ghost edit-btn" data-id="${e.id}" aria-label="Edit" title="Edit">✎</button>
+          <button class="btn btn-ghost duplicate-btn" data-id="${e.id}" aria-label="Duplikasi" title="Duplikasi">📋</button>
+          <button class="btn btn-ghost receipt-btn" data-id="${e.id}" aria-label="Kwitansi" title="Cetak kwitansi">🧾</button>
+          <button class="btn btn-danger delete-btn" data-id="${e.id}" aria-label="Hapus" title="Hapus">🗑</button>
         </div>`;
     // Fix amount: keep Rp, nowrap, no break on comma
     const amtStr = formatCurrency(amt).replace(/\s/g, '');
@@ -284,6 +315,29 @@ export function releaseFocus(modal) {
     modal.removeEventListener('keydown', modal._trapHandler);
     delete modal._trapHandler;
   }
+}
+
+/* Generic info modal (Bantuan, Changelog, ...) */
+export function openInfoModal(title, htmlBody) {
+  const modal = document.getElementById('infoModal');
+  if (!modal) return;
+  document.getElementById('infoModalTitle').textContent = title || 'Info';
+  document.getElementById('infoModalBody').innerHTML = htmlBody || '';
+  if (!modal.open) { try { modal.showModal(); } catch {} }
+  trapFocus(modal);
+}
+export function closeInfoModal() {
+  const modal = document.getElementById('infoModal');
+  if (!modal) return;
+  releaseFocus(modal);
+  if (modal.open) { try { modal.close(); } catch {} }
+}
+export function bindInfoModal() {
+  document.getElementById('infoModalClose')?.addEventListener('click', closeInfoModal);
+  document.getElementById('infoModalOk')?.addEventListener('click', closeInfoModal);
+  document.getElementById('infoModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'infoModal') closeInfoModal();
+  });
 }
 function syncTxDate() {
   const d = elements.entryDate.value || new Date().toISOString().split('T')[0];
@@ -1213,14 +1267,98 @@ export function bindModalClose(handler) {
   });
 }
 
-export function bindTableActions(onEdit, onDelete, onDuplicate) {
+export function bindTableActions(onEdit, onDelete, onDuplicate, onReceipt) {
   elements.entriesBody.addEventListener('click', (e) => {
     const editBtn = e.target.closest('.edit-btn');
     const deleteBtn = e.target.closest('.delete-btn');
     const duplicateBtn = e.target.closest('.duplicate-btn');
+    const receiptBtn = e.target.closest('.receipt-btn');
     if (editBtn) onEdit(editBtn.dataset.id);
     if (deleteBtn) onDelete(deleteBtn.dataset.id);
     if (duplicateBtn && onDuplicate) onDuplicate(duplicateBtn.dataset.id);
+    if (receiptBtn && onReceipt) onReceipt(receiptBtn.dataset.id);
+  });
+}
+
+/* ===== Kwitansi ===== */
+const TERBILANG = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+export function terbilang(n) {
+  n = Math.floor(Math.abs(Number(n) || 0));
+  if (n === 0) return 'nol';
+  const words = (x) => {
+    if (x < 12) return TERBILANG[x];
+    if (x < 20) return words(x - 10) + ' belas';
+    if (x < 100) return words(Math.floor(x / 10)) + ' puluh ' + words(x % 10);
+    if (x < 200) return 'seratus ' + words(x - 100);
+    if (x < 1000) return words(Math.floor(x / 100)) + ' ratus ' + words(x % 100);
+    if (x < 2000) return 'seribu ' + words(x - 1000);
+    if (x < 1000000) return words(Math.floor(x / 1000)) + ' ribu ' + words(x % 1000);
+    if (x < 1000000000) return words(Math.floor(x / 1000000)) + ' juta ' + words(x % 1000000);
+    if (x < 1000000000000) return words(Math.floor(x / 1000000000)) + ' milyar ' + words(x % 1000000000);
+    return words(Math.floor(x / 1000000000000)) + ' trilyun ' + words(x % 1000000000000);
+  };
+  return words(n).replace(/\s+/g, ' ').trim();
+}
+
+let receiptEntry = null;
+export function openReceipt(entry) {
+  receiptEntry = entry ? { ...entry } : null;
+  const modal = document.getElementById('receiptModal');
+  if (!modal || !receiptEntry) return;
+  renderReceiptPreview();
+  if (!modal.open) { try { modal.showModal(); } catch {} }
+  trapFocus(modal);
+}
+export function closeReceipt() {
+  const modal = document.getElementById('receiptModal');
+  if (!modal) return;
+  releaseFocus(modal);
+  if (modal.open) { try { modal.close(); } catch {} }
+}
+function renderReceiptPreview() {
+  const box = document.getElementById('receiptPreview');
+  if (!box || !receiptEntry) return;
+  const e = receiptEntry;
+  const withPPN = document.getElementById('receiptPPN')?.checked;
+  const amt = Math.round(Number(e.amount) || 0);
+  const fmt = (v) => 'Rp' + Number(v).toLocaleString('id-ID');
+  let dpp = amt, ppn = 0;
+  if (withPPN) { dpp = Math.round(amt / 1.11); ppn = amt - dpp; }
+  const payLabel = `${getPaymentIcon(e.payment)} ${getPaymentLabel(e.payment)}${e.paymentDetail ? ' • ' + escapeHtml(e.paymentDetail) : ''}`;
+  box.innerHTML = `
+    <div style="text-align:center;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:12px">
+      <div style="font-size:18px;font-weight:800">🧾 KWITANSI</div>
+      <div style="font-size:11px;color:#64748b">No: KW-${String(e.id || '').slice(-6).toUpperCase()} • ${formatDate(e.date)}</div>
+    </div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse">
+      <tr><td style="padding:4px 0;color:#64748b;width:110px">Jenis</td><td><b>${e.type === 'income' ? '📥 Uang masuk' : '📤 Uang keluar'}</b></td></tr>
+      <tr><td style="padding:4px 0;color:#64748b">Kategori</td><td>${getCategoryIcon(e.category)} ${getCategoryLabel(e.category)}</td></tr>
+      ${e.person ? `<tr><td style="padding:4px 0;color:#64748b">Teman</td><td>${escapeHtml(e.person)}</td></tr>` : ''}
+      <tr><td style="padding:4px 0;color:#64748b">Bayar pakai</td><td>${payLabel}</td></tr>
+      ${e.description ? `<tr><td style="padding:4px 0;color:#64748b">Catatan</td><td>${escapeHtml(e.description)}</td></tr>` : ''}
+      ${withPPN ? `<tr><td style="padding:4px 0;color:#64748b">DPP</td><td>${fmt(dpp)}</td></tr>
+      <tr><td style="padding:4px 0;color:#64748b">PPN 11%</td><td>${fmt(ppn)}</td></tr>` : ''}
+      <tr><td style="padding:8px 0;color:#64748b"><b>Jumlah</b></td><td style="font-size:20px;font-weight:800">${fmt(amt)}</td></tr>
+      <tr><td colspan="2" style="padding:6px 0;font-style:italic;background:#f8fafc;border-radius:8px;padding:8px">Terbilang: “${terbilang(amt)} rupiah”</td></tr>
+    </table>
+    <div style="display:flex;justify-content:flex-end;margin-top:18px;font-size:12px;color:#64748b">
+      <div style="text-align:center">Hormat kami,<br><br><br>( ............. )</div>
+    </div>`;
+}
+export function bindReceipt() {
+  document.getElementById('receiptModalClose')?.addEventListener('click', closeReceipt);
+  document.getElementById('receiptModalCancel')?.addEventListener('click', closeReceipt);
+  document.getElementById('receiptPPN')?.addEventListener('change', renderReceiptPreview);
+  document.getElementById('receiptPrintBtn')?.addEventListener('click', () => {
+    const box = document.getElementById('receiptPreview');
+    if (!box) return;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<html><head><title>Kwitansi</title><style>body{font-family:Arial,sans-serif;max-width:420px;margin:20px auto;padding:16px;border:1px solid #ccc}table{width:100%}</style></head><body>${box.innerHTML}<script>onload=()=>{print();}<\/script></body></html>`);
+    w.document.close();
+  });
+  document.getElementById('receiptModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'receiptModal') closeReceipt();
   });
 }
 
@@ -1631,38 +1769,21 @@ export function closeLoans() {
   }
 }
 
-function buildScheduleRows(loan, reps, tenor, instAmt) {
-  const base = new Date(loan.date);
-  const rows = [];
-  let remaining = Number(loan.amount) || 0;
-  for (let i = 1; i <= tenor; i++) {
-    const amt = i < tenor ? instAmt : Math.max(remaining, 0);
-    const paidThis = i <= reps.length;
-    const isNext = i === reps.length + 1 && loan.status !== 'paid';
-    const d = new Date(base);
-    d.setMonth(d.getMonth() + (i - 1));
-    const monthLabel = d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
-    const badge = paidThis
+function buildScheduleRows(loan, reps) {
+  const verb = loan.direction !== 'given' ? 'Bayar' : 'Terima';
+  return scheduleData(loan, reps).map(row => {
+    const badge = row.paid
       ? '<span class="sched-badge done">✅ Sudah</span>'
-      : (isNext ? '<span class="sched-badge next">👉 Sekarang</span>' : '<span class="sched-badge todo">⏳ Belum</span>');
-    const verb = loan.direction !== 'given' ? 'Bayar' : 'Terima';
-    const btn = (!paidThis && isNext)
-      ? `<button class="btn repay-btn pay-next-btn" data-id="${loan.id}" data-amount="${amt}" style="font-size:11px;padding:4px 10px">${verb} ${formatCurrency(amt)}</button>`
+      : (row.isNext ? '<span class="sched-badge next">👉 Sekarang</span>' : '<span class="sched-badge todo">⏳ Belum</span>');
+    const btn = (!row.paid && row.isNext)
+      ? `<button class="btn repay-btn pay-next-btn" data-id="${loan.id}" data-amount="${row.amount}" style="font-size:11px;padding:4px 10px">${verb} ${formatCurrency(row.amount)}</button>`
       : '';
-    rows.push(`<div class="loan-schedule-row"><span style="min-width:0"><strong>Ke-${i}/${tenor}</strong> • ${monthLabel}<br><span style="color:var(--text-muted)">${formatCurrency(amt)}</span></span><span style="display:flex;align-items:center;gap:6px">${badge}${btn}</span></div>`);
-    remaining -= amt;
-  }
-  return rows.join('');
+    return `<div class="loan-schedule-row"><span style="min-width:0"><strong>Ke-${row.n}/${row.tenor}</strong> • ${row.monthLabel}<br><span style="color:var(--text-muted)">${formatCurrency(row.amount)}</span></span><span style="display:flex;align-items:center;gap:6px">${badge}${btn}</span></div>`;
+  }).join('');
 }
 
 function nextDueUi(loan, paidCount) {
-  if (loan.status === 'paid') return null;
-  const base = loan.dueDate ? new Date(loan.dueDate) : new Date(loan.date);
-  if (isNaN(base)) return null;
-  const d = new Date(base);
-  if (loan.loanType === 'cicilan') d.setMonth(d.getMonth() + paidCount);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return nextDue(loan, paidCount);
 }
 
 export function renderLoans(loans, repayments, summary, allLoans) {
@@ -1692,8 +1813,8 @@ export function renderLoans(loans, repayments, summary, allLoans) {
 
   elements.loanList.innerHTML = loans.map(l => {
     const reps = repayments.filter(r => r.loanId === l.id).sort((a, b) => new Date(a.date) - new Date(b.date));
-    const paid = reps.reduce((s, r) => s + r.amount, 0);
-    const outstanding = l.amount - paid;
+    const paid = paidOf(reps);
+    const outstanding = outstandingOf(l, reps);
     const pct = l.amount > 0 ? Math.min(100, (paid / l.amount) * 100) : 0;
     const isTaken = l.direction !== 'given';
     const dirLabel = isTaken ? 'Ambil Loan' : 'Pinjemin';
@@ -1709,7 +1830,7 @@ export function renderLoans(loans, repayments, summary, allLoans) {
     const dueLabel = nextDue ? nextDue.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
     const cardClass = `loan-card ${l.status === 'paid' ? 'paid' : ''} ${isOverdue ? 'overdue' : ''}`;
     const nextNum = reps.length + 1;
-    const nextAmt = isCicilan && instAmt > 0 ? Math.min(instAmt, Math.max(outstanding, 0)) : Math.max(outstanding, 0);
+    const nextAmt = isCicilan && instAmt > 0 ? nextInstallmentAmount(l, reps) : Math.max(outstanding, 0);
 
     return `
       <div class="${cardClass}" data-id="${l.id}">
@@ -1748,7 +1869,7 @@ export function renderLoans(loans, repayments, summary, allLoans) {
         </div>
         ${isCicilan && tenor ? `
           <div class="loan-schedule hidden" id="sched-${l.id}">
-            ${buildScheduleRows(l, reps, tenor, instAmt)}
+            ${buildScheduleRows(l, reps)}
           </div>
         ` : ''}
         ${reps.length ? `
@@ -1865,7 +1986,9 @@ export function getRepayFormData() {
     loanId: elements.repayLoanId.value,
     amount: parseFormattedNumber(elements.repayAmount.value),
     date: elements.repayDate.value,
-    description: elements.repayDesc.value.trim()
+    description: elements.repayDesc.value.trim(),
+    payment: (elements.repayPayment && elements.repayPayment.value) || 'cash',
+    paymentDetail: (elements.repayPaymentDetail && elements.repayPaymentDetail.value.trim()) || ''
   };
 }
 

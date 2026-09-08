@@ -6,6 +6,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.4.0] - 2026-09-08
+
+### Added
+- **Cadangan otomatis** — mirror IndexedDB tiap ada perubahan (`idb.js`), pulihkan otomatis saat boot kalau localStorage kosong, pengingat backup kalau >30 hari + label backup terakhir di Pengaturan (`app.js` `storage.js`)
+- **Cara Bayar di pelunasan** — modal bayar/terima ada pilihan dompet + detail (tidak lagi selalu `cash`); pinjaman baru juga simpan cara bayar (`index.html` `ui.js` `storage.js:loanEntryData`)
+- **Recurring beneran** — engine auto-post tiap bulan saat boot (maks 12/bulan, lewati hari yang belum tiba) + kelola (jeda/hapus) di Pengaturan (`storage.js:runRecurringEngine`)
+- **Anggaran per kategori + Saldo per Dompet** — limit per kategori di Pengaturan, mini-bar di kartu anggaran, panel dompet masuk−keluar per cara bayar (`storage.js` `app.js:renderCategoryBudgets/renderWallets`)
+- **Kwitansi** — tombol 🧾 per transaksi, pratinjau + terbilang + rincian PPN 11% opsional + cetak (`ui.js:terbilang/openReceipt`)
+- **Urungkan hapus** — hapus transaksi (1/banyak) + pembayaran pinjaman tanpa `confirm`, toast Urungkan 6 detik (`ui.js:showUndoToast` `storage.js:restoreEntry/restoreRepayment`)
+- **PWA** — `manifest.json` + `sw.js` (cache-first app shell) + ikon, bisa install & buka offline
+- **Tes otomatis** — `vitest` + `jsdom`, 55 tes (`tests/`: loanmath, reports, validateForm+terbilang, backup schema, smoke DOM render)
+- **Modul baru** — `loanmath.js` (satu-satunya sumber hitungan tenor/sisa/jadwal), `charts.js` (Arus Kas + donut pindah dari app.js), `features.css` (gaya v1.4+), `vendor/` (xlsx + Inter lokal, CDN cuma fallback)
+
+### Changed
+- **Restore JSON divalidasi schema** — file bukan-backup ditolak dengan pesan jelas, baris rusak dilewati satu-satu (tidak menggugurkan semua), duplikat pembayaran terdeteksi, status lunas dihitung ulang (`storage.js:validateBackupJSON`)
+- **Bahasa** — deskripsi otomatis pinjaman ikut bahasa baru (`Kasih pinjam ke`, `Dibalikin dari`…); dropdown Bahasa mati dihapus; Bantuan + Changelog jadi modal beneran; Akun tunjukkan info data nyata
+
+### Fixed
+- **Bug impor**: 1 baris `null`/rusak menggugurkan seluruh impor (ketahuan oleh tes baru) — `importEntries` sekarang pakai sanitizer
+- Tag `<label>` tak tertutup di modal bayar
+
+### Deferred
+- Sync cloud multi-device (butuh backend + kunci API — belum ada)
+- Migrasi penuh localStorage → IndexedDB sebagai sumber utama (butuh rewrite async; mirror + backup menutup risiko data hilang untuk sekarang)
+
+---
+
 ## [1.3.1] - 2026-09-08
 
 ### Changed
@@ -90,6 +117,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.4.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.4.0
 [1.3.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.3.1
 [1.2.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.2.0
 [1.1.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.1.0

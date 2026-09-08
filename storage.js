@@ -91,6 +91,26 @@ export function deleteEntry(id) {
   return filtered.length !== entries.length;
 }
 
+// Masukkan kembali entry persis (untuk Urungkan hapus). Return true jika masuk.
+export function restoreEntry(entry) {
+  if (!entry || typeof entry !== 'object' || !entry.id) return false;
+  const entries = getEntries();
+  if (entries.some(e => e.id === entry.id)) return false;
+  entries.push({ ...entry });
+  saveEntries(entries);
+  return true;
+}
+
+// Masukkan kembali repayment persis (untuk Urungkan hapus). Return true jika masuk.
+export function restoreRepayment(rep) {
+  if (!rep || typeof rep !== 'object' || !rep.id) return false;
+  const reps = getRepayments();
+  if (reps.some(r => r.id === rep.id)) return false;
+  reps.push({ ...rep });
+  saveRepayments(reps);
+  return true;
+}
+
 export function clearAllEntries() {
   localStorage.removeItem(STORAGE_KEY);
 }
@@ -101,14 +121,7 @@ export function exportEntries() {
 }
 
 export function exportJSON() {
-  const data = {
-    entries: getEntries(),
-    loans: getLoans(),
-    repayments: getRepayments(),
-    people: getPeopleList(),
-    exportedAt: new Date().toISOString(),
-    version: 1
-  };
+  const data = snapshotAll();
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -119,6 +132,7 @@ export function exportJSON() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  stampLastBackup();
 }
 
 export function exportExcel() {
@@ -420,63 +434,174 @@ export function importExcel(file) {
   });
 }
 
+const MAX_IMPORT_ROWS = 50000;
+const VALID_TYPES = ['income', 'expense'];
+const VALID_PAYMENTS = ['cash', 'credit', 'qris', 'transfer', 'debit', 'ewallet', 'paylater', 'other'];
+
+function isValidDateStr(s) {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s) && !isNaN(new Date(s));
+}
+
+function sanitizeEntry(ent) {
+  if (!ent || typeof ent !== 'object') return null;
+  const amount = Number(ent.amount);
+  const date = String(ent.date || '').slice(0, 10);
+  const type = ent.type === 'income' ? 'income' : (ent.type === 'expense' ? 'expense' : null);
+  const category = String(ent.category || '').trim().slice(0, 60);
+  if (!isValidDateStr(date) || !type || !category || !isFinite(amount) || amount <= 0) return null;
+  const payment = VALID_PAYMENTS.includes(ent.payment) ? ent.payment : 'cash';
+  return {
+    id: String(ent.id || generateId()).slice(0, 60),
+    date, type, category, payment,
+    paymentDetail: String(ent.paymentDetail || '').slice(0, 60),
+    description: String(ent.description || '').slice(0, 120),
+    amount,
+    person: String(ent.person || '').slice(0, 60),
+    loanId: ent.loanId ? String(ent.loanId).slice(0, 60) : null
+  };
+}
+
+function sanitizeLoan(l) {
+  if (!l || typeof l !== 'object') return null;
+  const amount = Number(l.amount);
+  const date = String(l.date || '').slice(0, 10);
+  const person = String(l.person || '').trim().slice(0, 60);
+  if (!isValidDateStr(date) || !person || !isFinite(amount) || amount <= 0) return null;
+  return {
+    id: String(l.id || generateId()).slice(0, 60),
+    direction: l.direction === 'taken' ? 'taken' : 'given',
+    contactType: l.contactType === 'perusahaan' ? 'perusahaan' : 'person',
+    loanType: l.loanType === 'cicilan' ? 'cicilan' : 'lunas',
+    installmentAmount: Math.max(Number(l.installmentAmount) || 0, 0),
+    person, amount, date,
+    dueDate: isValidDateStr(l.dueDate) ? String(l.dueDate).slice(0, 10) : '',
+    description: String(l.description || '').slice(0, 120),
+    status: l.status === 'paid' ? 'paid' : 'active',
+    entryId: l.entryId ? String(l.entryId).slice(0, 60) : undefined,
+    createdAt: l.createdAt || new Date().toISOString()
+  };
+}
+
+function sanitizeRepayment(r, knownLoanIds) {
+  if (!r || typeof r !== 'object') return null;
+  const amount = Number(r.amount);
+  const date = String(r.date || '').slice(0, 10);
+  const loanId = String(r.loanId || '');
+  if (!loanId || !knownLoanIds.has(loanId)) return null;
+  if (!isValidDateStr(date) || !isFinite(amount) || amount <= 0) return null;
+  return {
+    id: String(r.id || generateId()).slice(0, 60),
+    loanId,
+    amount, date,
+    description: String(r.description || '').slice(0, 120),
+    entryId: r.entryId ? String(r.entryId).slice(0, 60) : undefined,
+    createdAt: r.createdAt || new Date().toISOString()
+  };
+}
+
+// Validasi schema file backup JSON. Return { ok, errors[], skipped }.
+// Tidak pernah crash untuk input apapun — selalu return atau throw pesan jelas.
+export function validateBackupJSON(text) {
+  const errors = [];
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return { ok: false, errors: ['File bukan JSON yang valid'], skipped: 0 };
+  }
+  if (data === null || typeof data !== 'object') {
+    return { ok: false, errors: ['File ini bukan backup Wynara (isi harus objek atau daftar transaksi)'], skipped: 0 };
+  }
+  const rows = Array.isArray(data) ? data : (data.entries || data.loans || data.repayments || data.people ? data : null);
+  if (!rows) {
+    return { ok: false, errors: ['File ini bukan backup Wynara (tidak ada entries / loans / repayments / people)'], skipped: 0 };
+  }
+  const counts = ['entries', 'loans', 'repayments', 'people'].map(k => Array.isArray(data[k]) ? data[k].length : (Array.isArray(rows) && k === 'entries' ? rows.length : 0));
+  if (counts.some(c => c > MAX_IMPORT_ROWS)) {
+    errors.push(`File terlalu besar (maks ${MAX_IMPORT_ROWS} baris per bagian)`);
+    return { ok: false, errors, skipped: 0 };
+  }
+  return { ok: true, errors, skipped: 0 };
+}
+
 function importJSONFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
+        const check = validateBackupJSON(e.target.result);
+        if (!check.ok) {
+          reject(new Error(check.errors[0]));
+          return;
+        }
         const data = JSON.parse(e.target.result);
-        let cE = 0, cL = 0, cR = 0, cP = 0;
+        let cE = 0, cL = 0, cR = 0, cP = 0, skipped = 0;
         if (Array.isArray(data)) {
           // legacy: array of entries
-          const valid = data.map(ent => ({
-            id: ent.id || generateId(),
-            date: ent.date,
-            type: ent.type,
-            category: ent.category,
-            payment: ent.payment || 'cash',
-            description: ent.description || '',
-            amount: Number(ent.amount)
-          })).filter(en => en.date && en.type && en.category && isFinite(en.amount) && en.amount > 0);
+          const valid = [];
+          data.forEach(ent => { const s = sanitizeEntry(ent); if (s) valid.push(s); else skipped++; });
           const deduped = dedupEntries(getEntries(), valid);
           if (deduped.length) { saveEntries(getEntries().concat(deduped)); cE = deduped.length; }
-        } else if (data.entries || data.loans) {
+          skipped += valid.length - deduped.length;
+        } else {
           if (Array.isArray(data.entries)) {
-            const valid = data.entries.map(ent => ({
-              id: ent.id || generateId(),
-              date: ent.date,
-              type: ent.type,
-              category: ent.category,
-              payment: ent.payment || 'cash',
-              description: ent.description || '',
-              amount: Number(ent.amount),
-              person: ent.person || '',
-              loanId: ent.loanId || null
-            })).filter(en => en.date && en.type && en.category && isFinite(en.amount) && en.amount > 0);
+            const valid = [];
+            data.entries.forEach(ent => { const s = sanitizeEntry(ent); if (s) valid.push(s); else skipped++; });
             const deduped = dedupEntries(getEntries(), valid);
             if (deduped.length) { saveEntries(getEntries().concat(deduped)); cE = deduped.length; }
+            skipped += valid.length - deduped.length;
           }
+          const knownLoanIds = new Set(getLoans().map(l => l.id));
           if (Array.isArray(data.loans)) {
             const existing = getLoans();
-            const toAdd = data.loans.filter(nl => !existing.some(el => el.person === nl.person && el.amount === nl.amount && el.date === nl.date));
-            if (toAdd.length) { saveLoans(existing.concat(toAdd.map(l => ({ ...l, id: l.id || generateId() })))); cL = toAdd.length; }
+            const toAdd = [];
+            data.loans.forEach(nl => {
+              const s = sanitizeLoan(nl);
+              if (!s) { skipped++; return; }
+              if (existing.some(el => el.person === s.person && el.amount === s.amount && el.date === s.date)) { skipped++; return; }
+              toAdd.push(s);
+              knownLoanIds.add(s.id);
+            });
+            if (toAdd.length) { saveLoans(existing.concat(toAdd)); cL = toAdd.length; }
           }
           if (Array.isArray(data.repayments)) {
             const existing = getRepayments();
-            saveRepayments(existing.concat(data.repayments.map(r => ({ ...r, id: r.id || generateId() }))));
-            cR = data.repayments.length;
+            const have = new Set(existing.map(r => r.id + '|' + r.loanId + '|' + r.amount + '|' + r.date));
+            const toAdd = [];
+            data.repayments.forEach(r => {
+              const s = sanitizeRepayment(r, knownLoanIds);
+              if (!s) { skipped++; return; }
+              const key = s.id + '|' + s.loanId + '|' + s.amount + '|' + s.date;
+              if (have.has(key)) { skipped++; return; }
+              have.add(key);
+              toAdd.push(s);
+            });
+            if (toAdd.length) {
+              saveRepayments(existing.concat(toAdd));
+              cR = toAdd.length;
+              // refresh loan paid status
+              toAdd.forEach(r => {
+                const loan = getLoanById(r.loanId);
+                if (loan) {
+                  const total = getRepayments().filter(x => x.loanId === loan.id).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+                  if (total >= (Number(loan.amount) || 0)) updateLoan(loan.id, { status: 'paid' });
+                }
+              });
+            }
           }
           if (Array.isArray(data.people)) {
             let added = 0;
             data.people.forEach(p => {
+              const name = p && String(p.name || '').trim().slice(0, 60);
+              if (!name) { skipped++; return; }
               const before = getPeopleList().length;
-              savePerson(p.name, p.type);
-              if (getPeopleList().length > before) added++;
+              savePerson(name, p.type === 'perusahaan' ? 'perusahaan' : 'person');
+              if (getPeopleList().length > before) added++; else skipped++;
             });
             cP = added;
           }
         }
-        resolve({ entries: cE, loans: cL, repayments: cR, people: cP });
+        resolve({ entries: cE, loans: cL, repayments: cR, people: cP, skipped });
       } catch (err) {
         reject(new Error('Gagal membaca JSON: ' + err.message));
       }
@@ -529,24 +654,18 @@ function importCSVFile(file) {
 }
 
 export function importEntries(jsonString) {
+  let entries;
   try {
-    const entries = JSON.parse(jsonString);
-    if (!Array.isArray(entries)) throw new Error('Invalid format');
-    const validEntries = entries.map(e => ({
-      id: e.id || generateId(),
-      date: e.date,
-      type: e.type,
-      category: e.category,
-      payment: e.payment || 'cash',
-      description: e.description || '',
-      amount: Number(e.amount)
-    })).filter(e => e.date && e.type && e.category && isFinite(e.amount) && e.amount > 0);
-    const deduped = dedupEntries(getEntries(), validEntries);
-    saveEntries(getEntries().concat(deduped));
-    return deduped;
+    entries = JSON.parse(jsonString);
   } catch {
     throw new Error('Invalid JSON file');
   }
+  if (!Array.isArray(entries)) throw new Error('Invalid format');
+  // baris rusak (null, tanggal salah, nominal ≤ 0) dilewati satu-satu
+  const validEntries = entries.map(sanitizeEntry).filter(Boolean);
+  const deduped = dedupEntries(getEntries(), validEntries);
+  saveEntries(getEntries().concat(deduped));
+  return deduped;
 }
 
 export function getCategories() {
@@ -596,18 +715,20 @@ function saveRepayments(repayments) {
   }
 }
 
-function loanEntryData(loan, isRepayment, amount, date) {
+function loanEntryData(loan, isRepayment, amount, date, payment, paymentDetail) {
   const isPiutang = loan.direction === 'given';
+  const pay = payment || loan.payment || 'cash';
+  const payDetail = (paymentDetail !== undefined ? paymentDetail : loan.paymentDetail) || '';
   if (!isRepayment) {
     const type = isPiutang ? 'expense' : 'income';
     const category = isPiutang ? 'Piutang' : 'Hutang';
-    const desc = (isPiutang ? 'Kasih pinjam → ' : 'Pinjam uang ← ') + loan.person;
-    return { type, category, amount: loan.amount, date: loan.date, description: desc, person: loan.person, loanId: loan.id, payment: 'cash', loanDue: loan.dueDate || '', loanType: loan.loanType || 'lunas', installmentAmount: loan.installmentAmount || 0, contactType: loan.contactType || 'person' };
+    const desc = (isPiutang ? 'Kasih pinjam ke ' : 'Pinjam dari ') + loan.person;
+    return { type, category, amount: loan.amount, date: loan.date, description: desc, person: loan.person, loanId: loan.id, payment: pay, paymentDetail: String(payDetail).slice(0, 60), loanDue: loan.dueDate || '', loanType: loan.loanType || 'lunas', installmentAmount: loan.installmentAmount || 0, contactType: loan.contactType || 'person' };
   }
   const type = isPiutang ? 'income' : 'expense';
   const category = isPiutang ? 'Piutang' : 'Hutang';
-  const desc = (isPiutang ? 'Dibalikin: ' : 'Balikin: ') + loan.person;
-  return { type, category, amount, date, description: desc, person: loan.person, loanId: loan.id, payment: 'cash' };
+  const desc = (isPiutang ? 'Dibalikin dari ' : 'Balikin ke ') + loan.person;
+  return { type, category, amount, date, description: desc, person: loan.person, loanId: loan.id, payment: pay, paymentDetail: String(payDetail).slice(0, 60) };
 }
 
 export function getAllLoans() {
@@ -637,6 +758,8 @@ export function createLoan(loan) {
     date: loan.date,
     dueDate: loan.dueDate || '',
     description: String(loan.description || '').slice(0, 120),
+    payment: loan.payment || 'cash',
+    paymentDetail: String(loan.paymentDetail || '').slice(0, 60),
     status: 'active',
     createdAt: new Date().toISOString()
   };
@@ -711,9 +834,11 @@ export function addRepayment(repayment) {
     amount,
     date: repayment.date,
     description: String(repayment.description || '').slice(0, 120),
+    payment: repayment.payment || 'cash',
+    paymentDetail: String(repayment.paymentDetail || '').slice(0, 60),
     createdAt: new Date().toISOString()
   };
-  const entry = createEntry(loanEntryData(loan, true, newRep.amount, newRep.date));
+  const entry = createEntry(loanEntryData(loan, true, newRep.amount, newRep.date, newRep.payment, newRep.paymentDetail));
   newRep.entryId = entry.id;
   repayments.push(newRep);
   saveRepayments(repayments);
@@ -745,6 +870,10 @@ export function deleteRepayment(id) {
 
 export function getLoanRepayments(loanId) {
   return getRepayments().filter(r => r.loanId === loanId);
+}
+
+export function getRepaymentById(id) {
+  return getRepayments().find(r => r.id === id) || null;
 }
 
 export function clearAllLoans() {
@@ -854,6 +983,35 @@ export function saveBudget(budget) {
   localStorage.setItem('wynara_budget', JSON.stringify(budget));
 }
 
+// Anggaran per kategori: { [category]: amount }
+export function getCategoryBudgets() {
+  try {
+    const v = localStorage.getItem('wynara_catBudget');
+    const o = v ? JSON.parse(v) : {};
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return {};
+    const out = {};
+    Object.keys(o).forEach(k => {
+      const n = Number(o[k]);
+      if (k && isFinite(n) && n > 0) out[k.slice(0, 60)] = n;
+    });
+    return out;
+  } catch { return {}; }
+}
+
+export function saveCategoryBudgets(obj) {
+  localStorage.setItem('wynara_catBudget', JSON.stringify(obj || {}));
+}
+
+export function setCategoryBudget(category, amount) {
+  const all = getCategoryBudgets();
+  const n = Number(amount);
+  if (!category) return all;
+  if (!isFinite(n) || n <= 0) delete all[category];
+  else all[category] = n;
+  saveCategoryBudgets(all);
+  return all;
+}
+
 export function getRecurring() {
   try {
     const v = localStorage.getItem('wynara_recurring');
@@ -863,4 +1021,165 @@ export function getRecurring() {
 
 export function saveRecurring(list) {
   localStorage.setItem('wynara_recurring', JSON.stringify(list));
+}
+
+function monthKey(y, m) { return y + '-' + String(m + 1).padStart(2, '0'); }
+
+function monthsBetween(a, b) {
+  // daftar [y, m] dari a (inklusif) sampai b (inklusif)
+  const out = [];
+  let y = a.y, m = a.m, guard = 0;
+  while ((y < b.y || (y === b.y && m <= b.m)) && guard < 25) {
+    out.push({ y, m });
+    m++;
+    if (m > 11) { m = 0; y++; }
+    guard++;
+  }
+  return out;
+}
+
+// Engine recurring: posting otomatis tiap bulan untuk template yang jatuh tempo.
+// Dipanggil saat boot. Maks 12 posting per boot. Return { posted }.
+export function runRecurringEngine(today) {
+  const now = today instanceof Date ? today : new Date();
+  const cur = { y: now.getFullYear(), m: now.getMonth() };
+  const list = getRecurring();
+  if (!Array.isArray(list) || !list.length) return { posted: 0 };
+  let posted = 0;
+  let changed = false;
+  list.forEach(t => {
+    if (!t || typeof t !== 'object' || !t.recurringId) return;
+    if (t.paused) return;
+    const created = new Date(t.createdAt || t.date || now);
+    if (isNaN(created)) return;
+    const start = { y: created.getFullYear(), m: created.getMonth() };
+    if (!Array.isArray(t.postedPeriods)) { t.postedPeriods = []; changed = true; }
+    const day = Math.min(Math.max(parseInt(String(t.date || '').slice(8, 10), 10) || created.getDate() || 1, 1), 28);
+    monthsBetween(start, cur).forEach(({ y, m }) => {
+      if (posted >= 12) return;
+      const key = monthKey(y, m);
+      if (t.postedPeriods.includes(key)) return;
+      const isCurMonth = y === cur.y && m === cur.m;
+      if (isCurMonth && day > now.getDate()) return; // hari belum tiba bulan ini
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const dd = String(Math.min(day, lastDay)).padStart(2, '0');
+      const mm = String(m + 1).padStart(2, '0');
+      try {
+        createEntry({
+          date: `${y}-${mm}-${dd}`,
+          type: t.type === 'income' ? 'income' : 'expense',
+          category: String(t.category || 'lainnya'),
+          payment: t.payment || 'cash',
+          paymentDetail: String(t.paymentDetail || '').slice(0, 60),
+          description: String(t.description || ''),
+          amount: Number(t.amount),
+          person: ''
+        });
+        // tandai entry sebagai hasil auto-post (untuk jejak, tanpa merusak dedup)
+        const all = getEntries();
+        const match = all.find(e => e.date === `${y}-${mm}-${dd}` && Number(e.amount) === Number(t.amount) && e.category === String(t.category || 'lainnya') && !e.autoRecurringId);
+        if (match) {
+          match.autoRecurringId = t.recurringId;
+          match.autoPeriod = key;
+          saveEntries(all);
+        }
+        t.postedPeriods.push(key);
+        posted++;
+        changed = true;
+      } catch {}
+    });
+  });
+  if (changed) saveRecurring(list);
+  return { posted };
+}
+
+export function pauseRecurring(recurringId, paused) {
+  const list = getRecurring();
+  const t = list.find(x => x && x.recurringId === recurringId);
+  if (!t) return false;
+  t.paused = !!paused;
+  saveRecurring(list);
+  return true;
+}
+
+export function deleteRecurring(recurringId) {
+  const list = getRecurring();
+  saveRecurring(list.filter(x => !x || x.recurringId !== recurringId));
+}
+
+// ===== Snapshot / Restore (untuk backup file + mirror IndexedDB) =====
+export function snapshotAll() {
+  return {
+    entries: getEntries(),
+    loans: getLoans(),
+    repayments: getRepayments(),
+    people: getPeopleList(),
+    budget: getBudget(),
+    recurring: getRecurring(),
+    exportedAt: new Date().toISOString(),
+    version: 2
+  };
+}
+
+export function snapshotSize(snap) {
+  const s = snap || snapshotAll();
+  return (s.entries?.length || 0) + (s.loans?.length || 0) + (s.repayments?.length || 0) + (s.people?.length || 0);
+}
+
+// Kembalikan snapshot (dari file backup / IDB). Semua baris disanitasi.
+// Return { entries, loans, repayments, people } jumlah yang masuk.
+export function restoreAll(snap) {
+  if (!snap || typeof snap !== 'object') throw new Error('Snapshot tidak valid');
+  let cE = 0, cL = 0, cR = 0, cP = 0;
+  if (Array.isArray(snap.entries)) {
+    const valid = snap.entries.map(sanitizeEntry).filter(Boolean);
+    const deduped = dedupEntries(getEntries(), valid);
+    if (deduped.length) { saveEntries(getEntries().concat(deduped)); cE = deduped.length; }
+  }
+  const knownLoanIds = new Set(getLoans().map(l => l.id));
+  if (Array.isArray(snap.loans)) {
+    const existing = getLoans();
+    const toAdd = [];
+    snap.loans.forEach(nl => {
+      const s = sanitizeLoan(nl);
+      if (!s) return;
+      if (existing.some(el => el.person === s.person && el.amount === s.amount && el.date === s.date)) return;
+      toAdd.push(s);
+      knownLoanIds.add(s.id);
+    });
+    if (toAdd.length) { saveLoans(existing.concat(toAdd)); cL = toAdd.length; }
+  }
+  if (Array.isArray(snap.repayments)) {
+    const existing = getRepayments();
+    const toAdd = snap.repayments.map(r => sanitizeRepayment(r, knownLoanIds)).filter(Boolean);
+    if (toAdd.length) { saveRepayments(existing.concat(toAdd)); cR = toAdd.length; }
+  }
+  if (Array.isArray(snap.people)) {
+    snap.people.forEach(p => {
+      const name = p && String(p.name || '').trim().slice(0, 60);
+      if (!name) return;
+      const before = getPeopleList().length;
+      try { savePerson(name, p.type === 'perusahaan' ? 'perusahaan' : 'person'); } catch {}
+      if (getPeopleList().length > before) cP++;
+    });
+  }
+  if (snap.budget && typeof snap.budget === 'object' && Number(snap.budget.amount) > 0) {
+    try { saveBudget({ amount: Number(snap.budget.amount), updatedAt: snap.budget.updatedAt || new Date().toISOString() }); } catch {}
+  }
+  if (Array.isArray(snap.recurring)) {
+    try { saveRecurring(snap.recurring.filter(r => r && typeof r === 'object')); } catch {}
+  }
+  return { entries: cE, loans: cL, repayments: cR, people: cP };
+}
+
+export function stampLastBackup() {
+  try { localStorage.setItem('wynara_lastBackup', new Date().toISOString()); } catch {}
+}
+
+export function getLastBackup() {
+  try {
+    const v = localStorage.getItem('wynara_lastBackup');
+    const d = v ? new Date(v) : null;
+    return d && !isNaN(d) ? d : null;
+  } catch { return null; }
 }

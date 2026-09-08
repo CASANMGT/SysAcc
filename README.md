@@ -2,7 +2,7 @@
 
 > Clean, offline-first accounting for UMKM Indonesia — pemasukan, pengeluaran, piutang/hutang cicilan, laporan & kontak.
 
-![Version](https://img.shields.io/badge/version-1.3.1-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%2B%20LocalStorage-lightgrey)
 
@@ -53,9 +53,11 @@ Live: `http://localhost:3456` — login `admin / admin`
 **Lainnya**
 - Kontak (orang/perusahaan) with cascade rename, search
 - Laporan 4 tabs: Bulanan/Per Kategori/Arus Kas/Top Pengeluaran
-- Import/Export: `Excel (.xlsx)` 4 sheets, `CSV`, `JSON` backup (`exportJSON:72` + dedup), `JSON/CSV` import
-- Backup `wynara-backup-YYYY-MM-DD.json` + restore
-- Anggaran bulanan + recurring + kategori custom delete
+- Import/Export: `Excel (.xlsx)` 4 sheets, `CSV`, `JSON` backup (validasi schema, baris rusak dilewati, dedup), `JSON/CSV` import
+- Backup `wynara-backup-YYYY-MM-DD.json` + restore + **cadangan otomatis IndexedDB** (pulih saat boot) + pengingat backup >30 hari
+- Anggaran bulanan + **anggaran per kategori** + **saldo per dompet** + recurring auto-post + kategori custom delete
+- **Kwitansi** 🧾 per transaksi (terbilang + PPN 11% + cetak), **Urungkan hapus** 6 detik
+- PWA installable (offline), Bantuan + Changelog modal, `npm test` → 55 tes vitest
 - Sidebar `Ringkasan ↔ Transaksi` views (`showView:176`), topbar search sync, theme `dark-mode` (toggle in Pengaturan)
 - Toast (`success/error/warning/info`), focus trap, keyboard `Ctrl+N` / `/` / `Esc` / `?`
 - Print, pagination `prev/next/loadMore`, empty filtered state
@@ -95,12 +97,22 @@ No install, no env.
 
 ```
 accounting-system/
-├─ index.html   # login two-column + sidebar + dashboard + transaksi view + 7 dialogs
+├─ index.html   # login two-column + sidebar + dashboard + transaksi view + 10 dialogs
 ├─ style.css    # tokens + login + sidebar/topbar + metric/donut/chart + tx modal + table
-├─ app.js       # state, filters, sort, search, pagination, budget, overdue, view switching
-├─ ui.js        # renderEntries (7 cols), category cards, tx modal bidirectional, payment detail, focus trap
-├─ storage.js   # entries/loans/repayments/people/budget/recurring + import/export + dedup + cascade
-├─ reports.js   # filterEntries, computeTotals, computeRunningBalance (chronological), monthly/cashflow, loanSummary
+├─ features.css # gaya v1.4+ (toast undo, kwitansi, info modal, @font-face Inter lokal)
+├─ app.js       # state, filters, sort, search, pagination, budget, wallet, kwitansi, backup, recurring
+├─ ui.js        # renderEntries, category cards, tx modal, payment detail, loans cards, repay modal, undo toast
+├─ storage.js   # entries/loans/repayments/people/budget/recurring + schema validation + snapshot/restore + engine
+├─ reports.js   # filterEntries, computeTotals, breakdown, monthly/cashflow, loanSummary
+├─ loanmath.js  # tenor/sisa/jadwal/jatuh tempo murni (satu-satunya sumber, di-test)
+├─ charts.js    # Arus Kas SVG + donut (pindah dari app.js)
+├─ idb.js       # mirror IndexedDB fire-and-forget
+├─ sw.js        # service worker (cache-first app shell)
+├─ manifest.json
+├─ vendor/      # xlsx.full.min.js + inter-*.woff2 (lokal, CDN cuma fallback)
+├─ icons/       # icon.svg + icon-192/512.png
+├─ tests/       # vitest: loanmath, reports, ui-validate, storage-backup, smoke-dom (55 tes)
+├─ package.json # type module, scripts: test (vitest run), dev
 ├─ README.md
 ├─ CHANGELOG.md
 └─ VERSION
@@ -110,7 +122,9 @@ accounting-system/
 
 ## 🔖 Version
 
-Current: **1.3.1** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
+Current: **1.4.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
+
+Test: `npm install` sekali, lalu `npm test` (vitest, 55 tes).
 
 Versioning: `MAJOR.MINOR.PATCH` — storage `version:1` in JSON backup.
 
@@ -122,33 +136,22 @@ See [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
-## 🗺️ Roadmap (next version)
+## 🗺️ Roadmap
 
-Hasil audit v1.3.1 — diurut dari yang paling berdampak:
+v1.4.0 menutup hampir semua audit v1.3.1. Sisa:
 
-**P0 — Data tidak boleh hilang**
-- Backup otomatis (pengingat / unduh terjadwal) + validasi schema saat import JSON (file rusak = toast jelas, bukan crash)
-- Rencana migrasi `localStorage` (limit ~5MB) → `IndexedDB`, lalu sync cloud opsional (Supabase/Firebase) untuk multi-device
+**Berikutnya**
+- Sync cloud multi-device (butuh backend + kunci API — Supabase/Firebase)
+- Migrasi penuh `localStorage` → `IndexedDB` sebagai sumber utama (butuh rewrite async)
+- Export PDF laporan, bottom-nav mobile, warna chart dark-mode, audit `aria`, `eslint`
 
-**P0 — Kebenaran uang**
-- Pilihan `Cara Bayar` di modal bayar/terima cicilan — sekarang pelunasan selalu tercatat `cash`
-- Samakan deskripsi otomatis pinjaman (`Kasih pinjam →`, `Dibalikin:`…) dengan bahasa baru
-
-**P1 — Fitur UMKM**
-- Recurring beneran: auto-post tiap bulan (sekarang cuma flag + toast pengingat, tidak ada engine)
-- Anggaran per kategori (sekarang cuma 1 limit global), saldo per dompet (`Tunai`, `BCA`, `DANA`…), cetak kwitansi/invoice + export PDF, hitung PPN
-
-**P1 — Selesaikan yang mati**
-- `settingLang` disimpan tapi tidak dipakai (tanpa i18n) — hapus atau implementasi beneran
-- `topbarAccount` (toast demo), `sidebar-help-btn` (toast), `changelogLink` (buka tab kosong) — hubungkan atau buang
-- Tombol hapus pakai `confirm()` tanpa undo — ganti toast Undo 5 detik
-
-**P2 — Kesehatan kode**
-- Pecah monolit: `ui.js` (~2000 baris), `style.css` (~3300 baris), `app.js` (~1600 baris) → modul `loans.js`, `repay.js`, `charts.js`, `settings.js` + CSS per fitur; tambah `eslint` + `vitest` untuk `validateForm`, `computeTotals`, matematika tenor
-- Ganti CDN `xlsx` + font `Inter` dengan vendor lokal — CDN mati = app offline-first ikut mati
-
-**P2 — Mobile & akses**
-- `manifest.json` + service worker (PWA installable), bottom-nav mobile, warna chart dark-mode, audit `aria` dialog, test layar 360px
+**Selesai di v1.4.0 ✅**
+- Backup otomatis (mirror IDB + pengingat + label) + validasi schema import JSON
+- `Cara Bayar` di pelunasan + deskripsi pinjaman bahasa baru
+- Recurring auto-post engine + kelola di Pengaturan
+- Anggaran per kategori, saldo per dompet, kwitansi + PPN 11%
+- `settingLang` mati dihapus; Bantuan/Changelog/Akun jadi modal beneran; hapus pakai Urungkan
+- Modul `loanmath.js`/`charts.js`/`idb.js` + `features.css`; 55 tes vitest; vendor lokal + PWA
 
 ---
 

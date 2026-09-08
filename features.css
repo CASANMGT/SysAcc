@@ -1,0 +1,89 @@
+/* features.css — Gaya komponen v1.4+ (dipisah dari style.css monolit).
+   Aturan: gaya fitur BARU tulis di sini, jangan tambah ke style.css. */
+
+/* Inter lokal (vendor/) — offline-first, tanpa Google Fonts CDN */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('vendor/inter-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('vendor/inter-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('vendor/inter-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('vendor/inter-700.woff2') format('woff2');
+}
+
+.toast-undo {
+  margin-left: 8px;
+  font-weight: 700;
+  color: var(--primary, #2563eb);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.toast-undo:hover { text-decoration: underline; }
+
+/* Bantuan: tombol keyboard */
+#infoModalBody kbd {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid #cbd5e1;
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: #f8fafc;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+#infoModalBody pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* Kwitansi */
+#receiptPreview table td { vertical-align: top; }
+
+/* Bar anggaran kategori (mini) */
+#budgetCats .budget-bar { height: 6px; }
+
+/* Select + input anggaran kategori */
+#catBudgetSelect:focus,
+#catBudgetAmount:focus,
+#repayPayment:focus,
+#repayPaymentDetail:focus {
+  outline: 2px solid #bfdbfe;
+  border-color: #93c5fd;
+}
+
+@media print {
+  body * { visibility: hidden; }
+  #receiptPreview, #receiptPreview * { visibility: visible; }
+  #receiptPreview {
+    position: absolute;
+    left: 0; top: 0; width: 100%;
+    border: none;
+  }
+}
