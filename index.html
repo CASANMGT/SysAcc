@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.14.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.15.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -476,7 +476,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.14.2</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.15.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -646,6 +646,7 @@
             <div style="display:flex;gap:8px">
               <button type="button" class="btn btn-ghost" id="adjustOpenBtn" title="Catat jurnal penyesuaian manual (debit/kredit)">＋ Jurnal penyesuaian</button>
               <button type="button" class="btn btn-ghost" id="closingBtn" title="Tutup bulan: pendapatan & beban → Laba Ditahan (idempoten)">🔒 Penutupan bulan</button>
+              <button type="button" class="btn btn-ghost" id="pageReportExcel" title="Unduh laporan aktif ke Excel (.xlsx)">⬇️ Excel</button>
               <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
             </div>
           </div>
@@ -659,7 +660,10 @@
             <button type="button" class="chip page-report-tab" data-report="ledger">Buku Besar</button>
             <button type="button" class="chip page-report-tab" data-report="pl">Laba Rugi</button>
             <button type="button" class="chip page-report-tab" data-report="bs">Neraca</button>
+            <button type="button" class="chip page-report-tab" data-report="trial">Neraca Saldo</button>
             <button type="button" class="chip page-report-tab" data-report="tax">Pajak</button>
+            <button type="button" class="chip page-report-tab" data-report="ppn">PPN</button>
+            <button type="button" class="chip page-report-tab" data-report="pph21">PPh 21</button>
             <button type="button" class="chip page-report-tab" data-report="payrollrep">Gaji</button>
             <button type="button" class="chip page-report-tab" data-report="audit">Audit</button>
           </div>
@@ -1003,7 +1007,10 @@
           <button class="report-tab" data-report="ledger">Buku Besar</button>
           <button class="report-tab" data-report="pl">Laba Rugi</button>
           <button class="report-tab" data-report="bs">Neraca</button>
+          <button class="report-tab" data-report="trial">Neraca Saldo</button>
           <button class="report-tab" data-report="tax">Pajak</button>
+          <button class="report-tab" data-report="ppn">PPN</button>
+          <button class="report-tab" data-report="pph21">PPh 21</button>
           <button class="report-tab" data-report="payrollrep">Gaji</button>
           <button class="report-tab" data-report="audit">Audit</button>
         </div>

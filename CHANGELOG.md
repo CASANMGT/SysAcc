@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.15.0] - 2026-09-09
+
+### Added — Laporan level akuntan senior Indonesia
+- **📒 Neraca Saldo** (tab baru, modal + halaman) — saldo debit/kredit per akun terkelompok per jenis, **total & cek "✓ Seimbang / ⚠ Selisih"**, deteksi **jurnal pincang** (findUnbalanced), indikator periode terkunci — alat kerja utama sebelum tutup buku
+- **🧾 Laporan PPN (gaya 1111)** (tab baru) — per bulan: Penjualan DPP + PPN Keluaran (2105) vs Pembelian DPP + PPN Masukan (1401) + **kurang/lebih bayar**, total + catatan PKP — siap SPT Masa PPN
+- **💼 Rekap PPh 21 (e-SPT 21)** (tab baru) — PPh 21 terpotong & THP per bulan dari payroll final
+- **⬇️ Excel** — tombol unduh laporan aktif (tab apa pun) ke `.xlsx` via library XLSX
+- Catatan: laporan PPh Final 0,5%/UMKM (PP 23/2018) & jurnal penutupan sudah ada — kini paket pajak & audit lengkap: Neraca Saldo → Penutupan → Neraca & Laba Rugi → pajak
+
+---
+
 ## [1.14.2] - 2026-09-09
 
 ### Improved — Modal Jual & Beli (pola sama dgn input barang)

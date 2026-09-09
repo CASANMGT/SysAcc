@@ -4,8 +4,8 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, balances } from './journals.js';
 import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts } from './coa.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS } from './payroll.js';
 
 let currentEntries = [];
@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.14.2';
+const APP_VERSION = '1.15.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -551,6 +551,7 @@ function bindEvents() {
     renderPageReport();
   });
   document.getElementById('pageReportPrint')?.addEventListener('click', () => UI.printPageReport());
+  document.getElementById('pageReportExcel')?.addEventListener('click', () => UI.exportPageReportExcel());
   document.getElementById('aksiKategori')?.addEventListener('click', () => UI.showInfo('Kelola kategori: pilih kategori saat tambah transaksi'));
   // Topbar search mirrors main search
   const topSearch = document.getElementById('searchInputTop');
@@ -1817,9 +1818,74 @@ function computeReportData(type) {
       return buildPayrollReport();
     case 'products':
       return buildProductsReport();
+    case 'trial':
+      return buildTrialBalance();
+    case 'ppn':
+      return buildPPNReport();
+    case 'pph21':
+      return buildPPh21Report();
     default:
       return Reports.computeMonthlySummary(filtered);
   }
+}
+
+// Neraca Saldo — alat kerja utama akuntan (saldo debit/kredit per akun, cek seimbang)
+function buildTrialBalance() {
+  const journals = Storage.getAllJournals();
+  const range = journalDateRange();
+  const bal = balances(journals, range.start || range.end ? { start: range.start, end: range.end } : {});
+  const accounts = getAccounts().map(a => ({ code: a.code, name: a.name, type: a.type, b: bal[a.code] || { debit: 0, credit: 0 } }));
+  const totDeb = accounts.reduce((s, x) => s + x.b.debit, 0);
+  const totCred = accounts.reduce((s, x) => s + x.b.credit, 0);
+  let unbalanced = [];
+  try { unbalanced = findUnbalanced(journals); } catch {}
+  let locked = [];
+  try { locked = Storage.getLockedMonths(); } catch {}
+  return { rows: accounts, debit: totDeb, credit: totCred, diff: totDeb - totCred, balanced: Math.abs(totDeb - totCred) < 0.005, unbalanced, locked, rangeLabel: range.start && range.end ? `${range.start} — ${range.end}` : 'Semua akun' };
+}
+
+// Laporan PPN bulanan (gaya 1111): PPN Keluaran (2105) vs Masukan (1401)
+function buildPPNReport() {
+  const by = {};
+  const KEY = { '2105': 'keluaran', '1401': 'masukan' };
+  let totK = 0, totM = 0;
+  Storage.getAllJournals().forEach(j => {
+    const m = String(j.date || '').slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(m)) return;
+    if (!by[m]) by[m] = { month: m, keluarPPN: 0, keluarDPP: 0, masukPPN: 0, masukDPP: 0 };
+    (j.lines || []).forEach(l => {
+      const t = KEY[l.account];
+      const deb = Number(l.debit) || 0, cr = Number(l.credit) || 0;
+      if (t === 'keluaran' && cr > 0) { by[m].keluarPPN += cr - deb; by[m].keluarDPP += (cr - deb) / 0.11; }
+      if (t === 'masukan' && deb > 0) { by[m].masukPPN += deb - cr; by[m].masukDPP += (deb - cr) / 0.11; }
+    });
+  });
+  const months = Object.values(by).sort((a, b) => a.month.localeCompare(b.month)).map(x => ({
+    ...x, keluarPPN: Math.round(x.keluarPPN), keluarDPP: Math.round(x.keluarDPP), masukPPN: Math.round(x.masukPPN), masukDPP: Math.round(x.masukDPP),
+    net: Math.round(x.keluarPPN - x.masukPPN)
+  }));
+  totK = months.reduce((s, x) => s + x.keluarPPN, 0);
+  totM = months.reduce((s, x) => s + x.masukPPN, 0);
+  return { months, totalKeluar: totK, totalMasuk: totM, net: totK - totM, year: new Date().getFullYear() };
+}
+
+// Rekap PPh 21 per bulan (untuk e-SPT 21) — dari data gaji yang difinalisasi
+function buildPPh21Report() {
+  const by = {};
+  Storage.getAllEntries().forEach(e => {
+    if (e.category !== 'gaji-out') return;
+    const m = String(e.date || '').slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(m)) return;
+    if (!by[m]) by[m] = { month: m, thp: 0, pph: 0, count: 0 };
+    const p = e.payroll || {};
+    by[m].thp += Math.round(Number(e.amount) || 0);
+    by[m].pph += Math.round(Number(p.ded && p.ded.pph21) || 0);
+    by[m].count += 1;
+  });
+  const rows = Object.values(by).sort((a, b) => b.month.localeCompare(a.month));
+  const totalPph = rows.reduce((s, x) => s + x.pph, 0);
+  const totalThp = rows.reduce((s, x) => s + x.thp, 0);
+  return { rows, totalPph, totalThp, year: new Date().getFullYear() };
 }
 
 // Laporan produk terlaris — dari entri penjualan (sale.lines)

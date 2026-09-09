@@ -1676,6 +1676,12 @@ export function reportHTMLFor(type, data) {
       return renderPayrollReport(data);
     case 'products':
       return renderProductsReport(data);
+    case 'trial':
+      return renderTrialReport(data);
+    case 'ppn':
+      return renderPPNReport(data);
+    case 'pph21':
+      return renderPPh21Report(data);
     default:
       return renderMonthlyReport(data);
   }
@@ -1740,6 +1746,30 @@ export function printPageReport() {
   const tab = document.querySelector('.page-report-tab.selected');
   const title = tab ? tab.textContent.trim() : 'Laporan';
   if (!printReportHTML(title, box.innerHTML)) alert('Popup diblokir browser — izinkan popup lalu coba lagi');
+}
+
+export function exportPageReportExcel() {
+  try {
+    if (typeof window.XLSX === 'undefined') { alert('Library Excel belum termuat — coba muat ulang halaman'); return; }
+    const box = document.getElementById('pageReportContent');
+    if (!box) return;
+    const tab = document.querySelector('.page-report-tab.selected');
+    const title = (tab ? tab.textContent.trim() : 'Laporan') + ' — Wynara';
+    const tables = box.querySelectorAll('table');
+    if (!tables.length) return;
+    const wb = XLSX.utils.book_new();
+    let sheetIdx = 0;
+    tables.forEach(table => {
+      const ws = XLSX.utils.table_to_sheet(table);
+      sheetIdx++;
+      const name = sheetIdx === 1 ? 'Laporan' : 'Laporan ' + sheetIdx;
+      XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+    });
+    XLSX.writeFile(wb, title.replace(/[^\w\s-]/g, '').trim() + '.xlsx');
+    showSuccess('Data laporan diunduh ke Excel');
+  } catch (err) {
+    showError('Gagal export Excel — mungkin tabel terlalu besar');
+  }
 }
 
 export function updateSortArrows(column, direction) {
@@ -2160,6 +2190,81 @@ function renderProductsReport(d) {
           <td class="amount-col ${r.margin >= 0 ? 'income' : 'expense'}">${fmt(r.margin)}</td>
         </tr>`).join('')}
       </tbody>
+    </table>`;
+}
+
+// Neraca Saldo — per akun debit/kredit + cek seimbang + deteksi jurnal pincang
+function renderTrialReport(d) {
+  if (!d) return '';
+  const fmt = (v) => formatCurrency(Math.round(Number(v) || 0));
+  const TYPE_LABEL = { asset: 'Aset', liability: 'Kewajiban', equity: 'Modal', revenue: 'Pendapatan', expense: 'Beban' };
+  const groups = ['asset', 'liability', 'equity', 'revenue', 'expense'];
+  const rowsHTML = groups.map(t => {
+    const rows = d.rows.filter(x => x.type === t);
+    if (!rows.length) return '';
+    const tDeb = rows.reduce((s, x) => s + x.b.debit, 0);
+    const tCred = rows.reduce((s, x) => s + x.b.credit, 0);
+    const getItems = rows.map(x => `<tr>
+      <td style="text-align:left;color:#64748b;font-size:11px">${x.code}</td>
+      <td style="text-align:left">${x.name}</td>
+      <td class="amount-col" style="${x.b.debit || x.b.credit ? '' : 'color:#cbd5e1'}">${x.b.debit ? fmt(x.b.debit) : ''}</td>
+      <td class="amount-col" style="${x.b.debit || x.b.credit ? '' : 'color:#cbd5e1'}">${x.b.credit ? fmt(x.b.credit) : ''}</td>
+    </tr>`).join('');
+    return `<tr style="background:#f1f5f9"><td colspan="2" style="font-weight:700">${TYPE_LABEL[t]}</td><td class="amount-col" style="font-weight:700">${tDeb ? fmt(tDeb) : ''}</td><td class="amount-col" style="font-weight:700">${tCred ? fmt(tCred) : ''}</td></tr>${getItems}`;
+  }).join('');
+  const badge = d.balanced
+    ? '<span style="background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;border-radius:9999px;padding:3px 10px;font-weight:700">✓ Seimbang</span>'
+    : `<span style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:9999px;padding:3px 10px;font-weight:700">⚠ Selisih ${fmt(Math.abs(d.diff))}</span>`;
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Total Debit</span><span class="value">${fmt(d.debit)}</span></div>
+      <div class="report-summary-item"><span class="label">Total Kredit</span><span class="value">${fmt(d.credit)}</span></div>
+      <div class="report-summary-item"><span class="label">Status</span><span class="value">${badge}</span></div>
+      <div class="report-summary-item"><span class="label">Bulan</span><span class="value">${d.rangeLabel}</span></div>
+    </div>
+    ${d.unbalanced.length ? `<p style="font-size:11px;color:#b91c1c;margin:6px 0">⚠ Terdeteksi <b>${d.unbalanced.length}</b> jurnal pincang (id: ${escapeHtml(d.unbalanced.slice(0, 5).join(', '))}${d.unbalanced.length > 5 ? '…' : ''}). Periksa di tab Jurnal.</p>` : `<p style="font-size:11px;color:#64748b;margin:6px 0">Semua jurnal seimbang. ${d.locked.length ? `Periode terkunci: ${d.locked.join(', ')}.` : 'Tidak ada periode terkunci.'}</p>`}
+    <table class="report-table">
+      <thead><tr><th>Kode</th><th>Akun</th><th class="amount-col">Debit</th><th class="amount-col">Kredit</th></tr></thead>
+      <tbody>${rowsHTML}
+        <tr style="border-top:2px solid #0f172a"><td colspan="2" style="font-weight:800">TOTAL</td><td class="amount-col" style="font-weight:800">${fmt(d.debit)}</td><td class="amount-col" style="font-weight:800">${fmt(d.credit)}</td></tr>
+      </tbody>
+    </table>`;
+}
+
+// Laporan PPN bulanan (gaya 1111): PPN Keluaran vs Masukan
+function renderPPNReport(d) {
+  if (!d) return '';
+  const fmt = (v) => formatCurrency(Math.round(Number(v) || 0));
+  const netGood = d.net >= 0;
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">PPN Keluaran (total)</span><span class="value expense">${fmt(d.totalKeluar)}</span></div>
+      <div class="report-summary-item"><span class="label">PPN Masukan (total)</span><span class="value income">${fmt(d.totalMasuk)}</span></div>
+      <div class="report-summary-item"><span class="label">Kurang / (Lebih) Bayar</span><span class="value ${netGood ? 'expense' : 'income'}">${netGood ? 'Kurang bayar' : 'Lebih bayar'} ${fmt(Math.abs(d.net))}</span></div>
+      <div class="report-summary-item"><span class="label">Tahun</span><span class="value">${d.year}</span></div>
+    </div>
+    <p style="font-size:11px;color:#64748b">PPN dihitung dari akun: <b>2105 PPN Keluaran</b> (penjualan) dan <b>1401 PPN Masukan</b> (pembelian). DPP adalah perkiraan (PPN ÷ 11%). Lampirkan ke SPT Masa PPN (1111); pastikan sudah terdaftar sebagai Pengusaha Kena Pajak (PKP) bila omzet &gt; Rp4,8M.</p>
+    <table class="report-table">
+      <thead><tr><th>Bulan</th><th class="amount-col">Penjualan (DPP)</th><th class="amount-col">PPN Keluar</th><th class="amount-col">Pembelian (DPP)</th><th class="amount-col">PPN Masuk</th><th class="amount-col">Kurang/(Lebih)</th></tr></thead>
+      <tbody>${d.months.length ? d.months.map(m => `<tr><td>${m.month}</td><td class="amount-col">${fmt(m.keluarDPP)}</td><td class="amount-col expense">${fmt(m.keluarPPN)}</td><td class="amount-col">${fmt(m.masukDPP)}</td><td class="amount-col income">${fmt(m.masukPPN)}</td><td class="amount-col ${m.net >= 0 ? 'expense' : 'income'}">${fmt(m.net)}</td></tr>`).join('') : '<tr><td colspan="6">Belum ada transaksi PPN</td></tr>'}</tbody>
+    </table>`;
+}
+
+// Rekap PPh 21 per bulan (e-SPT 21)
+function renderPPh21Report(d) {
+  if (!d) return '';
+  const fmt = (v) => formatCurrency(Math.round(Number(v) || 0));
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Total PPh 21 terpotong</span><span class="value expense">${fmt(d.totalPph)}</span></div>
+      <div class="report-summary-item"><span class="label">Total gaji bersih (THP)</span><span class="value">${fmt(d.totalThp)}</span></div>
+      <div class="report-summary-item"><span class="label">Priode</span><span class="value">${d.rows[0] ? `${d.rows[d.rows.length - 1].month} — ${d.rows[0].month}` : '—'}</span></div>
+      <div class="report-summary-item"><span class="label">Karyawan dibayar</span><span class="value">${d.rows.reduce((s, x) => s + x.count, 0)} kali</span></div>
+    </div>
+    <p style="font-size:11px;color:#64748b">Rekap untuk <b>SPT Masa PPh 21 / e-SPT</b>: jumlah PPh 21 yang dipotong dari gaji tiap bulan. Data diambil dari payroll yang sudah difinalisasi.</p>
+    <table class="report-table">
+      <thead><tr><th>Bulan</th><th class="amount-col">Gaji bersih (THP)</th><th class="amount-col">PPh 21 terpotong</th><th class="amount-col">Karyawan</th></tr></thead>
+      <tbody>${d.rows.length ? d.rows.map(m => `<tr><td>${m.month}</td><td class="amount-col">${fmt(m.thp)}</td><td class="amount-col expense">${fmt(m.pph)}</td><td class="amount-col">${m.count}</td></tr>`).join('') : '<tr><td colspan="4">Belum ada data gaji</td></tr>'}</tbody>
     </table>`;
 }
 
