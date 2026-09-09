@@ -2834,6 +2834,7 @@ export function openStock() {
   const m = document.getElementById('stockModal');
   if (m && !m.open) { try { m.showModal(); } catch {} }
   if (m) trapFocus(m);
+  updateStockProfit();
 }
 export function closeStock() {
   const m = document.getElementById('stockModal');
@@ -2886,16 +2887,37 @@ export function fillStockForm(item) {
   document.getElementById('stockQty').value = item?.stock ?? '';
   document.getElementById('stockMin').value = item?.minStock ?? '';
   document.getElementById('stockName')?.focus();
+  updateStockProfit();
+}
+export function updateStockProfit() {
+  const box = document.getElementById('stockProfit');
+  if (!box) return;
+  const price = Number(parseIdrInput(document.getElementById('stockPrice')?.value || '')) || 0;
+  const cost = Number(parseIdrInput(document.getElementById('stockCost')?.value || '')) || 0;
+  if (price <= 0 && cost <= 0) { box.innerHTML = ''; return; }
+  const profit = price - cost;
+  const margin = price > 0 ? Math.round((profit / price) * 100) : 0;
+  const good = profit >= 0;
+  box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;background:${good ? '#f0fdf4' : '#fef2f2'};border:1px solid ${good ? '#bbf7d0' : '#fecaca'};border-radius:10px;padding:8px 12px;color:${good ? '#15803d' : '#b91c1c'}">
+    <span>${good ? '📈' : '📉'} Untung per pcs</span><b style="font-size:14px">Rp${profit.toLocaleString('id-ID')}</b>
+    <span style="opacity:.8">(margin ${margin}%)</span>
+    ${good ? '' : '<span style="font-weight:700">— harga jual di bawah modal!</span>'}
+  </div>`;
 }
 export function resetStockForm() {
   document.getElementById('stockForm')?.reset();
   document.getElementById('stockFormId').value = '';
+  updateStockProfit();
 }
 export function bindStock(onSave, onEdit, onDelete) {
   document.getElementById('closeStockBtn')?.addEventListener('click', closeStock);
   document.getElementById('stockModal')?.addEventListener('click', (e) => { if (e.target.id === 'stockModal') closeStock(); });
   document.getElementById('stockForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSave(); });
   document.getElementById('stockFormReset')?.addEventListener('click', resetStockForm);
+  ['stockPrice', 'stockCost'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateStockProfit);
+  });
   document.getElementById('stockSearch')?.addEventListener('input', (e) => {
     stockSearchTerm = e.target.value;
     document.dispatchEvent(new CustomEvent('wynara:stock-search'));

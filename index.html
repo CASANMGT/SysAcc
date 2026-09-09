@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.14.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.14.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -476,7 +476,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.14.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.14.1</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1152,19 +1152,20 @@
         <div id="stockAlert"></div>
         <form id="stockForm" style="margin-bottom:12px">
           <input type="hidden" id="stockFormId">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <label style="flex:2;min-width:140px;font-size:11px;color:#64748b">Nama barang* <input type="text" id="stockName" placeholder="mis. Kopi susu 250ml" maxlength="60" required style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
-            <label style="flex:1;min-width:80px;font-size:11px;color:#64748b">Kode <span style="opacity:.6">(boleh kosong)</span> <input type="text" id="stockSku" placeholder="mis. KPS-01" maxlength="30" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
-            <label style="flex:1;min-width:100px;font-size:11px;color:#64748b">Dijual berapa? <input type="text" id="stockPrice" placeholder="Rp" inputmode="decimal" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
-            <label style="flex:1;min-width:100px;font-size:11px;color:#64748b">Modal 1 pcs berapa? <input type="text" id="stockCost" placeholder="Rp" inputmode="decimal" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
-            <label style="flex:1;min-width:70px;font-size:11px;color:#64748b">Punya berapa? <input type="number" id="stockQty" placeholder="0" min="0" step="1" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
-            <label style="flex:1;min-width:70px;font-size:11px;color:#64748b" title="Diingatkan kalau sisa segini">Ingatkan kalau sisa <input type="number" id="stockMin" placeholder="0" min="0" step="1" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
-            <div style="display:flex;gap:8px;align-items:end">
-              <button type="submit" class="btn btn-primary" style="height:40px">Simpan</button>
-              <button type="button" class="btn btn-ghost" id="stockFormReset" style="height:40px">Batal</button>
-            </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <label style="flex:1 1 100%;font-size:11px;color:#64748b">📦 Nama barang* <input type="text" id="stockName" placeholder="mis. Kopi susu 250ml" maxlength="60" required autofocus style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:14px;margin-top:3px"></label>
+            <label style="flex:1 1 160px;font-size:11px;color:#64748b">Kode <span style="opacity:.6">(opsional)</span> <input type="text" id="stockSku" placeholder="mis. KPS-01" maxlength="30" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
+            <label style="flex:1 1 170px;font-size:11px;color:#64748b">💰 Harga jual / pcs <input type="text" id="stockPrice" placeholder="Rp" inputmode="decimal" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
+            <label style="flex:1 1 170px;font-size:11px;color:#64748b">🛒 Modal / pcs <input type="text" id="stockCost" placeholder="Rp" inputmode="decimal" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
+            <label style="flex:1 1 140px;font-size:11px;color:#64748b">📚 Punya berapa? <input type="number" id="stockQty" placeholder="0" min="0" step="1" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
+            <label style="flex:1 1 140px;font-size:11px;color:#64748b" title="Diingatkan kalau sisa segini">🔔 Ingatkan kalau sisa <input type="number" id="stockMin" placeholder="0" min="0" step="1" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
           </div>
-          <p style="font-size:11px;color:#64748b;margin:6px 0 0">Untung per pcs = harga jual − modal. Stok berkurang otomatis tiap ada penjualan.</p>
+          <div id="stockProfit" style="margin-top:10px"></div>
+          <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;border-top:1px solid #f1f5f9;padding-top:12px;margin-top:12px">
+            <button type="button" class="btn btn-ghost" id="stockFormReset">Batal</button>
+            <button type="submit" class="btn btn-primary">💾 Simpan</button>
+          </div>
+          <p style="font-size:11px;color:#94a3b8;margin:8px 0 0">Stok berkurang otomatis tiap ada penjualan. Isi "Ingatkan kalau sisa" kalau mau dapat peringatan.</p>
         </form>
         <div class="contacts-toolbar">
           <input type="search" id="stockSearch" class="loan-search" placeholder="🔍 Cari barang...">

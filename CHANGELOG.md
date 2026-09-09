@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.14.1] - 2026-09-09
+
+### Improved — Form Input Barang (UX)
+- Nama barang full-width di atas, grid Harga jual/modal/kode/qty rapi 2–3 kolom (dulu 6 field berdesakan satu baris)
+- Tombol **Batal & Simpan** dipindah ke footer terpisah (dulu nyempil di antara field)
+- **Live untung per pcs** 📈/📉 + margin % — merah + peringatan kalau harga di bawah modal, ter-update saat mengetik
+- Label & ikon lebih jelas: "Harga jual / pcs", "Modal / pcs", "Punya berapa?", "Ingatkan kalau sisa", "Kode (opsional)"; placeholder uang rapi
+
+---
+
 ## [1.14.0] - 2026-09-09
 
 ### Added — Akuntan, pemilik & HR
