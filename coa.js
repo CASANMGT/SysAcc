@@ -26,6 +26,7 @@ export const ACCOUNTS = [
   { code: '2110', name: 'Hutang BPJS', type: 'liability' },
   // Modal
   { code: '3101', name: 'Modal Awal', type: 'equity' },
+  { code: '3102', name: 'Laba Ditahan', type: 'equity' },
   // Pendapatan
   { code: '4101', name: 'Pendapatan Usaha', type: 'revenue' },
   // Beban

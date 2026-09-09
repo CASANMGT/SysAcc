@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.14.0] - 2026-09-09
+
+### Added — Akuntan, pemilik & HR
+- **🔒 Jurnal penutupan bulan** — tombol di Laporan: pendapatan & beban periode → **Laba Ditahan** (`3102`, akun baru); idempoten per bulan, cek balance, tolak bila bulan terkunci. Neraca kini mencakup saldo semua akun modal
+- **📤 Kirim backup via WA/Email** — Pengaturan → Backup: share file backup langsung dari HP (Web Share API); desktop fallback unduh + instruksi
+- **🧾 Laporan Produk** (tab baru, modal + halaman) — qty terjual, omzet, bagian %, utung perkiraan per produk dari entri penjualan
+- **📊 Tax siap e-Bupot** — tombol "⬇️ Unduh CSV untuk DJP" di laporan pajak (bulan, omzet, PPh 0,5%, PPN)
+- **🕐 Absensi HR** — kolom "Hadir (hari)" per karyawan di proses gaji; <22 hari → saran denda otomatis (n × Rp100rb, tetap bisa diedit), tersimpan di draft & snapshot
+
+---
+
 ## [1.13.2] - 2026-09-09
 
 ### Added — Untuk akuntan

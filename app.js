@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.13.2';
+const APP_VERSION = '1.14.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -442,6 +442,7 @@ function bindEvents() {
     onDetailChange: handlePayrollDetailChange,
     onLembur: handlePayrollLembur,
     onRate: handlePayrollRateChange,
+    onHadir: handlePayrollHadir,
     onPrintSlip: handlePayrollPrintSlip,
     onDraft: handlePayrollDraft,
     onFinal: handlePayrollFinal,
@@ -569,6 +570,26 @@ function bindEvents() {
   document.getElementById('settingsModal')?.addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
+  document.getElementById('backupShareBtn')?.addEventListener('click', handleBackupShare);
+  document.getElementById('closingBtn')?.addEventListener('click', handleClosing);
+  const buildTaxCsv = () => {
+    const d = buildTaxReport();
+    const rows = [['Periode', 'Omzet', 'PPh Final 0,5%']];
+    (d.months || []).forEach(m => rows.push([m.month, Math.round(m.omzet), Math.round(m.pph)]));
+    rows.push([`TOTAL ${d.year}`, Math.round(d.omzetYear), Math.round(d.pphYear)]);
+    rows.push(['PPN Keluaran', Math.round(d.ppnOut), '']);
+    rows.push(['PPN Masukan', Math.round(d.ppnIn), '']);
+    rows.push(['PPN Kurang Bayar', Math.round(d.ppnNet), '']);
+    const csv = '\uFEFF' + rows.map(r => r.join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `wynara-pajak-${d.year}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    UI.showSuccess(`CSV pajak ${d.year} diunduh — siap untuk DJP/e-Bupot`);
+  };
+  document.addEventListener('wynara:tax-csv', buildTaxCsv);
   document.getElementById('importJsonBtn')?.addEventListener('click', () => document.getElementById('importJsonFile')?.click());
   document.getElementById('importJsonFile')?.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleImport(f); e.target.value = ''; });
   // Export mengikuti tampilan terfilter (bukan seluruh DB)
@@ -1794,9 +1815,36 @@ function computeReportData(type) {
       return Storage.getAudit().slice(0, 100);
     case 'payrollrep':
       return buildPayrollReport();
+    case 'products':
+      return buildProductsReport();
     default:
       return Reports.computeMonthlySummary(filtered);
   }
+}
+
+// Laporan produk terlaris — dari entri penjualan (sale.lines)
+function buildProductsReport() {
+  const byItem = {};
+  try {
+    Reports.filterEntries(Storage.getAllEntries(), currentFilters).forEach(e => {
+      if (e.category !== 'jualan' || !e.sale || !Array.isArray(e.sale.lines)) return;
+      e.sale.lines.forEach(l => {
+        if (!byItem[l.itemId]) byItem[l.itemId] = { name: l.name || '', qty: 0, omzet: 0 };
+        byItem[l.itemId].qty += Number(l.qty) || 0;
+        byItem[l.itemId].omzet += (Number(l.price) || 0) * (Number(l.qty) || 0);
+      });
+    });
+  } catch {}
+  const items = Storage.getAllItems();
+  const total = Object.values(byItem).reduce((s, x) => s + x.omzet, 0);
+  const rows = Object.keys(byItem).map(id => {
+    const it = items.find(x => x.id === id) || {};
+    const x = byItem[id];
+    const cost = Number(it.cost) || 0;
+    const hpp = cost * x.qty;
+    return { name: x.name || it.name || '(barang terhapus)', qty: x.qty, omzet: x.omzet, hpp, margin: x.omzet - hpp, share: total > 0 ? (x.omzet / total) * 100 : 0 };
+  }).sort((a, b) => b.omzet - a.omzet);
+  return { rows, total };
 }
 
 function renderReport() {
@@ -2784,6 +2832,7 @@ function loadPayrollCache() {
       overtime: Math.max(Number(s.overtime) || 0, 0),
       bonus: Math.max(Number(s.bonus) || 0, 0),
       deduct: Math.max(Number(s.deduct) || 0, 0),
+      hadir: Number(s.hadir) > 0 ? Number(s.hadir) : 0,
       withThr: !!s.withThr,
       withPph: s.withPph === undefined ? true : !!s.withPph,
       checked: s.checked === undefined ? true : !!s.checked
@@ -2800,7 +2849,7 @@ function payRowsForView() {
       const c = payrollCache[emp.id] || { overtime: 0, bonus: 0, deduct: 0, withThr: false, withPph: true, checked: true };
       const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
       const thrNote = c.withThr && slip.thr <= 0 ? 'Masa kerja belum 1 bulan — THR Rp0. Jangan centang bila belum waktunya.' : '';
-      return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, withThr: !!c.withThr, withPph: !!c.withPph, thrNote };
+      return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, hadir: c.hadir || 0, withThr: !!c.withThr, withPph: !!c.withPph, thrNote };
     });
 }
 function renderPayrollView() {
@@ -2981,6 +3030,21 @@ function handlePayrollLembur(input) {
   // Patch sel tanpa render ulang (jaga fokus ketik)
   patchPayrollRow(empId);
 }
+function handlePayrollHadir(input) {
+  const empId = input.dataset.id;
+  if (!empId || !payrollCache[empId]) return;
+  const n = Math.max(0, Math.min(Number(input.value) || 0, 31));
+  payrollCache[empId].hadir = n;
+  const std = 22;
+  if (n > 0 && n < std && !(payrollCache[empId].deduct > 0)) {
+    const suggest = (std - n) * 100000;
+    payrollCache[empId].deduct = suggest;
+    const dendaInput = document.querySelector(`#payrollTableBody .pay-denda[data-id="${empId}"]`);
+    if (dendaInput) dendaInput.value = String(suggest);
+    UI.showInfo(`Hadir ${n} hari — denda disarankan Rp${suggest.toLocaleString('id-ID')} (${std - n} × Rp100rb). Ubah bebas di kolom Denda.`);
+  }
+  patchPayrollRow(empId);
+}
 function patchPayrollRow(empId) {
   const c = payrollCache[empId];
   const emp = Storage.getAllEmployees().find(x => x.id === empId);
@@ -3109,6 +3173,7 @@ function handlePayrollCopyPrev() {
       overtime: Math.max(Number(s.overtime) || 0, 0),
       bonus: Math.max(Number(s.bonus) || 0, 0),
       deduct: Math.max(Number(s.deduct) || 0, 0),
+      hadir: Number(s.hadir) > 0 ? Number(s.hadir) : 0,
       withThr: !!s.withThr,
       withPph: s.withPph === undefined ? true : !!s.withPph,
       checked: s.checked === undefined ? true : !!s.checked
@@ -3120,15 +3185,15 @@ function handlePayrollCopyPrev() {
   queueMirror();
 }
 function syncPayrollInputsFromDOM(target) {
-  // Sinkron lembur/bonus/denda dari DOM (bila sedang diketik)
+  // Sinkron lembur/bonus/denda/hadir dari DOM (bila sedang diketik)
   const store = target || payrollCache;
-  document.querySelectorAll('#payrollTableBody .pay-lembur, #payrollTableBody .pay-bonus, #payrollTableBody .pay-denda').forEach(el => {
+  document.querySelectorAll('#payrollTableBody .pay-lembur, #payrollTableBody .pay-bonus, #payrollTableBody .pay-denda, #payrollTableBody .pay-hadir').forEach(el => {
     const id = el.dataset.id;
     if (!store[id]) return;
-    const v = Math.max(Number(UI.parseIdrInput(el.value)) || 0, 0);
-    if (el.classList.contains('pay-bonus')) store[id].bonus = v;
-    else if (el.classList.contains('pay-denda')) store[id].deduct = v;
-    else store[id].overtime = v;
+    if (el.classList.contains('pay-bonus')) store[id].bonus = Math.max(Number(UI.parseIdrInput(el.value)) || 0, 0);
+    else if (el.classList.contains('pay-denda')) store[id].deduct = Math.max(Number(UI.parseIdrInput(el.value)) || 0, 0);
+    else if (el.classList.contains('pay-hadir')) store[id].hadir = Math.max(0, Math.min(Number(el.value) || 0, 31));
+    else store[id].overtime = Math.max(Number(UI.parseIdrInput(el.value)) || 0, 0);
   });
 }
 function handlePayrollDraft() {
@@ -3183,7 +3248,7 @@ function handlePayrollFinal() {
         date, type: 'expense', category: 'gaji-out', payment,
         description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})`,
         amount: slip.takeHome, person: e.name,
-        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, thr: slip.thr, ded: slip.ded, comp: slip.comp, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp }
+        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp }
       });
       compTotal += slip.totalComp;
       ok++;
@@ -3214,6 +3279,88 @@ function handleLogout() {
   try { localStorage.removeItem('wynara_logged_in'); } catch {}
   document.getElementById('appRoot').classList.add('hidden');
   showLogin();
+}
+
+/* ===== Jurnal penutupan (closing entries) ===== */
+function buildClosingLines(mk) {
+  const rev = {}, exp = {};
+  try {
+    Storage.getAllJournals().forEach(j => {
+      if (String(j.date || '').slice(0, 7) !== mk) return;
+      (j.lines || []).forEach(l => {
+        const code = String(l.account || '');
+        const deb = Number(l.debit) || 0, cr = Number(l.credit) || 0;
+        if (/^4/.test(code)) rev[code] = (rev[code] || 0) + cr - deb;
+        if (/^5/.test(code)) exp[code] = (exp[code] || 0) + deb - cr;
+      });
+    });
+  } catch { return null; }
+  const lines = [];
+  Object.keys(rev).forEach(c => { if (rev[c] > 0.01) lines.push({ account: c, debit: Math.round(rev[c]), credit: 0, memo: 'Tutup pendapatan' }); });
+  Object.keys(exp).forEach(c => { if (exp[c] > 0.01) lines.push({ account: c, debit: 0, credit: Math.round(exp[c]), memo: 'Tutup beban' }); });
+  if (!lines.length) return null;
+  const deb = lines.filter(l => l.debit > 0).reduce((s, l) => s + l.debit, 0);
+  const cr = lines.filter(l => l.credit > 0).reduce((s, l) => s + l.credit, 0);
+  const laba = deb - cr;
+  if (laba > 0) lines.push({ account: '3102', debit: 0, credit: laba, memo: 'Laba periodenya masuk Laba Ditahan' });
+  else if (laba < 0) lines.push({ account: '3102', debit: Math.abs(laba), credit: 0, memo: 'Rugi periode dikurangi dari Laba Ditahan' });
+  return lines;
+}
+function buildClosingJournalData(mk) {
+  const lines = buildClosingLines(mk);
+  if (!lines) return null;
+  const [y, m] = String(mk).split('-').map(Number);
+  const date = `${mk}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+  const label = new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  const total = lines.reduce((s, l) => s + l.debit, 0);
+  return { id: `CLOSE-${mk}`, date, memo: `Jurnal penutupan ${label}`, ref: 'closing', refId: mk, lines, total, label };
+}
+function handleClosing() {
+  const n = new Date();
+  const cur = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+  const mk = (prompt('Tutup bulan mana? (format YYYY-MM)', cur) || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(mk)) { if (mk) UI.showError('Format bulan harus YYYY-MM'); return; }
+  const data = buildClosingJournalData(mk);
+  if (!data) return UI.showInfo(`Tidak ada pendapatan/beban di ${mk}`);
+  const deb = data.lines.reduce((s, l) => s + l.debit, 0);
+  const cr = data.lines.reduce((s, l) => s + l.credit, 0);
+  if (deb !== cr) return UI.showError('Jurnal penutupan pincang — kontak cara bayar bermasalah');
+  try {
+    if (Storage.getAllJournals().some(j => j.id === data.id)) { UI.showInfo(`Penutupan ${mk} sudah pernah diposting`); return; }
+    if (Storage.isMonthLocked(data.date)) return UI.showError(`Bulan ${mk} terkunci — jurnal penutupan tidak bisa diposting`);
+    Storage.postJournal(data);
+    Storage.logAudit('create', 'closing', data.id, null, { month: mk, total: Math.round(deb) });
+    UI.showSuccess(`Jurnal penutupan ${data.label}: Rp${Math.round(data.total).toLocaleString('id-ID')} → Laba Ditahan`);
+    refresh();
+    renderPageReport();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal posting penutupan');
+  }
+}
+
+/* ===== Kirim backup via WhatsApp/Email ===== */
+async function handleBackupShare() {
+  try {
+    const json = Storage.backupJSONString();
+    const name = `wynara-backup-${new Date().toISOString().split('T')[0]}.json`;
+    const canShareFile = typeof navigator !== 'undefined' && navigator.canShare && typeof window.File === 'function';
+    if (canShareFile) {
+      const file = new window.File([json], name, { type: 'application/json' });
+      await navigator.share({ title: 'Wynara Backup', text: `Backup Wynara ${new Date().toLocaleDateString('id-ID')}`, files: [file] });
+      UI.showSuccess('Backup dibagikan — lampirkan/ubah destinasi WhatsApp/Email pilihanmu');
+      stampShares();
+      return;
+    }
+    Storage.exportJSON();
+    UI.showInfo('Browser ini tidak bisa share langsung — file backup sudah diunduh. Kirim lewat WhatsApp/Email (lampirkan file).');
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;
+    UI.showError('Gagal membagikan backup');
+  }
+}
+function stampShares() {
+  try { localStorage.setItem('wynara_last_backup', new Date().toISOString()); } catch {}
 }
 
 /* ===== Jurnal penyesuaian manual ===== */

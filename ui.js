@@ -1674,6 +1674,8 @@ export function reportHTMLFor(type, data) {
     case 'payrollrep':
       window.__payrollRepData = data;
       return renderPayrollReport(data);
+    case 'products':
+      return renderProductsReport(data);
     default:
       return renderMonthlyReport(data);
   }
@@ -2135,6 +2137,32 @@ function renderBSReport(d) {
     </tbody></table>`;
 }
 
+function renderProductsReport(d) {
+  if (!d || !d.rows.length) {
+    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada penjualan barang — catat lewat 🧾 Jual di dashboard</p>';
+  }
+  const fmt = (v) => formatCurrency(Math.round(v));
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Total penjualan barang</span><span class="value">${fmt(d.total)}</span></div>
+      <div class="report-summary-item"><span class="label">Jenis produk terjual</span><span class="value">${d.rows.length}</span></div>
+      <div class="report-summary-item"><span class="label">Utung (perkiraan, modal rata-rata sekarang)</span><span class="value income">${fmt(d.rows.reduce((s, x) => s + x.margin, 0))}</span></div>
+    </div>
+    <p style="font-size:11px;color:#64748b">Margin memakai modal rata-rata stok saat ini — kalau harga beli sering naik-turun, angka hanyalah perkiraan.</p>
+    <table class="report-table">
+      <thead><tr><th>Produk</th><th class="amount-col">Qty</th><th class="amount-col">Omzet</th><th class="amount-col">Bagian</th><th class="amount-col">Utung (perkiraan)</th></tr></thead>
+      <tbody>
+        ${d.rows.map(r => `<tr>
+          <td>${escapeHtml(r.name)}</td>
+          <td class="amount-col">${r.qty}</td>
+          <td class="amount-col income">${fmt(r.omzet)}</td>
+          <td class="amount-col">${r.share.toFixed(1)}%</td>
+          <td class="amount-col ${r.margin >= 0 ? 'income' : 'expense'}">${fmt(r.margin)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
 function renderTaxReport(d) {
   if (!d) return '';
   // UMKM PP 23/2018: PPh Final 0.5% atas omzet bruto per periode 6 bulan
@@ -2161,7 +2189,7 @@ function renderTaxReport(d) {
       <div class="report-summary-item"><span class="label">Sisa plafon 4.8M</span><span class="value ${4800000000 - d.omzetYear >= 0 ? 'income' : 'expense'}">${formatCurrency(Math.max(4800000000 - d.omzetYear, 0))}</span></div>
       <div class="report-summary-item"><span class="label">PPN Kurang Bayar</span><span class="value ${d.ppnNet >= 0 ? 'expense' : 'income'}">${formatCurrency(d.ppnNet)}</span></div>
     </div>
-    <p style="font-size:11px;color:#64748b;margin-bottom:8px"><b>Laporan pajak UMKM (PP 23/2018)</b> — UMKM dengan omzet ≤ Rp4,8 M/tahun: PPh Final 0,5% dari omzet bruto, dibayar per <b>periode 6 bulan</b> (Jan–Jun dan Jul–Des maksimal tgl 15 bulan berikutnya). Daftar ini siap dibawa ke e-Bupot/kantor pajak.</p>
+    <p style="font-size:11px;color:#64748b;margin-bottom:8px"><b>Laporan pajak UMKM (PP 23/2018)</b> — UMKM dengan omzet ≤ Rp4,8 M/tahun: PPh Final 0,5% dari omzet bruto, dibayar per <b>periode 6 bulan</b> (Jan–Jun dan Jul–Des maksimal tgl 15 bulan berikutnya). Daftar ini siap dibawa ke e-Bupot/kantor pajak. <button type="button" onclick="document.dispatchEvent(new CustomEvent('wynara:tax-csv'))" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer">⬇️ Unduh CSV untuk DJP</button></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       ${mgmt(`Semester 1 (${d.year}: Jan–Jun)`, sem1, `${d.year}-07-15`)}
       ${mgmt(`Semester 2 (${d.year}: Jul–Des)`, sem2, `${Number(d.year) + 1}-01-15`)}
@@ -3525,7 +3553,7 @@ export function paySlipDetailHTML(r) {
     row(`Tabungan hari tua — gajimu dipotong ${pctFmt(s.ded.jhtSelf, B.gross)}`, `JHT pekerja ${pct(R.jhtSelf)} × ${fmt(B.gross)}`, s.ded.jhtSelf, '−'),
     row(`Tabungan pensiun — gajimu dipotong ${pctFmt(s.ded.jpSelf, B.jpWage)}`, `JP pekerja ${pct(R.jpSelf)} × ${fmt(B.jpWage)}${cap(B.jpWage, B.gross)}`, s.ded.jpSelf, '−'),
     row('Pajak gaji — dipotong otomatis', `PPh 21 TER ${escapeHtml(e.ptkp || 'TK/0')} × netto ${fmt(s.pphNetto)}${e.npwp ? '' : ' (tanpa NPWP +20%)'}`, s.ded.pph21, '−'),
-    row('Denda/absensi bulan ini', 'Potongan langsung (tidak mengurangi dasar BPJS/PPh)', s.deduct, '−'),
+    row('Denda/absensi bulan ini', `Potongan langsung${r.hadir > 0 ? ` • hadir ${r.hadir} hari` : ' (tidak mengurangi dasar BPJS/PPh)'}`, s.deduct, '−'),
   ].join('');
   const company = [
     row('Iuran berobat — perusahaan yang bayar', `BPJS Kesehatan perusahaan ${pct(R.kesComp)} × ${fmt(B.kesWage)}${cap(B.kesWage, B.gross)}`, s.comp.kesComp, '+'),
@@ -3547,6 +3575,11 @@ export function paySlipDetailHTML(r) {
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
         <div style="font-size:11px;color:#64748b">Denda/absensi</div>
         <input type="text" class="pay-denda" data-id="${e.id}" value="${(r.slip.deduct || 0) > 0 ? r.slip.deduct : ''}" placeholder="Rp" inputmode="decimal" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:11px;color:#64748b">Hadir (hari)</div>
+        <input type="number" class="pay-hadir" data-id="${e.id}" min="0" max="31" value="${r.hadir > 0 ? r.hadir : ''}" placeholder="mis. 22" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">standar 22 • <22 → sarankan denda</div>
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
         <div style="font-size:11px;color:#64748b">THR: <b>${fmt(s.thr)}</b></div>
@@ -3830,6 +3863,8 @@ export function bindPayrollView(handlers) {
     });
     document.getElementById('payrollTableBody')?.addEventListener('change', (e) => {
       if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph')) handlers.onDetailChange();
+      const hd = e.target.closest('.pay-hadir');
+      if (hd && handlers.onHadir) handlers.onHadir(hd);
     });
     document.getElementById('payrollRatesPanel')?.addEventListener('change', (e) => {
       const el = e.target.closest('.pay-rate');

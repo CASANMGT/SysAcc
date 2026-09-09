@@ -274,6 +274,11 @@ export function exportJSON() {
   stampLastBackup();
 }
 
+// String backup untuk dibagikan (WhatsApp/Email) tanpa unduhan dulu
+export function backupJSONString() {
+  return JSON.stringify(snapshotAll(), null, 2);
+}
+
 export function exportExcel() {
   if (typeof XLSX === 'undefined') throw new Error('Excel library belum dimuat');
   const wb = XLSX.utils.book_new();
