@@ -13,6 +13,9 @@ export const ACCOUNTS = [
   { code: '1201', name: 'Piutang Usaha', type: 'asset' },
   { code: '1301', name: 'Persediaan Barang', type: 'asset' },
   { code: '1401', name: 'PPN Masukan', type: 'asset' },
+  // Aset tetap & akumulasi penyusutan (kontra-aset, tampil minus di Neraca)
+  { code: '1510', name: 'Aset Tetap', type: 'asset' },
+  { code: '1519', name: 'Akumulasi Penyusutan', type: 'asset' },
   // Kewajiban
   { code: '2101', name: 'Hutang Kartu Kredit', type: 'liability', payment: 'credit' },
   { code: '2102', name: 'Hutang Paylater', type: 'liability', payment: 'paylater' },
@@ -38,6 +41,7 @@ export const ACCOUNTS = [
   { code: '5110', name: 'Beban Gaji', type: 'expense', category: 'gaji-out' },
   { code: '5111', name: 'Beban Pajak Final', type: 'expense' },
   { code: '5112', name: 'Beban BPJS Perusahaan', type: 'expense' },
+  { code: '5129', name: 'Beban Penyusutan', type: 'expense' },
   { code: '5199', name: 'Beban Lainnya', type: 'expense' },
 ];
 

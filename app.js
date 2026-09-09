@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.12.0';
+const APP_VERSION = '1.13.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -112,6 +112,23 @@ async function handleLogin(e) {
   const btn = document.querySelector('.login-btn-new');
   if (btn) btn.disabled = true;
   try {
+    if (user.toLowerCase() === 'kasir') {
+      const ok = await Storage.verifyKasirPin(pass);
+      if (!ok) {
+        document.getElementById('loginError').classList.remove('hidden');
+        document.getElementById('loginPass')?.select();
+        return;
+      }
+      document.getElementById('loginError').classList.add('hidden');
+      const remember = document.getElementById('loginRemember')?.checked !== false;
+      try { localStorage.removeItem('wynara_logged_in'); } catch {}
+      try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
+      if (remember) safeLocalSet('wynara_logged_in', 'true');
+      else if (!safeSessionSet('wynara_logged_in', 'true')) return;
+      Storage.setRole('kasir');
+      showApp();
+      return;
+    }
     const ok = await Storage.verifyLogin(user, pass);
     if (!ok) {
       document.getElementById('loginError').classList.remove('hidden');
@@ -124,6 +141,7 @@ async function handleLogin(e) {
     try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
     if (remember) safeLocalSet('wynara_logged_in', 'true');
     else if (!safeSessionSet('wynara_logged_in', 'true')) return;
+    Storage.setRole('owner');
     showApp();
   } finally {
     if (btn) btn.disabled = false;
@@ -133,6 +151,8 @@ async function handleLogin(e) {
 function showApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appRoot').classList.remove('hidden');
+  const role = Storage.getRole();
+  document.getElementById('appRoot').setAttribute('data-role', role);
   // version display
   const vs = document.getElementById('appVersionSidebar');
   const vf = document.getElementById('appVersionFooter');
@@ -379,7 +399,7 @@ function bindEvents() {
       overlay.classList.add('hidden');
     });
   }
-  document.getElementById('reportBtnSidebar')?.addEventListener('click', handleReportOpen);
+  document.getElementById('reportBtnSidebar')?.addEventListener('click', () => showView('viewLaporan'));
   document.getElementById('contactsBtnSidebar')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
   document.getElementById('loanBtnSidebar')?.addEventListener('click', () => UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople()));
   document.getElementById('stockBtnSidebar')?.addEventListener('click', () => { refreshStock(); UI.openStock(); });
@@ -422,6 +442,7 @@ function bindEvents() {
     onDetailChange: handlePayrollDetailChange,
     onLembur: handlePayrollLembur,
     onRate: handlePayrollRateChange,
+    onPrintSlip: handlePayrollPrintSlip,
     onDraft: handlePayrollDraft,
     onFinal: handlePayrollFinal,
     onCopy: handlePayrollCopyPrev
@@ -432,6 +453,15 @@ function bindEvents() {
   UI.bindSupplierPay(handleSupplierPaySubmit);
   UI.bindSale(handleSaleSave);
   UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
+  document.getElementById('assetOpenBtn')?.addEventListener('click', openAssets);
+  document.getElementById('assetModalClose')?.addEventListener('click', UI.closeAssetModal);
+  document.getElementById('assetModalCancel')?.addEventListener('click', UI.closeAssetModal);
+  document.getElementById('assetAddBtn')?.addEventListener('click', handleAssetAdd);
+  document.getElementById('assetPostBtn')?.addEventListener('click', handleAssetPost);
+  document.getElementById('assetTableBody')?.addEventListener('click', (e) => {
+    const d = e.target.closest('.asset-delete');
+    if (d) handleAssetDelete(d.dataset.id);
+  });
   document.getElementById('coaOpenBtn')?.addEventListener('click', () => { refreshCoa(); UI.openCoa(); });
   UI.bindPayroll(handleEmpSave, handleEmpEdit, handleEmpDelete, handleEmpSlip, handlePayrollRun);
   UI.bindKas(handleTransfer, handleRecon);
@@ -443,19 +473,33 @@ function bindEvents() {
     const target = document.getElementById(viewId);
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar' };
+    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar', viewLaporan: '#reportBtnSidebar' };
     const sel = map[viewId];
     if (sel) document.querySelector(sel)?.classList.add('active');
+    const bnView = { viewRingkasan: 'ringkasan', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewLaporan: 'reports' }[viewId];
+    document.querySelectorAll('#bottomNav .bn-item').forEach(b => b.classList.toggle('active', b.dataset.bnav === bnView));
     sidebar?.classList.remove('open');
     overlay?.classList.add('hidden');
     if (viewId === 'viewTransaksi') renderFullTransaksi();
     if (viewId === 'viewPayroll') renderPayrollView();
+    if (viewId === 'viewLaporan') { refresh(); renderPageReport(); }
   }
   // default view
   showView('viewRingkasan');
   document.querySelector('[data-nav="ringkasan"]')?.addEventListener('click', () => showView('viewRingkasan'));
   document.getElementById('sidebarTransaksi')?.addEventListener('click', () => showView('viewTransaksi'));
   document.getElementById('lihatSemua')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewTransaksi'); });
+  // Bottom nav mobile
+  document.getElementById('bottomNav')?.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-bnav]');
+    if (!b) return;
+    const t = b.dataset.bnav;
+    if (t === 'ringkasan') showView('viewRingkasan');
+    else if (t === 'transaksi') showView('viewTransaksi');
+    else if (t === 'gaji') showView('viewPayroll');
+    else if (t === 'reports') showView('viewLaporan');
+    else if (t === 'add') { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); }
+  });
   // keep active toggle for other sidebar items
   document.querySelectorAll('.sidebar-item').forEach(btn => {
     if (btn.id === 'sidebarTransaksi' || btn.dataset.nav === 'ringkasan') return;
@@ -488,7 +532,15 @@ function bindEvents() {
   document.getElementById('aksiTambahTransaksi')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
   document.getElementById('addEntryBtn2')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
   document.getElementById('aksiTambahKontak')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
-  document.getElementById('aksiLaporan')?.addEventListener('click', handleReportOpen);
+  document.getElementById('aksiLaporan')?.addEventListener('click', () => showView('viewLaporan'));
+  document.getElementById('ownerToReports')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewLaporan'); });
+  document.getElementById('pageReportTabs')?.addEventListener('click', (e) => {
+    const b = e.target.closest('.page-report-tab');
+    if (!b) return;
+    currentReportType = b.dataset.report;
+    renderPageReport();
+  });
+  document.getElementById('pageReportPrint')?.addEventListener('click', () => UI.printPageReport());
   document.getElementById('aksiKategori')?.addEventListener('click', () => UI.showInfo('Kelola kategori: pilih kategori saat tambah transaksi'));
   // Topbar search mirrors main search
   const topSearch = document.getElementById('searchInputTop');
@@ -1141,9 +1193,62 @@ function handleReportTabChange(reportType) {
   renderReport();
 }
 
+function renderOwnerPanel() {
+  const body = document.getElementById('ownerPanelBody');
+  if (!body) return;
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  const stats = {};
+  months.forEach(k => { stats[k] = { omzet: 0, hpp: 0, beban: 0 }; });
+  let kas = 0;
+  try {
+    Storage.getAllJournals().forEach(j => {
+      const k = String(j.date || '').slice(0, 7);
+      (j.lines || []).forEach(l => {
+        const code = String(l.account || '');
+        const deb = Number(l.debit) || 0, cr = Number(l.credit) || 0;
+        if (stats[k] && code === '4101') stats[k].omzet += cr - deb;
+        if (stats[k] && code === '5109') stats[k].hpp += deb - cr;
+        if (stats[k] && code.startsWith('5') && code !== '5109') stats[k].beban += deb - cr;
+        if (['1101', '1102', '1103', '1104', '1105', '1109'].includes(code)) kas += deb - cr;
+      });
+    });
+  } catch {}
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const monthLabel = (key) => new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1).toLocaleDateString('id-ID', { month: 'short' });
+  const curKey = months[months.length - 1];
+  const cur = stats[curKey];
+  const bebanAvg = months.slice(-3).reduce((s, k) => s + stats[k].hpp + stats[k].beban, 0) / 3;
+  const runway = bebanAvg > 0 ? Math.floor(kas / bebanAvg) : null;
+  const laba3a = months.slice(0, 3).reduce((s, k) => s + stats[k].omzet - stats[k].hpp - stats[k].beban, 0);
+  const laba3b = months.slice(3).reduce((s, k) => s + stats[k].omzet - stats[k].hpp - stats[k].beban, 0);
+  const naik = laba3b >= laba3a;
+  const margin = cur.omzet > 0 ? Math.round(((cur.omzet - cur.hpp) / cur.omzet) * 100) : null;
+  const labaBulan = s6 => (s6 < 0 ? '−' : '+') + 'Rp' + Math.abs(Math.round(s6)).toLocaleString('id-ID');
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Laba ${monthLabel(curKey)}</div><div style="font-weight:800;font-size:14px;color:${cur.omzet - cur.hpp - cur.beban >= 0 ? '#059669' : '#dc2626'}">${labaBulan(cur.omzet - cur.hpp - cur.beban)}</div></div>
+      <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Margin kotor</div><div style="font-weight:800;font-size:14px">${margin === null ? '—' : margin + '%'}</div></div>
+      <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Kas & rekening</div><div style="font-weight:800;font-size:14px">${fmt(kas)}</div></div>
+      <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Runway kas</div><div style="font-weight:800;font-size:14px">${runway === null ? '—' : runway + ' bulan'}</div></div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:5px;height:48px;margin-bottom:8px">${months.map((k) => {
+    const laba = stats[k].omzet - stats[k].hpp - stats[k].beban;
+    const max = Math.max(1, ...months.map(x => Math.abs(stats[x].omzet - stats[x].hpp - stats[x].beban)));
+    const h = Math.max(3, Math.round((Math.abs(laba) / max) * 42));
+    return `<div style="flex:1;text-align:center"><div style="height:${h}px;background:${laba >= 0 ? '#34d399' : '#fb7185'};border-radius:4px 4px 0 0"></div></div>`;
+  }).join('')}</div>
+    <div style="font-size:11px;color:${naik ? '#059669' : '#dc2626'};font-weight:600">${naik ? '📈' : '📉'} Laba 3 bulan terakhir ${naik ? 'lebih baik' : 'menurun'} dari sebelumnya</div>`;
+}
+
 function refresh() {
   loadData();
   render();
+  renderOwnerPanel();
   renderReport();
   queueMirror();
 }
@@ -1657,47 +1762,41 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
-function renderReport() {
+function computeReportData(type) {
   const filtered = Reports.filterEntries(currentEntries, currentFilters);
-
-  let reportData;
-  switch (currentReportType) {
-    case 'monthly':
-      reportData = Reports.computeMonthlySummary(filtered);
-      break;
+  switch (type) {
     case 'category':
-      reportData = Reports.computeCategoryBreakdown(filtered);
-      break;
+      return Reports.computeCategoryBreakdown(filtered);
     case 'cashflow':
-      reportData = Reports.computeCashflow(filtered);
-      break;
+      return Reports.computeCashflow(filtered);
     case 'top-expenses':
-      reportData = Reports.computeTopExpenses(filtered);
-      break;
+      return Reports.computeTopExpenses(filtered);
     case 'journal':
-      reportData = journalInRange();
-      break;
+      return journalInRange();
     case 'ledger':
-      reportData = ledgerInRange();
-      break;
+      return ledgerInRange();
     case 'pl':
-      reportData = buildProfitLoss();
-      break;
+      return buildProfitLoss();
     case 'bs':
-      reportData = buildBalanceSheet();
-      break;
+      return buildBalanceSheet();
     case 'tax':
-      reportData = buildTaxReport();
-      break;
+      return buildTaxReport();
     case 'audit':
-      reportData = Storage.getAudit().slice(0, 100);
-      break;
+      return Storage.getAudit().slice(0, 100);
     case 'payrollrep':
-      reportData = buildPayrollReport();
-      break;
+      return buildPayrollReport();
+    default:
+      return Reports.computeMonthlySummary(filtered);
   }
+}
 
-  UI.renderReport(currentReportType, reportData);
+function renderReport() {
+  UI.renderReport(currentReportType, computeReportData(currentReportType));
+}
+
+function renderPageReport() {
+  if (!document.getElementById('pageReportContent')) return;
+  UI.renderReportPage(currentReportType, computeReportData(currentReportType));
 }
 
 // Rentang tanggal dari filter periode aktif (untuk jurnal & buku besar)
@@ -2725,8 +2824,7 @@ function payrollReportHTML(d) {
   return html;
 }
 
-/* ===== Handler halaman gaji ===== */
-function handlePayrollTab(tab) {
+/* ===== Handler halaman gaji ===== */function handlePayrollTab(tab) {
   UI.setPayrollTab(tab);
   renderPayrollView();
 }
@@ -2925,6 +3023,63 @@ function handlePayrollRateChange(input) {
   renderPayrollView();
   queueMirror();
 }
+function handlePayrollPrintSlip(empId) {
+  const emp = Storage.getAllEmployees().find(x => x.id === empId);
+  const c = payrollCache[empId];
+  if (!emp || !c) return;
+  const ref = payrollMonthEnd(payrollViewMonth);
+  const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+  const label = payrollMonthLabel(payrollViewMonth);
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID', { minimumFractionDigits: 2 });
+  const R = slip.rates || {};
+  const pct = (v) => ((Number(v) || 0) * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 }) + '%';
+  const trow = (label_, amt, cls) => (amt > 0 ? `<tr><td>${label_}</td><td class="r ${cls || ''}">${fmt(amt)}</td></tr>` : '');
+  const win = window.open('', '_blank', 'width=760,height=900');
+  if (!win) return UI.showError('Popup diblokir browser — izinkan popup lalu coba lagi');
+  win.document.write(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Slip Gaji ${escapeHtml(emp.name)} — ${escapeHtml(label)}</title><style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#0f172a;font-size:13px}
+    h1{font-size:17px;margin:0} .sub{color:#64748b;font-size:11px;margin:2px 0 16px}
+    .box{border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:14px}
+    .kv{display:grid;grid-template-columns:120px 1fr;gap:4px 12px;font-size:12px}
+    table{width:100%;border-collapse:collapse;font-size:12px} td{padding:5px 0;border-bottom:1px dashed #e2e8f0}
+    td.r{text-align:right;white-space:nowrap;font-weight:700} td.neg{color:#b91c1c} tr.sum td{border-top:2px solid #0f172a;border-bottom:none;font-weight:800}
+    .big{font-size:20px;font-weight:800;color:#059669} .foot{margin-top:20px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between}
+    .muted{color:#64748b;font-size:10px} h2{font-size:12px;margin:0 0 6px;color:#334155}
+    @media print{ body{margin:12px} }
+  </style></head><body>
+    <h1>Slip Gaji — ${escapeHtml(label)}</h1>
+    <div class="sub">Cetakan di-${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    <div class="box"><div class="kv">
+      <b>Karyawan</b><span>${escapeHtml(emp.name)}${emp.role ? ' — ' + escapeHtml(emp.role) : ''}</span>
+      <b>Status PTKP</b><span>${escapeHtml(emp.ptkp || 'TK/0')}${emp.npwp ? ` • NPWP ${escapeHtml(emp.npwp)}` : ' • tanpa NPWP (+20%)'}</span>
+      <b>Masa kerja</b><span>${slip.tenureMonths} bulan</span>
+    </div></div>
+    <div class="box"><h2>Pendapatan</h2><table>
+      ${trow('Gaji pokok', slip.base)}${trow('Tunjangan tetap', slip.allow)}${trow('Lembur', slip.overtime)}
+      ${trow('Bonus/insentif', slip.bonus)}${trow('THR Keagamaan', slip.thr)}
+      <tr class="sum"><td>Bruto</td><td class="r">${fmt(slip.gross + slip.thr)}</td></tr>
+    </table></div>
+    <div class="box"><h2>Potongan</h2><table>
+      ${trow(`BPJS Kesehatan pekerja (${pct(R.kesSelf)})`, slip.ded.kesSelf, 'neg')}
+      ${trow(`JHT pekerja (${pct(R.jhtSelf)})`, slip.ded.jhtSelf, 'neg')}
+      ${trow(`JP pekerja (${pct(R.jpSelf)})`, slip.ded.jpSelf, 'neg')}
+      ${trow(`PPh 21 TER × netto ${fmt(slip.pphNetto)}`, slip.ded.pph21, 'neg')}
+      ${trow('Denda/absensi', slip.deduct, 'neg')}
+      <tr class="sum"><td>Total potongan</td><td class="r neg">${fmt(slip.totalDed + slip.deduct)}</td></tr>
+    </table></div>
+    <div class="box" style="text-align:center">Diterima karyawan (take-home pay)<br><span class="big">${fmt(slip.takeHome)}</span></div>
+    <div class="box"><h2>Ditanggung perusahaan (tidak dikurangkan)</h2><div class="muted" style="margin-bottom:6px">Total ${fmt(slip.totalComp)}</div><table>
+      ${trow(`BPJS Kesehatan (${pct(R.kesComp)})`, slip.comp.kesComp)}
+      ${trow(`JHT (${pct(R.jhtComp)})`, slip.comp.jhtComp)}
+      ${trow(`JP (${pct(R.jpComp)})`, slip.comp.jpComp)}
+      ${trow(`JKK kecelakaan kerja (${pct(R.jkk)})`, slip.comp.jkk)}
+      ${trow(`JKM kematian (${pct(R.jkm)})`, slip.comp.jkm)}
+    </table></div>
+    <div class="foot"><span>Slip ini dibuat otomatis oleh Wynara Accounting</span><span>Tanda tangan pemberi kerja: ______________</span></div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => { try { win.focus(); win.print(); } catch {} }, 400);
+}
 function handlePayrollCopyPrev() {
   ensurePayrollMonth();
   const prev = Storage.getPayrollDraft(prevMonthKey(payrollViewMonth));
@@ -3046,6 +3201,99 @@ function handleLogout() {
   showLogin();
 }
 
+/* ===== Aset tetap & penyusutan ===== */
+function refreshAssets() {
+  const body = document.getElementById('assetTableBody');
+  if (!body) return;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const assets = Storage.getFixedAssets();
+  let bulanIni = 0;
+  body.innerHTML = assets.length ? assets.map(a => {
+    const cost = Number(a.cost) || 0;
+    const life = Math.max(1, Number(a.lifeMonths) || 1);
+    const owned = Storage.monthsOwned(a.buyDate);
+    const monthly = cost / life;
+    const accum = Math.min(cost, monthly * Math.min(owned, life));
+    const buku = cost - accum;
+    bulanIni += owned > 0 && accum < cost ? monthly : 0;
+    return `<tr style="border-bottom:1px solid #f8fafc">
+      <td style="padding:8px"><b>${escapeHtml(a.name)}</b><br><small style="color:#94a3b8">${owned}/${life} bln</small></td>
+      <td style="padding:8px;text-align:right">${fmt(cost)}</td>
+      <td style="padding:8px;text-align:right">${fmt(monthly)}</td>
+      <td style="padding:8px;text-align:right">${fmt(accum)}</td>
+      <td style="padding:8px;text-align:right"><b>${fmt(buku)}</b></td>
+      <td style="padding:8px;text-align:right"><button class="btn btn-danger asset-delete" data-id="${a.id}" aria-label="Hapus ${escapeHtml(a.name)}" style="padding:2px 8px;font-size:12px">×</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8">Belum ada aset. Isi form di atas lalu tekan Tambah.</td></tr>';
+  const sum = document.getElementById('assetSummary');
+  if (sum) sum.innerHTML = assets.length
+    ? `<span class="chip" style="font-size:12px">Penyusutan bulan ini: <b>Rp${Math.round(bulanIni).toLocaleString('id-ID')}</b></span>`
+    : '';
+}
+
+function handleAssetAdd() {
+  const name = (document.getElementById('assetName')?.value || '').trim();
+  const cost = Number(String(document.getElementById('assetCost')?.value || '').replace(/[^0-9]/g, '')) || 0;
+  const buyDate = document.getElementById('assetBuyDate')?.value || '';
+  const life = Number(document.getElementById('assetLife')?.value) || 0;
+  if (!name || cost <= 0 || !buyDate || life <= 0) return UI.showError('Lengkapi nama, harga, tanggal beli, dan umur pakai');
+  const list = Storage.getFixedAssets();
+  list.push({ id: `AS-${Date.now().toString(36)}`, name, cost, buyDate, lifeMonths: life });
+  Storage.saveFixedAssets(list);
+  Storage.logAudit('create', 'fixed-asset', name, null, { cost, lifeMonths: life });
+  ['assetName', 'assetCost', 'assetBuyDate', 'assetLife'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  UI.showSuccess(`Aset "${name}" ditambahkan`);
+  refreshAssets();
+  queueMirror();
+}
+
+function handleAssetDelete(id) {
+  const list = Storage.getFixedAssets();
+  const a = list.find(x => x.id === id);
+  if (!a) return;
+  if (!confirm(`Hapus aset "${a.name}"?`)) return;
+  Storage.saveFixedAssets(list.filter(x => x.id !== id));
+  Storage.logAudit('delete', 'fixed-asset', a.name, { cost: a.cost }, null);
+  UI.showSuccess('Aset dihapus');
+  refreshAssets();
+  queueMirror();
+}
+
+function handleAssetPost() {
+  const mk = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const id = `DEP-${mk}`;
+  if (Storage.getAllJournals().some(j => j.id === id)) return UI.showInfo(`Penyusutan ${mk} sudah pernah diposting`);
+  const total = Storage.getFixedAssets().reduce((s, a) => {
+    const cost = Number(a.cost) || 0;
+    const life = Math.max(1, Number(a.lifeMonths) || 1);
+    const owned = Storage.monthsOwned(a.buyDate);
+    const monthly = cost / life;
+    const accum = Math.min(cost, monthly * Math.min(owned, life));
+    if (owned <= 0 || accum >= cost) return s;
+    const sisa = Math.min(monthly, cost - accum);
+    return s + sisa;
+  }, 0);
+  if (total <= 0.01) return UI.showInfo('Tidak ada penyusutan untuk bulan ini');
+  try {
+    Storage.postJournal({
+      id, date: `${mk}-01`, memo: `Penyusutan aset ${mk}`, ref: 'fixed-asset-dep', refId: mk,
+      lines: [
+        { account: '5129', debit: Math.round(total), credit: 0, memo: `Penyusutan ${mk}` },
+        { account: '1519', debit: 0, credit: Math.round(total), memo: `Akumulasi penyusutan ${mk}` },
+      ]
+    });
+    Storage.logAudit('create', 'fixed-asset-dep', id, null, { total: Math.round(total) });
+    UI.showSuccess(`Jurnal penyusutan ${mk}: Rp${Math.round(total).toLocaleString('id-ID')}`);
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal posting jurnal');
+  }
+}
+function openAssets() {
+  refreshAssets();
+  UI.openAssetModal();
+}
+
 function openSettings() {
   const modal = document.getElementById('settingsModal');
   const budget = Storage.getBudget();
@@ -3100,6 +3348,32 @@ function openSettings() {
   };
   document.getElementById('lockPrevBtn').onclick = () => { const d = new Date(); d.setMonth(d.getMonth() - 1); lockOne(d); };
   document.getElementById('lockCurBtn').onclick = () => lockOne(new Date());
+  // Mode kasir
+  const kasirHint = document.getElementById('kasirPinHint');
+  const kasirInput = document.getElementById('kasirPinInput');
+  const renderKasirHint = () => {
+    if (kasirHint) kasirHint.textContent = Storage.kasirEnabled()
+      ? 'Aktif — login pakai username "kasir" + PIN. Kasir: cuma catat transaksi (tanpa laporan/gaji/hapus). PIN default awal: 1234.'
+      : 'Belum aktif — simpan PIN (default pertama: 1234) untuk memberi akses terbatas ke kasir.';
+  };
+  renderKasirHint();
+  document.getElementById('kasirPinSave').onclick = async () => {
+    const v = (kasirInput && kasirInput.value || '').trim();
+    if (!v) return UI.showError('Isi PIN dulu (4–8 angka)');
+    try {
+      await Storage.setKasirPin(v, true);
+      if (kasirInput) kasirInput.value = '';
+      renderKasirHint();
+      UI.showSuccess('PIN kasir disimpan — login "kasir" + PIN');
+    } catch (err) {
+      UI.showError(err && err.message ? err.message : 'Gagal menyimpan PIN');
+    }
+  };
+  document.getElementById('kasirPinOff').onclick = () => {
+    if (!Storage.kasirEnabled()) return UI.showInfo('Mode kasir memang belum aktif');
+    if (!confirm('Matikan mode kasir? Login "kasir" jadi tidak bisa dipakai.')) return;
+    try { Storage.setKasirPin('', false); renderKasirHint(); UI.showSuccess('Mode kasir dimatikan'); } catch {}
+  };
   // Anggaran per kategori
   const catSel = document.getElementById('catBudgetSelect');
   const catAmt = document.getElementById('catBudgetAmount');

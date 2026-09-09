@@ -2095,6 +2095,75 @@ export function resetAuth() {
   try { localStorage.removeItem(AUTH_KEY); } catch {}
 }
 
+// ===== Mode kasir (akun kedua terbatas, PIN lokal) =====
+const KASIR_KEY = 'wynara_kasir_pin';
+const ROLE_KEY = 'wynara_role';
+
+export async function verifyKasirPin(pin) {
+  let rec = null;
+  try { rec = JSON.parse(localStorage.getItem(KASIR_KEY) || 'null'); } catch {}
+  if (!rec || !rec.hash) {
+    // default PIN 1234 (hashing saat pertama berhasil masuk)
+    if (String(pin || '') === '1234') {
+      try { localStorage.setItem(KASIR_KEY, JSON.stringify({ alg: 'hash', hash: await hashPassword('1234') })); } catch {}
+      return true;
+    }
+    return false;
+  }
+  return (await hashPassword(pin)) === rec.hash;
+}
+
+export async function setKasirPin(pin, enabled = true) {
+  if (!enabled) {
+    try { localStorage.removeItem(KASIR_KEY); } catch {}
+    return true;
+  }
+  const p = String(pin || '').trim();
+  if (!/^\d{4,8}$/.test(p)) throw new Error('PIN harus 4–8 angka');
+  try { localStorage.setItem(KASIR_KEY, JSON.stringify({ alg: 'hash', hash: await hashPassword(p) })); } catch {}
+  return true;
+}
+
+export function kasirEnabled() {
+  try { return !!localStorage.getItem(KASIR_KEY); } catch { return false; }
+}
+
+export function setRole(role) {
+  try { if (role === 'kasir') sessionStorage.setItem(ROLE_KEY, 'kasir'); else sessionStorage.removeItem(ROLE_KEY); } catch {}
+}
+
+export function getRole() {
+  try { return sessionStorage.getItem(ROLE_KEY) === 'kasir' ? 'kasir' : 'owner'; } catch { return 'owner'; }
+}
+
+// ===== Aset tetap & penyusutan =====
+const ASSET_KEY = 'wynara_assets';
+
+export function getFixedAssets() {
+  try {
+    const list = JSON.parse(localStorage.getItem(ASSET_KEY) || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch { return []; }
+}
+
+export function saveFixedAssets(list) {
+  try { localStorage.setItem(ASSET_KEY, JSON.stringify(Array.isArray(list) ? list : [])); } catch {}
+}
+
+export const DEP_ASSET_CODE = '1510';
+export const DEP_ACCUM_CODE = '1519';
+export const DEP_EXPENSE_CODE = '5129';
+
+// Penyusutan garis lurus per bulan sejak tanggal beli (basis akhir bulan)
+export function monthsOwned(buyDate, refDate = new Date()) {
+  const s = new Date(buyDate);
+  const r = refDate instanceof Date ? refDate : new Date();
+  if (!s || isNaN(s) || s > r) return 0;
+  let m = (r.getFullYear() - s.getFullYear()) * 12 + (r.getMonth() - s.getMonth());
+  if (r.getDate() < s.getDate()) m -= 1;
+  return Math.max(0, m + 1); // bulan pembelian ikut disusutkan
+}
+
 // ===== Modal awal =====
 export function getOpeningEquity() {
   try {

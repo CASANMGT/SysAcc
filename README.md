@@ -1,8 +1,8 @@
-﻿# SysAcc — Wynara Accounting System
+# SysAcc — Wynara Accounting System
 
 > Clean, offline-first accounting for UMKM Indonesia — pemasukan, pengeluaran, piutang/hutang cicilan, laporan & kontak.
 
-![Version](https://img.shields.io/badge/version-1.12.0-blue)
+![Version](https://img.shields.io/badge/version-1.13.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%2B%20LocalStorage-lightgrey)
 
@@ -163,15 +163,17 @@ See [CHANGELOG.md](./CHANGELOG.md).
 - Aging + WA, jatuh tempo, PPh Final 0.5% + reminder, PPN transaksi, invoice + cetak
 - Stok (beli/jual/HPP/opname), multi-kas + transfer + rekonsiliasi, import mutasi bank, gaji + slip
 
-**Selesai di v1.12.0 ✅**
+**Selesai di v1.13.0 ✅**
+- Laporan halaman penuh + cetak/PDF, panel pemilik (margin/runway/tren), mode kasir + PIN, aset tetap & penyusutan (jurnal 5129/1519), pajak UMKM semester (PP 23/2018), bahasa lebih awam
+- Bottom nav mobile (Beranda/Transaksi/＋/Laporan/Gaji), cetak slip gaji per karyawan (UU 13/2003)
 - PPh 21 TER atas netto (PMK 168/2023) + NPWP + biaya jabatan cap; salin bulan lalu; bonus/denda payroll
 - Dark-mode charts (CSS vars), notifikasi terpadu + lompat ke bagian terkait, ARIA icon buttons
 
-**Berikutnya (Fase 4, belum)**
+**Berikutnya (Fase 5, belum)**
 - Sync cloud multi-device (butuh backend + kunci API — Supabase/Firebase)
-- Multi-user + peran (owner/kasir/akuntan), PIN lokal sebagai langkah awal
-- Aset tetap + penyusutan, multi-cabang, dashboard owner (margin, runway kas)
-- Export PDF laporan, bottom-nav mobile, e-Bupot PPh Final
+- Multi-user sanggup lanjut: audit per-user + izin halus per modul
+- Dashboard pemilik lanjut: proyeksi omzet, banding tahun
+- e-Bupot > laporan pajak masuk dalam 1.13.0 ✅
 
 **Selesai di v1.4.0 ✅**
 - Backup otomatis (mirror IDB + pengingat + label) + validasi schema import JSON

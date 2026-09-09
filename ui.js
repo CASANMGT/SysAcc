@@ -1649,51 +1649,79 @@ export function openCustomDateModal() {
   if (!elements.customDateModal.open) elements.customDateModal.showModal();
 }
 
+export function reportHTMLFor(type, data) {
+  switch (type) {
+    case 'monthly':
+      return renderMonthlyReport(data);
+    case 'category':
+      return renderCategoryReport(data);
+    case 'cashflow':
+      return renderCashflowReport(data);
+    case 'top-expenses':
+      return renderTopExpensesReport(data);
+    case 'journal':
+      return renderJournalReport(data);
+    case 'ledger':
+      return renderLedgerReport(data);
+    case 'pl':
+      return renderPLReport(data);
+    case 'bs':
+      return renderBSReport(data);
+    case 'tax':
+      return renderTaxReport(data);
+    case 'audit':
+      return renderAuditReport(data);
+    case 'payrollrep':
+      window.__payrollRepData = data;
+      return renderPayrollReport(data);
+    default:
+      return renderMonthlyReport(data);
+  }
+}
+
 export function renderReport(type, data) {
   const body = elements.reportSection.querySelector('.modal-body');
   if (body) body.scrollTop = 0;
+  elements.reportContent.innerHTML = reportHTMLFor(type, data);
+  if (type === 'payrollrep') bindPayrollRepToggle();
+}
 
-  switch (type) {
-    case 'monthly':
-      elements.reportContent.innerHTML = renderMonthlyReport(data);
-      break;
-    case 'category':
-      elements.reportContent.innerHTML = renderCategoryReport(data);
-      break;
-    case 'cashflow':
-      elements.reportContent.innerHTML = renderCashflowReport(data);
-      break;
-    case 'top-expenses':
-      elements.reportContent.innerHTML = renderTopExpensesReport(data);
-      break;
-    case 'journal':
-      elements.reportContent.innerHTML = renderJournalReport(data);
-      break;
-    case 'ledger':
-      elements.reportContent.innerHTML = renderLedgerReport(data);
-      break;
-    case 'pl':
-      elements.reportContent.innerHTML = renderPLReport(data);
-      break;
-    case 'bs':
-      elements.reportContent.innerHTML = renderBSReport(data);
-      break;
-    case 'tax':
-      elements.reportContent.innerHTML = renderTaxReport(data);
-      break;
-    case 'audit':
-      elements.reportContent.innerHTML = renderAuditReport(data);
-      break;
-    case 'payrollrep':
-      window.__payrollRepData = data;
-      elements.reportContent.innerHTML = renderPayrollReport(data);
-      bindPayrollRepToggle();
-      break;
-  }
+export function renderReportPage(type, data) {
+  const content = document.getElementById('pageReportContent');
+  if (!content) return;
+  content.innerHTML = reportHTMLFor(type, data);
+  document.querySelectorAll('.page-report-tab').forEach(b => b.classList.toggle('selected', b.dataset.report === type));
+  if (type === 'payrollrep') bindPayrollRepToggle();
 }
 
 export function openReportModal() {
   if (!elements.reportSection.open) elements.reportSection.showModal();
+}
+
+export function printReportHTML(title, innerHTML) {
+  const w = window.open('', '_blank');
+  if (!w) return false;
+  w.document.write(`<html lang="id"><head><title>Wynara — ${escapeHtml(title)}</title><style>
+    body{font-family:Arial,sans-serif;max-width:720px;margin:20px auto;padding:0 16px;color:#111}
+    table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+    th{background:#f3f4f6}
+    .amount-col{text-align:right;font-variant-numeric:tabular-nums}
+    h4{margin:14px 0 6px}
+    .report-summary{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+    .report-summary-item{border:1px solid #ddd;border-radius:8px;padding:8px 12px;font-size:11px}
+    .report-summary-item .label{display:block;color:#666}
+    .report-summary-item .value{font-weight:700;font-size:14px}
+    .income{color:#047857}.expense{color:#be123c}
+  </style></head><body>
+    <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
+      <div style="font-size:18px;font-weight:800">WYNARA — ${escapeHtml(title).toUpperCase()}</div>
+      <div style="font-size:11px;color:#555">Dicetak ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    </div>
+    ${innerHTML}
+    <script>onload=()=>{print();}<\/script></body></html>`);
+  w.document.close();
+  return true;
 }
 
 export function printCurrentReport() {
@@ -1701,23 +1729,15 @@ export function printCurrentReport() {
   const tab = document.querySelector('.report-tab.active');
   if (!box) return;
   const title = tab ? tab.textContent.trim() : 'Laporan';
-  const w = window.open('', '_blank');
-  if (!w) return;
-  w.document.write(`<html><head><title>Wynara — ${escapeHtml(title)}</title><style>
-    body{font-family:Arial,sans-serif;max-width:720px;margin:20px auto;padding:0 16px;color:#111}
-    table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
-    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
-    th{background:#f3f4f6}
-    .amount-col{text-align:right;font-variant-numeric:tabular-nums}
-    h4{margin:14px 0 6px}
-  </style></head><body>
-    <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
-      <div style="font-size:18px;font-weight:800">WYNARA — ${escapeHtml(title).toUpperCase()}</div>
-      <div style="font-size:11px;color:#555">Dicetak ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-    </div>
-    ${box.innerHTML}
-    <script>onload=()=>{print();}<\/script></body></html>`);
-  w.document.close();
+  if (!printReportHTML(title, box.innerHTML)) alert('Popup diblokir browser — izinkan popup lalu coba lagi');
+}
+
+export function printPageReport() {
+  const box = document.getElementById('pageReportContent');
+  if (!box) return;
+  const tab = document.querySelector('.page-report-tab.selected');
+  const title = tab ? tab.textContent.trim() : 'Laporan';
+  if (!printReportHTML(title, box.innerHTML)) alert('Popup diblokir browser — izinkan popup lalu coba lagi');
 }
 
 export function updateSortArrows(column, direction) {
@@ -2117,6 +2137,23 @@ function renderBSReport(d) {
 
 function renderTaxReport(d) {
   if (!d) return '';
+  // UMKM PP 23/2018: PPh Final 0.5% atas omzet bruto per periode 6 bulan
+  const curMonths = (d.months || []).filter(m => String(m.month).startsWith(String(d.year)));
+  const sem1 = curMonths.filter(m => Number(m.month.slice(5, 7)) <= 6).reduce((s, m) => s + m.omzet, 0);
+  const sem2 = curMonths.filter(m => Number(m.month.slice(5, 7)) >= 7).reduce((s, m) => s + m.omzet, 0);
+  const today = new Date();
+  const mgmt = (label, omzet, due) => {
+    const pph = Math.round(omzet * 0.005);
+    const d1 = new Date(due + 'T00:00:00');
+    const done = today > d1;
+    const stat = omzet <= 0 ? '<span style="color:#94a3b8">Tidak ada omzet</span>'
+      : done ? `<span style="color:#94a3b8">Jatuh tempo lewat (${new Date(d1).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })})</span>`
+      : `<span style="color:#b45309">Bayar sebelum ${new Date(d1).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>`;
+    return `<div style="flex:1;min-width:200px;border:1px solid #e2e8f0;border-radius:10px;padding:10px">
+      <div style="font-size:11px;color:#64748b">${label}</div>
+      <div style="font-weight:800;font-size:14px">${formatCurrency(pph)}</div>
+      <div style="font-size:10px;color:#64748b;margin:2px 0 4px">omzet ${formatCurrency(omzet)} × 0,5%</div>${stat}</div>`;
+  };
   return `
     <div class="report-summary">
       <div class="report-summary-item"><span class="label">Omzet ${d.year}</span><span class="value">${formatCurrency(d.omzetYear)}</span></div>
@@ -2124,7 +2161,12 @@ function renderTaxReport(d) {
       <div class="report-summary-item"><span class="label">Sisa plafon 4.8M</span><span class="value ${4800000000 - d.omzetYear >= 0 ? 'income' : 'expense'}">${formatCurrency(Math.max(4800000000 - d.omzetYear, 0))}</span></div>
       <div class="report-summary-item"><span class="label">PPN Kurang Bayar</span><span class="value ${d.ppnNet >= 0 ? 'expense' : 'income'}">${formatCurrency(d.ppnNet)}</span></div>
     </div>
-    <p style="font-size:11px;color:#64748b">PPh Final dibayar tiap bulan paling lambat tgl 15 bulan berikutnya (PP 55/2022). PPN = Keluaran − Masukan.</p>
+    <p style="font-size:11px;color:#64748b;margin-bottom:8px"><b>Laporan pajak UMKM (PP 23/2018)</b> — UMKM dengan omzet ≤ Rp4,8 M/tahun: PPh Final 0,5% dari omzet bruto, dibayar per <b>periode 6 bulan</b> (Jan–Jun dan Jul–Des maksimal tgl 15 bulan berikutnya). Daftar ini siap dibawa ke e-Bupot/kantor pajak.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${mgmt(`Semester 1 (${d.year}: Jan–Jun)`, sem1, `${d.year}-07-15`)}
+      ${mgmt(`Semester 2 (${d.year}: Jul–Des)`, sem2, `${Number(d.year) + 1}-01-15`)}
+    </div>
+    <p style="font-size:11px;color:#64748b">Bulanan (PP 55/2022): bayar tiap bulan paling lambat tgl 15 bulan berikutnya. PPN = Keluaran − Masukan.</p>
     <table class="report-table">
       <thead><tr><th>Bulan</th><th class="amount-col">Omzet</th><th class="amount-col">PPh 0.5%</th></tr></thead>
       <tbody>
@@ -2648,7 +2690,7 @@ let idrInitDone = false;
 export function initIdrInputs() {
   if (idrInitDone) return;
   idrInitDone = true;
-  const ids = ['entryAmount', 'repayAmount', 'entryInstallment', 'stockPrice', 'stockCost', 'entryItemCost', 'empBase', 'empAllowance', 'transferAmount', 'reconActual', 'catBudgetAmount', 'budgetInput', 'equityInput'];
+  const ids = ['entryAmount', 'repayAmount', 'entryInstallment', 'stockPrice', 'stockCost', 'entryItemCost', 'empBase', 'empAllowance', 'transferAmount', 'reconActual', 'catBudgetAmount', 'budgetInput', 'equityInput', 'assetCost'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -3550,8 +3592,22 @@ export function renderEmpTable(emps, term) {
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8">Belum ada karyawan yang cocok.</td></tr>';
 }
-export function openEmpModal(emp) {
-  fillEmpPanel(emp);
+export function openAssetModal() {
+  const m = document.getElementById('assetModal');
+  if (!m) return;
+  if (!m.open) { try { m.showModal(); } catch {} }
+  if (m && !m.dataset.bound) {
+    m.dataset.bound = '1';
+    m.addEventListener('click', (e) => { if (e.target === m) { e.preventDefault(); } });
+    m.addEventListener('cancel', (e) => e.preventDefault());
+  }
+}
+export function closeAssetModal() {
+  const m = document.getElementById('assetModal');
+  if (m && m.open) { try { m.close(); } catch {} }
+}
+
+export function openEmpModal(emp) {  fillEmpPanel(emp);
   const m = document.getElementById('empModal');
   if (m && !m.open) { try { m.showModal(); } catch {} }
   if (m) trapFocus(m);
@@ -3694,7 +3750,10 @@ export function renderPayrollProcess(rows, monthLabel, status) {
     </tr>
     ${open ? `<tr><td></td><td colspan="6" style="padding:0 10px 12px">
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px">
-        <div style="font-size:12px;font-weight:700;margin-bottom:8px">Rincian komponen gaji</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+          <div style="font-size:12px;font-weight:700">Rincian komponen gaji</div>
+          <button type="button" class="pay-print" data-id="${e.id}" aria-label="Cetak slip gaji ${escapeHtml(e.name)}" title="Cetak slip gaji (UU 13/2003 Ps. 93)" style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">🖨️ Cetak slip</button>
+        </div>
         ${paySlipDetailHTML(r)}
         ${r.thrNote ? `<div style="font-size:11px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:8px">ⓘ ${escapeHtml(r.thrNote)}</div>` : ''}
       </div>
@@ -3766,6 +3825,8 @@ export function bindPayrollView(handlers) {
       if (ex) { handlers.onExpand(ex.dataset.id); return; }
       const ch = e.target.closest('.pay-check');
       if (ch) { handlers.onCheck(ch.dataset.id, ch.checked); return; }
+      const pr = e.target.closest('.pay-print');
+      if (pr && handlers.onPrintSlip) { handlers.onPrintSlip(pr.dataset.id); return; }
     });
     document.getElementById('payrollTableBody')?.addEventListener('change', (e) => {
       if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph')) handlers.onDetailChange();

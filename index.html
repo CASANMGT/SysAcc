@@ -151,7 +151,7 @@
           <div id="loginError" class="login-error hidden">Username atau kata sandi salah</div>
           <button type="submit" class="btn btn-primary login-btn-new">Masuk <span>→</span></button>
         </form>
-        <p class="login-hint">Default: admin / admin — ganti di Pengaturan → Keamanan</p>
+        <p class="login-hint">Pemilik: admin / admin — kasir: <b>kasir</b> + PIN (atur di Pengaturan → Keamanan)</p>
       </div>
       <p class="login-terms">Syarat layanan &nbsp;•&nbsp; Kebijakan privasi</p>
     </div>
@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.12.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.13.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -399,6 +399,15 @@
           <div style="font-size:11px;color:#64748b;margin-top:6px">Masuk − keluar per cara bayar (mengikuti filter periode).</div>
         </div>
 
+        <div id="ownerPanel" class="budget-card" data-owner-only>
+          <div class="budget-head">
+            <h4>👩‍💼 Khusus Pemilik</h4>
+            <a href="#" id="ownerToReports" style="font-size:11px;color:#2563eb;text-decoration:none">Laporan →</a>
+          </div>
+          <div id="ownerPanelBody"></div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:6px">Margin &amp; laba dari jurnal (SAK EMKM); runway = kas ÷ biaya rata-rata 3 bulan.</div>
+        </div>
+
         <!-- Bottom grid: Transaksi + Aksi Cepat -->
         <div class="dashboard-bottom">
           <div class="dash-panel dash-panel-table">
@@ -467,7 +476,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.12.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.13.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -535,9 +544,9 @@
             </div>
           </div>
           <div class="chip-group" id="payrollTabs" role="tablist" aria-label="Tab gaji" style="margin-bottom:12px">
-            <button type="button" class="chip selected" data-value="data" role="tab">Data Karyawan</button>
-            <button type="button" class="chip" data-value="process" role="tab">Proses Gaji</button>
-            <button type="button" class="chip" data-value="report" role="tab">Laporan Gaji</button>
+            <button type="button" class="chip selected" data-value="data" role="tab">👥 Karyawan</button>
+            <button type="button" class="chip" data-value="process" role="tab">💰 Hitung &amp; Bayar</button>
+            <button type="button" class="chip" data-value="report" role="tab">📜 Riwayat Gaji</button>
           </div>
 
           <div id="payrollTabData">
@@ -626,6 +635,33 @@
             <div id="payrollViewReport"></div>
           </div>
 
+        </div>
+
+        <div id="viewLaporan" class="view-section hidden">
+          <div class="view-header">
+            <div>
+              <h1>Laporan</h1>
+              <p>Semua laporan keuangan dalam satu halaman — nyaman dibaca di HP.</p>
+            </div>
+            <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
+          </div>
+          <div class="chip-group" id="pageReportTabs" role="tablist" aria-label="Jenis laporan" style="margin-bottom:14px">
+            <button type="button" class="chip selected page-report-tab" data-report="monthly">Bulanan</button>
+            <button type="button" class="chip page-report-tab" data-report="category">Per Kategori</button>
+            <button type="button" class="chip page-report-tab" data-report="cashflow">Arus Kas</button>
+            <button type="button" class="chip page-report-tab" data-report="top-expenses">Top Pengeluaran</button>
+            <button type="button" class="chip page-report-tab" data-report="journal">Jurnal</button>
+            <button type="button" class="chip page-report-tab" data-report="ledger">Buku Besar</button>
+            <button type="button" class="chip page-report-tab" data-report="pl">Laba Rugi</button>
+            <button type="button" class="chip page-report-tab" data-report="bs">Neraca</button>
+            <button type="button" class="chip page-report-tab" data-report="tax">Pajak</button>
+            <button type="button" class="chip page-report-tab" data-report="payrollrep">Gaji</button>
+            <button type="button" class="chip page-report-tab" data-report="audit">Audit</button>
+          </div>
+          <div class="dash-panel" style="padding:16px;overflow-x:auto">
+            <div id="pageReportContent"></div>
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -1254,7 +1290,7 @@
   <dialog id="coaModal" class="modal">
     <div class="modal-content modal-lg">
       <header class="modal-header">
-        <h2>📚 Daftar Akun (COA)</h2>
+        <h2>📚 Daftar Akun</h2>
         <button type="button" class="modal-close" aria-label="Tutup" id="closeCoaBtn">&times;</button>
       </header>
       <div class="modal-body">
@@ -1495,7 +1531,23 @@
           </div>
         </div>
         <div class="form-group">
-          <label>📚 Akun (COA)</label>
+          <label>🧑‍💼 Mode Kasir</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+            <input type="password" id="kasirPinInput" placeholder="PIN baru (4–8 angka)" inputmode="numeric" style="flex:1;min-width:160px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <button type="button" class="btn btn-ghost" id="kasirPinSave">Simpan PIN</button>
+            <button type="button" class="btn btn-ghost" id="kasirPinOff">Matikan</button>
+          </div>
+          <div id="kasirPinHint" style="font-size:11px;color:#64748b;margin-top:4px"></div>
+        </div>
+        <div class="form-group">
+          <label>🏦 Aset Tetap</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <button type="button" class="btn btn-ghost" id="assetOpenBtn">Aset &amp; penyusutan</button>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Mesin/peralatan — penyusutan garis lurus, posting jurnal bulanan.</div>
+        </div>
+        <div class="form-group">
+          <label>📚 Kamus Akun</label>
           <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
             <button type="button" class="btn btn-ghost" id="coaOpenBtn">Lihat & tambah akun</button>
           </div>
@@ -1526,9 +1578,55 @@
         <button type="button" class="btn btn-primary" id="saveSettingsBtn">Simpan</button>
       </footer>
     </div>
-  </dialog>
+</dialog>
 
-  <dialog id="infoModal" class="modal">
+<nav class="bottomnav" id="bottomNav" aria-label="Navigasi utama">
+  <button type="button" class="bn-item active" data-bnav="ringkasan"><span aria-hidden="true">🏠</span>Beranda</button>
+  <button type="button" class="bn-item" data-bnav="transaksi"><span aria-hidden="true">🧾</span>Transaksi</button>
+  <button type="button" class="bn-add" data-bnav="add" aria-label="Tambah transaksi" title="Tambah transaksi">＋</button>
+  <button type="button" class="bn-item" data-bnav="reports"><span aria-hidden="true">📊</span>Laporan</button>
+  <button type="button" class="bn-item" data-bnav="gaji"><span aria-hidden="true">👥</span>Gaji</button>
+</nav>
+
+<dialog id="assetModal" class="modal">
+  <div class="modal-content" style="max-width:640px">
+    <div class="modal-header">
+      <h2>🏦 Aset Tetap &amp; Penyusutan</h2>
+      <button type="button" class="modal-close" id="assetModalClose" aria-label="Tutup">×</button>
+    </div>
+    <div class="modal-body" style="padding:16px">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
+        <div><div style="font-size:11px;color:#64748b">Nama aset*</div><input type="text" id="assetName" placeholder="mis. Mesin espresso" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></div>
+        <div><div style="font-size:11px;color:#64748b">Harga (Rp)*</div><input type="text" id="assetCost" bind="rupiah" placeholder="Rp" inputmode="decimal" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></div>
+        <div><div style="font-size:11px;color:#64748b">Tgl beli*</div><input type="date" id="assetBuyDate" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></div>
+        <div><div style="font-size:11px;color:#64748b">Umur pakai (bulan)*</div><input type="number" id="assetLife" min="1" max="240" placeholder="mis. 48" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></div>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:12px">Penyusutan garis lurus = harga ÷ umur bulan. Nilai buku otomatis di tabel bawah; jurnal bulanan bisa diposting sekali per bulan.</div>
+      <div id="assetSummary" style="margin-bottom:10px"></div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:12px">
+          <thead><tr style="font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+            <th style="padding:8px;text-align:left">Aset</th>
+            <th style="padding:8px;text-align:right">Perolehan</th>
+            <th style="padding:8px;text-align:right">Susut/bln</th>
+            <th style="padding:8px;text-align:right">Akumulasi</th>
+            <th style="padding:8px;text-align:right">Nilai buku</th>
+            <th style="padding:8px;width:44px"></th>
+          </tr></thead>
+          <tbody id="assetTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="assetAddBtn">＋ Tambah aset</button>
+      <div style="flex:1"></div>
+      <button type="button" class="btn btn-ghost" id="assetModalCancel">Tutup</button>
+      <button type="button" class="btn btn-primary" id="assetPostBtn">📤 Posting penyusutan bulan ini</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="infoModal" class="modal">
     <div class="modal-content" style="max-width: 520px;">
       <header class="modal-header">
         <h2 id="infoModalTitle">Info</h2>

@@ -6,6 +6,30 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.13.0] - 2026-09-09
+
+### Added — Laporan beranda penuh (Fase 4: A–G)
+- **📄 Laporan = halaman penuh** (dulu cuma modal): sidebar & bottom-nav kini buka halaman `Laporan` dengan 11 tab standar, rapikan filter; modal masih tersedia
+- **🖨️ Cetak / Simpan PDF** — tombol di header halaman laporan; dialog print menyediakan "Save as PDF" (semua laporan)
+- **👩‍💼 Panel Khusus Pemilik** (dashboard): laba bulan berjalan, margin kotor (omzet−HPP), kas & rekening, **runway kas** (kas ÷ biaya rata-rata 3 bulan), sparkline laba 6 bulan + catatan tren naik/turun
+- **🧑‍💼 Mode Kasir + PIN** — login username `kasir` + PIN (default 1234, bisa ganti/mati di Pengaturan → Keamanan; hash lokal). Kasir hanya bisa: beranda + catat transaksi; laporan/gaji/kontak/pinjemin/stok/pengaturan & tombol hapus disembunyikan via CSS
+- **🏦 Aset tetap & penyusutan** — daftar aset (harga, tanggal beli, umur bulan), penyusutan garis lurus, akumulasi & nilai buku otomatis; posting jurnal bulanan idempoten (Dr `5129` Beban Penyusutan / Cr `1519` Akumulasi Penyusutan); akun baru `1510 Aset Tetap`, `1519`, `5129`
+- **🧾 Pajak UMKM (PP 23/2018)** — kartu semester (Jan–Jun & Jul–Des): omzet × 0,5%, jatuh tempo tgl 15 bulan berikutnya, status bayar; langsung titipan ke e-Bupot
+- **Bahasa lebih awam** — tab gaji: `Karyawan / Hitung & Bayar / Riwayat Gaji`; "Daftar Akun (COA)" → "Daftar Akun"
+
+### Tests
+- 139/139 tetap hijau
+
+---
+
+## [1.12.1] - 2026-09-09
+
+### Added — Mobile & slip
+- **Bottom nav mobile** — bar navigasi bawah di layar ≤768px: Beranda / Transaksi / tombol ＋ besar (langsung ke form catat) / Laporan / Gaji; tombol aktif ikut view; area aman iPhone (safe-area) + dukungan dark mode
+- **🖨️ Cetak slip gaji per karyawan** — di rincian expandable; slip A4 siap print (identitas karyawan, PTKP/NPWP, masa kerja, tabel pendapatan–potongan–THP besar, iuran perusahaan dengan tarif asli, kolom tanda tangan) — kewajiban slip pemberi kerja (UU 13/2003 Ps. 93)
+
+---
+
 ## [1.12.0] - 2026-09-09
 
 ### Fixed — PPh 21 sesuai PMK 168/2023 (perbaikan legal)

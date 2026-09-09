@@ -3668,3 +3668,48 @@ tr:hover .table-row-actions {
 
 /* Notif "Buka" chip (P0-4), dark mode */
 .dark-mode .notif-goto { background: #1e3a8a; color: #bfdbfe; border-color: #1e40af; }
+
+/* ===== Bottom nav (mobile) ===== */
+.bottomnav { display: none; }
+@media (max-width: 768px) {
+  body { padding-bottom: 76px; }
+  .bottomnav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    background: var(--card, #fff); border-top: 1px solid var(--border, #e2e8f0);
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px));
+    justify-content: space-around; align-items: flex-end;
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, .08);
+  }
+  .bn-item {
+    flex: 1; background: none; border: none; display: flex; flex-direction: column;
+    align-items: center; gap: 2px; font-size: 10px; color: #64748b; cursor: pointer;
+    padding: 4px 0; border-radius: 10px; font-family: inherit;
+  }
+  .bn-item span { font-size: 18px; }
+  .bn-item.active { color: #2563eb; font-weight: 700; }
+  .bn-add {
+    flex: 0 0 56px; align-self: center; width: 52px; height: 52px; border-radius: 50%;
+    background: #2563eb; color: #fff; border: none; font-size: 26px; font-weight: 800;
+    cursor: pointer; box-shadow: 0 6px 16px rgba(37, 99, 235, .4); margin-top: -20px;
+    font-family: inherit; line-height: 1;
+  }
+  .dark-mode .bottomnav { background: #1e293b; border-color: #334155; }
+  .dark-mode .bn-item { color: #94a3b8; }
+  .dark-mode .bn-item.active { color: #93c5fd; }
+}
+
+/* ===== Mode kasir: sembunyikan akses pemilik ===== */
+#appRoot[data-role="kasir"] #reportBtnSidebar,
+#appRoot[data-role="kasir"] #contactsBtnSidebar,
+#appRoot[data-role="kasir"] #loanBtnSidebar,
+#appRoot[data-role="kasir"] #stockBtnSidebar,
+#appRoot[data-role="kasir"] #payrollBtnSidebar,
+#appRoot[data-role="kasir"] #themeToggleSidebar,
+#appRoot[data-role="kasir"] [data-owner-only],
+#appRoot[data-role="kasir"] #notifBtn,
+#appRoot[data-role="kasir"] [data-bnav="reports"],
+#appRoot[data-role="kasir"] [data-bnav="gaji"],
+#appRoot[data-role="kasir"] tr td .btn-danger,
+#appRoot[data-role="kasir"] .dash-card .btn-danger {
+  display: none !important;
+}
