@@ -1157,6 +1157,8 @@ export function refreshItemSection() {
   const items = getItemList();
   if (!items.length) { wrap.hidden = true; return; }
   wrap.hidden = false;
+  const more = document.getElementById('txMoreDetails');
+  if (more && !more.open) more.open = true;
   if (elements.itemGroupLabel) elements.itemGroupLabel.textContent = isSell ? 'Jual barang? (kurangi stok)' : 'Beli barang? (tambah stok)';
   const sel = elements.entryItemId;
   const cur = sel ? sel.value : '';

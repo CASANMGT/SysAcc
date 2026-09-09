@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.15.2] - 2026-09-09
+
+### Iterasi audit 2 — kurangi beban kognitif
+- **Modal transaksi: "Detail lainnya ▾"** — Barang + PPN + Catatan + Ulangi (jarang dipakai) dikolaps jadi 1 section; buka otomatis saat pilih kategorinya barang. Modal jadi pendek & fokus: nominal → jenis → kategori → bayar. *Bayar pakai apa? tetap terlihat (jalur uang utama) — full 3-field wajib dimodifikasi agar T1 (4 tap) tidak rusak*
+- **Tab laporan digroup 3 bagian** di halaman Laporan: 🔍 IKHTISAR (Bulanan, Per Kategori, Arus Kas, Top, Produk) · 📑 LAPORAN RESMI (L/R, Neraca, Neraca Saldo, Jurnal, Buku Besar) · ✅ KEPATUHAN (Pajak, PPN, PPh 21, Gaji, Audit) — akuntan & HR langsung tahu ke mana melihat
+- `AUDIT_STATE.md`: F6 70→78, F7 68→74, F8 80 tetap; overall 73→75
+
+---
+
 ## [1.15.1] - 2026-09-09
 
 ### Iterasi audit 1 — keamanan tampilan, mobile, tax config

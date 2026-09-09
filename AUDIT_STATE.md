@@ -3,20 +3,25 @@
 Baseline: v1.15.0 (audit dibuat atas v1.14.2; sebagian finding sudah terdafikan di v1.15.0).
 Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
-## Current scores (rubric, 0–100; setelah iter 1)
+## Current scores (rubric, 0–100; setelah iter 2)
 
 | Axis | Nilai | Catatan |
 |---|---|---|
-| F1 Core ledger | 78 | double-entry kuat, lock periode ada; opening balance belum |
-| F2 Tax conformance | 70 | PPN **configurable** ✓; PPh21 TER ✓; PPh23/4(2) ✗; PPh Final 0,5% masih konstanta |
-| F3 Payroll & HR | 70 | absensi ada; lembur formula ✗; Dec recon ✗; 1721-A1 ✗ |
-| F4 Data durability | 44 | kredensial default kini kontekstual; tanpa server/auth nyata |
-| F5 Reporting | 84 | set lengkap + Excel |
-| F6 Task efficiency | 70 | modal transaksi ~18 kontrol (target 3) |
-| F7 Cognitive load | 68 | dua nada bicara bercampur |
-| F8 Mobile | 80 | **Lainnya** menutup 8 tujuan |
+| F1 Core ledger | 78 | opening balance belum |
+| F2 Tax conformance | 70 | PPN configurable ✓; PPh23/4(2) ✗ |
+| F3 Payroll & HR | 70 | lembur/Dec recon/1721-A1 ✗ |
+| F4 Data durability | 44 | tanpa server/auth nyata |
+| F5 Reporting | 84 | set lengkap + grouped |
+| F6 Task efficiency | 78 | modal kolaps ke "Detail lainnya" |
+| F7 Cognitive load | 74 | tab laporan grouped; dua nada bicara tersisa |
+| F8 Mobile | 80 | Lainnya menutup 8 tujuan |
 | F9 Accessibility | 55 | emoji-icon tanpa label |
-| **Grade** | **~73** | +1 dari iter 1 |
+| **Grade** | **~75** | iter 1+2 |
+
+## Completed (lanjut)
+
+- iter 2 (v1.15.2): **U2-hybrid** — Detail lainnya ▾ di modal transaksi (auto-open saat barang relevan); payment tetap terlihat demi T1. **U3** tab laporan digroup 3 bagian di halaman. Tests 141/141 ✓.
+- Diteruskan ke iter 3: pe-dalaman U2 (3 field saja) masih jadi pilihan red-team kalah melawan T1; diarsip di Frozen sebagai "payment harus tetap terlihat".
 
 ## Backlog (dari WYNARA-AUDIT-v1.14.2.md + ongoing)
 

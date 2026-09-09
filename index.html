@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.15.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.15.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -476,7 +476,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.15.1</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.15.2</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -650,17 +650,24 @@
               <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
             </div>
           </div>
-          <div class="chip-group" id="pageReportTabs" role="tablist" aria-label="Jenis laporan" style="margin-bottom:14px">
+          <div class="chip-group" id="pageReportTabs" role="tablist" aria-label="Jenis laporan" style="margin-bottom:8px">
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">IKHTISAR</div>
             <button type="button" class="chip selected page-report-tab" data-report="monthly">Bulanan</button>
             <button type="button" class="chip page-report-tab" data-report="category">Per Kategori</button>
             <button type="button" class="chip page-report-tab" data-report="cashflow">Arus Kas</button>
             <button type="button" class="chip page-report-tab" data-report="top-expenses">Top Pengeluaran</button>
             <button type="button" class="chip page-report-tab" data-report="products">Produk</button>
-            <button type="button" class="chip page-report-tab" data-report="journal">Jurnal</button>
-            <button type="button" class="chip page-report-tab" data-report="ledger">Buku Besar</button>
+          </div>
+          <div class="chip-group" role="presentation" style="margin-bottom:8px">
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">LAPORAN RESMI</div>
             <button type="button" class="chip page-report-tab" data-report="pl">Laba Rugi</button>
             <button type="button" class="chip page-report-tab" data-report="bs">Neraca</button>
             <button type="button" class="chip page-report-tab" data-report="trial">Neraca Saldo</button>
+            <button type="button" class="chip page-report-tab" data-report="journal">Jurnal</button>
+            <button type="button" class="chip page-report-tab" data-report="ledger">Buku Besar</button>
+          </div>
+          <div class="chip-group" role="presentation" style="margin-bottom:14px">
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">KEPATUHAN</div>
             <button type="button" class="chip page-report-tab" data-report="tax">Pajak</button>
             <button type="button" class="chip page-report-tab" data-report="ppn">PPN</button>
             <button type="button" class="chip page-report-tab" data-report="pph21">PPh 21</button>
@@ -954,6 +961,9 @@
             </div>
           </div>
 
+          <details id="txMoreDetails" style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;background:#fff">
+            <summary style="cursor:pointer;font-weight:600;font-size:13px;color:#2563eb;user-select:none">Detail lainnya <span style="color:#94a3b8;font-weight:400">▾</span></summary>
+            <div style="padding-bottom:0">
           <div class="tx-section" id="itemGroupWrap" hidden>
             <span class="tx-label" id="itemGroupLabel">Barang</span>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -976,6 +986,8 @@
           <div class="tx-section" style="padding-top:0;border-top:none">
             <label class="login-check" style="font-size:13px"><input type="checkbox" id="entryRecurring"> 🔁 Ulangi otomatis tiap bulan</label>
           </div>
+            </div>
+          </details>
         </div>
       </div>
 
