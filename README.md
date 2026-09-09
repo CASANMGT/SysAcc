@@ -2,7 +2,7 @@
 
 > Clean, offline-first accounting for UMKM Indonesia — pemasukan, pengeluaran, piutang/hutang cicilan, laporan & kontak.
 
-![Version](https://img.shields.io/badge/version-1.10.0-blue)
+![Version](https://img.shields.io/badge/version-1.11.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%2B%20LocalStorage-lightgrey)
 
@@ -139,9 +139,9 @@ accounting-system/
 
 ## 🔖 Version
 
-Current: **1.10.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
+Current: **1.11.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
 
-Test: `npm install` sekali, lalu `npm test` (vitest, 128 tes) atau `npm run check` (lint + test).
+Test: `npm install` sekali, lalu `npm test` (vitest, 129 tes) atau `npm run check` (lint + test).
 
 Versioning: `MAJOR.MINOR.PATCH` — storage `version:1` in JSON backup.
 

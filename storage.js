@@ -2036,6 +2036,64 @@ export function unlockMonth(mm) {
   localStorage.setItem(LOCK_KEY, JSON.stringify(getLockedMonths().filter(m => m !== mm)));
 }
 
+// ===== Kredensial lokal (1 pengguna, hash SHA-256) =====
+const AUTH_KEY = 'wynara_auth';
+
+function djb2(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return 'dj2:' + h.toString(16);
+}
+
+export async function hashPassword(pw) {
+  const s = String(pw || '');
+  try {
+    if (typeof crypto !== 'undefined' && crypto.subtle && window.isSecureContext !== false) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('wynara$' + s));
+      return 'sha:' + [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch {}
+  return djb2('wynara$' + s);
+}
+
+export function getAuth() {
+  try {
+    const v = localStorage.getItem(AUTH_KEY);
+    if (v) {
+      const o = JSON.parse(v);
+      if (o && o.user) return o;
+    }
+  } catch {}
+  return { user: 'admin', alg: 'plain', hash: 'admin' };
+}
+
+export async function verifyLogin(user, pass) {
+  const a = getAuth();
+  if (String(user || '').trim().toLowerCase() !== String(a.user || '').toLowerCase()) return false;
+  if (a.alg === 'plain') {
+    const ok = String(pass || '') === String(a.hash || '');
+    if (ok) {
+      // migrasi ke hash saat berhasil masuk
+      try { localStorage.setItem(AUTH_KEY, JSON.stringify({ user: a.user, alg: 'hash', hash: await hashPassword(pass) })); } catch {}
+    }
+    return ok;
+  }
+  return (await hashPassword(pass)) === a.hash;
+}
+
+export async function setPassword(newPass) {
+  const p = String(newPass || '');
+  if (p.length < 4) throw new Error('Kata sandi minimal 4 karakter');
+  const a = getAuth();
+  const rec = { user: a.user || 'admin', alg: 'hash', hash: await hashPassword(p) };
+  localStorage.setItem(AUTH_KEY, JSON.stringify(rec));
+  return true;
+}
+
+export function resetAuth() {
+  try { localStorage.removeItem(AUTH_KEY); } catch {}
+}
+
 // ===== Modal awal =====
 export function getOpeningEquity() {
   try {

@@ -15,7 +15,7 @@ export default [
         FileReader: 'readonly', CustomEvent: 'readonly',
         setTimeout: 'readonly', clearTimeout: 'readonly',
         setInterval: 'readonly', clearInterval: 'readonly',
-        confirm: 'readonly', alert: 'readonly', prompt: 'readonly',
+        confirm: 'readonly', alert: 'readonly', prompt: 'readonly', TextEncoder: 'readonly',
         console: 'readonly', crypto: 'readonly',
         XLSX: 'readonly', Event: 'readonly',
         // service worker

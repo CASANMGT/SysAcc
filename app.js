@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.11.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -59,7 +59,7 @@ function safeLocalSet(k, v) {
 }
 
 function isLoggedIn() {
-  return safeSessionGet('wynara_logged_in') === 'true';
+  return safeSessionGet('wynara_logged_in') === 'true' || safeLocalGet('wynara_logged_in') === 'true';
 }
 
 let loginListenerAdded = false;
@@ -82,17 +82,22 @@ function showLogin() {
         document.getElementById('loginError')?.classList.add('hidden');
       });
     });
-    // dead links/buttons on login screen -> info instead of jumping to #
     document.querySelector('.login-forgot')?.addEventListener('click', (e) => {
       e.preventDefault();
-      UI.showInfo('Reset password belum tersedia di versi demo — pakai admin / admin');
+      if (confirm('Lupa kata sandi? Klik OK untuk reset ke default admin / admin.')) {
+        Storage.resetAuth();
+        UI.showSuccess('Direset. Masuk dengan admin / admin, lalu ganti di Pengaturan → Keamanan.');
+        document.getElementById('loginUser').value = 'admin';
+        document.getElementById('loginPass').value = 'admin';
+      }
     });
-    document.querySelector('.login-hint-new a')?.addEventListener('click', (e) => {
+    document.getElementById('loginHelp')?.addEventListener('click', (e) => {
       e.preventDefault();
-      UI.showInfo('Pendaftaran belum dibuka — pakai admin / admin');
-    });
-    document.querySelector('.login-google')?.addEventListener('click', () => {
-      UI.showInfo('Login Google segera hadir — pakai admin / admin');
+      UI.openInfoModal('❓ Bantuan Wynara',
+        `<p><b>Mulai dalam 3 langkah:</b> 1️⃣ Tambah transaksi → 2️⃣ Coba Pinjemin → 3️⃣ Lihat laporan.</p>` +
+        `<p><b>Alur uang:</b> 📤 keluar = Kasih pinjam & Balikin. 📥 masuk = Dibalikin & Pinjam uang.</p>` +
+        `<p><b>Keyboard:</b> <kbd>Ctrl+N</kbd> tambah · <kbd>/</kbd> cari · <kbd>Esc</kbd> tutup.</p>` +
+        `<p><b>Data aman:</b> Pengaturan → JSON Backup tiap bulan. Login default <b>admin / admin</b> — segera ganti di Pengaturan → Keamanan.</p>`);
     });
     loginListenerAdded = true;
   }
@@ -100,17 +105,28 @@ function showLogin() {
   setTimeout(() => document.getElementById('loginUser')?.focus(), 50);
 }
 
-function handleLogin(e) {
+async function handleLogin(e) {
   e.preventDefault();
-  const user = (document.getElementById('loginUser').value || '').trim().toLowerCase();
+  const user = (document.getElementById('loginUser').value || '').trim();
   const pass = (document.getElementById('loginPass').value || '').trim();
-  if (user === 'admin' && pass === 'admin') {
-    if (!safeSessionSet('wynara_logged_in', 'true')) return;
+  const btn = document.querySelector('.login-btn-new');
+  if (btn) btn.disabled = true;
+  try {
+    const ok = await Storage.verifyLogin(user, pass);
+    if (!ok) {
+      document.getElementById('loginError').classList.remove('hidden');
+      document.getElementById('loginPass')?.select();
+      return;
+    }
     document.getElementById('loginError').classList.add('hidden');
+    const remember = document.getElementById('loginRemember')?.checked !== false;
+    try { localStorage.removeItem('wynara_logged_in'); } catch {}
+    try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
+    if (remember) safeLocalSet('wynara_logged_in', 'true');
+    else if (!safeSessionSet('wynara_logged_in', 'true')) return;
     showApp();
-  } else {
-    document.getElementById('loginError').classList.remove('hidden');
-    document.getElementById('loginPass')?.select();
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -373,6 +389,22 @@ function bindEvents() {
   document.getElementById('kasOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
   document.getElementById('bankOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
   UI.bindStock(handleStockSave, handleStockEdit, handleStockDelete);
+  document.getElementById('secSaveBtn')?.addEventListener('click', async () => {
+    const oldP = document.getElementById('secOld')?.value || '';
+    const p1 = document.getElementById('secNew')?.value || '';
+    const p2 = document.getElementById('secNew2')?.value || '';
+    if (p1 !== p2) return UI.showError('Ulangi kata sandi tidak sama');
+    try {
+      const a = Storage.getAuth();
+      const ok = await Storage.verifyLogin(a.user, oldP);
+      if (!ok) return UI.showError('Kata sandi lama salah');
+      await Storage.setPassword(p1);
+      ['secOld', 'secNew', 'secNew2'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      UI.showSuccess('Kata sandi diganti. Keluar lalu masuk dengan yang baru.');
+    } catch (err) {
+      UI.showError(err && err.message ? err.message : 'Gagal ganti kata sandi');
+    }
+  });
   UI.bindPayrollView({
     onTab: handlePayrollTab,
     onSearch: (v) => { payrollEmpSearch = v; UI.renderEmpTable(Storage.getAllEmployees(), payrollEmpSearch); },
@@ -2822,7 +2854,8 @@ function handlePayrollFinal() {
 }
 
 function handleLogout() {
-  sessionStorage.removeItem('wynara_logged_in');
+  try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
+  try { localStorage.removeItem('wynara_logged_in'); } catch {}
   document.getElementById('appRoot').classList.add('hidden');
   showLogin();
 }

@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.11.0] - 2026-09-09
+
+### Added — Login & merek
+- **Logo W sendiri** (SVG + PNG, dipakai login, sidebar, favicon, PWA) menggantikan emoji 🏦 yang generik
+- **Login sesuai desain**: headline + trio fitur, tanpa tombol Google, link Bantuan berfungsi, teks jujur
+- **Kata sandi beneran**: hash SHA-256 lokal (migrasi otomatis dari default), Ingat saya (tetap masuk), Lupa kata sandi (reset ke default), Ganti kata sandi di Pengaturan → Keamanan
+
+---
+
 ## [1.10.0] - 2026-09-09
 
 ### Added — Halaman Karyawan & Gaji (sesuai desain)
@@ -243,6 +252,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.11.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.11.0
 [1.10.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.10.0
 [1.9.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.9.0
 [1.8.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.8.0

@@ -3,7 +3,7 @@
 // - CDN fallback (xlsx): network-first, cache kalau sempat
 // - Selain itu: network-first, fallback cache
 
-const CACHE = 'wynara-v1-10-0';
+const CACHE = 'wynara-v1-11-0';
 const CORE = [
   './',
   './index.html',
@@ -27,7 +27,10 @@ const CORE = [
   './vendor/inter-700.woff2',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/icon.svg'
+  './icons/icon.svg',
+  './icons/w-logo.svg',
+  './icons/w-192.png',
+  './icons/w-512.png'
 ];
 
 self.addEventListener('install', (e) => {

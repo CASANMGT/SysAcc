@@ -138,6 +138,23 @@ describe('purchase flow', () => {
   });
 });
 
+describe('auth lokal', () => {
+  it('default admin/admin, ganti, reset', async () => {
+    const { verifyLogin, setPassword, resetAuth, getAuth } = await import('../storage.js');
+    expect(await verifyLogin('admin', 'admin')).toBe(true);
+    expect(await verifyLogin('admin', 'salah')).toBe(false);
+    expect(await verifyLogin('budi', 'admin')).toBe(false);
+    await setPassword('rahasia123');
+    expect(getAuth().user).toBe('admin');
+    expect(getAuth().hash).not.toBe('rahasia123');
+    expect(await verifyLogin('admin', 'rahasia123')).toBe(true);
+    expect(await verifyLogin('admin', 'admin')).toBe(false);
+    await expect(setPassword('abc')).rejects.toThrow();
+    resetAuth();
+    expect(await verifyLogin('admin', 'admin')).toBe(true);
+  });
+});
+
 describe('updateLoan', () => {
   it('status ikut kebenaran saat pokok dikecilkan di bawah terbayar', () => {
     const loan = createLoan({ direction: 'given', person: 'Budi', amount: 1000000, date: '2026-08-01' });

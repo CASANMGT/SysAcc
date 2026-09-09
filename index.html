@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="features.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="icon" type="image/svg+xml" href="icons/w-logo.svg">
   <script src="vendor/xlsx.full.min.js"></script>
   <script>if (typeof XLSX === 'undefined') { var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; document.head.appendChild(s); }</script>
 </head>
@@ -33,20 +33,18 @@
           <div class="login-card-text"><span>Total</span><strong>Rp 6.000.000</strong></div>
         </div>
       </div>
-      <div class="login-left-badge">🏦</div>
-
       <div class="login-left-top">
-        <div class="login-logo"><span class="login-logo-icon">🏦</span><span>Wynara</span><span class="login-logo-sub">Accounting</span></div>
+        <div class="login-logo"><img class="login-logo-icon" src="icons/w-logo.svg" alt="Wynara" width="40" height="40"><span>Wynara</span><span class="login-logo-sub">Accounting</span></div>
       </div>
 
       <div class="login-hero">
-        <h1>Kelola keuangan usaha Anda dengan <span>lebih cerdas</span></h1>
-        <p>Platform akuntansi modern untuk UMKM. Pantau arus kas, buat laporan instan, dan fokus mengembangkan bisnis.</p>
-        <div class="login-hero-meta">
-          <div class="login-avatars"><span>A</span><span>A</span><span>A</span></div>
-          <div class="login-meta-text"><strong>Offline-first & gratis</strong><span>✦ Data tersimpan di perangkat Anda</span></div>
+        <h1>Keuangan tertata.<br>Bisnis lebih tenang.</h1>
+        <p>Kelola transaksi, pantau arus kas, dan siapkan laporan dalam satu tempat.</p>
+        <div class="login-features">
+          <div class="login-feature"><span class="login-feature-icon">🧾</span><div><strong>Transaksi</strong><span>Catat dengan mudah</span></div></div>
+          <div class="login-feature"><span class="login-feature-icon">📈</span><div><strong>Arus kas</strong><span>Pantau real-time</span></div></div>
+          <div class="login-feature"><span class="login-feature-icon">📊</span><div><strong>Laporan</strong><span>Dukung keputusan</span></div></div>
         </div>
-        <div class="login-dots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span></div>
       </div>
 
       <div class="login-left-footer">
@@ -55,9 +53,10 @@
     </div>
 
     <div class="login-right">
+      <div class="login-top-links"><a href="#" id="loginHelp">ⓘ Bantuan</a></div>
       <div class="login-card-new">
         <div class="login-card-head">
-          <div class="login-card-logo">🏦<span>Wynara</span></div>
+          <div class="login-card-logo"><img src="icons/w-logo.svg" alt="Wynara" width="40" height="40"><span>Wynara</span></div>
         </div>
         <h2>Selamat datang kembali</h2>
         <p class="login-card-sub">Masuk ke akun Wynara Accounting Anda</p>
@@ -66,31 +65,28 @@
           <div class="form-group">
             <label for="loginUser">Username</label>
             <div class="login-input-wrap">
-              <span class="login-input-icon">✉️</span>
-              <input type="text" id="loginUser" placeholder="admin" required autocomplete="username">
+              <span class="login-input-icon">👤</span>
+              <input type="text" id="loginUser" placeholder="Masukkan username" required autocomplete="username">
             </div>
           </div>
           <div class="form-group">
-            <label for="loginPass">Password</label>
+            <label for="loginPass">Kata sandi</label>
             <div class="login-input-wrap">
               <span class="login-input-icon">🔒</span>
-              <input type="password" id="loginPass" placeholder="••••••••" required autocomplete="current-password">
-              <button type="button" class="login-eye" id="loginEye" aria-label="Toggle password">👁️</button>
+              <input type="password" id="loginPass" placeholder="Masukkan kata sandi" required autocomplete="current-password">
+              <button type="button" class="login-eye" id="loginEye" aria-label="Tampilkan kata sandi">👁️</button>
             </div>
           </div>
           <div class="login-row">
-            <label class="login-check"><input type="checkbox" checked> Ingat saya</label>
-            <a href="#" class="login-forgot">Lupa password?</a>
+            <label class="login-check"><input type="checkbox" id="loginRemember" checked> Ingat saya</label>
+            <a href="#" class="login-forgot">Lupa kata sandi?</a>
           </div>
-          <div id="loginError" class="login-error hidden">Username atau password salah</div>
+          <div id="loginError" class="login-error hidden">Username atau kata sandi salah</div>
           <button type="submit" class="btn btn-primary login-btn-new">Masuk <span>→</span></button>
-          <div class="login-divider"><span>atau</span></div>
-          <button type="button" class="btn login-google"><img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="G"> Masuk dengan Google</button>
         </form>
-        <p class="login-hint-new">Belum punya akun? <a href="#">Daftar</a></p>
-        <p class="login-hint">Default: admin / admin</p>
+        <p class="login-hint">Default: admin / admin — ganti di Pengaturan → Keamanan</p>
       </div>
-      <p class="login-terms">Dengan masuk, Anda menyetujui Syarat &amp; Kebijakan Privasi Wynara</p>
+      <p class="login-terms">Syarat layanan &nbsp;•&nbsp; Kebijakan privasi</p>
     </div>
   </div>
 
@@ -98,7 +94,7 @@
   <div class="app hidden" id="appRoot" role="main">
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-head">
-        <div class="sidebar-logo"><span class="sidebar-logo-icon">🏦</span><div><strong>Wynara</strong><span>Accounting</span></div></div>
+        <div class="sidebar-logo"><img class="sidebar-logo-icon" src="icons/w-logo.svg" alt="Wynara" width="32" height="32"><div><strong>Wynara</strong><span>Accounting</span></div></div>
       </div>
       <div class="sidebar-body">
         <div class="sidebar-label">MENU</div>
@@ -120,7 +116,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.10.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.11.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -404,7 +400,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.10.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.11.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1478,6 +1474,17 @@
           </div>
           <div id="lockList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
           <div style="font-size:11px;color:#64748b;margin-top:4px">Bulan terkunci tak bisa tambah/ubah/hapus. Untuk laporan ke akuntan & pajak.</div>
+        </div>
+        <div class="form-group">
+          <label>🔑 Keamanan</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <input type="password" id="secOld" placeholder="Kata sandi lama" autocomplete="current-password" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <input type="password" id="secNew" placeholder="Kata sandi baru (min. 4)" autocomplete="new-password" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input type="password" id="secNew2" placeholder="Ulangi kata sandi baru" autocomplete="new-password" style="flex:1;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <button type="button" class="btn btn-ghost" id="secSaveBtn">Ganti</button>
+          </div>
         </div>
         <div class="form-group">
           <label>📚 Akun (COA)</label>

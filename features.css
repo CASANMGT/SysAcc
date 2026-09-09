@@ -1,6 +1,75 @@
 /* features.css — Gaya komponen v1.4+ (dipisah dari style.css monolit).
    Aturan: gaya fitur BARU tulis di sini, jangan tambah ke style.css. */
 
+/* Login: fitur trio + link bantuan */
+.login-features {
+  display: flex;
+  gap: 0;
+  margin-top: 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 20px;
+}
+.login-feature {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 0 14px;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+.login-feature:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+.login-feature-icon {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+.login-feature strong {
+  display: block;
+  font-size: 13px;
+  color: #fff;
+}
+.login-feature div span {
+  display: block;
+  font-size: 11px;
+  opacity: 0.75;
+}
+.login-top-links {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.login-top-links a {
+  font-size: 13px;
+  color: #475569;
+  text-decoration: none;
+}
+.login-top-links a:hover {
+  color: #2563eb;
+}
+
+/* Logo W — ganti emoji generik */
+img.login-logo-icon,
+.login-card-logo img,
+img.sidebar-logo-icon {
+  border-radius: 10px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.login-card-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Inter lokal (vendor/) — offline-first, tanpa Google Fonts CDN */
 @font-face {
   font-family: 'Inter';
