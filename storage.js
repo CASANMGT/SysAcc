@@ -65,6 +65,7 @@ export function createEntry(entry) {
     person: String(entry.person || '').slice(0, 60),
     loanId: entry.loanId || null,
     ppn: !!entry.ppn,
+    payroll: entry.payroll && typeof entry.payroll === 'object' ? entry.payroll : undefined,
     itemId: entry.itemId ? String(entry.itemId).slice(0, 60) : null,
     qty: Math.max(Math.floor(Number(entry.qty) || 0), 0) || null,
     unitCost: entry.unitCost !== undefined ? Math.max(Number(entry.unitCost) || 0, 0) : undefined,
@@ -1614,23 +1615,48 @@ export function getAllEmployees() {
   } catch { return []; }
 }
 
+function cleanEmpStr(v, max) {
+  return String(v || '').replace(/[<>"'&]/g, '').trim().slice(0, max);
+}
+
 export function saveEmployee(emp) {
   const list = getAllEmployees();
-  const name = String(emp.name || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
+  const name = cleanEmpStr(emp.name, 60);
   if (!name) throw new Error('Nama karyawan wajib');
+  // Kompatibel data lama: salary → baseSalary
+  const base = emp.baseSalary !== undefined ? Number(emp.baseSalary) : Number(emp.salary);
   const rec = {
     id: emp.id || generateId(),
     name,
-    role: String(emp.role || '').slice(0, 40),
-    salary: Math.max(Math.round(Number(emp.salary) || 0), 0),
+    role: cleanEmpStr(emp.role, 40),
+    baseSalary: Math.max(Math.round(Number(base) || 0), 0),
+    allowance: Math.max(Math.round(Number(emp.allowance) || 0), 0),
+    gender: emp.gender === 'P' ? 'P' : (emp.gender === 'L' ? 'L' : ''),
+    birthDate: /^\d{4}-\d{2}-\d{2}$/.test(emp.birthDate || '') ? emp.birthDate : '',
+    phone: String(emp.phone || '').replace(/[^0-9+]/g, '').slice(0, 18),
+    address: cleanEmpStr(emp.address, 120),
+    startDate: /^\d{4}-\d{2}-\d{2}$/.test(emp.startDate || '') ? emp.startDate : '',
+    contract: ['tetap', 'kontrak', 'harian'].includes(emp.contract) ? emp.contract : 'tetap',
+    ptkp: String(emp.ptkp || 'TK/0').toUpperCase().slice(0, 5),
+    bpjsKes: emp.bpjsKes === undefined ? true : !!emp.bpjsKes,
+    bpjsTk: emp.bpjsTk === undefined ? true : !!emp.bpjsTk,
+    jkkRate: Number(emp.jkkRate) > 0 ? Math.min(Number(emp.jkkRate), 5) : 0.54,
     active: emp.active === undefined ? true : !!emp.active,
     updatedAt: new Date().toISOString()
   };
+  if (!(rec.baseSalary > 0)) throw new Error('Gaji pokok harus lebih dari 0');
   const idx = list.findIndex(e => e.id === rec.id);
   if (idx === -1) list.push(rec);
   else list[idx] = { ...list[idx], ...rec };
   localStorage.setItem(EMP_KEY, JSON.stringify(list));
   return rec;
+}
+
+// salary lama → baseSalary (migrasi tampilan, tanpa ubah storage)
+export function empGross(emp) {
+  if (!emp) return 0;
+  const base = emp.baseSalary !== undefined ? Number(emp.baseSalary) : Number(emp.salary);
+  return Math.max(Math.round(base || 0), 0) + Math.max(Math.round(Number(emp.allowance) || 0), 0);
 }
 
 export function deleteEmployee(id) {

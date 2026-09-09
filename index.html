@@ -120,7 +120,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.6.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.7.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -401,7 +401,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.6.1</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.7.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -936,16 +936,21 @@
       </header>
       <div class="modal-body">
         <div id="stockAlert"></div>
-        <form id="stockForm" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <form id="stockForm" style="margin-bottom:12px">
           <input type="hidden" id="stockFormId">
-          <input type="text" id="stockName" placeholder="Nama barang*" maxlength="60" required style="flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <input type="text" id="stockSku" placeholder="SKU" maxlength="30" style="flex:1;min-width:80px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <input type="text" id="stockPrice" placeholder="Harga jual" inputmode="numeric" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <input type="text" id="stockCost" placeholder="Modal/satuan" inputmode="numeric" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <input type="number" id="stockQty" placeholder="Stok" min="0" step="1" style="flex:1;min-width:70px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <input type="number" id="stockMin" placeholder="Min" min="0" step="1" title="Peringatan stok minimum" style="flex:1;min-width:60px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <button type="submit" class="btn btn-primary" style="height:40px">Simpan</button>
-          <button type="button" class="btn btn-ghost" id="stockFormReset" style="height:40px">Batal</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <label style="flex:2;min-width:140px;font-size:11px;color:#64748b">Nama barang* <input type="text" id="stockName" placeholder="mis. Kopi susu 250ml" maxlength="60" required style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <label style="flex:1;min-width:80px;font-size:11px;color:#64748b">Kode <span style="opacity:.6">(boleh kosong)</span> <input type="text" id="stockSku" placeholder="mis. KPS-01" maxlength="30" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <label style="flex:1;min-width:100px;font-size:11px;color:#64748b">Dijual berapa? <input type="text" id="stockPrice" placeholder="Rp" inputmode="decimal" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <label style="flex:1;min-width:100px;font-size:11px;color:#64748b">Modal 1 pcs berapa? <input type="text" id="stockCost" placeholder="Rp" inputmode="decimal" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <label style="flex:1;min-width:70px;font-size:11px;color:#64748b">Punya berapa? <input type="number" id="stockQty" placeholder="0" min="0" step="1" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <label style="flex:1;min-width:70px;font-size:11px;color:#64748b" title="Diingatkan kalau sisa segini">Ingatkan kalau sisa <input type="number" id="stockMin" placeholder="0" min="0" step="1" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <div style="display:flex;gap:8px;align-items:end">
+              <button type="submit" class="btn btn-primary" style="height:40px">Simpan</button>
+              <button type="button" class="btn btn-ghost" id="stockFormReset" style="height:40px">Batal</button>
+            </div>
+          </div>
+          <p style="font-size:11px;color:#64748b;margin:6px 0 0">Untung per pcs = harga jual − modal. Stok berkurang otomatis tiap ada penjualan.</p>
         </form>
         <div class="contacts-toolbar">
           <input type="search" id="stockSearch" class="loan-search" placeholder="🔍 Cari barang...">
@@ -974,13 +979,48 @@
       </header>
       <div class="modal-body">
         <div id="payrollSummary" style="margin-bottom:12px"></div>
-        <form id="employeeForm" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <div id="payrollRun" style="margin-bottom:12px"></div>
+        <form id="employeeForm" style="margin-bottom:12px">
           <input type="hidden" id="empFormId">
-          <input type="text" id="empName" placeholder="Nama karyawan*" maxlength="60" required style="flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <input type="text" id="empRole" placeholder="Jabatan" maxlength="40" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <input type="text" id="empSalary" placeholder="Gaji/bulan" inputmode="numeric" required style="flex:1;min-width:110px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <button type="submit" class="btn btn-primary" style="height:40px">Simpan</button>
-          <button type="button" class="btn btn-ghost" id="empFormReset" style="height:40px">Batal</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="text" id="empName" placeholder="Nama karyawan*" maxlength="60" required style="flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <input type="text" id="empRole" placeholder="Jabatan (mis. Kasir)" maxlength="40" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <input type="text" id="empBase" placeholder="Gaji pokok*" inputmode="decimal" required style="flex:1;min-width:110px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <input type="text" id="empAllowance" placeholder="Tunjangan" inputmode="decimal" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <button type="submit" class="btn btn-primary" style="height:40px">Simpan</button>
+            <button type="button" class="btn btn-ghost" id="empFormReset" style="height:40px">Batal</button>
+          </div>
+          <details style="margin-top:8px;font-size:12px">
+            <summary style="cursor:pointer;color:#2563eb;font-weight:600">＋ Data diri & BPJS (opsional — untuk slip, THR & PPh)</summary>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <select id="empGender" title="Jenis kelamin" style="flex:1;min-width:110px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+                <option value="">L/P?</option>
+                <option value="L">👨 Laki-laki</option>
+                <option value="P">👩 Perempuan</option>
+              </select>
+              <input type="date" id="empBirth" title="Tanggal lahir" style="flex:1;min-width:130px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+              <input type="tel" id="empPhone" placeholder="No. HP" maxlength="18" style="flex:1;min-width:120px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+              <input type="text" id="empAddress" placeholder="Alamat" maxlength="120" style="flex:2;min-width:160px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+              <input type="date" id="empStart" title="Mulai kerja (untuk THR)" style="flex:1;min-width:130px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+              <select id="empContract" title="Status kerja" style="flex:1;min-width:110px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+                <option value="tetap">Tetap</option>
+                <option value="kontrak">Kontrak</option>
+                <option value="harian">Harian</option>
+              </select>
+              <select id="empPtkp" title="Status PTKP (untuk PPh 21)" style="flex:1;min-width:100px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+                <option value="TK/0">TK/0</option>
+                <option value="TK/1">TK/1</option>
+                <option value="TK/2">TK/2</option>
+                <option value="TK/3">TK/3</option>
+                <option value="K/0">K/0</option>
+                <option value="K/1">K/1</option>
+                <option value="K/2">K/2</option>
+                <option value="K/3">K/3</option>
+              </select>
+              <label class="login-check" style="font-size:12px"><input type="checkbox" id="empBpjsKes" checked> BPJS Kesehatan</label>
+              <label class="login-check" style="font-size:12px"><input type="checkbox" id="empBpjsTk" checked> BPJS Kerja</label>
+            </div>
+          </details>
         </form>
         <div id="employeeList"></div>
       </div>

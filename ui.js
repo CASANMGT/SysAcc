@@ -1,6 +1,7 @@
 import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
 import { accountLabel } from './coa.js';
+import { computeSlip, thrAmount } from './payroll.js';
 
 const elements = {
   entriesBody: document.getElementById('entriesBody'),
@@ -2423,13 +2424,36 @@ function escapeHtml(text) {
 
 function formatIdrInput(value) {
   if (value === '' || value === null || value === undefined) return '';
-  const num = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
-  if (isNaN(num)) return '';
-  return num.toLocaleString('id-ID');
+  const num = Number(parseIdrInput(value));
+  if (!isFinite(num)) return '';
+  return num.toLocaleString('id-ID', { maximumFractionDigits: 2 });
 }
 
-function parseIdrInput(formatted) {
-  return formatted.replace(/[^0-9]/g, '');
+// Rupiah Indonesia: titik = ribuan, koma = desimal ("1.234.567,89").
+// Juga terima "1234.56". Koma/titik diikuti 1–2 digit di akhir = desimal.
+export function parseIdrInput(formatted) {
+  let s = String(formatted == null ? '' : formatted).trim();
+  if (!s) return '';
+  const neg = s.startsWith('-') ? '-' : '';
+  s = s.replace(/[^0-9.,]/g, '');
+  if (!s) return '';
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  let int = s, dec = '';
+  if (lastComma > lastDot) {
+    int = s.slice(0, lastComma);
+    dec = s.slice(lastComma + 1);
+  } else if (lastDot !== -1) {
+    const after = s.slice(lastDot + 1);
+    if (/^\d{1,2}$/.test(after)) {
+      int = s.slice(0, lastDot);
+      dec = after;
+    }
+  }
+  int = int.replace(/[.,]/g, '');
+  dec = dec.replace(/[^0-9]/g, '').slice(0, 2);
+  if (!int) int = '0';
+  return neg + (dec ? int + '.' + dec : int);
 }
 
 function parseFormattedNumber(val) {
@@ -2453,11 +2477,19 @@ function applyIdrFormat(input) {
   });
   input.addEventListener('input', () => {
     const pos = input.selectionStart || 0;
-    const raw = parseIdrInput(input.value);
-    const formatted = formatIdrInput(raw);
+    const typed = input.value;
+    // Sedang ketik desimal ("1.000,5")? Format bagian bulat saja, ekor koma dijaga.
+    const dm = typed.match(/^(.*)[,.](\d{0,2})$/);
+    let formatted;
+    if (dm && /[0-9]/.test(dm[1])) {
+      const intFmt = formatIdrInput(parseIdrInput(dm[1]));
+      formatted = (intFmt === '' ? '0' : intFmt) + ',' + dm[2];
+    } else {
+      formatted = formatIdrInput(parseIdrInput(typed));
+    }
     input.value = formatted;
     try {
-      const diff = formatted.length - raw.length;
+      const diff = formatted.length - typed.length;
       const newPos = Math.max(0, pos + diff);
       input.setSelectionRange(newPos, newPos);
     } catch {}
@@ -2465,11 +2497,15 @@ function applyIdrFormat(input) {
   });
 }
 
+export function bindRupiah(el) {
+  if (el) applyIdrFormat(el);
+}
+
 let idrInitDone = false;
 export function initIdrInputs() {
   if (idrInitDone) return;
   idrInitDone = true;
-  const ids = ['entryAmount', 'repayAmount', 'entryInstallment'];
+  const ids = ['entryAmount', 'repayAmount', 'entryInstallment', 'stockPrice', 'stockCost', 'entryItemCost', 'empBase', 'empAllowance', 'transferAmount', 'reconActual', 'catBudgetAmount', 'budgetInput', 'equityInput'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -2617,7 +2653,7 @@ export function renderStock(items) {
   }).join('');
 }
 export function getStockFormData() {
-  const num = (id) => (document.getElementById(id)?.value || '').replace(/[^0-9]/g, '');
+  const num = (id) => parseIdrInput(document.getElementById(id)?.value || '');
   return {
     id: document.getElementById('stockFormId')?.value || null,
     name: document.getElementById('stockName')?.value.trim() || '',
@@ -2679,12 +2715,16 @@ export function renderEmployees(emps, paidMap) {
     return;
   }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const grossOf = (e) => Math.round(Number(e.baseSalary ?? e.salary) || 0) + Math.round(Number(e.allowance) || 0);
   list.innerHTML = emps.map(e => {
     const paid = paidMap && paidMap[e.id];
+    const gross = grossOf(e);
+    const who = e.gender === 'P' ? '👩' : e.gender === 'L' ? '👨' : (e.active === false ? '😴' : '👤');
+    const extra = [e.role, e.contract !== 'tetap' ? e.contract : '', e.startDate ? `sejak ${e.startDate.slice(0, 7)}` : '', e.phone].filter(Boolean).map(escapeHtml).join(' • ');
     return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px">
-      <span style="font-size:18px">${e.active === false ? '😴' : '👤'}</span>
-      <span style="flex:1"><b>${escapeHtml(e.name)}</b>${e.role ? ` • ${escapeHtml(e.role)}` : ''}<br>
-      <small style="color:#64748b">${fmt(e.salary)}/bln ${paid ? '• ✅ bulan ini sudah' : ''}</small></span>
+      <span style="font-size:18px">${who}</span>
+      <span style="flex:1"><b>${escapeHtml(e.name)}</b>${extra ? `<br><small style="color:#64748b">${extra}</small>` : ''}<br>
+      <small style="color:#64748b">${fmt(gross)}/bln (pokok ${fmt(e.baseSalary ?? e.salary)}${Number(e.allowance) > 0 ? ` + tunj ${fmt(e.allowance)}` : ''}) ${paid ? '• ✅ bulan ini sudah' : ''}${e.bpjsKes === false || e.bpjsTk === false ? ' • BPJS off' : ''}</small></span>
       <button class="btn btn-ghost emp-slip" data-id="${e.id}" style="font-size:11px;padding:2px 8px" title="Slip gaji">🧾</button>
       <button class="btn btn-ghost emp-edit" data-id="${e.id}" style="font-size:11px;padding:2px 8px">✎</button>
       <button class="btn btn-ghost emp-del" data-id="${e.id}" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
@@ -2699,19 +2739,98 @@ export function renderPayrollSummary(total, count, monthLabel) {
     💼 <b>${count} karyawan aktif</b> • Total gaji <b>${fmt(total)}/bln</b> • Periode <b>${monthLabel}</b><br>
     <small style="color:#64748b">Tombol “Proses” membuat 1 transaksi gaji per karyawan (lunas, masuk laporan).</small></div>`;
 }
+/* Tabel proses gaji: centang + lembur + THR + PPh per baris, THP live */
+export function renderPayrollRun(emps, paidMap, monthKey) {
+  const box = document.getElementById('payrollRun');
+  if (!box) return;
+  const active = (emps || []).filter(e => e.active !== false && (Number(e.baseSalary ?? e.salary) || 0) > 0);
+  if (!active.length) { box.innerHTML = ''; return; }
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  box.innerHTML = `<div style="font-size:12px;font-weight:700;margin-bottom:6px">Proses gaji — centang, isi lembur bila ada:</div>` + active.map(e => {
+    const done = paidMap && paidMap[e.id];
+    const thrAuto = thrAmount(e, new Date());
+    return `<div class="run-row" data-id="${e.id}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-bottom:6px;${done ? 'opacity:0.6' : ''}">
+      <input type="checkbox" class="run-check" ${done ? '' : 'checked'} ${done ? 'disabled' : ''} aria-label="Proses ${escapeHtml(e.name)}">
+      <span style="flex:1;min-width:100px"><b>${escapeHtml(e.name)}</b><br><small style="color:#64748b">Pokok ${fmt(e.baseSalary ?? e.salary)}${Number(e.allowance) > 0 ? ` + tunj ${fmt(e.allowance)}` : ''}</small></span>
+      <label style="font-size:11px">Lembur<br><input type="text" class="run-lembur" placeholder="Rp" inputmode="decimal" ${done ? 'disabled' : ''} style="width:90px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></label>
+      <label class="login-check" style="font-size:11px" title="${thrAuto > 0 ? `Otomatis ${fmt(thrAuto)} sesuai masa kerja` : 'Masa kerja < 1 bulan — belum dapat THR'}"><input type="checkbox" class="run-thr" ${done ? 'disabled' : ''}> THR${thrAuto > 0 ? ` ${fmt(thrAuto)}` : ''}</label>
+      <label class="login-check" style="font-size:11px" title="PPh 21 TER bulanan"><input type="checkbox" class="run-pph" checked ${done ? 'disabled' : ''}> PPh</label>
+      <span class="run-thp" style="font-weight:700;min-width:90px;text-align:right">${done ? '✅ sudah' : ''}</span>
+    </div>`;
+  }).join('');
+  const recalc = () => {
+    box.querySelectorAll('.run-row').forEach(row => {
+      const emp = active.find(x => x.id === row.dataset.id);
+      if (!emp) return;
+      const out = row.querySelector('.run-thp');
+      if (row.querySelector('.run-check')?.disabled) return;
+      const lembur = Number(parseIdrInput(row.querySelector('.run-lembur')?.value || '')) || 0;
+      const thr = row.querySelector('.run-thr')?.checked ? thrAmount(emp, new Date()) : 0;
+      const pph = !!row.querySelector('.run-pph')?.checked;
+      const s = computeSlip(emp, { overtime: lembur, thr, pph });
+      if (out) out.textContent = 'THP ' + fmt(s.takeHome);
+      const li = row.querySelector('.run-lembur');
+      if (li && document.activeElement !== li) { /* jangan ganggu saat ketik */ }
+    });
+  };
+  box.querySelectorAll('.run-lembur').forEach(el => {
+    el.addEventListener('input', recalc);
+    bindRupiah(el);
+  });
+  box.querySelectorAll('.run-thr,.run-pph,.run-check').forEach(el => el.addEventListener('change', recalc));
+  recalc();
+}
+
+export function getPayrollRun() {
+  const box = document.getElementById('payrollRun');
+  if (!box) return [];
+  const out = [];
+  box.querySelectorAll('.run-row').forEach(row => {
+    const check = row.querySelector('.run-check');
+    if (!check || !check.checked || check.disabled) return;
+    out.push({
+      id: row.dataset.id,
+      overtime: Number(parseIdrInput(row.querySelector('.run-lembur')?.value || '')) || 0,
+      withThr: !!row.querySelector('.run-thr')?.checked,
+      withPph: !!row.querySelector('.run-pph')?.checked
+    });
+  });
+  return out;
+}
+
 export function getEmpFormData() {
   return {
     id: document.getElementById('empFormId')?.value || null,
     name: document.getElementById('empName')?.value.trim() || '',
     role: document.getElementById('empRole')?.value.trim() || '',
-    salary: Number((document.getElementById('empSalary')?.value || '').replace(/[^0-9]/g, '')) || 0
+    baseSalary: Number(parseIdrInput(document.getElementById('empBase')?.value || '')) || 0,
+    allowance: Number(parseIdrInput(document.getElementById('empAllowance')?.value || '')) || 0,
+    gender: document.getElementById('empGender')?.value || '',
+    birthDate: document.getElementById('empBirth')?.value || '',
+    phone: (document.getElementById('empPhone')?.value || '').trim(),
+    address: document.getElementById('empAddress')?.value.trim() || '',
+    startDate: document.getElementById('empStart')?.value || '',
+    contract: document.getElementById('empContract')?.value || 'tetap',
+    ptkp: document.getElementById('empPtkp')?.value || 'TK/0',
+    bpjsKes: document.getElementById('empBpjsKes')?.checked !== false,
+    bpjsTk: document.getElementById('empBpjsTk')?.checked !== false
   };
 }
 export function fillEmpForm(e) {
   document.getElementById('empFormId').value = e?.id || '';
   document.getElementById('empName').value = e?.name || '';
   document.getElementById('empRole').value = e?.role || '';
-  document.getElementById('empSalary').value = e?.salary || '';
+  document.getElementById('empBase').value = e?.baseSalary ?? e?.salary ?? '';
+  document.getElementById('empAllowance').value = e?.allowance ?? '';
+  document.getElementById('empGender').value = e?.gender || '';
+  document.getElementById('empBirth').value = e?.birthDate || '';
+  document.getElementById('empPhone').value = e?.phone || '';
+  document.getElementById('empAddress').value = e?.address || '';
+  document.getElementById('empStart').value = e?.startDate || '';
+  document.getElementById('empContract').value = e?.contract || 'tetap';
+  document.getElementById('empPtkp').value = e?.ptkp || 'TK/0';
+  document.getElementById('empBpjsKes').checked = e?.bpjsKes !== false;
+  document.getElementById('empBpjsTk').checked = e?.bpjsTk !== false;
 }
 export function resetEmpForm() {
   document.getElementById('employeeForm')?.reset();
@@ -2772,14 +2891,14 @@ export function getTransferFormData() {
   return {
     from: document.getElementById('transferFrom')?.value || 'cash',
     to: document.getElementById('transferTo')?.value || 'transfer',
-    amount: Number((document.getElementById('transferAmount')?.value || '').replace(/[^0-9]/g, '')) || 0,
+    amount: Number(parseIdrInput(document.getElementById('transferAmount')?.value || '')) || 0,
     date: document.getElementById('transferDate')?.value || new Date().toISOString().split('T')[0]
   };
 }
 export function getReconFormData() {
   return {
     payment: document.getElementById('reconAccount')?.value || 'cash',
-    actual: Number((document.getElementById('reconActual')?.value || '').replace(/[^0-9]/g, '')) || 0
+    actual: Number(parseIdrInput(document.getElementById('reconActual')?.value || '')) || 0
   };
 }
 export function bindKas(onTransfer, onRecon) {

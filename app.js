@@ -6,6 +6,7 @@ import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath
 import * as Charts from './charts.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, balances } from './journals.js';
 import { EQUITY_ACCOUNT, ACCOUNTS } from './coa.js';
+import { computeSlip, thrAmount } from './payroll.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -34,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.7.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -455,11 +456,7 @@ function bindEvents() {
   document.getElementById('importAnyBtn')?.addEventListener('click', () => document.getElementById('importAnyFile')?.click());
   document.getElementById('importAnyFile')?.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleImport(f); e.target.value = ''; });
   document.getElementById('printBtn2')?.addEventListener('click', handlePrint);
-  const budgetInputEl = document.getElementById('budgetInput');
-  if (budgetInputEl) {
-    budgetInputEl.addEventListener('focus', () => { const raw = budgetInputEl.value.replace(/[^0-9]/g,''); budgetInputEl.value = raw; });
-    budgetInputEl.addEventListener('blur', () => { const raw = budgetInputEl.value.replace(/[^0-9]/g,''); if (raw) budgetInputEl.value = Number(raw).toLocaleString('id-ID'); });
-  }
+  // budgetInput/equityInput diformat otomatis oleh initIdrInputs (desimal-aware)
   // fix themeToggleSidebar to open settings instead of directly toggling
   const themeSidebar = document.getElementById('themeToggleSidebar');
   if (themeSidebar) {
@@ -1984,15 +1981,16 @@ function refreshPayroll() {
   const now = new Date();
   const key = payrollMonthKey(now);
   const monthLabel = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-  const active = emps.filter(e => e.active !== false && (Number(e.salary) || 0) > 0);
-  const total = active.reduce((s, e) => s + (Number(e.salary) || 0), 0);
+  const active = emps.filter(e => e.active !== false && Storage.empGross(e) > 0);
+  const total = active.reduce((s, e) => s + Storage.empGross(e), 0);
   UI.renderPayrollSummary(total, active.length, monthLabel);
   UI.renderEmployees(emps, payrollPaidMap(key));
+  UI.renderPayrollRun(emps, payrollPaidMap(key), key);
 }
 function handleEmpSave() {
   const d = UI.getEmpFormData();
   if (!d.name) return UI.showError('Nama karyawan wajib diisi');
-  if (!(d.salary > 0)) return UI.showError('Gaji harus lebih dari 0');
+  if (!(d.baseSalary > 0)) return UI.showError('Gaji pokok harus lebih dari 0');
   try {
     const saved = Storage.saveEmployee(d);
     Storage.logAudit(d.id ? 'update' : 'create', 'employee', saved.id, null, { name: saved.name });
@@ -2019,30 +2017,56 @@ function handleEmpDelete(id) {
   queueMirror();
 }
 function handlePayrollRun() {
-  const emps = Storage.getAllEmployees().filter(e => e.active !== false && (Number(e.salary) || 0) > 0);
-  if (!emps.length) return UI.showError('Belum ada karyawan aktif bergaji');
+  const emps = Storage.getAllEmployees();
+  if (!emps.length) return UI.showError('Belum ada karyawan');
   const now = new Date();
   const key = payrollMonthKey(now);
   const monthLabel = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-  const paid = payrollPaidMap(key);
-  const todo = emps.filter(e => !paid[e.id]);
-  if (!todo.length) return UI.showInfo(`Gaji ${monthLabel} sudah diproses semua`);
-  if (!confirm(`Proses gaji ${monthLabel} untuk ${todo.length} karyawan?`)) return;
+  const sel = UI.getPayrollRun();
+  if (!sel.length) return UI.showInfo('Centang dulu karyawan yang mau diproses');
   const payment = document.getElementById('payrollPayment')?.value || 'transfer';
   const date = now.toISOString().split('T')[0];
-  let ok = 0;
-  todo.forEach(e => {
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  let ok = 0, compTotal = 0;
+  sel.forEach(s => {
+    const e = emps.find(x => x.id === s.id);
+    if (!e) return;
     try {
+      const slip = computeSlip(e, { overtime: s.overtime, thr: s.withThr ? thrAmount(e, now) : 0, pph: s.withPph, refDate: now });
+      const bits = [`pokok ${fmt(slip.base)}`];
+      if (slip.allow > 0) bits.push(`tunj ${fmt(slip.allow)}`);
+      if (slip.overtime > 0) bits.push(`lembur ${fmt(slip.overtime)}`);
+      if (slip.thr > 0) bits.push(`THR ${fmt(slip.thr)}`);
+      const deds = [];
+      if (slip.ded.kesSelf > 0) deds.push(`BPJS Kes ${fmt(slip.ded.kesSelf)}`);
+      if (slip.ded.jhtSelf > 0) deds.push(`JHT ${fmt(slip.ded.jhtSelf)}`);
+      if (slip.ded.jpSelf > 0) deds.push(`JP ${fmt(slip.ded.jpSelf)}`);
+      if (slip.ded.pph21 > 0) deds.push(`PPh ${fmt(slip.ded.pph21)}`);
       Storage.createEntry({
         date, type: 'expense', category: 'gaji-out', payment,
-        description: `Gaji ${monthLabel} — ${e.name}`,
-        amount: Number(e.salary), person: e.name
+        description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})`,
+        amount: slip.takeHome, person: e.name,
+        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, thr: slip.thr, ded: slip.ded, comp: slip.comp, takeHome: slip.takeHome, employerCost: slip.employerCost }
       });
+      compTotal += slip.totalComp;
       ok++;
     } catch {}
   });
+  // Iuran perusahaan (BPJS) jadi beban + hutang BPJS
+  if (compTotal > 0) {
+    try {
+      Storage.postJournal({
+        id: `BPJS-${key}-${Date.now().toString(36)}`,
+        date, memo: `Iuran BPJS perusahaan ${monthLabel}`, ref: 'payroll-bpjs', refId: key,
+        lines: [
+          { account: '5112', debit: Math.round(compTotal), credit: 0, memo: `BPJS ${monthLabel}` },
+          { account: '2110', debit: 0, credit: Math.round(compTotal), memo: `BPJS ${monthLabel}` },
+        ]
+      });
+    } catch {}
+  }
   Storage.logAudit('create', 'payroll-run', key, null, { count: ok, month: monthLabel });
-  UI.showSuccess(ok ? `Gaji ${monthLabel}: ${ok} karyawan diproses` : 'Tidak ada yang diproses');
+  UI.showSuccess(ok ? `Gaji ${monthLabel}: ${ok} karyawan diproses (THP)` : 'Tidak ada yang diproses');
   refreshPayroll();
   refresh();
 }
@@ -2056,20 +2080,37 @@ function handleEmpSlip(id) {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const total = rows.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const who = [e.gender === 'P' ? 'Perempuan' : e.gender === 'L' ? 'Laki-laki' : '', e.role || '', e.contract || ''].filter(Boolean).join(' • ');
+  const det = rows.map(x => {
+    const p = x.payroll || {};
+    const d = p.ded || {};
+    const lines = [
+      ['Gaji pokok', p.base], ['Tunjangan', p.allow], ['Lembur', p.overtime], ['THR', p.thr],
+      ['BPJS Kes (1%)', d.kesSelf ? -d.kesSelf : 0], ['JHT (2%)', d.jhtSelf ? -d.jhtSelf : 0],
+      ['JP (1%)', d.jpSelf ? -d.jpSelf : 0], ['PPh 21', d.pph21 ? -d.pph21 : 0],
+    ].filter(([, v]) => Number(v) !== 0);
+    return { date: x.date, desc: x.description, lines, thp: x.amount };
+  });
   const w = window.open('', '_blank');
   if (!w) return;
   w.document.write(`<html><head><title>Slip Gaji ${esc(e.name)}</title></head><body>
-    <div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto">
+    <div style="font-family:Arial,sans-serif;max-width:440px;margin:0 auto">
       <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
         <div style="font-size:18px;font-weight:800">SLIP GAJI</div>
         <div style="font-size:12px">${esc(monthLabel)}</div>
       </div>
-      <table style="width:100%;font-size:13px">
+      <table style="width:100%;font-size:13px;margin-bottom:10px">
         <tr><td style="color:#555">Nama</td><td><b>${esc(e.name)}</b></td></tr>
-        <tr><td style="color:#555">Jabatan</td><td>${esc(e.role || '-')}</td></tr>
-        <tr><td style="color:#555">Gaji pokok</td><td>${fmt(e.salary)}</td></tr>
-        <tr><td style="color:#555">Dibayar bulan ini</td><td><b>${fmt(total)}</b></td></tr>
+        ${who ? `<tr><td style="color:#555">Detail</td><td>${esc(who)}</td></tr>` : ''}
+        ${e.phone ? `<tr><td style="color:#555">HP</td><td>${esc(e.phone)}</td></tr>` : ''}
       </table>
+      ${det.length ? det.map(g => `
+        <div style="font-size:12px;color:#555;margin:6px 0">${esc(g.date)} — ${esc(g.desc || '')}</div>
+        <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:8px">
+          ${g.lines.map(([k, v]) => `<tr><td style="padding:4px 6px;border:1px solid #ddd">${esc(k)}</td><td style="padding:4px 6px;border:1px solid #ddd;text-align:right">${v < 0 ? '−' : ''}${fmt(Math.abs(v))}</td></tr>`).join('')}
+          <tr><td style="padding:4px 6px;border:1px solid #ddd"><b>THP diterima</b></td><td style="padding:4px 6px;border:1px solid #ddd;text-align:right"><b>${fmt(g.thp)}</b></td></tr>
+        </table>`).join('') : '<p style="font-size:13px">Belum ada pembayaran bulan ini.</p>'}
+      <div style="font-size:13px"><b>Total diterima: ${fmt(total)}</b></div>
     </div><script>onload=()=>{print();}<\/script></body></html>`);
   w.document.close();
 }
@@ -2323,7 +2364,7 @@ function openSettings() {
     catAdd.dataset.bound = '1';
     catAdd.addEventListener('click', () => {
       const c = catSel ? catSel.value : '';
-      const raw = catAmt ? catAmt.value.replace(/[^0-9]/g, '') : '';
+      const raw = catAmt ? UI.parseIdrInput(catAmt.value) : '';
       if (!c || !raw) { UI.showError('Pilih kategori + isi nominal'); return; }
       Storage.setCategoryBudget(c, Number(raw));
       if (catAmt) catAmt.value = '';
@@ -2398,12 +2439,12 @@ function closeSettings() {
 }
 function saveSettings() {
   const input = document.getElementById('budgetInput');
-  const raw = input ? input.value.replace(/[^0-9]/g,'') : '';
+  const raw = input ? UI.parseIdrInput(input.value) : '';
   const amount = raw ? Number(raw) : 0;
   if (amount) Storage.saveBudget({ amount, updatedAt: new Date().toISOString() });
   else { try { localStorage.removeItem('wynara_budget'); } catch {} }
   const eqInput = document.getElementById('equityInput');
-  const eqRaw = eqInput ? eqInput.value.replace(/[^0-9]/g, '') : '';
+  const eqRaw = eqInput ? UI.parseIdrInput(eqInput.value) : '';
   Storage.saveOpeningEquity(eqRaw ? Number(eqRaw) : 0);
   postOpeningEquityJournal();
   queueMirror();

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateForm, terbilang, trendPill } from '../ui.js';
+import { validateForm, terbilang, trendPill, parseIdrInput } from '../ui.js';
 
 beforeEach(() => {
   window.__getOutstandingHutang = () => [];
@@ -50,6 +50,23 @@ describe('trendPill', () => {
     expect(trendPill(100, 100)).toEqual({ text: 'Stabil', cls: 'neutral' });
     expect(trendPill(0, 0)).toEqual({ text: '—', cls: 'neutral' });
     expect(trendPill(50, 0)).toEqual({ text: '+100%', cls: 'up' });
+  });
+});
+
+describe('parseIdrInput (desimal Indonesia)', () => {
+  it('ribuan titik + koma desimal', () => {
+    expect(parseIdrInput('1.234.567,89')).toBe('1234567.89');
+    expect(parseIdrInput('Rp 2.500')).toBe('2500');
+    expect(parseIdrInput('0,5')).toBe('0.5');
+  });
+  it('titik desimal ala Inggris', () => {
+    expect(parseIdrInput('1234.56')).toBe('1234.56');
+    expect(parseIdrInput('1.500')).toBe('1500');
+  });
+  it('kosong / sampah aman', () => {
+    expect(parseIdrInput('')).toBe('');
+    expect(parseIdrInput('abc')).toBe('');
+    expect(Number(parseIdrInput('10.000,5'))).toBe(10000.5);
   });
 });
 

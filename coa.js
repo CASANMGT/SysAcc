@@ -20,6 +20,7 @@ export const ACCOUNTS = [
   { code: '2104', name: 'Hutang Gaji', type: 'liability' },
   { code: '2105', name: 'PPN Keluaran', type: 'liability' },
   { code: '2106', name: 'PPh Final Terutang', type: 'liability' },
+  { code: '2110', name: 'Hutang BPJS', type: 'liability' },
   // Modal
   { code: '3101', name: 'Modal Awal', type: 'equity' },
   // Pendapatan
@@ -36,6 +37,7 @@ export const ACCOUNTS = [
   { code: '5109', name: 'Harga Pokok Penjualan', type: 'expense' },
   { code: '5110', name: 'Beban Gaji', type: 'expense', category: 'gaji-out' },
   { code: '5111', name: 'Beban Pajak Final', type: 'expense' },
+  { code: '5112', name: 'Beban BPJS Perusahaan', type: 'expense' },
   { code: '5199', name: 'Beban Lainnya', type: 'expense' },
 ];
 

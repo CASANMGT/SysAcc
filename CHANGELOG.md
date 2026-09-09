@@ -6,6 +6,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.7.0] - 2026-09-09
+
+### Added — Gaji sesuai UU Ketenagakerjaan
+- **BPJS otomatis**: Kesehatan 4%/1% (plafon 12jt), JHT 3.7%/2%, JP 2%/1% (plafon), JKK (default 0.54%) + JKM 0.3% — bisa off per karyawan
+- **THR proporsional** (Permenaker 6/2016): ≥12 bln penuh, kurang dari itu n/12, dari masa kerja tanggal mulai kerja
+- **PPh 21 TER bulanan** (PMK 168/2023): kategori A/B/C dari status PTKP, tabel tarif penuh
+- **Tabel proses gaji**: centang + lembur + THR + PPh per baris, THP live; bayar = THP; iuran perusahaan dijurnal (Beban + Hutang BPJS)
+- **Data karyawan lengkap**: L/P, tgl lahir, HP, alamat, mulai kerja, tetap/kontrak/harian, PTKP, flag BPJS — form lipat “opsional”
+- **Slip gaji rinci**: pokok, tunjangan, lembur, THR, tiap potongan, THP + tombol cetak
+
+### Added — Input Rupiah desimal
+- Semua kolom uang terima koma desimal (`1.234.567,89` / `0,5`), format otomatis saat ketik (ekor koma dijaga), titik ribuan + koma desimal Indonesia; semua pembaca nominal diperbaiki (dulu `1.000,5` terbaca 10005!)
+
+### Changed — Form stok ramah anak
+- Label jelas (“Dijual berapa?”, “Modal 1 pcs berapa?”, “Punya berapa?”, “Ingatkan kalau sisa”), contoh placeholder, catatan untung per pcs
+
+---
+
 ## [1.6.1] - 2026-09-09
 
 ### Changed
@@ -195,6 +213,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.7.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.7.0
 [1.6.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.6.1
 [1.6.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.6.0
 [1.5.2]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.2
