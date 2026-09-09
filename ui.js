@@ -3329,11 +3329,26 @@ export function addSaleRow() {
 export function recalcSale() {
   const data = readSaleRows();
   const el = document.getElementById('saleTotal');
-  if (el) el.textContent = 'Total ' + formatCurrency(data.total);
+  if (el) el.textContent = 'Total ' + formatCurrency(data.total) + ` (${data.lines.length} barang)`;
   document.querySelectorAll('#saleRows .sale-row').forEach((row, i) => {
     const sub = row.querySelector('.sale-sub');
     if (sub) sub.textContent = data.lines[i] ? formatCurrency(data.lines[i].qty * data.lines[i].price) : '';
   });
+  // Ringkasan live: uang masuk kas, PPN, estimasi untung
+  const sum = document.getElementById('saleSummary');
+  if (!sum) return;
+  const ppn = !!document.getElementById('salePPN')?.checked;
+  const dpp = ppn ? data.total / 1.11 : data.total;
+  const ppnAmt = ppn ? data.total - dpp : 0;
+  const items = getItemList();
+  const untung = data.lines.reduce((s, l) => { const it = items.find(x => x.id === l.itemId); const c = it ? Number(it.cost) || 0 : 0; return s + l.qty * (l.price - c); }, 0);
+  const good = untung >= 0;
+  if (data.total <= 0) { sum.innerHTML = '<span style="color:#94a3b8">Pilih barang, isi qty & harga.</span>'; return; }
+  sum.innerHTML = `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>Masuk kas</span><b style="font-size:14px">${formatCurrency(data.total)}</b>
+    ${ppn ? `<span style="opacity:.7">(DPP ${formatCurrency(Math.round(dpp))} + PPN ${formatCurrency(Math.round(ppnAmt))})</span>` : ''}</div>
+    <div style="font-size:11px;color:${good ? '#059669' : '#dc2626'};font-weight:600;margin-top:2px">${good ? '📈' : '📉'} Estimasi untung ${formatCurrency(Math.round(untung))}</div>
+  </div>`;
 }
 function readSaleRows() {
   const lines = [];
@@ -3365,6 +3380,7 @@ export function bindSale(onSave) {
   document.getElementById('saleModal')?.addEventListener('click', (e) => { if (e.target.id === 'saleModal') closeSale(); });
   document.getElementById('saleAddRow')?.addEventListener('click', () => { addSaleRow(); });
   document.getElementById('saleSave')?.addEventListener('click', onSave);
+  document.getElementById('salePPN')?.addEventListener('change', recalcSale);
 }
 
 /* ===== Beli ke supplier ===== */
@@ -3427,6 +3443,14 @@ export function recalcBuy() {
     const sub = row.querySelector('.buy-sub');
     if (sub) sub.textContent = data.lines[i] ? formatCurrency(data.lines[i].qty * data.lines[i].unitCost) : '';
   });
+  const sum = document.getElementById('buySummary');
+  if (!sum) return;
+  const qty = data.lines.reduce((s, l) => s + l.qty, 0);
+  if (data.total <= 0) { sum.innerHTML = '<span style="color:#94a3b8">Pilih barang, isi qty & modal.</span>'; return; }
+  sum.innerHTML = `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>Stok bertambah</span><b style="font-size:14px">${qty} pcs</b><span style="opacity:.7">• nilai persediaan ${formatCurrency(data.total)}</span></div>
+    <div style="font-size:11px;color:#64748b;margin-top:2px">Total ini jadi <b>hutang usaha</b>; bayar nanti di tab Stok.</div>
+  </div>`;
 }
 function readBuyRows() {
   const lines = [];

@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.14.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.14.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -476,7 +476,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.14.1</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.14.2</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1342,6 +1342,7 @@
               <option value="other">📦 Lainnya</option>
             </select></label>
         </div>
+        <div style="font-size:10px;color:#94a3b8;display:flex;gap:6px;margin:2px 0 4px"><b style="flex:2;text-align:left">Barang</b><b style="flex:0 0 64px;text-align:center">Qty</b><b style="flex:1;text-align:left">Harga/pcs</b><b style="flex:1;text-align:right">Subtotal</b><b style="flex:0 0 24px"></b></div>
         <div id="saleRows" style="display:flex;flex-direction:column;gap:8px"></div>
         <button type="button" class="btn btn-ghost" id="saleAddRow" style="margin:8px 0">＋ Tambah barang</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
@@ -1349,7 +1350,10 @@
             <input type="text" id="saleNote" placeholder="mis.Pesanan WA" maxlength="100" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
           <label class="login-check" style="font-size:12px"><input type="checkbox" id="salePPN"> Harga termasuk PPN 11%</label>
         </div>
-        <div id="saleTotal" style="font-size:15px;font-weight:800;text-align:right;margin-top:10px">Total Rp0</div>
+        <div style="display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;margin-top:12px">
+          <div id="saleSummary" style="font-size:12px;flex:1;min-width:180px"></div>
+          <div id="saleTotal" style="font-size:17px;font-weight:800;text-align:right">Total Rp0</div>
+        </div>
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="saleCancel">Batal</button>
@@ -1373,11 +1377,15 @@
           <label style="flex:1;min-width:110px;font-size:11px;color:#64748b">Jatuh tempo <span style="opacity:.6">(boleh kosong)</span>
             <input type="date" id="buyDue" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
         </div>
+        <div style="font-size:10px;color:#94a3b8;display:flex;gap:6px;margin:2px 0 4px"><b style="flex:2;text-align:left">Barang</b><b style="flex:0 0 64px;text-align:center">Qty</b><b style="flex:1;text-align:left">Modal/pcs</b><b style="flex:1;text-align:right">Subtotal</b><b style="flex:0 0 24px"></b></div>
         <div id="buyRows" style="display:flex;flex-direction:column;gap:8px"></div>
         <button type="button" class="btn btn-ghost" id="buyAddRow" style="margin:8px 0">＋ Tambah barang</button>
         <label style="display:block;font-size:11px;color:#64748b;margin-bottom:8px">Catatan <span style="opacity:.6">(boleh kosong)</span>
           <input type="text" id="buyNote" placeholder="mis. Nota #123" maxlength="100" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
-        <div id="buyTotal" style="font-size:15px;font-weight:800;text-align:right">Total Rp0 • jadi hutang usaha</div>
+        <div style="display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap">
+          <div id="buySummary" style="font-size:12px;flex:1;min-width:180px"></div>
+          <div id="buyTotal" style="font-size:17px;font-weight:800;text-align:right">Total Rp0 • jadi hutang usaha</div>
+        </div>
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="buyCancel">Batal</button>

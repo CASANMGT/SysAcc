@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.14.2] - 2026-09-09
+
+### Improved — Modal Jual & Beli (pola sama dgn input barang)
+- **🧾 Jual**: header kolom (Barang · Qty · Harga/pcs · Subtotal), ringkasan live "Masuk kas + DPP + PPN 11%" & **estimasi untung** 📈/📉 dari modal rata-rata; PPN toggle kini langsung hitung ulang; total menampilkan jumlah barang
+- **📥 Beli**: header kolom, ringkasan live "Stok bertambah N pcs • nilai persediaan +RpX" + catatan jadi hutang usaha
+- (Catatan: modal Gaji lama ternyata tak dipakai — halaman Gaji modern sudah menggantikannya, jadi fokus di Jual/Beli yang aktif)
+
+---
+
 ## [1.14.1] - 2026-09-09
 
 ### Improved — Form Input Barang (UX)
