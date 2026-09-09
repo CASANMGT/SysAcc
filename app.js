@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.13.1';
+const APP_VERSION = '1.13.2';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -454,6 +454,15 @@ function bindEvents() {
   UI.bindSale(handleSaleSave);
   UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
   document.getElementById('assetOpenBtn')?.addEventListener('click', openAssets);
+  document.getElementById('adjustOpenBtn')?.addEventListener('click', openAdjust);
+  document.getElementById('adjustModalClose')?.addEventListener('click', () => { const m = document.getElementById('adjustModal'); if (m && m.open) { try { m.close(); } catch {} } });
+  document.getElementById('adjustCancel')?.addEventListener('click', () => { const m = document.getElementById('adjustModal'); if (m && m.open) { try { m.close(); } catch {} } });
+  document.getElementById('adjustPostBtn')?.addEventListener('click', handleAdjustPost);
+  ['adjustDebitAmt', 'adjustCreditAmt', 'adjustDebitAcc', 'adjustCreditAcc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateAdjustPreview);
+    if (el && id !== 'adjustPostBtn') el.addEventListener('change', updateAdjustPreview);
+  });
   document.getElementById('assetModalClose')?.addEventListener('click', UI.closeAssetModal);
   document.getElementById('assetModalCancel')?.addEventListener('click', UI.closeAssetModal);
   document.getElementById('assetAddBtn')?.addEventListener('click', handleAssetAdd);
@@ -3207,6 +3216,72 @@ function handleLogout() {
   showLogin();
 }
 
+/* ===== Jurnal penyesuaian manual ===== */
+function accountOptionsHTML(selected) {
+  return getAccounts().map(a => `<option value="${a.code}" ${a.code === selected ? 'selected' : ''}>${a.code} — ${escapeHtml(a.name)}</option>`).join('');
+}
+function openAdjust() {
+  const m = document.getElementById('adjustModal');
+  if (!m) return;
+  ['adjustDate', 'adjustMemo', 'adjustDebitAmt', 'adjustCreditAmt'].forEach(id => { const el = document.getElementById(id); if (el && id === 'adjustDate') { el.value = new Date().toISOString().split('T')[0]; } else if (el && id !== 'adjustDate') el.value = ''; });
+  const dAcc = document.getElementById('adjustDebitAcc');
+  const cAcc = document.getElementById('adjustCreditAcc');
+  const selectedA = (dAcc && dAcc.value) || '1102';
+  const selectedB = (cAcc && cAcc.value) || '4101';
+  if (dAcc) dAcc.innerHTML = accountOptionsHTML(selectedA);
+  if (cAcc) cAcc.innerHTML = accountOptionsHTML(selectedB);
+  updateAdjustPreview();
+  if (!m.open) { try { m.showModal(); } catch {} }
+}
+function adjustAmount(sel) { return Math.round(Number(String(sel.value || '').replace(/[^0-9]/g, '')) || 0); }
+function updateAdjustPreview() {
+  const box = document.getElementById('adjustPreview');
+  if (!box) return;
+  const d = adjustAmount(document.getElementById('adjustDebitAmt'));
+  const c = adjustAmount(document.getElementById('adjustCreditAmt'));
+  const dAcc = document.getElementById('adjustDebitAcc')?.value;
+  const cAcc = document.getElementById('adjustCreditAcc')?.value;
+  const label = (code) => { const a = getAccounts().find(x => x.code === code); return a ? `${a.code} ${a.name}` : code; };
+  if (d <= 0 && c <= 0) { box.innerHTML = '<span style="color:#94a3b8">Isi nominal debit & kredit.</span>'; return; }
+  if (d !== c) {
+    box.innerHTML = `<span style="color:#dc2626">⚠ Pincang: debit ${'Rp' + d.toLocaleString('id-ID')} ≠ kredit ${'Rp' + c.toLocaleString('id-ID')} — selisih ${'Rp' + Math.abs(d - c).toLocaleString('id-ID')}</span>`;
+    return;
+  }
+  box.innerHTML = `✓ Balance: <b>${label(dAcc)}</b> ⇄ <b>${label(cAcc)}</b> — ${'Rp' + d.toLocaleString('id-ID')}`;
+}
+function handleAdjustPost() {
+  const date = document.getElementById('adjustDate')?.value || '';
+  const memo = (document.getElementById('adjustMemo')?.value || '').trim();
+  const dAcc = document.getElementById('adjustDebitAcc')?.value;
+  const cAcc = document.getElementById('adjustCreditAcc')?.value;
+  const d = adjustAmount(document.getElementById('adjustDebitAmt'));
+  const c = adjustAmount(document.getElementById('adjustCreditAmt'));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return UI.showError('Tanggal belum benar');
+  if (!memo) return UI.showError('Keterangan wajib diisi');
+  if (!(d > 0)) return UI.showError('Nominal debit harus lebih dari 0');
+  if (d !== c) return UI.showError('Jurnal pincang — debit dan kredit harus sama');
+  if (dAcc === cAcc) return UI.showError('Akun debit dan kredit tidak boleh sama');
+  try {
+    const id = `ADJ-${date.replace(/-/g, '')}-${Date.now().toString(36)}`;
+    Storage.postJournal({
+      id, date, memo, ref: 'adjustment', refId: id,
+      lines: [
+        { account: dAcc, debit: d, credit: 0, memo },
+        { account: cAcc, debit: 0, credit: c, memo },
+      ]
+    });
+    Storage.logAudit('create', 'journal-manual', id, null, { debit: `${dAcc} ${d}`, credit: `${cAcc} ${c}` });
+    const m = document.getElementById('adjustModal');
+    if (m && m.open) { try { m.close(); } catch {} }
+    UI.showSuccess(`Jurnal penyesuaian ${'Rp' + d.toLocaleString('id-ID')} diposting`);
+    renderReport();
+    renderPageReport();
+    refresh();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal posting jurnal');
+  }
+}
 /* ===== Aset tetap & penyusutan ===== */
 function refreshAssets() {
   const body = document.getElementById('assetTableBody');

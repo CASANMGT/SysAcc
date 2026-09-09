@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.13.2] - 2026-09-09
+
+### Added — Untuk akuntan
+- **＋ Jurnal penyesuaian manual** — tombol di halaman Laporan: akun debit/kredit bebas (termasuk akun custom), cek balance live dengan pesan "pincang" + nominal, posting idempoten ke Jurnal & audit trail — kebutuhan utama akuntan yang sebelumnya hilang (buildAdjustJournal cuma dipakai opname/rekon)
+
+---
+
 ## [1.13.1] - 2026-09-09
 
 ### Fixed — Guard tarif salah ketik (JKK 300× lipat)

@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.13.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.13.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -476,7 +476,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.13.1</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.13.2</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -643,7 +643,10 @@
               <h1>Laporan</h1>
               <p>Semua laporan keuangan dalam satu halaman — nyaman dibaca di HP.</p>
             </div>
-            <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
+            <div style="display:flex;gap:8px">
+              <button type="button" class="btn btn-ghost" id="adjustOpenBtn" title="Catat jurnal penyesuaian manual (debit/kredit)">＋ Jurnal penyesuaian</button>
+              <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
+            </div>
           </div>
           <div class="chip-group" id="pageReportTabs" role="tablist" aria-label="Jenis laporan" style="margin-bottom:14px">
             <button type="button" class="chip selected page-report-tab" data-report="monthly">Bulanan</button>
@@ -1622,6 +1625,34 @@
       <div style="flex:1"></div>
       <button type="button" class="btn btn-ghost" id="assetModalCancel">Tutup</button>
       <button type="button" class="btn btn-primary" id="assetPostBtn">📤 Posting penyusutan bulan ini</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="adjustModal" class="modal">
+  <div class="modal-content" style="max-width:520px">
+    <div class="modal-header">
+      <h2>＋ Jurnal Penyesuaian</h2>
+      <button type="button" class="modal-close" id="adjustModalClose" aria-label="Tutup">×</button>
+    </div>
+    <div class="modal-body" style="padding:16px">
+      <div class="form-group"><label>📅 Tanggal*</label><input type="date" id="adjustDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px"></div>
+      <div class="form-group"><label>📝 Keterangan*</label><input type="text" id="adjustMemo" placeholder="mis. Koreksi beban sewa Desember" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px"></div>
+      <div class="form-group">
+        <label style="color:#059669">Debit — akun* (bertambah)</label>
+        <select id="adjustDebitAcc" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px"></select>
+        <input type="text" id="adjustDebitAmt" bind="rupiah" placeholder="Rp" inputmode="decimal" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:6px">
+      </div>
+      <div class="form-group">
+        <label style="color:#dc2626">Kredit — akun* (berkurang)</label>
+        <select id="adjustCreditAcc" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px"></select>
+        <input type="text" id="adjustCreditAmt" bind="rupiah" placeholder="Rp (sama dengan debit)" inputmode="decimal" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:6px">
+      </div>
+      <div id="adjustPreview" style="font-size:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="adjustCancel">Batal</button>
+      <button type="button" class="btn btn-primary" id="adjustPostBtn">✓ Posting</button>
     </div>
   </div>
 </dialog>

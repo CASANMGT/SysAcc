@@ -2690,7 +2690,7 @@ let idrInitDone = false;
 export function initIdrInputs() {
   if (idrInitDone) return;
   idrInitDone = true;
-  const ids = ['entryAmount', 'repayAmount', 'entryInstallment', 'stockPrice', 'stockCost', 'entryItemCost', 'empBase', 'empAllowance', 'transferAmount', 'reconActual', 'catBudgetAmount', 'budgetInput', 'equityInput', 'assetCost'];
+  const ids = ['entryAmount', 'repayAmount', 'entryInstallment', 'stockPrice', 'stockCost', 'entryItemCost', 'empBase', 'empAllowance', 'transferAmount', 'reconActual', 'catBudgetAmount', 'budgetInput', 'equityInput', 'assetCost', 'adjustDebitAmt', 'adjustCreditAmt'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
