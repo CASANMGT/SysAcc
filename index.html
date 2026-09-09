@@ -108,6 +108,8 @@
           <button class="sidebar-item" id="reportBtnSidebar">📄 Laporan</button>
           <button class="sidebar-item" id="contactsBtnSidebar">👥 Kontak</button>
           <button class="sidebar-item" id="loanBtnSidebar">🤝 Pinjemin</button>
+          <button class="sidebar-item" id="stockBtnSidebar">📦 Stok</button>
+          <button class="sidebar-item" id="payrollBtnSidebar">💼 Gaji</button>
           <button class="sidebar-item" id="themeToggleSidebar">⚙️ Pengaturan</button>
         </nav>
         <div class="sidebar-help">
@@ -118,7 +120,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.5.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.6.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -322,6 +324,10 @@
         <div id="walletCard" class="budget-card">
           <div class="budget-head">
             <h4>💳 Saldo per Dompet</h4>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost" id="kasOpenBtn" style="font-size:11px;padding:4px 10px">Kas & Transfer</button>
+              <button class="btn btn-ghost" id="bankOpenBtn" style="font-size:11px;padding:4px 10px">🏦 Mutasi</button>
+            </div>
           </div>
           <div id="walletList" style="display:flex;flex-direction:column;gap:8px"></div>
           <div style="font-size:11px;color:#64748b;margin-top:6px">Masuk − keluar per cara bayar (mengikuti filter periode).</div>
@@ -395,7 +401,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.5.2</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.6.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -578,6 +584,11 @@
                     </button>
                   </div>
                 </div>
+                <div class="tx-piutang-field" id="loanDueField">
+                  <label for="entryLoanDueDate" class="tx-piutang-label">Kapan dibalikin? <span class="tx-opsional">Opsional</span></label>
+                  <input type="date" id="entryLoanDueDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;background:white">
+                  <p class="tx-field-hint">Buat pengingat jatuh tempo. Kosongkan kalau belum pasti.</p>
+                </div>
                 <div class="tx-piutang-field" id="loanBungaField">
                   <label for="entryInterestRate" class="tx-piutang-label">Bunga? <span class="tx-opsional">Opsional</span></label>
                   <div class="tx-input-prefix-wrap">
@@ -730,6 +741,18 @@
             </div>
           </div>
 
+          <div class="tx-section" id="itemGroupWrap" hidden>
+            <span class="tx-label" id="itemGroupLabel">Barang</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select id="entryItemId" style="flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;background:white"></select>
+              <input type="number" id="entryItemQty" min="1" step="1" placeholder="Qty" style="flex:1;min-width:70px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+              <input type="text" id="entryItemCost" placeholder="Rp/satuan" inputmode="numeric" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            </div>
+            <p class="tx-field-hint" id="itemGroupHint"></p>
+          </div>
+          <div class="tx-section" id="ppnRow" style="padding-top:0;border-top:none">
+            <label class="login-check" style="font-size:13px"><input type="checkbox" id="entryPPN"> 🧾 Harga sudah termasuk PPN 11%</label>
+          </div>
           <div class="tx-section">
             <label for="entryDescription" class="tx-label">Catatan <span style="font-weight:400;opacity:0.6">(boleh kosong)</span></label>
             <div class="tx-textarea-wrap">
@@ -763,6 +786,12 @@
           <button class="report-tab" data-report="category">Per Kategori</button>
           <button class="report-tab" data-report="cashflow">Arus Kas</button>
           <button class="report-tab" data-report="top-expenses">Top Pengeluaran</button>
+          <button class="report-tab" data-report="journal">Jurnal</button>
+          <button class="report-tab" data-report="ledger">Buku Besar</button>
+          <button class="report-tab" data-report="pl">Laba Rugi</button>
+          <button class="report-tab" data-report="bs">Neraca</button>
+          <button class="report-tab" data-report="tax">Pajak</button>
+          <button class="report-tab" data-report="audit">Audit</button>
         </div>
         <div class="report-content" id="reportContent"></div>
       </div>
@@ -899,6 +928,112 @@
     </div>
   </dialog>
 
+  <dialog id="stockModal" class="modal">
+    <div class="modal-content modal-lg">
+      <header class="modal-header">
+        <h2>📦 Stok Barang</h2>
+        <button type="button" class="modal-close" id="closeStockBtn">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div id="stockAlert"></div>
+        <form id="stockForm" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <input type="hidden" id="stockFormId">
+          <input type="text" id="stockName" placeholder="Nama barang*" maxlength="60" required style="flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="text" id="stockSku" placeholder="SKU" maxlength="30" style="flex:1;min-width:80px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="text" id="stockPrice" placeholder="Harga jual" inputmode="numeric" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="text" id="stockCost" placeholder="Modal/satuan" inputmode="numeric" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="number" id="stockQty" placeholder="Stok" min="0" step="1" style="flex:1;min-width:70px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="number" id="stockMin" placeholder="Min" min="0" step="1" title="Peringatan stok minimum" style="flex:1;min-width:60px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <button type="submit" class="btn btn-primary" style="height:40px">Simpan</button>
+          <button type="button" class="btn btn-ghost" id="stockFormReset" style="height:40px">Batal</button>
+        </form>
+        <div class="contacts-toolbar">
+          <input type="search" id="stockSearch" class="loan-search" placeholder="🔍 Cari barang...">
+        </div>
+        <div id="stockList"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="payrollModal" class="modal">
+    <div class="modal-content modal-lg">
+      <header class="modal-header">
+        <h2>💼 Gaji Karyawan</h2>
+        <div class="modal-header-actions" style="display:flex;gap:6px;align-items:center">
+          <select id="payrollPayment" title="Bayar dari kas" style="height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px">
+            <option value="cash">💵 Tunai</option>
+            <option value="transfer">🏦 Transfer</option>
+            <option value="qris">📱 QRIS</option>
+            <option value="ewallet">📲 E-Wallet</option>
+            <option value="debit">💳 Debit</option>
+            <option value="other">📦 Lainnya</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="payrollRunBtn">▶️ Proses bulan ini</button>
+          <button type="button" class="modal-close" id="closePayrollBtn">&times;</button>
+        </div>
+      </header>
+      <div class="modal-body">
+        <div id="payrollSummary" style="margin-bottom:12px"></div>
+        <form id="employeeForm" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <input type="hidden" id="empFormId">
+          <input type="text" id="empName" placeholder="Nama karyawan*" maxlength="60" required style="flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="text" id="empRole" placeholder="Jabatan" maxlength="40" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="text" id="empSalary" placeholder="Gaji/bulan" inputmode="numeric" required style="flex:1;min-width:110px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <button type="submit" class="btn btn-primary" style="height:40px">Simpan</button>
+          <button type="button" class="btn btn-ghost" id="empFormReset" style="height:40px">Batal</button>
+        </form>
+        <div id="employeeList"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="kasModal" class="modal">
+    <div class="modal-content modal-lg">
+      <header class="modal-header">
+        <h2>💳 Kas & Rekonsiliasi</h2>
+        <button type="button" class="modal-close" id="closeKasBtn">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div id="kasList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+        <h3 style="font-size:13px;margin-bottom:8px">🔄 Transfer antar kas</h3>
+        <form id="transferForm" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <select id="transferFrom" style="flex:1;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></select>
+          <span style="align-self:center">→</span>
+          <select id="transferTo" style="flex:1;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></select>
+          <input type="text" id="transferAmount" placeholder="Rp" inputmode="numeric" required style="flex:1;min-width:110px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="date" id="transferDate" style="height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <button type="submit" class="btn btn-primary" style="height:40px">Kirim</button>
+        </form>
+        <h3 style="font-size:13px;margin-bottom:8px">🧾 Rekonsiliasi (cocokkan fisik vs catatan)</h3>
+        <form id="reconForm" style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="reconAccount" style="flex:1;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></select>
+          <input type="text" id="reconActual" placeholder="Saldo fisik (Rp)" inputmode="numeric" required style="flex:1;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <button type="submit" class="btn btn-ghost" style="height:40px">Cocokkan</button>
+        </form>
+        <div id="reconResult" style="font-size:12px;margin-top:8px"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="bankModal" class="modal">
+    <div class="modal-content modal-lg">
+      <header class="modal-header">
+        <h2>🏦 Import Mutasi Bank</h2>
+        <button type="button" class="modal-close" id="closeBankBtn">&times;</button>
+      </header>
+      <div class="modal-body">
+        <p style="font-size:12px;color:#64748b">CSV BCA / Mandiri / BRI (atau umum: Tanggal, Keterangan, Debit, Kredit). Baris yang cocok nominal+tanggal (±3 hari) otomatis ditandai.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
+          <input type="file" id="bankFile" accept=".csv" hidden>
+          <button type="button" class="btn btn-ghost" id="bankPickBtn">📂 Pilih file CSV</button>
+          <select id="bankAccount" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></select>
+          <button type="button" class="btn btn-primary" id="bankImportBtn" disabled>Import terpilih (<span id="bankCount">0</span>)</button>
+        </div>
+        <div id="bankPreview" style="max-height:50vh;overflow:auto"></div>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="contactsModal" class="modal">
     <div class="modal-content modal-lg">
       <header class="modal-header">
@@ -930,6 +1065,10 @@
           <input type="text" id="contactFormName" placeholder="Nama kontak" maxlength="60" required>
         </div>
         <div class="form-group">
+          <label for="contactFormPhone">No. WA <span style="font-weight:400;opacity:0.6">(opsional, mis. 0812…)</span></label>
+          <input type="tel" id="contactFormPhone" placeholder="08123456789" maxlength="18" inputmode="tel" autocomplete="off">
+        </div>
+        <div class="form-group">
           <label>Tipe</label>
           <div class="btn-group" id="contactTypeFormGroup">
             <button type="button" class="select-btn selected" data-value="person">👤 Orang</button>
@@ -957,6 +1096,11 @@
             <label for="budgetInput">Anggaran Bulanan (Rp)</label>
             <input type="text" id="budgetInput" inputmode="numeric" placeholder="0" autocomplete="off">
             <div style="font-size:11px;color:#64748b;margin-top:4px">Untuk progress bar anggaran</div>
+          </div>
+          <div class="form-group">
+            <label for="equityInput">Modal Awal Usaha (Rp)</label>
+            <input type="text" id="equityInput" inputmode="numeric" placeholder="0" autocomplete="off">
+            <div style="font-size:11px;color:#64748b;margin-top:4px">Untuk Neraca (Laporan → Neraca). Kosongkan bila tidak tahu.</div>
           </div>
         </div>
         <div class="form-group" style="margin-top:16px">

@@ -265,6 +265,7 @@ export function getCategoryLabel(category) {
     investasi: 'Investasi',
     hadiah: 'Hadiah',
     'lain-income': 'Lainnya',
+    'gaji-out': 'Gaji Karyawan',
     kos: 'Kos/Sewa',
     utilitas: 'Listrik/Air/Internet',
     makanan: 'Makanan',
@@ -332,6 +333,7 @@ export const CATEGORY_OPTIONS = {
     { value: 'Hutang', label: 'Pinjam Uang', icon: '🔴' }
   ],
   expense: [
+    { value: 'gaji-out', label: 'Gaji Karyawan', icon: '💼' },
     { value: 'kos', label: 'Kos/Sewa', icon: '🏠' },
     { value: 'utilitas', label: 'Utilitas', icon: '💡' },
     { value: 'makanan', label: 'Makanan', icon: '🍚' },

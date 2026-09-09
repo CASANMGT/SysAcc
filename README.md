@@ -2,7 +2,7 @@
 
 > Clean, offline-first accounting for UMKM Indonesia — pemasukan, pengeluaran, piutang/hutang cicilan, laporan & kontak.
 
-![Version](https://img.shields.io/badge/version-1.5.2-blue)
+![Version](https://img.shields.io/badge/version-1.6.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%2B%20LocalStorage-lightgrey)
 
@@ -42,6 +42,17 @@ Live: `http://localhost:3456` — login `admin / admin`
 - `paylater` → `Platform` (Shopee/Tokopedia/TikTok/Kredivo/Akulaku/Indodana/Atome/Lazada)
 - `transfer` → `Bank Transfer`
 
+**Akuntansi (double-entry, SAK EMKM)**
+- COA 20+ akun; tiap transaksi posting jurnal balance (kas/bank ↔ pendapatan/beban/piutang/hutang, split PPN, HPP/Opsname)
+- Backfill otomatis untuk data lama; jurnal ikut backup; audit trail 500 aktivitas
+- Modal Awal di Pengaturan → Neraca balance (Aset = Kewajiban + Modal + Laba)
+
+**Usaha kecil**
+- Stok: beli/jual dari form transaksi (rata-rata modal, cegah oversell), opname, alert menipis
+- Kas: transfer antar dompet, rekonsiliasi fisik, saldo dompet dari jurnal
+- Import mutasi bank CSV (match ±3 hari), invoice `INV/…` + cetak, PPh Final 0.5% + reminder tgl 15, aging piutang + tagih via WA
+- Gaji: master karyawan, proses bulanan, slip cetak
+
 **Pinjaman (Kasih Pinjam / Pinjam Uang)**
 - 4 alur: `Kasih pinjam 📤` (uang keluar) / `Dibalikin 📥` (terima) vs `Pinjam uang 📥` (uang masuk) / `Balikin 📤` (bayar) via mode toggle + picker sisa
 - Cicilan tenor `Math.ceil(amount/installment)` → `Lama: 12 bulan`, `Sisa 8 bulan • 4/12 kali`, `Bayar ke-5/12` — jadwal turunan dari tanggal mulai + progress cicilan
@@ -52,8 +63,8 @@ Live: `http://localhost:3456` — login `admin / admin`
 - Dashboard kartu ganda + `Surplus/Defisit`, pengingat dinamis (badge bell + kartu overdue)
 
 **Lainnya**
-- Kontak (orang/perusahaan) with cascade rename, search
-- Laporan 4 tabs: Bulanan/Per Kategori/Arus Kas/Top Pengeluaran
+- Kontak (orang/perusahaan, + No. WA) with cascade rename, search
+- Laporan 10 tabs: Bulanan/Per Kategori/Arus Kas/Top Pengeluaran/**Jurnal/Buku Besar/Laba Rugi/Neraca/Pajak/Audit**
 - Import/Export: `Excel (.xlsx)` 4 sheets, `CSV`, `JSON` backup (validasi schema, baris rusak dilewati, dedup), `JSON/CSV` import
 - Backup `wynara-backup-YYYY-MM-DD.json` + restore + **cadangan otomatis IndexedDB** (pulih saat boot) + pengingat backup >30 hari
 - Anggaran bulanan + **anggaran per kategori** + **saldo per dompet** + recurring auto-post + kategori custom delete
@@ -105,14 +116,16 @@ accounting-system/
 ├─ ui.js        # renderEntries, category cards, tx modal, payment detail, loans cards, repay modal, undo toast
 ├─ storage.js   # entries/loans/repayments/people/budget/recurring + schema validation + snapshot/restore + engine
 ├─ reports.js   # filterEntries, computeTotals, breakdown, monthly/cashflow, loanSummary
-├─ loanmath.js  # tenor/sisa/jadwal/jatuh tempo murni (satu-satunya sumber, di-test)
+├─ loanmath.js  # tenor/sisa/jadwal/jatuh tempo/bunga murni (satu-satunya sumber, di-test)
 ├─ charts.js    # Arus Kas SVG + donut (pindah dari app.js)
+├─ coa.js       # Chart of Accounts SAK EMKM + pemetaan bayar/kategori
+├─ journals.js  # builder jurnal balance + saldo + deteksi pincang
 ├─ idb.js       # mirror IndexedDB fire-and-forget
 ├─ sw.js        # service worker (cache-first app shell)
 ├─ manifest.json
 ├─ vendor/      # xlsx.full.min.js + inter-*.woff2 (lokal, CDN cuma fallback)
 ├─ icons/       # icon.svg + icon-192/512.png
-├─ tests/       # vitest: loanmath, reports, ui-validate, storage-backup, smoke-dom (55 tes)
+├─ tests/       # vitest: loanmath, reports, ui-validate, storage-backup, smoke-dom, ledger (90 tes)
 ├─ package.json # type module, scripts: test (vitest run), dev
 ├─ README.md
 ├─ CHANGELOG.md
@@ -123,9 +136,9 @@ accounting-system/
 
 ## 🔖 Version
 
-Current: **1.5.2** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
+Current: **1.6.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
 
-Test: `npm install` sekali, lalu `npm test` (vitest, 72 tes) atau `npm run check` (lint + test).
+Test: `npm install` sekali, lalu `npm test` (vitest, 90 tes) atau `npm run check` (lint + test).
 
 Versioning: `MAJOR.MINOR.PATCH` — storage `version:1` in JSON backup.
 
@@ -139,12 +152,16 @@ See [CHANGELOG.md](./CHANGELOG.md).
 
 ## 🗺️ Roadmap
 
-v1.4.0 menutup hampir semua audit v1.3.1. Sisa:
+**Selesai di v1.6.0 ✅ (Fase 1–3)**
+- COA + double-entry, Jurnal/Buku Besar/Laba Rugi/Neraca, audit trail, modal awal
+- Aging + WA, jatuh tempo, PPh Final 0.5% + reminder, PPN transaksi, invoice + cetak
+- Stok (beli/jual/HPP/opname), multi-kas + transfer + rekonsiliasi, import mutasi bank, gaji + slip
 
-**Berikutnya**
+**Berikutnya (Fase 4, belum)**
 - Sync cloud multi-device (butuh backend + kunci API — Supabase/Firebase)
-- Migrasi penuh `localStorage` → `IndexedDB` sebagai sumber utama (butuh rewrite async)
-- Export PDF laporan, bottom-nav mobile, warna chart dark-mode, audit `aria`, `eslint`
+- Multi-user + peran (owner/kasir/akuntan), PIN lokal sebagai langkah awal
+- Aset tetap + penyusutan, multi-cabang, dashboard owner (margin, runway kas)
+- Export PDF laporan, bottom-nav mobile, warna chart dark-mode, audit `aria`
 
 **Selesai di v1.4.0 ✅**
 - Backup otomatis (mirror IDB + pengingat + label) + validasi schema import JSON

@@ -1,4 +1,5 @@
 import { totalOwed } from './loanmath.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal } from './journals.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -63,6 +64,10 @@ export function createEntry(entry) {
     amount,
     person: String(entry.person || '').slice(0, 60),
     loanId: entry.loanId || null,
+    ppn: !!entry.ppn,
+    itemId: entry.itemId ? String(entry.itemId).slice(0, 60) : null,
+    qty: Math.max(Math.floor(Number(entry.qty) || 0), 0) || null,
+    unitCost: entry.unitCost !== undefined ? Math.max(Number(entry.unitCost) || 0, 0) : undefined,
     createdAt: new Date().toISOString()
   };
   if (entry.loanDue) newEntry.loanDue = entry.loanDue;
@@ -71,13 +76,58 @@ export function createEntry(entry) {
   if (entry.contactType) newEntry.contactType = entry.contactType;
   entries.push(newEntry);
   saveEntries(entries);
+  // Stok: jual kurangi, beli tambah (gagal → rollback entry)
+  if (newEntry.itemId && newEntry.qty > 0 && !newEntry.loanId) {
+    try {
+      applyStockMoveForEntry(newEntry);
+    } catch (err) {
+      saveEntries(getEntries().filter(e => e.id !== newEntry.id));
+      throw err;
+    }
+  }
+  // Jurnal (bukan entry pinjaman — itu ikut jurnal loan/repayment)
+  if (!newEntry.loanId) {
+    try {
+      const j = buildEntryJournal(newEntry, journalOptsFor(newEntry));
+      if (j) { j.refId = newEntry.id; postJournal(j); }
+    } catch {}
+    logAudit('create', 'entry', newEntry.id, null, { amount: newEntry.amount, category: newEntry.category, date: newEntry.date });
+  }
   return newEntry;
+}
+
+// Opsi jurnal + gerakan stok untuk sebuah entry (dibaca saat post).
+function journalOptsFor(entry) {
+  const opts = { ppn: !!entry.ppn };
+  if (entry.itemId && entry.qty > 0) {
+    const item = getItemById(entry.itemId);
+    if (item) {
+      if (entry.type === 'income') opts.item = { qty: entry.qty, avgCost: item.cost, name: item.name };
+      else opts.item = { qty: entry.qty, unitCost: entry.unitCost || item.cost, name: item.name };
+    }
+  }
+  return opts;
+}
+
+function applyStockMoveForEntry(entry) {
+  if (!entry.itemId || !(entry.qty > 0)) return;
+  if (entry.type === 'income') applyStockMove(entry.itemId, { qtyOut: entry.qty });
+  else applyStockMove(entry.itemId, { qtyIn: entry.qty, unitCost: entry.unitCost || 0 });
+}
+
+function reverseStockMoveForEntry(entry) {
+  if (!entry.itemId || !(entry.qty > 0)) return;
+  try {
+    if (entry.type === 'income') applyStockMove(entry.itemId, { qtyIn: entry.qty, unitCost: 0, keepCost: true });
+    else applyStockMove(entry.itemId, { qtyOut: entry.qty });
+  } catch {}
 }
 
 export function updateEntry(id, updates) {
   const entries = getEntries();
   const index = entries.findIndex(e => e.id === id);
   if (index === -1) return null;
+  const before = { ...entries[index] };
   const safe = { ...updates };
   delete safe.id;
   delete safe.loanId;
@@ -89,14 +139,39 @@ export function updateEntry(id, updates) {
   }
   entries[index] = { ...entries[index], ...safe };
   saveEntries(entries);
+  if (!entries[index].loanId) {
+    if (before.itemId || entries[index].itemId) {
+      reverseStockMoveForEntry(before);
+      try { applyStockMoveForEntry(entries[index]); } catch (err) {
+        // Gagal terapkan baru → kembalikan lama (best-effort)
+        try { applyStockMoveForEntry(before); } catch {}
+        entries[index] = before;
+        saveEntries(entries);
+        throw err;
+      }
+    }
+    deleteJournalsByRef('entry', id);
+    try {
+      const j = buildEntryJournal(entries[index], journalOptsFor(entries[index]));
+      if (j) { j.refId = id; postJournal(j); }
+    } catch {}
+    logAudit('update', 'entry', id, { amount: before.amount, category: before.category }, { amount: entries[index].amount, category: entries[index].category });
+  }
   return entries[index];
 }
 
 export function deleteEntry(id) {
   const entries = getEntries();
+  const target = entries.find(e => e.id === id);
   const filtered = entries.filter(e => e.id !== id);
   saveEntries(filtered);
-  return filtered.length !== entries.length;
+  const removed = filtered.length !== entries.length;
+  if (removed && target && !target.loanId) {
+    reverseStockMoveForEntry(target);
+    deleteJournalsByRef('entry', id);
+    logAudit('delete', 'entry', id, { amount: target.amount, category: target.category, date: target.date }, null);
+  }
+  return removed;
 }
 
 // Masukkan kembali entry persis (untuk Urungkan hapus). Return true jika masuk.
@@ -104,8 +179,16 @@ export function restoreEntry(entry) {
   if (!entry || typeof entry !== 'object' || !entry.id) return false;
   const entries = getEntries();
   if (entries.some(e => e.id === entry.id)) return false;
-  entries.push({ ...entry });
+  const copy = { ...entry };
+  entries.push(copy);
   saveEntries(entries);
+  if (!copy.loanId) {
+    try { applyStockMoveForEntry(copy); } catch {}
+    try {
+      const j = buildEntryJournal(copy, journalOptsFor(copy));
+      if (j) { j.refId = copy.id; postJournal(j); }
+    } catch {}
+  }
   return true;
 }
 
@@ -116,6 +199,13 @@ export function restoreRepayment(rep) {
   if (reps.some(r => r.id === rep.id)) return false;
   reps.push({ ...rep });
   saveRepayments(reps);
+  try {
+    const loan = getLoanById(rep.loanId);
+    if (loan) {
+      const j = buildRepaymentJournal(loan, rep);
+      if (j) { j.refId = rep.id; postJournal(j); }
+    }
+  } catch {}
   return true;
 }
 
@@ -490,6 +580,7 @@ function sanitizeLoan(l) {
     loanType: l.loanType === 'cicilan' ? 'cicilan' : 'lunas',
     installmentAmount: Math.max(Number(l.installmentAmount) || 0, 0),
     interestRate: clampInterestRate(l.interestRate),
+    invoiceNo: String(l.invoiceNo || '').slice(0, 30),
     person, amount, date,
     dueDate: isValidDateStr(l.dueDate) ? String(l.dueDate).slice(0, 10) : '',
     description: String(l.description || '').slice(0, 120),
@@ -779,6 +870,7 @@ export function createLoan(loan) {
     payment: loan.payment || 'cash',
     paymentDetail: String(loan.paymentDetail || '').slice(0, 60),
     interestRate: clampInterestRate(loan.interestRate),
+    invoiceNo: String(loan.invoiceNo || '').slice(0, 30),
     status: 'active',
     createdAt: new Date().toISOString()
   };
@@ -793,7 +885,12 @@ export function createLoan(loan) {
     saveLoans(getLoans().filter(l => l.id !== newLoan.id));
     throw e;
   }
+  try {
+    const j = buildLoanJournal(newLoan);
+    if (j) { j.refId = newLoan.id; postJournal(j); }
+  } catch {}
   try { savePerson(newLoan.person, newLoan.contactType); } catch {}
+  logAudit('create', 'loan', newLoan.id, null, { person: newLoan.person, amount: newLoan.amount, direction: newLoan.direction });
   return newLoan;
 }
 
@@ -834,7 +931,13 @@ export function updateLoan(id, updates) {
   if (loan.entryId) {
     try { updateEntry(loan.entryId, loanEntryData(loan, false)); } catch {}
   }
+  deleteJournalsByRef('loan', id);
+  try {
+    const j = buildLoanJournal(loan);
+    if (j) { j.refId = id; postJournal(j); }
+  } catch {}
   saveLoans(loans);
+  logAudit('update', 'loan', id, { amount: undefined }, { person: loan.person, amount: loan.amount, status: loan.status });
   return loan;
 }
 
@@ -845,6 +948,9 @@ export function deleteLoan(id) {
   reps.forEach(r => { if (r.entryId) try { deleteEntry(r.entryId); } catch {} });
   saveLoans(getLoans().filter(l => l.id !== id));
   saveRepayments(getRepayments().filter(r => r.loanId !== id));
+  deleteJournalsByRef('loan', id);
+  reps.forEach(r => deleteJournalsByRef('repayment', r.id));
+  if (loan) logAudit('delete', 'loan', id, { person: loan.person, amount: loan.amount }, null);
 }
 
 export function getAllRepayments() {
@@ -871,6 +977,11 @@ export function addRepayment(repayment) {
   newRep.entryId = entry.id;
   repayments.push(newRep);
   saveRepayments(repayments);
+  try {
+    const j = buildRepaymentJournal(loan, newRep);
+    if (j) { j.refId = newRep.id; postJournal(j); }
+  } catch {}
+  logAudit('create', 'repayment', newRep.id, null, { loanId: newRep.loanId, amount: newRep.amount, date: newRep.date });
 
   const totalRepaid = repayments
     .filter(r => r.loanId === loan.id)
@@ -886,6 +997,8 @@ export function deleteRepayment(id) {
   if (rep && rep.entryId) try { deleteEntry(rep.entryId); } catch {}
   const repayments = getRepayments().filter(r => r.id !== id);
   saveRepayments(repayments);
+  deleteJournalsByRef('repayment', id);
+  if (rep) logAudit('delete', 'repayment', id, { loanId: rep.loanId, amount: rep.amount }, null);
   if (rep) {
     const loan = getLoanById(rep.loanId);
     if (loan) {
@@ -944,25 +1057,27 @@ export function getAllPeople() {
   return getPeopleList().sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function savePerson(name, type) {
+export function savePerson(name, type, phone) {
   const trimmed = String(name || '').trim();
   if (!trimmed) return;
   if (trimmed.length > 60) throw new Error('Nama terlalu panjang');
+  const cleanPhone = String(phone || '').replace(/[^0-9+]/g, '').slice(0, 18);
   const people = getPeopleList();
   if (!people.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
-    people.push({ id: generateId(), name: trimmed, type: type || 'person' });
+    people.push({ id: generateId(), name: trimmed, type: type || 'person', phone: cleanPhone });
     savePeopleList(people);
   } else {
-    // update type if different
+    // update type/phone if different
     const idx = people.findIndex(p => p.name.toLowerCase() === trimmed.toLowerCase());
-    if (idx !== -1 && people[idx].type !== (type || 'person')) {
-      people[idx].type = type || 'person';
+    if (idx !== -1) {
+      if (people[idx].type !== (type || 'person')) people[idx].type = type || 'person';
+      if (cleanPhone && people[idx].phone !== cleanPhone) people[idx].phone = cleanPhone;
       savePeopleList(people);
     }
   }
 }
 
-export function updatePerson(id, name, type) {
+export function updatePerson(id, name, type, phone) {
   const trimmed = String(name || '').trim();
   if (!trimmed) throw new Error('Nama wajib');
   if (trimmed.length > 60) throw new Error('Nama terlalu panjang');
@@ -974,7 +1089,8 @@ export function updatePerson(id, name, type) {
     throw new Error('Nama kontak sudah ada');
   }
   const oldName = people[index].name;
-  people[index] = { ...people[index], name: trimmed, type: type || 'person' };
+  const cleanPhone = phone === undefined ? people[index].phone : String(phone || '').replace(/[^0-9+]/g, '').slice(0, 18);
+  people[index] = { ...people[index], name: trimmed, type: type || 'person', phone: cleanPhone || '' };
   savePeopleList(people);
   // cascade rename to loans
   if (oldName !== trimmed) {
@@ -1098,7 +1214,10 @@ export function runRecurringEngine(today) {
           paymentDetail: String(t.paymentDetail || '').slice(0, 60),
           description: String(t.description || ''),
           amount: Number(t.amount),
-          person: ''
+          person: '',
+          itemId: t.itemId || null,
+          qty: t.qty || null,
+          unitCost: t.unitCost
         });
         // tandai entry sebagai hasil auto-post (untuk jejak, tanpa merusak dedup)
         const all = getEntries();
@@ -1141,8 +1260,12 @@ export function snapshotAll() {
     people: getPeopleList(),
     budget: getBudget(),
     recurring: getRecurring(),
+    journals: getJournals(),
+    items: getItems(),
+    employees: getAllEmployees(),
+    equity: getOpeningEquity(),
     exportedAt: new Date().toISOString(),
-    version: 2
+    version: 3
   };
 }
 
@@ -1184,7 +1307,7 @@ export function restoreAll(snap) {
       const name = p && String(p.name || '').trim().slice(0, 60);
       if (!name) return;
       const before = getPeopleList().length;
-      try { savePerson(name, p.type === 'perusahaan' ? 'perusahaan' : 'person'); } catch {}
+      try { savePerson(name, p.type === 'perusahaan' ? 'perusahaan' : 'person', p.phone); } catch {}
       if (getPeopleList().length > before) cP++;
     });
   }
@@ -1194,7 +1317,34 @@ export function restoreAll(snap) {
   if (Array.isArray(snap.recurring)) {
     try { saveRecurring(snap.recurring.filter(r => r && typeof r === 'object')); } catch {}
   }
-  return { entries: cE, loans: cL, repayments: cR, people: cP };
+  let cJ = 0, cI = 0, cM = 0;
+  if (Array.isArray(snap.journals)) {
+    const have = new Set(getJournals().map(j => j.id));
+    const toAdd = snap.journals.filter(j => j && j.id && !have.has(j.id) && Array.isArray(j.lines) && j.lines.length);
+    if (toAdd.length) { saveJournals(getJournals().concat(toAdd)); cJ = toAdd.length; }
+  }
+  if (Array.isArray(snap.items)) {
+    snap.items.forEach(it => {
+      try {
+        const before = getItems().length;
+        saveItem({ ...(it && typeof it === 'object' ? it : {}), id: undefined });
+        if (getItems().length > before) cI++;
+      } catch {}
+    });
+  }
+  if (Array.isArray(snap.employees)) {
+    snap.employees.forEach(e => {
+      try {
+        const before = getAllEmployees().length;
+        saveEmployee({ ...(e && typeof e === 'object' ? e : {}), id: undefined });
+        if (getAllEmployees().length > before) cM++;
+      } catch {}
+    });
+  }
+  if (snap.equity && typeof snap.equity === 'object' && Number(snap.equity.amount) > 0) {
+    try { saveOpeningEquity(snap.equity.amount); } catch {}
+  }
+  return { entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ, items: cI, employees: cM };
 }
 
 export function stampLastBackup() {
@@ -1207,4 +1357,240 @@ export function getLastBackup() {
     const d = v ? new Date(v) : null;
     return d && !isNaN(d) ? d : null;
   } catch { return null; }
+}
+
+// ===== Jurnal double-entry =====
+const JOURN_KEY = 'wynara_journals';
+
+function getJournals() {
+  try {
+    const v = localStorage.getItem(JOURN_KEY);
+    const a = v ? JSON.parse(v) : [];
+    return Array.isArray(a) ? a : [];
+  } catch { return []; }
+}
+
+function saveJournals(list) {
+  try {
+    localStorage.setItem(JOURN_KEY, JSON.stringify(list));
+  } catch (e) {
+    if (e && e.name === 'QuotaExceededError') throw new Error('Penyimpanan jurnal penuh. Backup lalu hapus data lama.');
+    throw e;
+  }
+}
+
+export function getAllJournals() {
+  return getJournals().sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+}
+
+export function postJournal(j) {
+  if (!j || !Array.isArray(j.lines) || !j.lines.length) throw new Error('Jurnal tidak valid');
+  const d = j.lines.reduce((s, l) => s + (Number(l.debit) || 0), 0);
+  const c = j.lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
+  if (!(Math.abs(d - c) < 0.005 && d > 0)) throw new Error('Jurnal tidak balance');
+  const list = getJournals();
+  list.push({ ...j, postedAt: new Date().toISOString() });
+  saveJournals(list);
+  return j;
+}
+
+export function deleteJournalsByRef(ref, refId) {
+  if (!refId) return 0;
+  const list = getJournals();
+  const kept = list.filter(j => !(j.ref === ref && j.refId === refId));
+  const n = list.length - kept.length;
+  if (n) saveJournals(kept);
+  return n;
+}
+
+// Backfill jurnal untuk data lama (sekali saja). Return jumlah dibuat.
+export function backfillJournals(builders) {
+  const { buildEntryJournal, buildLoanJournal, buildRepaymentJournal } = builders;
+  const existing = new Set(getJournals().map(j => `${j.ref}:${j.refId}`));
+  const made = [];
+  getEntries().forEach(e => {
+    if (e.loanId || existing.has(`entry:${e.id}`)) return;
+    try {
+      const j = buildEntryJournal(e, { ppn: !!e.ppn });
+      if (j) { made.push(j); existing.add(`entry:${e.id}`); }
+    } catch {}
+  });
+  getLoans().forEach(l => {
+    if (existing.has(`loan:${l.id}`)) return;
+    try {
+      const j = buildLoanJournal(l);
+      if (j) { made.push(j); existing.add(`loan:${l.id}`); }
+    } catch {}
+  });
+  const loanById = new Map(getLoans().map(l => [l.id, l]));
+  getRepayments().forEach(r => {
+    if (existing.has(`repayment:${r.id}`)) return;
+    const loan = loanById.get(r.loanId);
+    if (!loan) return;
+    try {
+      const j = buildRepaymentJournal(loan, r);
+      if (j) { made.push(j); existing.add(`repayment:${r.id}`); }
+    } catch {}
+  });
+  if (made.length) saveJournals(getJournals().concat(made));
+  return made.length;
+}
+
+// ===== Audit trail =====
+const AUDIT_KEY = 'wynara_audit';
+const AUDIT_MAX = 500;
+
+export function logAudit(action, entity, entityId, before, after) {
+  try {
+    const list = getAudit();
+    list.unshift({
+      id: generateId(),
+      ts: new Date().toISOString(),
+      action: String(action || '').slice(0, 20),
+      entity: String(entity || '').slice(0, 20),
+      entityId: String(entityId || '').slice(0, 60),
+      before: before === undefined ? null : before,
+      after: after === undefined ? null : after
+    });
+    localStorage.setItem(AUDIT_KEY, JSON.stringify(list.slice(0, AUDIT_MAX)));
+  } catch {}
+}
+
+export function getAudit() {
+  try {
+    const v = localStorage.getItem(AUDIT_KEY);
+    const a = v ? JSON.parse(v) : [];
+    return Array.isArray(a) ? a : [];
+  } catch { return []; }
+}
+
+// ===== Barang (stok) =====
+const ITEM_KEY = 'wynara_items';
+
+function getItems() {
+  try {
+    const v = localStorage.getItem(ITEM_KEY);
+    const a = v ? JSON.parse(v) : [];
+    return Array.isArray(a) ? a : [];
+  } catch { return []; }
+}
+
+export function getAllItems() {
+  return getItems().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+}
+
+export function getItemById(id) {
+  return getItems().find(i => i.id === id) || null;
+}
+
+export function saveItem(item) {
+  const list = getItems();
+  const name = String(item.name || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
+  if (!name) throw new Error('Nama barang wajib');
+  const stock = Math.max(Math.floor(Number(item.stock) || 0), 0);
+  const cost = Math.max(Number(item.cost) || 0, 0);
+  const price = Math.max(Number(item.price) || 0, 0);
+  const minStock = Math.max(Math.floor(Number(item.minStock) || 0), 0);
+  const rec = {
+    id: item.id || generateId(),
+    name,
+    sku: String(item.sku || '').slice(0, 30),
+    stock, cost, price, minStock,
+    updatedAt: new Date().toISOString()
+  };
+  const idx = list.findIndex(i => i.id === rec.id);
+  if (idx === -1) list.push(rec);
+  else list[idx] = { ...list[idx], ...rec };
+  localStorage.setItem(ITEM_KEY, JSON.stringify(list));
+  return rec;
+}
+
+export function deleteItem(id) {
+  localStorage.setItem(ITEM_KEY, JSON.stringify(getItems().filter(i => i.id !== id)));
+}
+
+// Stok + rata-rata tertimbang. qtyOut untuk jual (cek stok), qtyIn untuk beli.
+// keepCost: tambah stok tanpa ubah rata-rata (untuk reversal).
+export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, keepCost = false } = {}) {
+  const list = getItems();
+  const idx = list.findIndex(i => i.id === itemId);
+  if (idx === -1) throw new Error('Barang tidak ditemukan');
+  const it = { ...list[idx] };
+  const qi = Math.max(Math.floor(Number(qtyIn) || 0), 0);
+  const qo = Math.max(Math.floor(Number(qtyOut) || 0), 0);
+  if (qo > it.stock) throw new Error(`Stok ${it.name} kurang (sisa ${it.stock})`);
+  if (qi > 0) {
+    if (!keepCost) {
+      const c = Math.max(Number(unitCost) || 0, 0);
+      it.cost = it.stock + qi > 0 ? Math.round(((it.stock * it.cost) + (qi * c)) / (it.stock + qi)) : c;
+    }
+    it.stock += qi;
+  }
+  if (qo > 0) it.stock -= qo;
+  it.updatedAt = new Date().toISOString();
+  list[idx] = it;
+  localStorage.setItem(ITEM_KEY, JSON.stringify(list));
+  return it;
+}
+
+// ===== Karyawan =====
+const EMP_KEY = 'wynara_employees';
+
+export function getAllEmployees() {
+  try {
+    const v = localStorage.getItem(EMP_KEY);
+    const a = v ? JSON.parse(v) : [];
+    return (Array.isArray(a) ? a : []).sort((x, y) => String(x.name || '').localeCompare(String(y.name || '')));
+  } catch { return []; }
+}
+
+export function saveEmployee(emp) {
+  const list = getAllEmployees();
+  const name = String(emp.name || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
+  if (!name) throw new Error('Nama karyawan wajib');
+  const rec = {
+    id: emp.id || generateId(),
+    name,
+    role: String(emp.role || '').slice(0, 40),
+    salary: Math.max(Math.round(Number(emp.salary) || 0), 0),
+    active: emp.active === undefined ? true : !!emp.active,
+    updatedAt: new Date().toISOString()
+  };
+  const idx = list.findIndex(e => e.id === rec.id);
+  if (idx === -1) list.push(rec);
+  else list[idx] = { ...list[idx], ...rec };
+  localStorage.setItem(EMP_KEY, JSON.stringify(list));
+  return rec;
+}
+
+export function deleteEmployee(id) {
+  localStorage.setItem(EMP_KEY, JSON.stringify(getAllEmployees().filter(e => e.id !== id)));
+}
+
+// ===== Nomor invoice: INV/2026/09/0042 =====
+const COUNTER_KEY = 'wynara_counters';
+
+export function nextInvoiceNo() {
+  let counters = {};
+  try { counters = JSON.parse(localStorage.getItem(COUNTER_KEY) || '{}'); } catch {}
+  const now = new Date();
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  counters.invoiceSeq = counters.invoiceSeq || {};
+  counters.invoiceSeq[key] = (Number(counters.invoiceSeq[key]) || 0) + 1;
+  try { localStorage.setItem(COUNTER_KEY, JSON.stringify(counters)); } catch {}
+  return `INV/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(counters.invoiceSeq[key]).padStart(4, '0')}`;
+}
+
+// ===== Modal awal =====
+export function getOpeningEquity() {
+  try {
+    const v = localStorage.getItem('wynara_equity');
+    return v ? JSON.parse(v) : null;
+  } catch { return null; }
+}
+
+export function saveOpeningEquity(amount) {
+  const n = Math.max(Math.round(Number(amount) || 0), 0);
+  localStorage.setItem('wynara_equity', JSON.stringify({ amount: n, updatedAt: new Date().toISOString() }));
+  return n;
 }

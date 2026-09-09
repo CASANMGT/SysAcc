@@ -1,5 +1,6 @@
 import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
+import { accountLabel } from './coa.js';
 
 const elements = {
   entriesBody: document.getElementById('entriesBody'),
@@ -29,6 +30,14 @@ const elements = {
   entryLoanType: document.getElementById('entryLoanType'),
   entryInstallmentAmount: document.getElementById('entryInstallmentAmount'),
   entryInterestRate: document.getElementById('entryInterestRate'),
+  entryPPN: document.getElementById('entryPPN'),
+  entryLoanDueDate: document.getElementById('entryLoanDueDate'),
+  itemGroupWrap: document.getElementById('itemGroupWrap'),
+  itemGroupLabel: document.getElementById('itemGroupLabel'),
+  itemGroupHint: document.getElementById('itemGroupHint'),
+  entryItemId: document.getElementById('entryItemId'),
+  entryItemQty: document.getElementById('entryItemQty'),
+  entryItemCost: document.getElementById('entryItemCost'),
   contactTypeGroup: document.getElementById('contactTypeGroup'),
   entryContactType: document.getElementById('entryContactType'),
   reportSection: document.getElementById('reportModal'),
@@ -522,12 +531,19 @@ function bindTxOnce() {
   if (bungaEl) {
     bungaEl.addEventListener('input', () => { updateBungaHint(); updateTxMetaBar(); updateTxTenorInfo(); });
   }
+  const dueEl = document.getElementById('entryLoanDueDate');
+  if (dueEl && elements.entryLoanDue) {
+    dueEl.addEventListener('change', () => { elements.entryLoanDue.value = dueEl.value; });
+  }
   if (elements.entryDescription) {
     elements.entryDescription.addEventListener('input', () => { updateTxDescCount(); });
   }
   if (elements.entryLoanPerson) {
     elements.entryLoanPerson.addEventListener('input', () => { updateTxContactSelected(); updateTxMetaBar(); });
     elements.entryLoanPerson.addEventListener('focus', () => { const qs = document.getElementById('quickSelectPiutang'); if (qs) qs.classList.remove('hidden'); });
+  }
+  if (elements.entryItemId) {
+    elements.entryItemId.addEventListener('change', () => { updateItemHint(); updateTxMetaBar(); });
   }
   const contactToggle = document.getElementById('txContactToggle');
   if (contactToggle) {
@@ -643,10 +659,14 @@ export function openModal(entry = null) {
     elements.entryDescription.value = entry.description;
     elements.entryAmount.value = formatIdrInput(entry.amount);
     elements.entryLoanId.value = entry.loanId || '';
+    if (elements.entryPPN) elements.entryPPN.checked = !!entry.ppn;
+    if (elements.entryItemQty) elements.entryItemQty.value = entry.qty || '';
+    if (elements.entryItemCost) elements.entryItemCost.value = entry.unitCost || '';
     if (entry.loanId) {
       elements.loanFieldsGroup.hidden = false;
       elements.entryLoanPerson.value = entry.person || '';
       elements.entryLoanDue.value = entry.loanDue || '';
+      if (elements.entryLoanDueDate) elements.entryLoanDueDate.value = entry.loanDue || '';
       const lt = entry.loanType || 'lunas';
       elements.entryLoanType.value = lt;
       setSelected(elements.loanTypeGroup, lt);
@@ -676,6 +696,7 @@ export function openModal(entry = null) {
       elements.loanFieldsGroup.hidden = true;
       elements.entryLoanPerson.value = '';
       elements.entryLoanDue.value = '';
+      if (elements.entryLoanDueDate) elements.entryLoanDueDate.value = '';
       elements.entryLoanType.value = 'lunas';
       setSelected(elements.loanTypeGroup, 'lunas');
       elements.installmentGroup.hidden = true;
@@ -710,6 +731,10 @@ export function openModal(entry = null) {
     elements.loanFieldsGroup.hidden = true;
     elements.entryLoanPerson.value = '';
     elements.entryLoanDue.value = '';
+    if (elements.entryLoanDueDate) elements.entryLoanDueDate.value = '';
+    if (elements.entryPPN) elements.entryPPN.checked = false;
+    if (elements.entryItemQty) elements.entryItemQty.value = '';
+    if (elements.entryItemCost) elements.entryItemCost.value = '';
     elements.entryLoanId.value = '';
     elements.entryLoanType.value = 'lunas';
     setSelected(elements.loanTypeGroup, 'lunas');
@@ -733,6 +758,13 @@ export function openModal(entry = null) {
   updateTxMetaBar();
   updateTxContactSelected();
   updateTxTenorInfo();
+  refreshItemSection();
+  // Pulihkan pilihan barang saat edit
+  if (entry && entry.itemId && elements.entryItemId) {
+    refreshItemSection();
+    elements.entryItemId.value = entry.itemId;
+    updateItemHint();
+  }
   if (elements.entryCategory.value === 'Piutang' || elements.entryCategory.value === 'Hutang') applyLoanMode(elements.entryCategory.value);
   bindTxOnce();
   if (!elements.entryModal.open) {
@@ -762,6 +794,7 @@ function setSelected(group, value) {
 function renderCategoryButtons(type) {
   const options = type === 'income' ? CATEGORY_OPTIONS.income : CATEGORY_OPTIONS.expense;
   const subMap = {
+    'gaji-out': 'Gaji karyawan',
     gaji: 'Gajian kamu',
     freelance: 'Kerja lepas',
     investasi: 'Uang nambah',
@@ -859,6 +892,7 @@ export function bindTypeButtons(handler) {
       const paymentWrap = document.getElementById('paymentGroupWrap');
       if (paymentWrap) paymentWrap.hidden = false;
       handler(btn.dataset.value);
+      refreshItemSection();
       updateTxMetaBar();
     });
   });
@@ -1015,9 +1049,11 @@ function applyLoanMode(category) {
       updateTxContactSelected();
     }
   }
-  // Bunga hanya untuk pinjaman baru (bukan pelunasan)
+  // Bunga + jatuh tempo hanya untuk pinjaman baru (bukan pelunasan)
   const bungaField = document.getElementById('loanBungaField');
   if (bungaField) bungaField.hidden = mode !== 'new';
+  const dueField = document.getElementById('loanDueField');
+  if (dueField) dueField.hidden = mode !== 'new';
   updateBungaHint();
   updateTxTenorInfo();
   updateTxMetaBar();
@@ -1044,6 +1080,7 @@ export function handleCategoryChange(category) {
     elements.entryLoanPerson.required = false;
     elements.entryLoanPerson.value = '';
     elements.entryLoanDue.value = '';
+    if (elements.entryLoanDueDate) elements.entryLoanDueDate.value = '';
     elements.entryLoanId.value = '';
     elements.installmentGroup.hidden = true;
     if (pickerField) pickerField.hidden = true;
@@ -1064,7 +1101,61 @@ export function handleCategoryChange(category) {
     elements.customCategory.required = false;
   }
   updateTxCategoryCount(category);
+  refreshItemSection();
   updateTxMetaBar();
+}
+
+function getItemList() {
+  if (typeof window.__getItems === 'function') {
+    try { return window.__getItems() || []; } catch { return []; }
+  }
+  return [];
+}
+
+// Seksi barang: jual (income) kurangi stok, beli (belanja) tambah stok
+export function refreshItemSection() {
+  const wrap = elements.itemGroupWrap;
+  if (!wrap) return;
+  const type = elements.entryType ? elements.entryType.value : 'expense';
+  const cat = elements.entryCategory ? elements.entryCategory.value : '';
+  const isSell = type === 'income';
+  const isBuy = type === 'expense' && cat === 'belanja';
+  if (!isSell && !isBuy) { wrap.hidden = true; return; }
+  const items = getItemList();
+  if (!items.length) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  if (elements.itemGroupLabel) elements.itemGroupLabel.textContent = isSell ? 'Jual barang? (kurangi stok)' : 'Beli barang? (tambah stok)';
+  const sel = elements.entryItemId;
+  const cur = sel ? sel.value : '';
+  if (sel) {
+    sel.innerHTML = '<option value="">— Tanpa barang —</option>' + items.map(i =>
+      `<option value="${i.id}">${escapeHtml(i.name)} (stok ${i.stock})</option>`).join('');
+    if (cur && items.some(i => i.id === cur)) sel.value = cur;
+  }
+  if (elements.entryItemCost) elements.entryItemCost.style.display = isBuy ? '' : 'none';
+  updateItemHint();
+}
+
+function updateItemHint() {
+  const hint = elements.itemGroupHint;
+  if (!hint || !elements.itemGroupWrap || elements.itemGroupWrap.hidden) return;
+  const items = getItemList();
+  const it = items.find(i => i.id === (elements.entryItemId && elements.entryItemId.value));
+  if (!it) { hint.textContent = 'Pilih barang untuk kaitkan stok (opsional).'; return; }
+  const type = elements.entryType ? elements.entryType.value : 'expense';
+  hint.textContent = type === 'income'
+    ? `Stok ${it.name}: ${it.stock}. Jual kurangi otomatis + catat HPP.`
+    : `Stok ${it.name}: ${it.stock} • modal rata-rata ${formatCurrency(it.cost)}. Isi harga satuan bila beda.`;
+}
+
+export function readItemLink() {
+  if (!elements.itemGroupWrap || elements.itemGroupWrap.hidden) return {};
+  const itemId = elements.entryItemId ? elements.entryItemId.value : '';
+  if (!itemId) return {};
+  const qty = Math.max(parseInt((elements.entryItemQty && elements.entryItemQty.value) || '0', 10) || 0, 0);
+  if (qty <= 0) return {};
+  const unitCost = parseFormattedNumber(elements.entryItemCost ? elements.entryItemCost.value : '');
+  return { itemId, qty, unitCost: unitCost > 0 ? unitCost : undefined };
 }
 
 export function updatePaymentDetail(payment) {
@@ -1224,6 +1315,7 @@ export function getFormData() {
     installmentAmount = Math.ceil(totalForCalc / tenorVal);
   }
   const payment = elements.entryPayment.value || 'cash';
+  const ppn = !!(elements.entryPPN && elements.entryPPN.checked);
   let paymentDetail = '';
   if (payment === 'credit') {
     const bank = document.getElementById('paymentCCBank')?.value || '';
@@ -1245,6 +1337,7 @@ export function getFormData() {
   const loanMode = (isLoan && elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
   // Catatan: settle/addRepayment mengabaikan interestRate; edit loan butuh nilainya
   const interestRate = isLoan ? readBungaRate() : 0;
+  const itemLink = !isLoan ? readItemLink() : {};
   return {
     id: elements.entryId.value || null,
     date: elements.entryDate.value,
@@ -1254,6 +1347,7 @@ export function getFormData() {
     interestRate,
     payment,
     paymentDetail,
+    ppn,
     description: elements.entryDescription.value.trim(),
     amount: parseFormattedNumber(elements.entryAmount.value),
     loanId: elements.entryLoanId.value || null,
@@ -1261,7 +1355,10 @@ export function getFormData() {
     loanDue: elements.entryLoanDue ? elements.entryLoanDue.value : '',
     loanType: elements.entryLoanType.value || 'lunas',
     installmentAmount,
-    contactType: elements.entryContactType.value || 'person'
+    contactType: elements.entryContactType.value || 'person',
+    itemId: itemLink.itemId || null,
+    qty: itemLink.qty || null,
+    unitCost: itemLink.unitCost
   };
 }
 
@@ -1531,6 +1628,24 @@ export function renderReport(type, data) {
       break;
     case 'top-expenses':
       elements.reportContent.innerHTML = renderTopExpensesReport(data);
+      break;
+    case 'journal':
+      elements.reportContent.innerHTML = renderJournalReport(data);
+      break;
+    case 'ledger':
+      elements.reportContent.innerHTML = renderLedgerReport(data);
+      break;
+    case 'pl':
+      elements.reportContent.innerHTML = renderPLReport(data);
+      break;
+    case 'bs':
+      elements.reportContent.innerHTML = renderBSReport(data);
+      break;
+    case 'tax':
+      elements.reportContent.innerHTML = renderTaxReport(data);
+      break;
+    case 'audit':
+      elements.reportContent.innerHTML = renderAuditReport(data);
       break;
   }
 }
@@ -1803,10 +1918,167 @@ function renderTopExpensesReport(topExpenses) {
   `;
 }
 
+// ===== Laporan akuntansi (jurnal, buku besar, L/R, neraca, pajak, audit) =====
+function renderJournalReport(journals) {
+  if (!journals || !journals.length) {
+    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada jurnal pada periode ini</p>';
+  }
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Jurnal</span><span class="value">${journals.length}</span></div>
+      <div class="report-summary-item"><span class="label">Total Debit = Kredit</span><span class="value income">✓ Balance</span></div>
+    </div>
+    <table class="report-table">
+      <thead><tr><th>Tanggal</th><th>Memo</th><th>Akun</th><th class="amount-col">Debit</th><th class="amount-col">Kredit</th></tr></thead>
+      <tbody>
+        ${journals.map(j => (j.lines || []).map((l, i) => `
+          <tr>
+            <td>${i === 0 ? formatDate(j.date) : ''}</td>
+            <td>${i === 0 ? escapeHtml(j.memo || '') : ''}</td>
+            <td style="padding-left:${i === 0 ? 8 : 24}px">${escapeHtml(accountLabel(l.account))}</td>
+            <td class="amount-col">${l.debit ? formatCurrency(l.debit) : ''}</td>
+            <td class="amount-col">${l.credit ? formatCurrency(l.credit) : ''}</td>
+          </tr>`).join('')).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderLedgerReport(bal) {
+  const codes = Object.keys(bal || {}).sort();
+  if (!codes.length) {
+    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada gerakan akun pada periode ini</p>';
+  }
+  return `
+    <table class="report-table">
+      <thead><tr><th>Akun</th><th class="amount-col">Debit</th><th class="amount-col">Kredit</th><th class="amount-col">Saldo</th></tr></thead>
+      <tbody>
+        ${codes.map(c => {
+          const b = bal[c];
+          const net = b.debit - b.credit;
+          return `<tr><td>${escapeHtml(accountLabel(c))}</td>
+            <td class="amount-col">${formatCurrency(b.debit)}</td>
+            <td class="amount-col">${formatCurrency(b.credit)}</td>
+            <td class="amount-col" style="font-weight:700">${net >= 0 ? '' : '−'}${formatCurrency(Math.abs(net))} ${net >= 0 ? 'Db' : 'Kr'}</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderPLReport(d) {
+  if (!d) return '';
+  const netClass = d.net >= 0 ? 'income' : 'expense';
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Pendapatan</span><span class="value income">${formatCurrency(d.revenue)}</span></div>
+      <div class="report-summary-item"><span class="label">Total Beban</span><span class="value expense">${formatCurrency(d.totalExp)}</span></div>
+      <div class="report-summary-item"><span class="label">Laba Bersih</span><span class="value ${netClass}">${formatCurrency(d.net)}</span></div>
+    </div>
+    <h4 style="margin:12px 0;color:var(--success);">📈 Pendapatan</h4>
+    <table class="report-table"><tbody>
+      <tr><td>Pendapatan Usaha (4101)</td><td class="amount-col income">${formatCurrency(d.revenue)}</td></tr>
+    </tbody></table>
+    <h4 style="margin:12px 0;color:var(--danger);">📉 Beban</h4>
+    <table class="report-table"><tbody>
+      ${d.expenses.length ? d.expenses.map(x => `<tr><td>${escapeHtml(accountLabel(x.code))}</td><td class="amount-col expense">${formatCurrency(x.total)}</td></tr>`).join('') : '<tr><td colspan="2">Tidak ada beban</td></tr>'}
+      <tr><td><b>Total Beban</b></td><td class="amount-col expense"><b>${formatCurrency(d.totalExp)}</b></td></tr>
+      <tr><td><b>Laba Bersih</b></td><td class="amount-col ${netClass}"><b>${formatCurrency(d.net)}</b></td></tr>
+    </tbody></table>`;
+}
+
+function renderBSReport(d) {
+  if (!d) return '';
+  const row = (x) => `<tr><td>${escapeHtml(accountLabel(x.code))}</td><td class="amount-col">${formatCurrency(x.total)}</td></tr>`;
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Total Aset</span><span class="value">${formatCurrency(d.totalA)}</span></div>
+      <div class="report-summary-item"><span class="label">Kewajiban + Modal</span><span class="value">${formatCurrency(d.totalL + d.equity)}</span></div>
+      <div class="report-summary-item"><span class="label">Selisih</span><span class="value ${Math.abs(d.balanced) < 1 ? 'income' : 'expense'}">${Math.abs(d.balanced) < 1 ? '✓ Balance' : formatCurrency(d.balanced)}</span></div>
+    </div>
+    <h4 style="margin:12px 0;">💰 Aset</h4>
+    <table class="report-table"><tbody>
+      ${d.assets.length ? d.assets.map(row).join('') : '<tr><td colspan="2">Tidak ada aset</td></tr>'}
+      <tr><td><b>Total Aset</b></td><td class="amount-col"><b>${formatCurrency(d.totalA)}</b></td></tr>
+    </tbody></table>
+    <h4 style="margin:12px 0;">📋 Kewajiban</h4>
+    <table class="report-table"><tbody>
+      ${d.liabs.length ? d.liabs.map(row).join('') : '<tr><td colspan="2">Tidak ada kewajiban</td></tr>'}
+      <tr><td><b>Total Kewajiban</b></td><td class="amount-col"><b>${formatCurrency(d.totalL)}</b></td></tr>
+    </tbody></table>
+    <h4 style="margin:12px 0;">🏦 Modal</h4>
+    <table class="report-table"><tbody>
+      <tr><td>Modal Awal (3101)</td><td class="amount-col">${formatCurrency(d.modal)}</td></tr>
+      <tr><td>Laba Ditahan (berjalan)</td><td class="amount-col">${formatCurrency(d.laba)}</td></tr>
+      <tr><td><b>Total Modal</b></td><td class="amount-col"><b>${formatCurrency(d.equity)}</b></td></tr>
+    </tbody></table>`;
+}
+
+function renderTaxReport(d) {
+  if (!d) return '';
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Omzet ${d.year}</span><span class="value">${formatCurrency(d.omzetYear)}</span></div>
+      <div class="report-summary-item"><span class="label">PPh Final 0.5%</span><span class="value expense">${formatCurrency(d.pphYear)}</span></div>
+      <div class="report-summary-item"><span class="label">Sisa plafon 4.8M</span><span class="value ${4800000000 - d.omzetYear >= 0 ? 'income' : 'expense'}">${formatCurrency(Math.max(4800000000 - d.omzetYear, 0))}</span></div>
+      <div class="report-summary-item"><span class="label">PPN Kurang Bayar</span><span class="value ${d.ppnNet >= 0 ? 'expense' : 'income'}">${formatCurrency(d.ppnNet)}</span></div>
+    </div>
+    <p style="font-size:11px;color:#64748b">PPh Final dibayar tiap bulan paling lambat tgl 15 bulan berikutnya (PP 55/2022). PPN = Keluaran − Masukan.</p>
+    <table class="report-table">
+      <thead><tr><th>Bulan</th><th class="amount-col">Omzet</th><th class="amount-col">PPh 0.5%</th></tr></thead>
+      <tbody>
+        ${d.months.length ? d.months.map(m => `<tr><td>${m.month}</td><td class="amount-col">${formatCurrency(m.omzet)}</td><td class="amount-col">${formatCurrency(m.pph)}</td></tr>`).join('') : '<tr><td colspan="3">Belum ada omzet</td></tr>'}
+      </tbody>
+    </table>`;
+}
+
+function renderAuditReport(rows) {
+  if (!rows || !rows.length) {
+    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada aktivitas tercatat</p>';
+  }
+  const icon = { create: '➕', update: '✎', delete: '🗑️' };
+  return `
+    <table class="report-table">
+      <thead><tr><th>Waktu</th><th>Aksi</th><th>Data</th></tr></thead>
+      <tbody>
+        ${rows.map(a => {
+          let detail = '';
+          try {
+            const af = a.after || {};
+            const bf = a.before || {};
+            const amt = af.amount ?? bf.amount;
+            detail = `${escapeHtml(a.entity || '')} ${amt !== undefined ? '• ' + formatCurrency(amt) : ''}`;
+          } catch { detail = escapeHtml(a.entity || ''); }
+          return `<tr><td style="white-space:nowrap;font-size:11px">${escapeHtml(String(a.ts || '').slice(0, 16).replace('T', ' '))}</td>
+            <td>${icon[a.action] || '•'} ${escapeHtml(a.action || '')}</td><td>${detail}</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
 // ===== Loans UI =====
-export function openLoans(loans, repayments, summary, allLoans) {
+export function openLoans(loans, repayments, summary, allLoans, people) {
   if (!elements.loansSection.open) elements.loansSection.showModal();
-  renderLoans(loans, repayments, summary, allLoans);
+  renderLoans(loans, repayments, summary, allLoans, people);
+}
+
+function waNumber(phone) {
+  let p = String(phone || '').replace(/[^0-9]/g, '');
+  if (!p) return '';
+  if (p.startsWith('0')) p = '62' + p.slice(1);
+  return p;
+}
+
+export function waRemindLink(person, outstanding, dueLabel, phone) {
+  const num = waNumber(phone);
+  const msg = `Halo ${person}, pengingat ramah: sisa pinjaman ${formatCurrency(outstanding)}${dueLabel ? ` (jatuh tempo ${dueLabel})` : ''}. Terima kasih 🙏`;
+  return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+}
+
+function agingBucket(diffDays) {
+  if (diffDays === null || diffDays >= 0) return 'lancar';
+  const late = Math.abs(diffDays);
+  if (late <= 30) return 'telat30';
+  if (late <= 60) return 'telat60';
+  return 'macet';
 }
 
 export function closeLoans() {
@@ -1832,7 +2104,12 @@ function nextDueUi(loan, paidCount) {
   return nextDue(loan, paidCount);
 }
 
-export function renderLoans(loans, repayments, summary, allLoans) {
+export function renderLoans(loans, repayments, summary, allLoans, people) {
+  const peopleList = Array.isArray(people) ? people : [];
+  const phoneOf = (name) => {
+    const p = peopleList.find(x => x && x.name === name);
+    return p ? (p.phone || '') : '';
+  };
   elements.totalPiutang.textContent = formatCurrency(summary.piutangOutstanding);
   elements.totalHutang.textContent = formatCurrency(summary.hutangOutstanding);
   elements.loanNet.textContent = formatCurrency(summary.net);
@@ -1857,7 +2134,25 @@ export function renderLoans(loans, repayments, summary, allLoans) {
   const todayMid = new Date();
   todayMid.setHours(0, 0, 0, 0);
 
-  elements.loanList.innerHTML = loans.map(l => {
+  // Ringkasan aging piutang (uang yang harus kembali ke kamu)
+  const age = { lancar: 0, telat30: 0, telat60: 0, macet: 0 };
+  source.forEach(l => {
+    if (l.direction !== 'given' || l.status === 'paid') return;
+    const reps = (repayments || []).filter(r => r.loanId === l.id);
+    const due = nextDueUi(l, reps.length);
+    const dd = due ? Math.ceil((due - todayMid) / 86400000) : null;
+    const out = outstandingOf(l, reps);
+    if (out > 0) age[agingBucket(dd)] += out;
+  });
+  const ageTotal = age.lancar + age.telat30 + age.telat60 + age.macet;
+  const ageStrip = ageTotal > 0 ? `<div class="loan-aging" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;font-size:11px">
+    <span class="chip" style="font-size:11px">✅ Lancar: ${formatCurrencyCompact(age.lancar)}</span>
+    <span class="chip" style="font-size:11px">⏳ Telat ≤30h: ${formatCurrencyCompact(age.telat30)}</span>
+    <span class="chip" style="font-size:11px">⚠️ 31–60h: ${formatCurrencyCompact(age.telat60)}</span>
+    <span class="chip" style="font-size:11px">🔴 Macet &gt;60h: ${formatCurrencyCompact(age.macet)}</span>
+  </div>` : '';
+
+  elements.loanList.innerHTML = ageStrip + loans.map(l => {
     const reps = repayments.filter(r => r.loanId === l.id).sort((a, b) => new Date(a.date) - new Date(b.date));
     const paid = paidOf(reps);
     const outstanding = outstandingOf(l, reps);
@@ -1899,6 +2194,7 @@ export function renderLoans(loans, repayments, summary, allLoans) {
           ${isCicilan && instAmt > 0 ? `<span>💳 ${formatCurrency(instAmt)}/bulan</span>` : ''}
           ${isCicilan && tenor ? `<span>📊 Lama: ${tenor} bulan</span>` : ''}
           ${interestRateOf(l) > 0 ? `<span>🌸 Bunga ${interestRateOf(l)}% (+${formatCurrency(interestAmount(l))}) • Total ${formatCurrency(totalOwed(l))}</span>` : ''}
+          ${l.invoiceNo ? `<span>🧾 ${escapeHtml(l.invoiceNo)}</span>` : ''}
           ${isCicilan && monthsLeft > 0 && l.status !== 'paid' ? `<span>⏳ Sisa ${monthsLeft} bulan • ${doneShown}/${tenor} kali</span>` : ''}
           ${isCicilan && instAmt > 0 && l.status !== 'paid' ? (pastSchedule ? `<span>💰 Bayar • Sisa ${formatCurrency(nextAmt)}</span>` : `<span>💰 Bayar ke-${nextNum}/${tenor}: ${formatCurrency(nextAmt)}</span>`) : ''}
           ${l.status !== 'paid' && dueLabel ? `<span class="${isOverdue ? 'overdue-date' : ''}">⏰ ${isCicilan ? 'Bayaran berikutnya' : 'Harus dibayar'}: ${dueLabel}${isOverdue ? ` • Telat ${Math.abs(diffDays)} hari` : ''}</span>` : ''}
@@ -1917,6 +2213,8 @@ export function renderLoans(loans, repayments, summary, allLoans) {
           ${l.status !== 'paid' && !isCicilan ? `<button class="btn repay-btn repay-loan-btn" data-id="${l.id}">${isTaken ? '💰 Bayar' : '💰 Terima'}</button>` : ''}
           ${l.status !== 'paid' && isCicilan ? `<button class="btn btn-secondary repay-loan-btn" data-id="${l.id}" title="Bayar nominal lain (sebagian / pelunasan)">Nominal lain</button>` : ''}
           ${isCicilan && tenor ? `<button class="btn btn-ghost schedule-toggle-btn" data-id="${l.id}" aria-expanded="false">Lihat jadwal ▾</button>` : ''}
+          ${isOverdue && !isTaken ? `<a class="btn btn-ghost" href="${waRemindLink(l.person, outstanding, dueLabel, phoneOf(l.person))}" target="_blank" rel="noopener" title="Ingatkan via WhatsApp" style="text-decoration:none">💬 WA</a>` : ''}
+          ${!isTaken ? `<button class="btn btn-ghost invoice-btn" data-id="${l.id}" title="Cetak invoice">🧾 Invoice</button>` : ''}
           <button class="btn btn-danger delete-loan-btn" data-id="${l.id}">🗑 Hapus</button>
         </div>
         ${isCicilan && tenor ? `
@@ -2044,7 +2342,7 @@ export function getRepayFormData() {
   };
 }
 
-export function bindLoanActions(onRepay, onDelete, onDeleteRepayment) {
+export function bindLoanActions(onRepay, onDelete, onDeleteRepayment, onInvoice) {
   elements.loanList.addEventListener('click', (e) => {
     const schedBtn = e.target.closest('.schedule-toggle-btn');
     if (schedBtn) {
@@ -2064,9 +2362,11 @@ export function bindLoanActions(onRepay, onDelete, onDeleteRepayment) {
     const repayBtn = e.target.closest('.repay-loan-btn');
     const deleteBtn = e.target.closest('.delete-loan-btn');
     const deleteRepayBtn = e.target.closest('.delete-repay-btn');
+    const invoiceBtn = e.target.closest('.invoice-btn');
     if (repayBtn) onRepay(repayBtn.dataset.id);
     if (deleteBtn) onDelete(deleteBtn.dataset.id);
     if (deleteRepayBtn) onDeleteRepayment(deleteRepayBtn.dataset.repayId);
+    if (invoiceBtn && onInvoice) onInvoice(invoiceBtn.dataset.id);
   });
 }
 
@@ -2224,13 +2524,14 @@ export function renderContacts(people, loans) {
       <div class="contact-card">
         <div class="contact-info">
           <div class="contact-name">${p.type === 'perusahaan' ? '🏢' : '👤'} ${escapeHtml(p.name)} <span class="contact-type-badge">${typeLabel}</span></div>
+          ${p.phone ? `<div class="contact-meta">📱 ${escapeHtml(p.phone)}</div>` : ''}
           <div class="contact-meta">
             ${totalCount} pinjaman${activeCount > 0 ? ` (${activeCount} aktif)` : ''}
             ${totalAmount > 0 ? ` · Total: ${formatCurrency(totalAmount)}` : ''}
           </div>
         </div>
         <div class="contact-actions">
-          <button class="btn btn-ghost edit-contact-btn" data-contact-id="${p.id}" data-contact-name="${escapeHtml(p.name)}" data-contact-type="${p.type || 'person'}" title="Edit">✎</button>
+          <button class="btn btn-ghost edit-contact-btn" data-contact-id="${p.id}" data-contact-name="${escapeHtml(p.name)}" data-contact-type="${p.type || 'person'}" data-contact-phone="${escapeHtml(p.phone || '')}" title="Edit">✎</button>
           <button class="btn btn-danger delete-contact-btn" data-contact-id="${p.id}" data-contact-name="${escapeHtml(p.name)}">🗑</button>
         </div>
       </div>
@@ -2248,20 +2549,296 @@ export function bindContactsSearch(handler) {
   }
 }
 
+/* ===== Stok ===== */
+let stockSearchTerm = '';
+export function openStock() {
+  const m = document.getElementById('stockModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+  if (m) trapFocus(m);
+}
+export function closeStock() {
+  const m = document.getElementById('stockModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
+}
+export function renderStock(items) {
+  const list = document.getElementById('stockList');
+  if (!list) return;
+  const term = stockSearchTerm.trim().toLowerCase();
+  const rows = term ? items.filter(i => (i.name || '').toLowerCase().includes(term) || (i.sku || '').toLowerCase().includes(term)) : items;
+  const low = items.filter(i => i.stock <= (i.minStock || 0) && (i.minStock || 0) > 0);
+  const alertBox = document.getElementById('stockAlert');
+  if (alertBox) alertBox.innerHTML = low.length ? `<div style="font-size:12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:8px 10px;margin-bottom:10px">⚠️ Stok menipis: ${low.map(i => escapeHtml(i.name)).join(', ')}</div>` : '';
+  if (!rows.length) {
+    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:24px;">Belum ada barang. Tambah di form atas.</p>';
+    return;
+  }
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  list.innerHTML = rows.map(i => {
+    const isLow = (i.minStock || 0) > 0 && i.stock <= i.minStock;
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px">
+      <span style="font-size:18px">${isLow ? '⚠️' : '📦'}</span>
+      <span style="flex:1;min-width:0"><b>${escapeHtml(i.name)}</b>${i.sku ? ` <small style="color:#94a3b8">${escapeHtml(i.sku)}</small>` : ''}<br>
+      <small style="color:#64748b">Stok ${i.stock} • Jual ${fmt(i.price)} • Modal ${fmt(i.cost)} • Nilai ${fmt(i.stock * i.cost)}</small></span>
+      <button class="btn btn-ghost stock-edit" data-id="${i.id}" style="font-size:11px;padding:2px 8px">✎</button>
+      <button class="btn btn-ghost stock-del" data-id="${i.id}" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
+    </div>`;
+  }).join('');
+}
+export function getStockFormData() {
+  const num = (id) => (document.getElementById(id)?.value || '').replace(/[^0-9]/g, '');
+  return {
+    id: document.getElementById('stockFormId')?.value || null,
+    name: document.getElementById('stockName')?.value.trim() || '',
+    sku: document.getElementById('stockSku')?.value.trim() || '',
+    price: Number(num('stockPrice')) || 0,
+    cost: Number(num('stockCost')) || 0,
+    stock: Math.max(parseInt(document.getElementById('stockQty')?.value || '0', 10) || 0, 0),
+    minStock: Math.max(parseInt(document.getElementById('stockMin')?.value || '0', 10) || 0, 0)
+  };
+}
+export function fillStockForm(item) {
+  document.getElementById('stockFormId').value = item?.id || '';
+  document.getElementById('stockName').value = item?.name || '';
+  document.getElementById('stockSku').value = item?.sku || '';
+  document.getElementById('stockPrice').value = item?.price || '';
+  document.getElementById('stockCost').value = item?.cost || '';
+  document.getElementById('stockQty').value = item?.stock ?? '';
+  document.getElementById('stockMin').value = item?.minStock ?? '';
+  document.getElementById('stockName')?.focus();
+}
+export function resetStockForm() {
+  document.getElementById('stockForm')?.reset();
+  document.getElementById('stockFormId').value = '';
+}
+export function bindStock(onSave, onEdit, onDelete) {
+  document.getElementById('closeStockBtn')?.addEventListener('click', closeStock);
+  document.getElementById('stockModal')?.addEventListener('click', (e) => { if (e.target.id === 'stockModal') closeStock(); });
+  document.getElementById('stockForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSave(); });
+  document.getElementById('stockFormReset')?.addEventListener('click', resetStockForm);
+  document.getElementById('stockSearch')?.addEventListener('input', (e) => {
+    stockSearchTerm = e.target.value;
+    document.dispatchEvent(new CustomEvent('wynara:stock-search'));
+  });
+  document.getElementById('stockList')?.addEventListener('click', (e) => {
+    const ed = e.target.closest('.stock-edit');
+    const del = e.target.closest('.stock-del');
+    if (ed) onEdit(ed.dataset.id);
+    if (del) onDelete(del.dataset.id);
+  });
+}
+
+/* ===== Gaji ===== */
+export function openPayroll() {
+  const m = document.getElementById('payrollModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+  if (m) trapFocus(m);
+}
+export function closePayroll() {
+  const m = document.getElementById('payrollModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
+}
+export function renderEmployees(emps, paidMap) {
+  const list = document.getElementById('employeeList');
+  if (!list) return;
+  if (!emps.length) {
+    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:24px;">Belum ada karyawan.</p>';
+    return;
+  }
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  list.innerHTML = emps.map(e => {
+    const paid = paidMap && paidMap[e.id];
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px">
+      <span style="font-size:18px">${e.active === false ? '😴' : '👤'}</span>
+      <span style="flex:1"><b>${escapeHtml(e.name)}</b>${e.role ? ` • ${escapeHtml(e.role)}` : ''}<br>
+      <small style="color:#64748b">${fmt(e.salary)}/bln ${paid ? '• ✅ bulan ini sudah' : ''}</small></span>
+      <button class="btn btn-ghost emp-slip" data-id="${e.id}" style="font-size:11px;padding:2px 8px" title="Slip gaji">🧾</button>
+      <button class="btn btn-ghost emp-edit" data-id="${e.id}" style="font-size:11px;padding:2px 8px">✎</button>
+      <button class="btn btn-ghost emp-del" data-id="${e.id}" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
+    </div>`;
+  }).join('');
+}
+export function renderPayrollSummary(total, count, monthLabel) {
+  const box = document.getElementById('payrollSummary');
+  if (!box) return;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  box.innerHTML = `<div style="font-size:13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px">
+    💼 <b>${count} karyawan aktif</b> • Total gaji <b>${fmt(total)}/bln</b> • Periode <b>${monthLabel}</b><br>
+    <small style="color:#64748b">Tombol “Proses” membuat 1 transaksi gaji per karyawan (lunas, masuk laporan).</small></div>`;
+}
+export function getEmpFormData() {
+  return {
+    id: document.getElementById('empFormId')?.value || null,
+    name: document.getElementById('empName')?.value.trim() || '',
+    role: document.getElementById('empRole')?.value.trim() || '',
+    salary: Number((document.getElementById('empSalary')?.value || '').replace(/[^0-9]/g, '')) || 0
+  };
+}
+export function fillEmpForm(e) {
+  document.getElementById('empFormId').value = e?.id || '';
+  document.getElementById('empName').value = e?.name || '';
+  document.getElementById('empRole').value = e?.role || '';
+  document.getElementById('empSalary').value = e?.salary || '';
+}
+export function resetEmpForm() {
+  document.getElementById('employeeForm')?.reset();
+  document.getElementById('empFormId').value = '';
+}
+export function bindPayroll(onSave, onEdit, onDelete, onSlip, onRun) {
+  document.getElementById('closePayrollBtn')?.addEventListener('click', closePayroll);
+  document.getElementById('payrollModal')?.addEventListener('click', (e) => { if (e.target.id === 'payrollModal') closePayroll(); });
+  document.getElementById('employeeForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSave(); });
+  document.getElementById('empFormReset')?.addEventListener('click', resetEmpForm);
+  document.getElementById('payrollRunBtn')?.addEventListener('click', onRun);
+  document.getElementById('employeeList')?.addEventListener('click', (e) => {
+    const ed = e.target.closest('.emp-edit');
+    const del = e.target.closest('.emp-del');
+    const slip = e.target.closest('.emp-slip');
+    if (ed) onEdit(ed.dataset.id);
+    if (del) onDelete(del.dataset.id);
+    if (slip) onSlip(slip.dataset.id);
+  });
+}
+
+/* ===== Kas & transfer ===== */
+export function openKas() {
+  const m = document.getElementById('kasModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+  if (m) trapFocus(m);
+}
+export function closeKas() {
+  const m = document.getElementById('kasModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
+}
+export function renderKas(rows) {
+  const box = document.getElementById('kasList');
+  if (!box) return;
+  const fmt = (v) => (v < 0 ? '−Rp' : 'Rp') + Math.abs(Math.round(v)).toLocaleString('id-ID');
+  const fill = (sel, opts, label) => {
+    const el = document.getElementById(sel);
+    if (!el) return;
+    el.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  };
+  box.innerHTML = rows.map(r => `<div style="display:flex;align-items:center;gap:8px;font-size:13px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px">
+    <span style="font-size:18px">${r.icon}</span>
+    <span style="flex:1"><b>${r.label}</b><br><small style="color:#64748b">${r.code}</small></span>
+    <span style="font-weight:800">${fmt(r.balance)}</span>
+  </div>`).join('') || '<p style="color:#94a3b8;font-size:12px">Belum ada saldo.</p>';
+  const opts = rows.map(r => ({ value: r.payment, label: `${r.icon} ${r.label} (${fmt(r.balance)})` }));
+  fill('transferFrom', opts);
+  fill('transferTo', opts);
+  fill('reconAccount', opts);
+  fill('bankAccount', opts);
+  const toEl = document.getElementById('transferTo');
+  if (toEl && toEl.options.length > 1 && toEl.selectedIndex === 0) toEl.selectedIndex = 1;
+}
+export function getTransferFormData() {
+  return {
+    from: document.getElementById('transferFrom')?.value || 'cash',
+    to: document.getElementById('transferTo')?.value || 'transfer',
+    amount: Number((document.getElementById('transferAmount')?.value || '').replace(/[^0-9]/g, '')) || 0,
+    date: document.getElementById('transferDate')?.value || new Date().toISOString().split('T')[0]
+  };
+}
+export function getReconFormData() {
+  return {
+    payment: document.getElementById('reconAccount')?.value || 'cash',
+    actual: Number((document.getElementById('reconActual')?.value || '').replace(/[^0-9]/g, '')) || 0
+  };
+}
+export function bindKas(onTransfer, onRecon) {
+  document.getElementById('closeKasBtn')?.addEventListener('click', closeKas);
+  document.getElementById('kasModal')?.addEventListener('click', (e) => { if (e.target.id === 'kasModal') closeKas(); });
+  document.getElementById('transferForm')?.addEventListener('submit', (e) => { e.preventDefault(); onTransfer(); });
+  document.getElementById('reconForm')?.addEventListener('submit', (e) => { e.preventDefault(); onRecon(); });
+  const td = document.getElementById('transferDate');
+  if (td && !td.value) td.value = new Date().toISOString().split('T')[0];
+}
+
+/* ===== Import mutasi bank ===== */
+let bankRows = [];
+export function openBank() {
+  const m = document.getElementById('bankModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+  if (m) trapFocus(m);
+}
+export function closeBank() {
+  const m = document.getElementById('bankModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
+}
+export function setBankRows(rows) {
+  bankRows = Array.isArray(rows) ? rows : [];
+  renderBankPreview();
+}
+export function getBankSelected() {
+  return bankRows.filter(r => r.selected && !r.matched);
+}
+export function bindBank(onFile, onImport) {
+  document.getElementById('closeBankBtn')?.addEventListener('click', closeBank);
+  document.getElementById('bankModal')?.addEventListener('click', (e) => { if (e.target.id === 'bankModal') closeBank(); });
+  document.getElementById('bankPickBtn')?.addEventListener('click', () => document.getElementById('bankFile')?.click());
+  document.getElementById('bankFile')?.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) onFile(f);
+    e.target.value = '';
+  });
+  document.getElementById('bankImportBtn')?.addEventListener('click', onImport);
+  document.getElementById('bankPreview')?.addEventListener('click', (e) => {
+    const cb = e.target.closest('.bank-pick');
+    if (!cb) return;
+    const row = bankRows.find(r => r.key === cb.dataset.key);
+    if (row && !row.matched) {
+      row.selected = !row.selected;
+      renderBankPreview();
+    }
+  });
+}
+function renderBankPreview() {
+  const box = document.getElementById('bankPreview');
+  const btn = document.getElementById('bankImportBtn');
+  const cnt = document.getElementById('bankCount');
+  if (!box) return;
+  const sel = bankRows.filter(r => r.selected && !r.matched).length;
+  if (btn) btn.disabled = sel === 0;
+  if (cnt) cnt.textContent = String(sel);
+  if (!bankRows.length) {
+    box.innerHTML = '<p style="color:#94a3b8;font-size:12px">Belum ada file. Pilih CSV mutasi dari bank.</p>';
+    return;
+  }
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  box.innerHTML = `<table class="report-table"><thead><tr><th></th><th>Tanggal</th><th>Keterangan</th><th class="amount-col">Masuk</th><th class="amount-col">Keluar</th><th>Status</th></tr></thead><tbody>` +
+    bankRows.map(r => `<tr style="${r.matched ? 'opacity:0.55' : ''}">
+      <td>${r.matched ? '' : `<input type="checkbox" class="bank-pick" data-key="${r.key}" ${r.selected ? 'checked' : ''}>`}</td>
+      <td style="white-space:nowrap;font-size:12px">${escapeHtml(r.date)}</td>
+      <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.desc)}">${escapeHtml(r.desc)}</td>
+      <td class="amount-col" style="color:#059669">${r.in > 0 ? fmt(r.in) : ''}</td>
+      <td class="amount-col" style="color:#dc2626">${r.out > 0 ? fmt(r.out) : ''}</td>
+      <td style="font-size:11px">${r.matched ? '✅ cocok' : 'baru'}</td>
+    </tr>`).join('') + `</tbody></table>`;
+}
+
 export function bindContactsActions(onDelete, onEdit) {
   document.getElementById('contactsList').addEventListener('click', (e) => {
     const deleteBtn = e.target.closest('.delete-contact-btn');
     const editBtn = e.target.closest('.edit-contact-btn');
     if (deleteBtn) onDelete(deleteBtn.dataset.contactId, deleteBtn.dataset.contactName);
-    if (editBtn) onEdit(editBtn.dataset.contactId, editBtn.dataset.contactName, editBtn.dataset.contactType);
+    if (editBtn) onEdit(editBtn.dataset.contactId, editBtn.dataset.contactName, editBtn.dataset.contactType, editBtn.dataset.contactPhone);
   });
 }
 
-export function openContactForm(contactId, name, type) {
+export function openContactForm(contactId, name, type, phone) {
   const modal = document.getElementById('contactFormModal');
   document.getElementById('contactFormTitle').textContent = contactId ? 'Edit Kontak' : 'Tambah Kontak';
   document.getElementById('contactFormId').value = contactId || '';
   document.getElementById('contactFormName').value = name || '';
+  document.getElementById('contactFormPhone').value = phone || '';
   document.getElementById('contactFormType').value = type || 'person';
   setSelected(document.getElementById('contactTypeFormGroup'), type || 'person');
   if (!modal.open) modal.showModal();
@@ -2272,6 +2849,7 @@ export function closeContactForm() {
   const m = document.getElementById('contactFormModal');
   if (m && m.open) { try { m.close(); } catch {} }
   document.getElementById('contactForm')?.reset();
+  document.getElementById('contactFormPhone').value = '';
   const idEl = document.getElementById('contactFormId');
   const typeEl = document.getElementById('contactFormType');
   if (idEl) idEl.value = '';
@@ -2282,6 +2860,7 @@ export function getContactFormData() {
   return {
     id: document.getElementById('contactFormId').value || null,
     name: document.getElementById('contactFormName').value.trim(),
+    phone: document.getElementById('contactFormPhone').value.trim(),
     type: document.getElementById('contactFormType').value || 'person'
   };
 }

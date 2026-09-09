@@ -6,6 +6,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.6.0] - 2026-09-09
+
+### Added — Fase 1: Sistem pembukuan beneran
+- **Double-entry + COA SAK EMKM** (`coa.js`, `journals.js`) — tiap transaksi/pinjaman/pelunasan posting jurnal balance otomatis; cara bayar → akun kas/hutang; kategori → akun beban/pendapatan
+- **Backfill otomatis** — data lama dijurnalkan saat boot (idempoten); semua jurnal ikut backup JSON + mirror IDB
+- **Jurnal Umum + Buku Besar + Laba Rugi + Neraca** — 4 tab laporan baru (Neraca: Aset = Kewajiban + Modal Awal + Laba Ditahan, indikator balance)
+- **Audit trail** — tiap create/update/delete tercatat (500 terakhir) + tab Audit
+- **Modal Awal** di Pengaturan untuk Neraca
+
+### Added — Fase 2: Dibayar + patuh pajak
+- **Aging piutang + WA** — strip Lancar/Telat ≤30/31–60/Macet + tombol 💬 WA per kartu telat (prefill teks + no. kontak; field No. WA di Kontak)
+- **Jatuh tempo pinjaman** — input tanggal di form + dipakai pengingat & aging
+- **PPh Final 0.5%** — tab Pajak (omzet/bulan, sisa plafon 4.8M, PPN Keluaran−Masukan) + pengingat sebelum tgl 15
+- **PPN di transaksi** — checkbox “termasuk PPN 11%” posting split DPP/PPN
+- **Invoice otomatis** — `INV/YYYY/MM/NNNN` tiap Kasih Pinjam + tombol cetak invoice (tagihan, sisa, riwayat)
+
+### Added — Fase 3: Operasional
+- **Stok barang** — master + beli (tambah stok, rata-rata modal) / jual (kurang stok, HPP otomatis, cegah oversell) langsung dari form transaksi; peringatan stok menipis; nilai persediaan di Neraca
+- **Multi-kas** — saldo per dompet kini dari jurnal (transfer ikut kehitung); modal Kas: transfer antar kas + rekonsiliasi fisik-vs-catat (selisih dijurnal)
+- **Import mutasi bank CSV** — BCA/Mandiri/umum, auto-match nominal±3 hari, import terpilih ke kas pilihan
+- **Gaji karyawan** — master + proses bulanan (1 transaksi/karyawan, kategori Gaji Karyawan) + slip gaji cetak + sidebar 💼
+
+### Changed
+- Backup `version: 3` (jurnal, barang, karyawan, ekuitas ikut tersimpan)
+
+---
+
 ## [1.5.2] - 2026-09-09
 
 ### Fixed
@@ -151,6 +178,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.6.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.6.0
 [1.5.2]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.2
 [1.5.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.1
 [1.5.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.0
