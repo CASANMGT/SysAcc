@@ -120,7 +120,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.7.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.8.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -164,7 +164,10 @@
             <h1>Selamat datang, Admin 👋</h1>
             <p>Ringkasan keuangan Anda untuk periode ini</p>
           </div>
-          <button class="btn btn-primary topbar-cta" id="addEntryBtn">＋ Tambah transaksi</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary topbar-cta" id="addEntryBtn">＋ Tambah transaksi</button>
+            <button class="btn btn-ghost" id="saleEntryBtn" title="Jual barang dari stok">🧾 Jual</button>
+          </div>
         </div>
 
         <div id="onboardingCard" class="dash-panel hidden" style="margin-bottom:20px;border:2px dashed #bfdbfe;background:#eff6ff">
@@ -401,7 +404,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.7.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.8.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -410,7 +413,10 @@
               <h1>Transaksi</h1>
               <p id="transaksiSubtitle">0 transaksi • Total Rp 0 saldo</p>
             </div>
-            <button class="btn btn-primary" id="addEntryBtn2">＋ Tambah transaksi</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="addEntryBtn2">＋ Tambah transaksi</button>
+              <button class="btn btn-ghost" id="saleEntryBtn2" title="Jual barang dari stok">🧾 Jual</button>
+            </div>
           </div>
           <div class="transaksi-toolbar">
             <div class="search-wrap">
@@ -778,7 +784,10 @@
     <div class="modal-content modal-xl">
       <header class="modal-header">
         <h2>📊 Laporan</h2>
-        <button type="button" class="modal-close" id="closeReportBtn">&times;</button>
+        <div class="modal-header-actions" style="display:flex;gap:6px;align-items:center">
+          <button type="button" class="btn btn-ghost" id="printReportBtn" title="Cetak laporan ini">🖨️ Cetak</button>
+          <button type="button" class="modal-close" id="closeReportBtn">&times;</button>
+        </div>
       </header>
       <div class="modal-body">
         <div class="report-tabs">
@@ -791,6 +800,7 @@
           <button class="report-tab" data-report="pl">Laba Rugi</button>
           <button class="report-tab" data-report="bs">Neraca</button>
           <button class="report-tab" data-report="tax">Pajak</button>
+          <button class="report-tab" data-report="payrollrep">Gaji</button>
           <button class="report-tab" data-report="audit">Audit</button>
         </div>
         <div class="report-content" id="reportContent"></div>
@@ -1074,6 +1084,70 @@
     </div>
   </dialog>
 
+  <dialog id="coaModal" class="modal">
+    <div class="modal-content modal-lg">
+      <header class="modal-header">
+        <h2>📚 Daftar Akun (COA)</h2>
+        <button type="button" class="modal-close" id="closeCoaBtn">&times;</button>
+      </header>
+      <div class="modal-body">
+        <p style="font-size:12px;color:#64748b">Akun bawaan tidak bisa diubah. Tambah akun sendiri mis. <b>5120 Beban Iklan</b> — otomatis masuk Laba Rugi & Neraca.</p>
+        <form id="coaForm" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
+          <input type="text" id="coaCode" placeholder="Kode (4 digit)" maxlength="4" inputmode="numeric" required style="flex:1;min-width:90px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <input type="text" id="coaName" placeholder="Nama akun*" maxlength="60" required style="flex:2;min-width:150px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <select id="coaType" style="flex:1;min-width:110px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+            <option value="asset">Aset</option>
+            <option value="liability">Kewajiban</option>
+            <option value="equity">Modal</option>
+            <option value="revenue">Pendapatan</option>
+            <option value="expense" selected>Beban</option>
+          </select>
+          <input type="text" id="coaCategory" placeholder="Kait kategori (beban)" maxlength="60" title="Opsional: transaksi kategori ini posting ke akun ini" style="flex:1;min-width:120px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <button type="submit" class="btn btn-primary" style="height:40px">＋ Tambah</button>
+        </form>
+        <div id="coaList" style="max-height:50vh;overflow:auto"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="saleModal" class="modal">
+    <div class="modal-content modal-lg">
+      <header class="modal-header">
+        <h2>🧾 Jual Barang</h2>
+        <button type="button" class="modal-close" id="closeSaleBtn">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="flex:2;min-width:140px;font-size:11px;color:#64748b">Jual ke siapa? <span style="opacity:.6">(boleh kosong)</span>
+            <input type="text" id="saleCustomer" placeholder="Nama pembeli" maxlength="60" list="peopleList" autocomplete="off" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Tanggal
+            <input type="date" id="saleDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Dibayar pakai?
+            <select id="salePayment" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:2px">
+              <option value="transfer">🏦 Transfer</option>
+              <option value="cash">💵 Tunai</option>
+              <option value="qris">📱 QRIS</option>
+              <option value="ewallet">📲 E-Wallet</option>
+              <option value="debit">💳 Debit</option>
+              <option value="other">📦 Lainnya</option>
+            </select></label>
+        </div>
+        <div id="saleRows" style="display:flex;flex-direction:column;gap:8px"></div>
+        <button type="button" class="btn btn-ghost" id="saleAddRow" style="margin:8px 0">＋ Tambah barang</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+          <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Catatan <span style="opacity:.6">(boleh kosong)</span>
+            <input type="text" id="saleNote" placeholder="mis.Pesanan WA" maxlength="100" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          <label class="login-check" style="font-size:12px"><input type="checkbox" id="salePPN"> Harga termasuk PPN 11%</label>
+        </div>
+        <div id="saleTotal" style="font-size:15px;font-weight:800;text-align:right;margin-top:10px">Total Rp0</div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="saleCancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="saleSave">💰 Simpan Penjualan</button>
+      </footer>
+    </div>
+  </dialog>
+
   <dialog id="contactsModal" class="modal">
     <div class="modal-content modal-lg">
       <header class="modal-header">
@@ -1168,6 +1242,22 @@
             <button type="button" class="btn btn-ghost" id="printBtn2">🖨️ Cetak</button>
           </div>
           <div style="font-size:11px;color:#64748b;margin-top:4px">Export mengikuti filter &amp; pencarian yang aktif. Import: Excel / CSV / JSON.</div>
+        </div>
+        <div class="form-group">
+          <label>🔒 Kunci Periode</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button type="button" class="btn btn-ghost" id="lockPrevBtn">🔒 Kunci bulan lalu</button>
+            <button type="button" class="btn btn-ghost" id="lockCurBtn">🔒 Kunci bulan ini</button>
+          </div>
+          <div id="lockList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Bulan terkunci tak bisa tambah/ubah/hapus. Untuk laporan ke akuntan & pajak.</div>
+        </div>
+        <div class="form-group">
+          <label>📚 Akun (COA)</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <button type="button" class="btn btn-ghost" id="coaOpenBtn">Lihat & tambah akun</button>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Jurnal, Laba Rugi & Neraca ikut akun custom otomatis.</div>
         </div>
         <div class="form-group">
           <label>Kategori Custom</label>

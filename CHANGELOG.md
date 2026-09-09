@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.8.0] - 2026-09-09
+
+### Added — Akun & penjualan terpadu
+- **Kelola COA** — tambah/ganti-nama/hapus akun custom (proteksi hapus bila bermutasi); Laba Rugi & Neraca ikut akun custom otomatis (sebelumnya hardcode — Hutang BPJS tak masuk Neraca!)
+- **Jual dari stok** — modal 🧾 Jual: multi-baris barang + qty + harga (auto), pelanggan, PPN, diskon via catatan; 1 entry + HPP per baris + stok berkurang + struk; kategori baru Jualan
+- **Laporan Gaji** — tab Bulanan/Tahunan: bruto, THR, potongan, PPh 21, iuran perusahaan, THP + hutang BPJS; tombol cetak
+- **Cetak semua laporan** — tombol 🖨️ di Laporan (kop Wynara + tanggal cetak)
+- **Kunci periode** — kunci/buka bulan di Pengaturan; form, cicilan, gaji, mutasi, transfer & edit menolak bulan terkunci; ikut backup
+- **Laba Rugi komparatif + anggaran** — kolom periode lalu & ±, plus tabel Anggaran vs Realisasi bulanan
+
+---
+
 ## [1.7.0] - 2026-09-09
 
 ### Added — Gaji sesuai UU Ketenagakerjaan
@@ -213,6 +225,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.8.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.8.0
 [1.7.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.7.0
 [1.6.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.6.1
 [1.6.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.6.0

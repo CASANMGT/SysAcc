@@ -66,6 +66,7 @@ export function createEntry(entry) {
     loanId: entry.loanId || null,
     ppn: !!entry.ppn,
     payroll: entry.payroll && typeof entry.payroll === 'object' ? entry.payroll : undefined,
+    sale: entry.sale && typeof entry.sale === 'object' ? entry.sale : undefined,
     itemId: entry.itemId ? String(entry.itemId).slice(0, 60) : null,
     qty: Math.max(Math.floor(Number(entry.qty) || 0), 0) || null,
     unitCost: entry.unitCost !== undefined ? Math.max(Number(entry.unitCost) || 0, 0) : undefined,
@@ -97,6 +98,24 @@ export function createEntry(entry) {
   return newEntry;
 }
 
+// Semua gerakan stok sebuah entry: item tunggal + baris-baris penjualan.
+function stockMovesFor(entry) {
+  const moves = [];
+  if (entry.itemId && entry.qty > 0) {
+    moves.push({
+      itemId: entry.itemId, qty: entry.qty,
+      dir: entry.type === 'income' ? 'out' : 'in',
+      unitCost: entry.unitCost
+    });
+  }
+  if (entry.type === 'income' && entry.sale && Array.isArray(entry.sale.lines)) {
+    entry.sale.lines.forEach(l => {
+      if (l && l.itemId && l.qty > 0) moves.push({ itemId: l.itemId, qty: l.qty, dir: 'out' });
+    });
+  }
+  return moves;
+}
+
 // Opsi jurnal + gerakan stok untuk sebuah entry (dibaca saat post).
 function journalOptsFor(entry) {
   const opts = { ppn: !!entry.ppn };
@@ -107,21 +126,31 @@ function journalOptsFor(entry) {
       else opts.item = { qty: entry.qty, unitCost: entry.unitCost || item.cost, name: item.name };
     }
   }
+  if (entry.type === 'income' && entry.sale && Array.isArray(entry.sale.lines)) {
+    const lines = [];
+    entry.sale.lines.forEach(l => {
+      const item = l && l.itemId ? getItemById(l.itemId) : null;
+      if (item && l.qty > 0) lines.push({ qty: l.qty, avgCost: item.cost, name: item.name });
+    });
+    if (lines.length) opts.saleLines = lines;
+  }
   return opts;
 }
 
 function applyStockMoveForEntry(entry) {
-  if (!entry.itemId || !(entry.qty > 0)) return;
-  if (entry.type === 'income') applyStockMove(entry.itemId, { qtyOut: entry.qty });
-  else applyStockMove(entry.itemId, { qtyIn: entry.qty, unitCost: entry.unitCost || 0 });
+  stockMovesFor(entry).forEach(m => {
+    if (m.dir === 'out') applyStockMove(m.itemId, { qtyOut: m.qty });
+    else applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: m.unitCost || 0 });
+  });
 }
 
 function reverseStockMoveForEntry(entry) {
-  if (!entry.itemId || !(entry.qty > 0)) return;
-  try {
-    if (entry.type === 'income') applyStockMove(entry.itemId, { qtyIn: entry.qty, unitCost: 0, keepCost: true });
-    else applyStockMove(entry.itemId, { qtyOut: entry.qty });
-  } catch {}
+  stockMovesFor(entry).forEach(m => {
+    try {
+      if (m.dir === 'out') applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: 0, keepCost: true });
+      else applyStockMove(m.itemId, { qtyOut: m.qty });
+    } catch {}
+  });
 }
 
 export function updateEntry(id, updates) {
@@ -220,7 +249,7 @@ export function clearAllData() {
   [
     STORAGE_KEY, LOAN_KEY, REPAY_KEY, JOURN_KEY, AUDIT_KEY,
     'wynara_recurring', 'wynara_budget', 'wynara_catBudget',
-    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup'
+    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -754,6 +783,20 @@ function importJSONFile(file) {
           }
           if (data.equity && typeof data.equity === 'object' && Number(data.equity.amount) > 0) {
             try { saveOpeningEquity(data.equity.amount); } catch {}
+          }
+          if (Array.isArray(data.locks)) {
+            try {
+              const valid = data.locks.filter(m => /^\d{4}-\d{2}$/.test(m));
+              const merged = [...new Set(getLockedMonths().concat(valid))].sort();
+              localStorage.setItem(LOCK_KEY, JSON.stringify(merged));
+            } catch {}
+          }
+          if (Array.isArray(data.coa)) {
+            const have = new Set(getCustomAccounts().map(a => a.code));
+            const clean = data.coa.filter(a => a && /^\d{4}$/.test(a.code) && !have.has(a.code) && COA_TYPES.includes(a.type) && a.name);
+            if (clean.length) {
+              try { localStorage.setItem(COA_KEY, JSON.stringify(getCustomAccounts().concat(clean))); } catch { skipped += clean.length; }
+            }
           }
         }
         resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, skipped });
@@ -1335,6 +1378,8 @@ export function snapshotAll() {
     items: getItems(),
     employees: getAllEmployees(),
     equity: getOpeningEquity(),
+    coa: getCustomAccounts(),
+    locks: getLockedMonths(),
     exportedAt: new Date().toISOString(),
     version: 3
   };
@@ -1414,6 +1459,20 @@ export function restoreAll(snap) {
   }
   if (snap.equity && typeof snap.equity === 'object' && Number(snap.equity.amount) > 0) {
     try { saveOpeningEquity(snap.equity.amount); } catch {}
+  }
+  if (Array.isArray(snap.locks)) {
+    try {
+      const valid = snap.locks.filter(m => /^\d{4}-\d{2}$/.test(m));
+      const merged = [...new Set(getLockedMonths().concat(valid))].sort();
+      localStorage.setItem(LOCK_KEY, JSON.stringify(merged));
+    } catch {}
+  }
+  if (Array.isArray(snap.coa)) {
+    const have = new Set(getCustomAccounts().map(a => a.code));
+    const clean = snap.coa.filter(a => a && /^\d{4}$/.test(a.code) && !have.has(a.code) && COA_TYPES.includes(a.type) && a.name);
+    if (clean.length) {
+      try { localStorage.setItem(COA_KEY, JSON.stringify(getCustomAccounts().concat(clean.map(a => ({ code: a.code, name: String(a.name).slice(0, 60), type: a.type, category: String(a.category || '').slice(0, 60), custom: true }))))) ; } catch {}
+    }
   }
   return { entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ, items: cI, employees: cM };
 }
@@ -1675,6 +1734,86 @@ export function nextInvoiceNo() {
   counters.invoiceSeq[key] = (Number(counters.invoiceSeq[key]) || 0) + 1;
   try { localStorage.setItem(COUNTER_KEY, JSON.stringify(counters)); } catch {}
   return `INV/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(counters.invoiceSeq[key]).padStart(4, '0')}`;
+}
+
+// ===== Akun custom (COA) =====
+const COA_KEY = 'wynara_coa_custom';
+export const COA_TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
+
+export function getCustomAccounts() {
+  try {
+    const v = localStorage.getItem(COA_KEY);
+    const a = v ? JSON.parse(v) : [];
+    return (Array.isArray(a) ? a : []).filter(x => x && /^\d{4}$/.test(x.code));
+  } catch { return []; }
+}
+
+export function saveCustomAccount(acc) {
+  const code = String(acc.code || '').trim();
+  if (!/^\d{4}$/.test(code)) throw new Error('Kode akun harus 4 digit (mis. 5120)');
+  const type = COA_TYPES.includes(acc.type) ? acc.type : 'expense';
+  const name = String(acc.name || '').replace(/[<>"'&]/g, '').trim().slice(0, 60);
+  if (!name) throw new Error('Nama akun wajib');
+  const list = getCustomAccounts();
+  if (list.some(a => a.code === code)) throw new Error(`Kode ${code} sudah dipakai`);
+  const rec = {
+    code, name, type,
+    category: type === 'expense' ? String(acc.category || '').trim().slice(0, 60) : '',
+    custom: true, updatedAt: new Date().toISOString()
+  };
+  list.push(rec);
+  localStorage.setItem(COA_KEY, JSON.stringify(list));
+  return rec;
+}
+
+export function renameCustomAccount(code, name) {
+  const clean = String(name || '').replace(/[<>"'&]/g, '').trim().slice(0, 60);
+  if (!clean) throw new Error('Nama akun wajib');
+  const list = getCustomAccounts();
+  const idx = list.findIndex(a => a.code === code);
+  if (idx === -1) throw new Error('Akun tidak ditemukan');
+  list[idx] = { ...list[idx], name: clean, updatedAt: new Date().toISOString() };
+  localStorage.setItem(COA_KEY, JSON.stringify(list));
+  return list[idx];
+}
+
+export function deleteCustomAccount(code, journalBalances) {
+  const bal = journalBalances && journalBalances[code];
+  if (bal && ((bal.debit || 0) - (bal.credit || 0)) !== 0) {
+    throw new Error('Akun sudah ada mutasi — tidak bisa dihapus');
+  }
+  localStorage.setItem(COA_KEY, JSON.stringify(getCustomAccounts().filter(a => a.code !== code)));
+}
+
+// ===== Kunci periode (YYYY-MM) — bulan dikunci tak bisa tambah/ubah =====
+const LOCK_KEY = 'wynara_locks';
+
+export function getLockedMonths() {
+  try {
+    const v = localStorage.getItem(LOCK_KEY);
+    const a = v ? JSON.parse(v) : [];
+    return (Array.isArray(a) ? a : []).filter(m => /^\d{4}-\d{2}$/.test(m));
+  } catch { return []; }
+}
+
+export function isMonthLocked(dateStr) {
+  const m = String(dateStr || '').slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(m)) return false;
+  return getLockedMonths().includes(m);
+}
+
+export function lockMonth(mm) {
+  if (!/^\d{4}-\d{2}$/.test(mm)) throw new Error('Bulan tidak valid');
+  const list = getLockedMonths();
+  if (!list.includes(mm)) {
+    list.push(mm);
+    localStorage.setItem(LOCK_KEY, JSON.stringify(list.sort()));
+  }
+  return list;
+}
+
+export function unlockMonth(mm) {
+  localStorage.setItem(LOCK_KEY, JSON.stringify(getLockedMonths().filter(m => m !== mm)));
 }
 
 // ===== Modal awal =====

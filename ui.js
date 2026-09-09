@@ -825,6 +825,7 @@ function setSelected(group, value) {
 function renderCategoryButtons(type) {
   const options = type === 'income' ? CATEGORY_OPTIONS.income : CATEGORY_OPTIONS.expense;
   const subMap = {
+    jualan: 'Jual barang',
     'gaji-out': 'Gaji karyawan',
     gaji: 'Gajian kamu',
     freelance: 'Kerja lepas',
@@ -1395,6 +1396,11 @@ export function getFormData() {
 
 export function validateForm(data) {
   if (!data.date) return 'Tanggalnya diisi dulu ya';
+  if (typeof window.__isLockedMonth === 'function') {
+    try {
+      if (window.__isLockedMonth(data.date)) return `Bulan ${String(data.date).slice(0, 7)} sudah dikunci — buka di Pengaturan kalau mau ubah`;
+    } catch {}
+  }
   if (!data.type) return 'Pilih dulu: masuk atau keluar?';
   if (!data.category) return 'Pilih dulu kategorinya';
   if (data.amount !== undefined && data.amount < 100) return 'Minimal Rp100 ya';
@@ -1678,11 +1684,40 @@ export function renderReport(type, data) {
     case 'audit':
       elements.reportContent.innerHTML = renderAuditReport(data);
       break;
+    case 'payrollrep':
+      window.__payrollRepData = data;
+      elements.reportContent.innerHTML = renderPayrollReport(data);
+      bindPayrollRepToggle();
+      break;
   }
 }
 
 export function openReportModal() {
   if (!elements.reportSection.open) elements.reportSection.showModal();
+}
+
+export function printCurrentReport() {
+  const box = document.getElementById('reportContent');
+  const tab = document.querySelector('.report-tab.active');
+  if (!box) return;
+  const title = tab ? tab.textContent.trim() : 'Laporan';
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(`<html><head><title>Wynara — ${escapeHtml(title)}</title><style>
+    body{font-family:Arial,sans-serif;max-width:720px;margin:20px auto;padding:0 16px;color:#111}
+    table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+    th{background:#f3f4f6}
+    .amount-col{text-align:right;font-variant-numeric:tabular-nums}
+    h4{margin:14px 0 6px}
+  </style></head><body>
+    <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
+      <div style="font-size:18px;font-weight:800">WYNARA — ${escapeHtml(title).toUpperCase()}</div>
+      <div style="font-size:11px;color:#555">Dicetak ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    </div>
+    ${box.innerHTML}
+    <script>onload=()=>{print();}<\/script></body></html>`);
+  w.document.close();
 }
 
 export function updateSortArrows(column, direction) {
@@ -1998,22 +2033,43 @@ function renderLedgerReport(bal) {
 function renderPLReport(d) {
   if (!d) return '';
   const netClass = d.net >= 0 ? 'income' : 'expense';
+  const hasPrev = !!d.prev;
+  const delta = (cur, prv) => {
+    if (!hasPrev) return '';
+    const v = cur - prv;
+    const cls = v > 0 ? 'income' : v < 0 ? 'expense' : '';
+    return `<td class="amount-col ${cls}">${v > 0 ? '+' : ''}${formatCurrency(v)}</td>`;
+  };
+  const prevCell = (v) => hasPrev ? `<td class="amount-col" style="color:#64748b">${formatCurrency(v)}</td>` : '';
+  const prevHead = hasPrev ? '<th class="amount-col">Lalu</th><th class="amount-col">±</th>' : '';
+  const b = d.budget || { limit: 0, spent: 0, cats: [] };
+  const bPct = b.limit > 0 ? Math.min(100, Math.round((b.spent / b.limit) * 100)) : 0;
   return `
     <div class="report-summary">
       <div class="report-summary-item"><span class="label">Pendapatan</span><span class="value income">${formatCurrency(d.revenue)}</span></div>
       <div class="report-summary-item"><span class="label">Total Beban</span><span class="value expense">${formatCurrency(d.totalExp)}</span></div>
       <div class="report-summary-item"><span class="label">Laba Bersih</span><span class="value ${netClass}">${formatCurrency(d.net)}</span></div>
+      ${hasPrev ? `<div class="report-summary-item"><span class="label">vs Periode Lalu</span><span class="value ${d.net - d.prev.net >= 0 ? 'income' : 'expense'}">${(d.net - d.prev.net >= 0 ? '+' : '') + formatCurrency(d.net - d.prev.net)}</span></div>` : ''}
     </div>
     <h4 style="margin:12px 0;color:var(--success);">📈 Pendapatan</h4>
-    <table class="report-table"><tbody>
-      <tr><td>Pendapatan Usaha (4101)</td><td class="amount-col income">${formatCurrency(d.revenue)}</td></tr>
+    <table class="report-table"><thead><tr><th>Akun</th><th class="amount-col">Kini</th>${prevHead}</tr></thead><tbody>
+      <tr><td>Pendapatan Usaha (4101)</td><td class="amount-col income">${formatCurrency(d.revenue)}</td>${prevCell(hasPrev ? d.prev.revenue : 0)}${hasPrev ? delta(d.revenue, d.prev.revenue) : ''}</tr>
     </tbody></table>
     <h4 style="margin:12px 0;color:var(--danger);">📉 Beban</h4>
-    <table class="report-table"><tbody>
-      ${d.expenses.length ? d.expenses.map(x => `<tr><td>${escapeHtml(accountLabel(x.code))}</td><td class="amount-col expense">${formatCurrency(x.total)}</td></tr>`).join('') : '<tr><td colspan="2">Tidak ada beban</td></tr>'}
-      <tr><td><b>Total Beban</b></td><td class="amount-col expense"><b>${formatCurrency(d.totalExp)}</b></td></tr>
-      <tr><td><b>Laba Bersih</b></td><td class="amount-col ${netClass}"><b>${formatCurrency(d.net)}</b></td></tr>
-    </tbody></table>`;
+    <table class="report-table"><thead><tr><th>Akun</th><th class="amount-col">Kini</th>${prevHead}</tr></thead><tbody>
+      ${d.expenses.length ? d.expenses.map(x => {
+        const p = hasPrev ? (d.prev.expenses.find(y => y.code === x.code)?.total || 0) : 0;
+        return `<tr><td>${escapeHtml(accountLabel(x.code))}</td><td class="amount-col expense">${formatCurrency(x.total)}</td>${prevCell(p)}${hasPrev ? delta(x.total, p) : ''}</tr>`;
+      }).join('') : `<tr><td colspan="${hasPrev ? 4 : 2}">Tidak ada beban</td></tr>`}
+      <tr><td><b>Total Beban</b></td><td class="amount-col expense"><b>${formatCurrency(d.totalExp)}</b></td>${prevCell(hasPrev ? d.prev.totalExp : 0)}${hasPrev ? delta(d.totalExp, d.prev.totalExp) : ''}</tr>
+      <tr><td><b>Laba Bersih</b></td><td class="amount-col ${netClass}"><b>${formatCurrency(d.net)}</b></td>${prevCell(hasPrev ? d.prev.net : 0)}${hasPrev ? delta(d.net, d.prev.net) : ''}</tr>
+    </tbody></table>
+    ${(b.limit > 0 || b.cats.length) ? `
+    <h4 style="margin:12px 0;">🎯 Anggaran vs Realisasi (bulan berjalan)</h4>
+    <table class="report-table"><thead><tr><th>Anggaran</th><th class="amount-col">Limit</th><th class="amount-col">Pakai</th><th class="amount-col">Sisa</th></tr></thead><tbody>
+      ${b.limit > 0 ? `<tr><td><b>Bulanan</b> (${bPct}%)</td><td class="amount-col">${formatCurrency(b.limit)}</td><td class="amount-col ${b.spent > b.limit ? 'expense' : ''}">${formatCurrency(b.spent)}</td><td class="amount-col ${b.limit - b.spent >= 0 ? 'income' : 'expense'}">${formatCurrency(b.limit - b.spent)}</td></tr>` : ''}
+      ${b.cats.map(c => `<tr><td>${escapeHtml(c.label)}</td><td class="amount-col">${formatCurrency(c.limit)}</td><td class="amount-col ${c.spent > c.limit ? 'expense' : ''}">${formatCurrency(c.spent)}</td><td class="amount-col ${c.limit - c.spent >= 0 ? 'income' : 'expense'}">${formatCurrency(c.limit - c.spent)}</td></tr>`).join('')}
+    </tbody></table>` : ''}`;
 }
 
 function renderBSReport(d) {
@@ -2083,6 +2139,76 @@ function renderAuditReport(rows) {
         }).join('')}
       </tbody>
     </table>`;
+}
+
+let payrollRepMode = 'month';
+function payrollRepRows(d) {
+  const fmt = (v) => formatCurrency(v);
+  if (payrollRepMode === 'year') {
+    if (!d.years.length) return '<tr><td colspan="7">Belum ada data gaji</td></tr>';
+    return d.years.map(y => `<tr><td><b>${y.year}</b></td><td class="amount-col">${fmt(y.gross)}</td><td class="amount-col">${fmt(y.thr)}</td><td class="amount-col">${fmt(y.dedEmp)}</td><td class="amount-col">${fmt(y.pph)}</td><td class="amount-col">${fmt(y.comp)}</td><td class="amount-col"><b>${fmt(y.thp)}</b></td></tr>`).join('');
+  }
+  if (!d.months.length) return '<tr><td colspan="7">Belum ada data gaji</td></tr>';
+  return d.months.map(m => `<tr><td><b>${m.month}</b> <small style="color:#94a3b8">(${m.count}x)</small></td><td class="amount-col">${fmt(m.gross)}</td><td class="amount-col">${fmt(m.thr)}</td><td class="amount-col">${fmt(m.dedEmp)}</td><td class="amount-col">${fmt(m.pph)}</td><td class="amount-col">${fmt(m.comp)}</td><td class="amount-col"><b>${fmt(m.thp)}</b></td></tr>`).join('');
+}
+function renderPayrollReport(d) {
+  if (!d) return '';
+  const tot = (d.months || []).reduce((s, m) => ({ thp: s.thp + m.thp, comp: s.comp + m.comp, pph: s.pph + m.pph, thr: s.thr + m.thr }), { thp: 0, comp: 0, pph: 0, thr: 0 });
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Total THP</span><span class="value income">${formatCurrency(tot.thp)}</span></div>
+      <div class="report-summary-item"><span class="label">Iuran perusahaan</span><span class="value expense">${formatCurrency(tot.comp)}</span></div>
+      <div class="report-summary-item"><span class="label">PPh dipotong</span><span class="value">${formatCurrency(tot.pph)}</span></div>
+      <div class="report-summary-item"><span class="label">Hutang BPJS</span><span class="value ${d.bpjsDebt > 0 ? 'expense' : ''}">${formatCurrency(d.bpjsDebt)}</span></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin:12px 0">
+      <div class="chip-group">
+        <button type="button" class="chip${payrollRepMode === 'month' ? ' selected' : ''}" data-paymode="month">Bulanan</button>
+        <button type="button" class="chip${payrollRepMode === 'year' ? ' selected' : ''}" data-paymode="year">Tahunan</button>
+      </div>
+      <button type="button" class="btn btn-ghost" id="payrollPrintBtn" style="font-size:11px;padding:4px 10px">🖨️ Cetak</button>
+    </div>
+    <table class="report-table">
+      <thead><tr><th>Periode</th><th class="amount-col">Bruto</th><th class="amount-col">THR</th><th class="amount-col">Potongan kary.</th><th class="amount-col">PPh 21</th><th class="amount-col">Iuran prsh.</th><th class="amount-col">THP</th></tr></thead>
+      <tbody id="payrollRepBody">${payrollRepRows(d)}</tbody>
+    </table>
+    <p style="font-size:11px;color:#64748b">Potongan kary. = BPJS Kes 1% + JHT 2% + JP 1%. Iuran prsh. = Kes 4% + JHT 3.7% + JP 2% + JKK + JKM 0.3%.</p>`;
+}
+function bindPayrollRepToggle() {
+  const body = document.getElementById('reportContent');
+  if (!body || body.dataset.paybound) return;
+  body.dataset.paybound = '1';
+  body.addEventListener('click', (e) => {
+    const mode = e.target.closest('[data-paymode]');
+    if (mode) {
+      payrollRepMode = mode.dataset.paymode;
+      const tb = document.getElementById('payrollRepBody');
+      if (tb && window.__payrollRepData) tb.innerHTML = payrollRepRows(window.__payrollRepData);
+      document.querySelectorAll('[data-paymode]').forEach(b => b.classList.toggle('selected', b === mode));
+      return;
+    }
+    if (e.target.closest('#payrollPrintBtn') && window.__payrollRepData) {
+      printPayrollReport(window.__payrollRepData);
+    }
+  });
+}
+function printPayrollReport(d) {
+  const rows = (payrollRepMode === 'year' ? d.years.map(y => [`Tahun ${y.year}`, y.gross, y.thr, y.dedEmp, y.pph, y.comp, y.thp]) : d.months.map(m => [m.month, m.gross, m.thr, m.dedEmp, m.pph, m.comp, m.thp]));
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(`<html><head><title>Laporan Gaji</title></head><body>
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
+        <div style="font-size:18px;font-weight:800">LAPORAN GAJI & IURAN (${payrollRepMode === 'year' ? 'TAHUNAN' : 'BULANAN'})</div>
+      </div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr><th style="border:1px solid #ddd;padding:6px">Periode</th><th style="border:1px solid #ddd;padding:6px">Bruto</th><th style="border:1px solid #ddd;padding:6px">THR</th><th style="border:1px solid #ddd;padding:6px">Potongan</th><th style="border:1px solid #ddd;padding:6px">PPh 21</th><th style="border:1px solid #ddd;padding:6px">Iuran prsh.</th><th style="border:1px solid #ddd;padding:6px">THP</th></tr>
+        ${rows.map(r => `<tr>${r.map((c, i) => `<td style="border:1px solid #ddd;padding:6px;${i ? 'text-align:right' : ''}">${i ? fmt(c) : r[0]}</td>`).join('')}</tr>`).join('')}
+      </table>
+      <p style="font-size:12px">Hutang BPJS: ${fmt(d.bpjsDebt)}</p>
+    </div><script>onload=()=>{print();}<\/script></body></html>`);
+  w.document.close();
 }
 
 // ===== Loans UI =====
@@ -2972,6 +3098,164 @@ function renderBankPreview() {
       <td class="amount-col" style="color:#dc2626">${r.out > 0 ? fmt(r.out) : ''}</td>
       <td style="font-size:11px">${r.matched ? '✅ cocok' : 'baru'}</td>
     </tr>`).join('') + `</tbody></table>`;
+}
+
+/* ===== COA ===== */
+export function openCoa() {
+  const m = document.getElementById('coaModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+  if (m) trapFocus(m);
+}
+export function closeCoa() {
+  const m = document.getElementById('coaModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
+}
+export function renderCoa(accounts, bal) {
+  const list = document.getElementById('coaList');
+  if (!list) return;
+  const fmt = (v) => (v < 0 ? '−Rp' : 'Rp') + Math.abs(Math.round(v)).toLocaleString('id-ID');
+  const typeName = { asset: 'Aset', liability: 'Kewajiban', equity: 'Modal', revenue: 'Pendapatan', expense: 'Beban' };
+  let lastType = '';
+  list.innerHTML = accounts.map(a => {
+    const b = (bal && bal[a.code]) || { debit: 0, credit: 0 };
+    const net = a.type === 'asset' || a.type === 'expense' ? b.debit - b.credit : b.credit - b.debit;
+    const head = a.type !== lastType ? `<div style="font-size:11px;font-weight:800;color:#64748b;margin:10px 0 4px">${typeName[a.type] || a.type}</div>` : '';
+    lastType = a.type;
+    const used = net !== 0;
+    return `${head}<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px">
+      <span style="font-family:monospace;color:#64748b">${escapeHtml(a.code)}</span>
+      <span style="flex:1"><b>${escapeHtml(a.name)}</b>${a.category ? ` <small style="color:#64748b">↔ ${escapeHtml(a.category)}</small>` : ''}<br>
+      <small style="color:#64748b">Saldo ${fmt(net)}</small></span>
+      ${a.custom
+        ? `<button class="btn btn-ghost coa-rename" data-code="${escapeHtml(a.code)}" style="font-size:11px;padding:2px 8px">✎</button>
+           <button class="btn btn-ghost coa-del" data-code="${escapeHtml(a.code)}" ${used ? 'disabled title="Sudah ada mutasi"' : ''} style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>`
+        : `<small style="color:#94a3b8">bawaan</small>`}
+    </div>`;
+  }).join('');
+}
+export function getCoaFormData() {
+  return {
+    code: document.getElementById('coaCode')?.value.trim() || '',
+    name: document.getElementById('coaName')?.value.trim() || '',
+    type: document.getElementById('coaType')?.value || 'expense',
+    category: document.getElementById('coaCategory')?.value.trim() || ''
+  };
+}
+export function resetCoaForm() {
+  document.getElementById('coaForm')?.reset();
+}
+export function bindCoa(onSave, onRename, onDelete) {
+  document.getElementById('closeCoaBtn')?.addEventListener('click', closeCoa);
+  document.getElementById('coaModal')?.addEventListener('click', (e) => { if (e.target.id === 'coaModal') closeCoa(); });
+  document.getElementById('coaForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSave(); });
+  document.getElementById('coaList')?.addEventListener('click', (e) => {
+    const rn = e.target.closest('.coa-rename');
+    const del = e.target.closest('.coa-del');
+    if (rn && !rn.disabled) {
+      const cur = rn.closest('div').querySelector('b')?.textContent || '';
+      const name = prompt('Nama baru:', cur);
+      if (name !== null) onRename(rn.dataset.code, name);
+    }
+    if (del && !del.disabled) onDelete(del.dataset.code);
+  });
+}
+
+/* ===== Penjualan dari stok ===== */
+export function openSale() {
+  const m = document.getElementById('saleModal');
+  if (!m) return;
+  document.getElementById('saleCustomer').value = '';
+  document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('saleNote').value = '';
+  document.getElementById('salePPN').checked = false;
+  document.getElementById('saleRows').innerHTML = '';
+  addSaleRow();
+  addSaleRow();
+  recalcSale();
+  if (!m.open) { try { m.showModal(); } catch {} }
+  trapFocus(m);
+}
+export function closeSale() {
+  const m = document.getElementById('saleModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
+}
+export function addSaleRow() {
+  const box = document.getElementById('saleRows');
+  if (!box) return;
+  const items = getItemList();
+  const row = document.createElement('div');
+  row.className = 'sale-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+  row.innerHTML = `
+    <select class="sale-item" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+      <option value="">— Pilih barang —</option>
+      ${items.map(i => `<option value="${i.id}">${escapeHtml(i.name)} (stok ${i.stock})</option>`).join('')}
+    </select>
+    <input type="number" class="sale-qty" min="1" step="1" value="1" title="Berapa pcs?" style="flex:0 0 64px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <input type="text" class="sale-price" placeholder="Rp/pcs" inputmode="decimal" title="Harga per pcs (boleh ubah)" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <span class="sale-sub" style="flex:1;min-width:80px;font-size:12px;font-weight:700;text-align:right"></span>
+    <button type="button" class="btn btn-ghost sale-del" style="font-size:12px;padding:4px 8px;color:#ef4444">✕</button>`;
+  const sel = row.querySelector('.sale-item');
+  const qty = row.querySelector('.sale-qty');
+  const price = row.querySelector('.sale-price');
+  const syncPrice = () => {
+    const it = items.find(x => x.id === sel.value);
+    if (it && !price.dataset.touched) price.value = it.price ? String(it.price) : '';
+    recalcSale();
+  };
+  sel.addEventListener('change', () => { price.dataset.touched = ''; syncPrice(); });
+  price.addEventListener('input', () => { price.dataset.touched = '1'; });
+  price.addEventListener('focus', () => { price.value = parseIdrInput(price.value); try { price.select(); } catch {} });
+  price.addEventListener('blur', () => { const v = parseIdrInput(price.value); price.value = v ? formatIdrInput(v) : ''; recalcSale(); });
+  [qty, price].forEach(el => el.addEventListener('input', recalcSale));
+  row.querySelector('.sale-del').addEventListener('click', () => { row.remove(); recalcSale(); });
+  box.appendChild(row);
+  bindRupiah(price);
+  syncPrice();
+}
+export function recalcSale() {
+  const data = readSaleRows();
+  const el = document.getElementById('saleTotal');
+  if (el) el.textContent = 'Total ' + formatCurrency(data.total);
+  document.querySelectorAll('#saleRows .sale-row').forEach((row, i) => {
+    const sub = row.querySelector('.sale-sub');
+    if (sub) sub.textContent = data.lines[i] ? formatCurrency(data.lines[i].qty * data.lines[i].price) : '';
+  });
+}
+function readSaleRows() {
+  const lines = [];
+  document.querySelectorAll('#saleRows .sale-row').forEach(row => {
+    const itemId = row.querySelector('.sale-item')?.value || '';
+    const qty = Math.max(parseInt(row.querySelector('.sale-qty')?.value || '0', 10) || 0, 0);
+    const price = Math.round(Number(parseIdrInput(row.querySelector('.sale-price')?.value || '')) || 0);
+    if (itemId && qty > 0 && price > 0) {
+      const it = getItemList().find(x => x.id === itemId);
+      lines.push({ itemId, qty, price, name: it ? it.name : '' });
+    }
+  });
+  return { lines, total: lines.reduce((s, l) => s + l.qty * l.price, 0) };
+}
+export function getSaleData() {
+  const { lines, total } = readSaleRows();
+  return {
+    customer: document.getElementById('saleCustomer')?.value.trim() || '',
+    date: document.getElementById('saleDate')?.value || new Date().toISOString().split('T')[0],
+    payment: document.getElementById('salePayment')?.value || 'transfer',
+    note: document.getElementById('saleNote')?.value.trim() || '',
+    ppn: !!document.getElementById('salePPN')?.checked,
+    lines, total
+  };
+}
+export function bindSale(onSave) {
+  document.getElementById('closeSaleBtn')?.addEventListener('click', closeSale);
+  document.getElementById('saleCancel')?.addEventListener('click', closeSale);
+  document.getElementById('saleModal')?.addEventListener('click', (e) => { if (e.target.id === 'saleModal') closeSale(); });
+  document.getElementById('saleAddRow')?.addEventListener('click', () => { addSaleRow(); });
+  document.getElementById('saleSave')?.addEventListener('click', onSave);
 }
 
 export function bindContactsActions(onDelete, onEdit) {

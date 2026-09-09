@@ -5,7 +5,7 @@ import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, balances } from './journals.js';
-import { EQUITY_ACCOUNT, ACCOUNTS } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts } from './coa.js';
 import { computeSlip, thrAmount } from './payroll.js';
 
 let currentEntries = [];
@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -154,6 +154,7 @@ function showApp() {
 }
 
 function loadData() {
+  try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
   currentEntries = Storage.getAllEntries();
   const categories = Storage.getCategories();
   UI.renderCategoryFilterChips(categories);
@@ -268,6 +269,7 @@ function bindEvents() {
   UI.bindCategoryChange(UI.handleCategoryChange);
   UI.bindTypeButtons(() => {});
   window.__getItems = () => Storage.getAllItems();
+  window.__isLockedMonth = (d) => Storage.isMonthLocked(d);
   UI.bindFormSubmit(handleFormSubmit);
   UI.bindModalClose(UI.closeModal);
   UI.bindTableActions(handleEdit, handleDelete, handleDuplicate, handleReceipt);
@@ -278,6 +280,7 @@ function bindEvents() {
   document.getElementById('exportExcelBtn')?.addEventListener('click', handleExportExcel);
   document.getElementById('exportCsvBtn').addEventListener('click', handleExportCsv);
   UI.bindReport(handleReportOpen, handleReportClose, handleReportTabChange, handleCustomDateApply);
+  document.getElementById('printReportBtn')?.addEventListener('click', () => UI.printCurrentReport());
 
   document.getElementById('clearAllBtn').addEventListener('click', handleClearAll);
   document.getElementById('printBtn').addEventListener('click', handlePrint);
@@ -364,10 +367,15 @@ function bindEvents() {
   document.getElementById('contactsBtnSidebar')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
   document.getElementById('loanBtnSidebar')?.addEventListener('click', () => UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople()));
   document.getElementById('stockBtnSidebar')?.addEventListener('click', () => { refreshStock(); UI.openStock(); });
+  document.getElementById('saleEntryBtn')?.addEventListener('click', () => UI.openSale());
+  document.getElementById('saleEntryBtn2')?.addEventListener('click', () => UI.openSale());
   document.getElementById('payrollBtnSidebar')?.addEventListener('click', () => { refreshPayroll(); UI.openPayroll(); });
   document.getElementById('kasOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
   document.getElementById('bankOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
   UI.bindStock(handleStockSave, handleStockEdit, handleStockDelete);
+  UI.bindSale(handleSaleSave);
+  UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
+  document.getElementById('coaOpenBtn')?.addEventListener('click', () => { refreshCoa(); UI.openCoa(); });
   UI.bindPayroll(handleEmpSave, handleEmpEdit, handleEmpDelete, handleEmpSlip, handlePayrollRun);
   UI.bindKas(handleTransfer, handleRecon);
   UI.bindBank(handleBankFile, handleBankImport);
@@ -731,12 +739,14 @@ function handleFormSubmit() {
     return;
   }
 
+  let ok = false;
   try {
-    submitFormData(data);
+    ok = submitFormData(data) !== false;
   } catch (err) {
     UI.showError(err && err.message ? err.message : 'Gagal menyimpan — coba lagi');
     return;
   }
+  if (!ok) return; // validasi gagal — biarkan form terbuka biar bisa dibetulkan
 
   const recCb = document.getElementById('entryRecurring');
   if (recCb) recCb.checked = false;
@@ -745,6 +755,14 @@ function handleFormSubmit() {
 }
 
 function submitFormData(data) {
+  // Kunci periode: transaksi bulan terkunci tak bisa diubah/dipindah
+  if (data.id) {
+    const prev = Storage.getEntryById(data.id);
+    if (prev && Storage.isMonthLocked(prev.date)) {
+      UI.showError(`Transaksi bulan ${String(prev.date).slice(0, 7)} terkunci — buka di Pengaturan kalau mau ubah`);
+      return false;
+    }
+  }
   const isLoan = LOAN_CATEGORIES.includes(data.category);
 
   if (isLoan) {
@@ -753,18 +771,19 @@ function submitFormData(data) {
     if (mode === 'settle') {
       if (data.id) {
         UI.showError('Balikin tidak bisa diubah dari sini. Gunakan panel Pinjaman.');
-        return;
+        return false;
       }
       const loanId = data.loanId || null;
-      if (!loanId) return UI.showError(data.category === 'Hutang' ? 'Pilih dulu loan yang mau kamu balikin' : 'Pilih dulu siapa yang balikin ke kamu');
+      if (!loanId) { UI.showError(data.category === 'Hutang' ? 'Pilih dulu loan yang mau kamu balikin' : 'Pilih dulu siapa yang balikin ke kamu'); return false; }
       const loan = Storage.getLoanById(loanId);
-      if (!loan) return UI.showError('Pinjaman terpilih tidak ditemukan — pilih ulang');
+      if (!loan) { UI.showError('Pinjaman terpilih tidak ditemukan — pilih ulang'); return false; }
       const expectedDir = data.category === 'Hutang' ? 'taken' : 'given';
-      if (loan.direction !== expectedDir) return UI.showError('Pinjaman terpilih tidak sesuai kategori — pilih ulang');
+      if (loan.direction !== expectedDir) { UI.showError('Pinjaman terpilih tidak sesuai kategori — pilih ulang'); return false; }
       const reps = Storage.getLoanRepayments(loanId);
       const outstanding = outstandingOf(loan, reps);
       if (data.amount > outstanding + 0.01) {
-        return UI.showError(`Nominal melebihi sisa ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.max(outstanding, 0))}`);
+        UI.showError(`Nominal melebihi sisa ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.max(outstanding, 0))}`);
+        return false;
       }
       Storage.addRepayment({
         loanId,
@@ -780,7 +799,7 @@ function submitFormData(data) {
         : `${loan.person} sudah balikin ${fmt(data.amount)} ke kamu 👍`);
     } else {
       const direction = data.category === 'Piutang' ? 'given' : 'taken';
-      if (!data.person) return UI.showError(data.category === 'Hutang' ? 'Tulis dulu dari siapa ambil loan' : 'Tulis dulu ke siapa kasih pinjam');
+      if (!data.person) { UI.showError(data.category === 'Hutang' ? 'Tulis dulu dari siapa ambil loan' : 'Tulis dulu ke siapa kasih pinjam'); return false; }
 
       if (data.id) {
         const existing = Storage.getEntryById(data.id);
@@ -829,7 +848,7 @@ function submitFormData(data) {
       const existing = Storage.getEntryById(data.id);
       if (existing && existing.loanId) {
         UI.showError('Transaksi pinjaman tidak bisa diubah dari sini. Gunakan panel Pinjaman.');
-        return;
+        return false;
       }
       Storage.updateEntry(data.id, data);
       UI.showSuccess('Transaksi diperbarui');
@@ -845,6 +864,7 @@ function submitFormData(data) {
       UI.showSuccess('Transaksi ditambahkan');
     }
   }
+  return true;
 }
 
 function handleEdit(id) {
@@ -1567,6 +1587,9 @@ function renderReport() {
     case 'audit':
       reportData = Storage.getAudit().slice(0, 100);
       break;
+    case 'payrollrep':
+      reportData = buildPayrollReport();
+      break;
   }
 
   UI.renderReport(currentReportType, reportData);
@@ -1603,8 +1626,13 @@ function ledgerInRange() {
   return balances(journalInRange());
 }
 
-function buildProfitLoss() {
-  const bal = balances(journalInRange());
+function addDaysStr(ymd, n) {
+  const d = new Date(ymd + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function plNumbers(bal) {
   const sum = (codes) => codes.reduce((s, c) => s + ((bal[c]?.credit || 0) - (bal[c]?.debit || 0)), 0);
   const exp = (codes) => codes.reduce((s, c) => s + ((bal[c]?.debit || 0) - (bal[c]?.credit || 0)), 0);
   const revCodes = ACCOUNTS.filter(a => a.type === 'revenue').map(a => a.code);
@@ -1612,13 +1640,41 @@ function buildProfitLoss() {
   const revenue = sum(revCodes);
   const expenses = expCodes.map(c => ({ code: c, total: exp([c]) })).filter(x => x.total !== 0);
   const totalExp = expenses.reduce((s, x) => s + x.total, 0);
-  return { revenue, expenses, totalExp, net: revenue - totalExp, range: journalDateRange() };
+  return { revenue, expenses, totalExp, net: revenue - totalExp };
+}
+
+function buildProfitLoss() {
+  const range = journalDateRange();
+  const cur = plNumbers(balances(journalInRange()));
+  // Periode sebelumnya sepanjang yang sama (kolom banding investor)
+  let prev = null;
+  if (range.start && range.end) {
+    const s = range.start <= range.end ? range.start : range.end;
+    const e = range.start <= range.end ? range.end : range.start;
+    const span = Math.max(Math.round((new Date(e) - new Date(s)) / 86400000) + 1, 1);
+    prev = plNumbers(balances(Storage.getAllJournals(), { start: addDaysStr(s, -span), end: addDaysStr(s, -1) }));
+  }
+  // Anggaran vs realisasi (bulan berjalan)
+  const now = new Date();
+  const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthExp = currentEntries.filter(x => x.type === 'expense' && String(x.date || '').slice(0, 7) === mk);
+  const spent = monthExp.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const budget = Storage.getBudget();
+  const catLimits = Storage.getCategoryBudgets();
+  const cats = Object.keys(catLimits).map(c => {
+    const cs = monthExp.filter(x => x.category === c).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    let label = c;
+    try { label = Reports.getCategoryLabel(c) || c; } catch {}
+    return { label, limit: catLimits[c], spent: cs };
+  });
+  return { ...cur, prev, range, budget: { limit: budget ? Number(budget.amount) || 0 : 0, spent, cats } };
 }
 
 function buildBalanceSheet() {
   const bal = balances(Storage.getAllJournals());
-  const assetCodes = ['1101', '1102', '1103', '1104', '1105', '1109', '1201', '1301', '1401'];
-  const liabCodes = ['2101', '2102', '2103', '2104', '2105', '2106'];
+  const all = getAccounts();
+  const assetCodes = all.filter(a => a.type === 'asset').map(a => a.code);
+  const liabCodes = all.filter(a => a.type === 'liability').map(a => a.code);
   const netOf = (codes, normal) => codes.map(c => {
     const b = bal[c] || { debit: 0, credit: 0 };
     const net = normal === 'debit' ? b.debit - b.credit : b.credit - b.debit;
@@ -1660,6 +1716,36 @@ function buildTaxReport() {
   const ppnOut = (bal['2105']?.credit || 0) - (bal['2105']?.debit || 0);
   const ppnIn = (bal['1401']?.debit || 0) - (bal['1401']?.credit || 0);
   return { months: months.slice(-12), omzetYear, pphYear: Math.round(omzetYear * 0.005), ppnOut, ppnIn, ppnNet: ppnOut - ppnIn, year };
+}
+
+function buildPayrollReport() {
+  const months = {};
+  Storage.getAllEntries().forEach(e => {
+    if (e.category !== 'gaji-out') return;
+    const m = String(e.date || '').slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(m)) return;
+    if (!months[m]) months[m] = { month: m, thp: 0, gross: 0, thr: 0, dedEmp: 0, comp: 0, pph: 0, count: 0 };
+    const p = e.payroll || {};
+    const d = p.ded || {};
+    months[m].thp += Math.round(Number(e.amount) || 0);
+    months[m].gross += Math.round(Number(p.base || 0) + Number(p.allow || 0) + Number(p.overtime || 0));
+    months[m].thr += Math.round(Number(p.thr) || 0);
+    months[m].dedEmp += Math.round((Number(d.kesSelf) || 0) + (Number(d.jhtSelf) || 0) + (Number(d.jpSelf) || 0));
+    const c = p.comp || {};
+    months[m].comp += Math.round((Number(c.kesComp) || 0) + (Number(c.jhtComp) || 0) + (Number(c.jpComp) || 0) + (Number(c.jkk) || 0) + (Number(c.jkm) || 0));
+    months[m].pph += Math.round(Number(d.pph21) || 0);
+    months[m].count += 1;
+  });
+  const ms = Object.values(months).sort((a, b) => b.month.localeCompare(a.month));
+  const years = {};
+  ms.forEach(m => {
+    const y = m.month.slice(0, 4);
+    if (!years[y]) years[y] = { year: y, thp: 0, gross: 0, thr: 0, dedEmp: 0, comp: 0, pph: 0, count: 0 };
+    Object.keys(years[y]).forEach(k => { if (k !== 'year' && typeof years[y][k] === 'number') years[y][k] += m[k]; });
+  });
+  const bal = balances(Storage.getAllJournals());
+  const bpjsDebt = (bal['2110']?.credit || 0) - (bal['2110']?.debit || 0);
+  return { months: ms.slice(0, 24), years: Object.values(years).sort((a, b) => b.year.localeCompare(a.year)), bpjsDebt };
 }
 
 function handleClearAll() {
@@ -1792,6 +1878,7 @@ function handleRepaySubmit() {
   const loan = Storage.getLoanById(data.loanId);
   if (!loan) return UI.showError('Pinjaman tidak ditemukan');
   if (!data.amount || data.amount <= 0) return UI.showError('Jumlah bayar harus > 0');
+  if (data.date && Storage.isMonthLocked(data.date)) return UI.showError(`Bulan ${String(data.date).slice(0, 7)} terkunci — buka di Pengaturan`);
 
   const reps = Storage.getLoanRepayments(data.loanId);
   const paid = paidOf(reps);
@@ -1915,6 +2002,49 @@ function handleContactFormSubmit() {
   UI.renderContacts(Storage.getAllPeople(), Storage.getAllLoans());
 }
 
+/* ===== COA ===== */
+function refreshCoa() {
+  try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
+  UI.renderCoa(getAccounts(), balances(Storage.getAllJournals()));
+}
+function handleCoaSave() {
+  const d = UI.getCoaFormData();
+  try {
+    const saved = Storage.saveCustomAccount(d);
+    try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
+    Storage.logAudit('create', 'account', saved.code, null, { name: saved.name });
+    UI.showSuccess(`Akun ${saved.code} ${saved.name} ditambahkan`);
+    UI.resetCoaForm();
+    refreshCoa();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menambah akun');
+  }
+}
+function handleCoaRename(code, name) {
+  try {
+    Storage.renameCustomAccount(code, name);
+    UI.showSuccess('Nama akun diperbarui');
+    refreshCoa();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal mengganti nama');
+  }
+}
+function handleCoaDelete(code) {
+  if (!confirm(`Hapus akun ${code}?`)) return;
+  try {
+    Storage.deleteCustomAccount(code, balances(Storage.getAllJournals()));
+    try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
+    Storage.logAudit('delete', 'account', code, null, null);
+    UI.showSuccess('Akun dihapus');
+    refreshCoa();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menghapus akun');
+  }
+}
+
 /* ===== Stok ===== */
 function refreshStock() {
   UI.renderStock(Storage.getAllItems());
@@ -2026,6 +2156,7 @@ function handlePayrollRun() {
   if (!sel.length) return UI.showInfo('Centang dulu karyawan yang mau diproses');
   const payment = document.getElementById('payrollPayment')?.value || 'transfer';
   const date = now.toISOString().split('T')[0];
+  if (Storage.isMonthLocked(date)) return UI.showError(`Bulan ${key} terkunci — buka di Pengaturan`);
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   let ok = 0, compTotal = 0;
   sel.forEach(s => {
@@ -2133,6 +2264,7 @@ function handleTransfer() {
   const d = UI.getTransferFormData();
   if (!d.amount || d.amount <= 0) return UI.showError('Nominal transfer harus lebih dari 0');
   if (d.from === d.to) return UI.showError('Kas asal dan tujuan harus beda');
+  if (d.date && Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
   try {
     const j = buildTransferJournal({ fromPayment: d.from, toPayment: d.to, amount: d.amount, date: d.date, memo: 'Transfer antar kas' });
     if (!j) throw new Error('Transfer tidak valid');
@@ -2210,10 +2342,12 @@ function handleBankFile(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const text = String(e.target.result || '');
+      const text = String(e.target.result || '').replace(/^\uFEFF/, '');
       const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       if (lines.length < 2) throw new Error('File kosong');
-      const split = (l) => l.split(/[,;]/).map(c => c.replace(/^"|"$/g, '').trim());
+      const head0 = lines.find(l => /tanggal|date/i.test(l)) || lines[0];
+      const delim = ((head0.match(/;/g) || []).length > (head0.match(/,/g) || []).length) ? ';' : ',';
+      const split = (l) => Storage.parseCsvRow(l, delim);
       // cari baris header
       let hi = 0;
       for (let i = 0; i < Math.min(lines.length, 10); i++) {
@@ -2276,8 +2410,9 @@ function handleBankImport() {
   const rows = UI.getBankSelected();
   if (!rows.length) return UI.showInfo('Tidak ada baris terpilih');
   const payment = document.getElementById('bankAccount')?.value || 'transfer';
-  let ok = 0;
+  let ok = 0, locked = 0;
   rows.forEach(r => {
+    if (Storage.isMonthLocked(r.date)) { locked++; return; }
     try {
       Storage.createEntry({
         date: r.date, type: r.in > 0 ? 'income' : 'expense',
@@ -2287,9 +2422,41 @@ function handleBankImport() {
       ok++;
     } catch {}
   });
-  UI.showSuccess(`${ok} mutasi diimport`);
+  UI.showSuccess(`${ok} mutasi diimport${locked ? ` (${locked} bulan terkunci dilewati)` : ''}`);
   UI.setBankRows([]);
   refresh();
+}
+
+/* ===== Penjualan ===== */
+function handleSaleSave() {
+  const d = UI.getSaleData();
+  if (!d.lines.length) return UI.showError('Pilih dulu barang + isi qty dan harga');
+  if (!d.date) return UI.showError('Tanggal wajib diisi');
+  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
+  // Cek stok dulu biar pesan jelas sekaligus
+  const items = Storage.getAllItems();
+  for (const l of d.lines) {
+    const it = items.find(x => x.id === l.itemId);
+    if (!it) return UI.showError('Ada barang yang tidak dikenal — pilih ulang');
+    if (l.qty > it.stock) return UI.showError(`Stok ${it.name} kurang (sisa ${it.stock}, mau ${l.qty})`);
+  }
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const desc = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
+  try {
+    const entry = Storage.createEntry({
+      date: d.date, type: 'income', category: 'jualan', payment: d.payment,
+      description: desc.slice(0, 120), amount: d.total,
+      person: d.customer, ppn: d.ppn,
+      sale: { lines: d.lines.map(l => ({ itemId: l.itemId, qty: l.qty, price: l.price })), total: d.total }
+    });
+    Storage.logAudit('create', 'sale', entry.id, null, { total: d.total, lines: d.lines.length });
+    UI.closeSale();
+    UI.showSuccess(`Penjualan ${fmt(d.total)} tersimpan — stok berkurang`);
+    UI.openReceipt(entry);
+    refresh();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menyimpan penjualan');
+  }
 }
 
 function handleLogout() {
@@ -2319,6 +2486,39 @@ function openSettings() {
       ? `Backup terakhir: ${last.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} — cadangan otomatis aktif di browser ini`
       : 'Belum pernah backup — unduh JSON Backup biar data aman';
   }
+  // Kunci periode
+  const renderLocks = () => {
+    const box = document.getElementById('lockList');
+    if (!box) return;
+    const locks = Storage.getLockedMonths();
+    box.innerHTML = locks.length
+      ? locks.map(m => `<span class="chip" style="font-size:11px">🔒 ${m} <button data-unlock="${m}" style="margin-left:4px;background:none;border:none;cursor:pointer;color:#ef4444" title="Buka kunci">×</button></span>`).join('')
+      : '<span style="font-size:11px;color:#94a3b8">Belum ada bulan terkunci</span>';
+    box.querySelectorAll('[data-unlock]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!confirm(`Buka kunci ${btn.dataset.unlock}? Bulan ini bisa diubah lagi.`)) return;
+        Storage.unlockMonth(btn.dataset.unlock);
+        Storage.logAudit('update', 'lock', btn.dataset.unlock, { locked: true }, { locked: false });
+        renderLocks();
+        queueMirror();
+      });
+    });
+  };
+  renderLocks();
+  const lockOne = (d) => {
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    try {
+      Storage.lockMonth(key);
+      Storage.logAudit('update', 'lock', key, { locked: false }, { locked: true });
+      UI.showSuccess(`Bulan ${key} dikunci`);
+    } catch (err) {
+      UI.showError(err && err.message ? err.message : 'Gagal mengunci');
+    }
+    renderLocks();
+    queueMirror();
+  };
+  document.getElementById('lockPrevBtn').onclick = () => { const d = new Date(); d.setMonth(d.getMonth() - 1); lockOne(d); };
+  document.getElementById('lockCurBtn').onclick = () => lockOne(new Date());
   // Anggaran per kategori
   const catSel = document.getElementById('catBudgetSelect');
   const catAmt = document.getElementById('catBudgetAmount');

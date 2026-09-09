@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  accountForPayment, expenseAccountFor,
+  accountForPayment, expenseAccountFor, getAccounts, setCustomAccounts,
   REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT
 } from '../coa.js';
 import {
@@ -37,6 +37,17 @@ describe('coa maps', () => {
     expect(m.get('3101')).toBe('equity');
     expect(m.get('4101')).toBe('revenue');
     expect(m.get('5109')).toBe('expense');
+  });
+});
+
+describe('custom COA', () => {
+  it('gabung + kategori custom kepakai', () => {
+    setCustomAccounts([{ code: '5120', name: 'Beban Iklan', type: 'expense', category: 'iklan' }]);
+    expect(getAccounts().some(a => a.code === '5120')).toBe(true);
+    expect(expenseAccountFor('iklan')).toBe('5120');
+    expect(expenseAccountFor('makanan')).toBe('5103');
+    setCustomAccounts([]);
+    expect(getAccounts().some(a => a.code === '5120')).toBe(false);
   });
 });
 
@@ -84,6 +95,15 @@ describe('buildEntryJournal', () => {
   it('nominal rusak → null', () => {
     expect(buildEntryJournal({ amount: 0 })).toBeNull();
     expect(buildEntryJournal({ amount: -5 })).toBeNull();
+  });
+  it('jualan multi-baris: HPP gabungan', () => {
+    const j = buildEntryJournal(
+      { id: 'e9', date: '2026-09-01', type: 'income', category: 'jualan', payment: 'transfer', amount: 100000 },
+      { saleLines: [{ qty: 2, avgCost: 20000, name: 'A' }, { qty: 1, avgCost: 30000, name: 'B' }] }
+    );
+    expect(j.lines.find(l => l.account === '5109').debit).toBe(70000);
+    const { d, c } = totals(j);
+    expect(d).toBe(c);
   });
 });
 

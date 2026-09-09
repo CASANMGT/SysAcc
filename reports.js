@@ -260,6 +260,7 @@ export function formatMonth(monthStr) {
 
 export function getCategoryLabel(category) {
   const labels = {
+    jualan: 'Jualan',
     gaji: 'Gaji',
     freelance: 'Freelance',
     investasi: 'Investasi',
@@ -304,7 +305,7 @@ export function getCategoryIcon(category) {
 }
 
 export function getCategoryType(category) {
-  const incomeCategories = ['gaji', 'freelance', 'investasi', 'hadiah', 'lain-income', 'Hutang', 'hutang'];
+  const incomeCategories = ['jualan', 'gaji', 'freelance', 'investasi', 'hadiah', 'lain-income', 'Hutang', 'hutang'];
   return incomeCategories.includes(String(category)) ? 'income' : 'expense';
 }
 
@@ -326,6 +327,7 @@ export function getMonthsBetween(startDate, endDate) {
 
 export const CATEGORY_OPTIONS = {
   income: [
+    { value: 'jualan', label: 'Jualan', icon: '🧾' },
     { value: 'gaji', label: 'Gaji', icon: '💰' },
     { value: 'freelance', label: 'Freelance', icon: '💻' },
     { value: 'investasi', label: 'Investasi', icon: '📈' },

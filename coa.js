@@ -41,32 +41,45 @@ export const ACCOUNTS = [
   { code: '5199', name: 'Beban Lainnya', type: 'expense' },
 ];
 
-const byCode = new Map(ACCOUNTS.map(a => [a.code, a]));
+// Akun custom (dari penyimpanan, digabung dengan bawaan). Diisi via setCustomAccounts().
+let customAccounts = [];
+
+export function setCustomAccounts(list) {
+  customAccounts = Array.isArray(list) ? list.filter(a => a && /^\d{4}$/.test(a.code)) : [];
+}
+
+export function getAccounts() {
+  const seen = new Set();
+  const out = [];
+  customAccounts.forEach(a => { seen.add(a.code); out.push(a); });
+  ACCOUNTS.forEach(a => { if (!seen.has(a.code)) out.push(a); });
+  return out;
+}
 
 export function getAccount(code) {
-  return byCode.get(code) || null;
+  return getAccounts().find(a => a.code === code) || null;
 }
 
 export function accountLabel(code) {
-  const a = byCode.get(code);
+  const a = getAccount(code);
   return a ? `${a.code} ${a.name}` : code;
 }
 
 // Cara bayar → akun. credit/paylater = kewajiban (hutang), sisanya aset kas.
 export function accountForPayment(payment) {
-  const found = ACCOUNTS.find(a => a.payment === payment);
-  return (found || byCode.get('1101')).code;
+  const found = getAccounts().find(a => a.payment === payment);
+  return (found || { code: '1101' }).code;
 }
 
 export function isLiabilityPayment(payment) {
-  const a = ACCOUNTS.find(x => x.payment === payment);
+  const a = getAccounts().find(x => x.payment === payment);
   return !!a && a.type === 'liability';
 }
 
 // Kategori beban → akun beban. Custom/tak dikenal → 5199.
 export function expenseAccountFor(category) {
-  const found = ACCOUNTS.find(a => a.type === 'expense' && a.category === category);
-  return (found || byCode.get('5199')).code;
+  const found = getAccounts().find(a => a.type === 'expense' && a.category === category);
+  return (found || { code: '5199' }).code;
 }
 
 export const REVENUE_ACCOUNT = '4101';

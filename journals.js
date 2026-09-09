@@ -43,10 +43,17 @@ export function buildEntryJournal(entry, opts = {}) {
       lines.push({ account: cash, debit: amt, credit: 0, memo });
       lines.push({ account: REVENUE_ACCOUNT, debit: 0, credit: amt, memo });
     }
+    const cogsLines = [];
     if (opts.item && opts.item.qty > 0 && opts.item.avgCost > 0) {
-      const cogs = Math.round(opts.item.qty * opts.item.avgCost);
-      lines.push({ account: COGS_ACCOUNT, debit: cogs, credit: 0, memo: `HPP ${opts.item.name || ''}`.trim() });
-      lines.push({ account: INVENTORY_ACCOUNT, debit: 0, credit: cogs, memo: `HPP ${opts.item.name || ''}`.trim() });
+      cogsLines.push({ qty: opts.item.qty, avgCost: opts.item.avgCost, name: opts.item.name });
+    }
+    (opts.saleLines || []).forEach(sl => {
+      if (sl && sl.qty > 0 && sl.avgCost > 0) cogsLines.push(sl);
+    });
+    const cogs = cogsLines.reduce((s, sl) => s + Math.round(sl.qty * sl.avgCost), 0);
+    if (cogs > 0) {
+      lines.push({ account: COGS_ACCOUNT, debit: cogs, credit: 0, memo: 'HPP penjualan' });
+      lines.push({ account: INVENTORY_ACCOUNT, debit: 0, credit: cogs, memo: 'HPP penjualan' });
     }
   } else {
     const exp = expenseAccountFor(entry.category);

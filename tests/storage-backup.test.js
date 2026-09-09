@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, saveCustomAccount, getCustomAccounts, deleteCustomAccount } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -68,6 +68,37 @@ describe('parseCsvRow', () => {
   });
   it('delimiter titik-koma', () => {
     expect(parseCsvRow('a;b;c', ';')).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('period lock', () => {
+  it('kunci & buka', () => {
+    expect(isMonthLocked('2026-09-01')).toBe(false);
+    lockMonth('2026-09');
+    expect(isMonthLocked('2026-09-15')).toBe(true);
+    expect(isMonthLocked('2026-10-01')).toBe(false);
+    expect(getLockedMonths()).toContain('2026-09');
+    unlockMonth('2026-09');
+    expect(isMonthLocked('2026-09-01')).toBe(false);
+  });
+  it('bulan invalid ditolak', () => {
+    expect(() => lockMonth('ngawur')).toThrow();
+  });
+});
+
+describe('custom COA storage', () => {
+  it('tambah + tolak duplikat + hapus', () => {
+    saveCustomAccount({ code: '5120', name: 'Beban Iklan', type: 'expense', category: 'iklan' });
+    expect(getCustomAccounts().some(a => a.code === '5120')).toBe(true);
+    expect(() => saveCustomAccount({ code: '5120', name: 'X', type: 'expense' })).toThrow();
+    expect(() => saveCustomAccount({ code: '12', name: 'X', type: 'expense' })).toThrow();
+    deleteCustomAccount('5120', {});
+    expect(getCustomAccounts().some(a => a.code === '5120')).toBe(false);
+  });
+  it('tak bisa hapus akun bermutasi', () => {
+    saveCustomAccount({ code: '5121', name: 'Y', type: 'expense' });
+    expect(() => deleteCustomAccount('5121', { 5121: { debit: 100, credit: 0 } })).toThrow();
+    deleteCustomAccount('5121', {});
   });
 });
 

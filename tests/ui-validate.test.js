@@ -43,6 +43,15 @@ describe('validateForm', () => {
   });
 });
 
+describe('validateForm kunci periode', () => {
+  it('tanggal bulan terkunci ditolak', () => {
+    window.__isLockedMonth = (d) => String(d).slice(0, 7) === '2026-09';
+    expect(validateForm(base({ date: '2026-09-10' }))).toMatch(/dikunci/i);
+    expect(validateForm(base({ date: '2026-08-10' }))).toBeNull();
+    delete window.__isLockedMonth;
+  });
+});
+
 describe('trendPill', () => {
   it('naik / turun / stabil / kosong', () => {
     expect(trendPill(120, 100)).toEqual({ text: '+20%', cls: 'up' });
