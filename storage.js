@@ -213,6 +213,17 @@ export function clearAllEntries() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+// Hapus TOTAL (dipakai tombol reset): transaksi + pinjaman + jurnal + audit
+// + recurring + anggaran + stok + karyawan + ekuitas. Kontak dipertahankan.
+export function clearAllData() {
+  [
+    STORAGE_KEY, LOAN_KEY, REPAY_KEY, JOURN_KEY, AUDIT_KEY,
+    'wynara_recurring', 'wynara_budget', 'wynara_catBudget',
+    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup'
+  ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
+  // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
+}
+
 export function exportEntries() {
   const entries = getEntries();
   return JSON.stringify(entries, null, 2);
@@ -309,12 +320,17 @@ export function exportExcelEntries(list, filename) {
   XLSX.writeFile(wb, filename || `wynara-tampilan-${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
+// Cegah formula injection di spreadsheet: sel ber-leading = + - @ ditab-kan.
+function csvCell(v) {
+  if (v === 0) return '"0"';
+  if (v === null || v === undefined || v === '') return '""';
+  let s = String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
 export function exportCSVEntries(list, filename) {
-  const esc = (v) => {
-    if (v === 0) return '"0"';
-    if (v === null || v === undefined || v === '') return '""';
-    return '"' + String(v).replace(/"/g, '""') + '"';
-  };
+  const esc = csvCell;
   const rows = [];
   rows.push(['Tanggal', 'Jenis', 'Kategori', 'Cara Bayar', 'Detail Bayar', 'Deskripsi', 'Jumlah', 'Person']);
   (Array.isArray(list) ? list : []).forEach(e => {
@@ -338,11 +354,7 @@ export function exportCSV() {
   const loans = getLoans();
   const reps = getRepayments();
 
-  const esc = (v) => {
-    if (v === 0) return '"0"';
-    if (v === null || v === undefined || v === '') return '""';
-    return '"' + String(v).replace(/"/g, '""') + '"';
-  };
+  const esc = csvCell;
   const rows = [];
 
   rows.push(['=== TRANSAKSI ===']);
@@ -643,7 +655,7 @@ function importJSONFile(file) {
           return;
         }
         const data = JSON.parse(e.target.result);
-        let cE = 0, cL = 0, cR = 0, cP = 0, skipped = 0;
+        let cE = 0, cL = 0, cR = 0, cP = 0, cJ = 0, cI = 0, cM = 0, skipped = 0;
         if (Array.isArray(data)) {
           // legacy: array of entries
           const valid = [];
@@ -703,13 +715,47 @@ function importJSONFile(file) {
               const name = p && String(p.name || '').trim().slice(0, 60);
               if (!name) { skipped++; return; }
               const before = getPeopleList().length;
-              savePerson(name, p.type === 'perusahaan' ? 'perusahaan' : 'person');
+              try { savePerson(name, p.type === 'perusahaan' ? 'perusahaan' : 'person', p.phone); } catch { skipped++; return; }
               if (getPeopleList().length > before) added++; else skipped++;
             });
             cP = added;
           }
+          // Backup v3 juga bawa jurnal/barang/karyawan/ekuitas — gabungkan juga
+          if (Array.isArray(data.journals)) {
+            const have = new Set(getJournals().map(j => j.id));
+            const toAdd = data.journals.filter(j => j && j.id && !have.has(j.id) && Array.isArray(j.lines) && j.lines.length);
+            if (toAdd.length) { saveJournals(getJournals().concat(toAdd)); cJ = toAdd.length; }
+            skipped += data.journals.length - toAdd.length;
+          }
+          if (Array.isArray(data.items)) {
+            data.items.forEach(it => {
+              try {
+                const before = getItems().length;
+                saveItem({ ...it, id: undefined });
+                if (getItems().length > before) cI++; else skipped++;
+              } catch { skipped++; }
+            });
+          }
+          if (Array.isArray(data.employees)) {
+            data.employees.forEach(em => {
+              try {
+                const before = getAllEmployees().length;
+                saveEmployee({ ...em, id: undefined });
+                if (getAllEmployees().length > before) cM++; else skipped++;
+              } catch { skipped++; }
+            });
+          }
+          if (data.budget && typeof data.budget === 'object' && Number(data.budget.amount) > 0) {
+            try { saveBudget({ amount: Number(data.budget.amount), updatedAt: data.budget.updatedAt || new Date().toISOString() }); } catch {}
+          }
+          if (Array.isArray(data.recurring)) {
+            try { saveRecurring(data.recurring.filter(r => r && typeof r === 'object')); } catch {}
+          }
+          if (data.equity && typeof data.equity === 'object' && Number(data.equity.amount) > 0) {
+            try { saveOpeningEquity(data.equity.amount); } catch {}
+          }
         }
-        resolve({ entries: cE, loans: cL, repayments: cR, people: cP, skipped });
+        resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, skipped });
       } catch (err) {
         reject(new Error('Gagal membaca JSON: ' + err.message));
       }
@@ -719,20 +765,44 @@ function importJSONFile(file) {
   });
 }
 
+// Parser baris CSV yang hormati kutip ("a,b" tetap 1 kolom).
+export function parseCsvRow(line, delim) {
+  const d = delim === ';' ? ';' : ',';
+  const out = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else quoted = false;
+      } else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === d) { out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
 function importCSVFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const text = e.target.result;
+        const text = String(e.target.result || '').replace(/^\uFEFF/, '');
         const lines = text.split(/\r?\n/).filter(l => l.trim() && !l.startsWith('==='));
-        // simple CSV parse: assume first non-empty after header is data
-        // Try to detect if Transaksi section
+        // Deteksi delimiter dari baris header (koma vs titik-koma)
+        const headLine = lines.find(l => l.includes('Tanggal') && l.includes('Jenis')) || lines[0] || '';
+        const nComma = (headLine.match(/,/g) || []).length;
+        const nSemi = (headLine.match(/;/g) || []).length;
+        const delim = nSemi > nComma ? ';' : ',';
         const rows = [];
         for (const line of lines) {
           if (line.includes('Tanggal') && line.includes('Jenis')) continue;
           if (line.includes('=== PINJAMAN') || line.includes('=== PEMBAYARAN')) break;
-          const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
+          const cols = parseCsvRow(line, delim);
           if (cols.length >= 6 && cols[0] && !isNaN(new Date(cols[0]))) {
             rows.push(cols);
           }

@@ -241,7 +241,24 @@ export function renderEntries(entries) {
   }).join('');
 }
 
-export function renderSummary({ income, expense, net, incomeCount, expenseCount }) {
+export function trendPill(cur, prev) {
+  if (!isFinite(cur) || !isFinite(prev)) return { text: '—', cls: 'neutral' };
+  if (prev <= 0 && cur <= 0) return { text: '—', cls: 'neutral' };
+  if (prev <= 0 && cur > 0) return { text: '+100%', cls: 'up' };
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  if (Math.abs(pct) < 1) return { text: 'Stabil', cls: 'neutral' };
+  return { text: (pct > 0 ? '+' : '') + pct + '%', cls: pct > 0 ? 'up' : 'down' };
+}
+
+function setTrend(cardEl, pill) {
+  if (!cardEl) return;
+  const t = cardEl.querySelector('.metric-trend');
+  if (!t) return;
+  t.textContent = pill.text;
+  t.className = 'metric-trend ' + pill.cls;
+}
+
+export function renderSummary({ income, expense, net, incomeCount, expenseCount }, prev) {
   elements.totalIncome.textContent = formatCurrency(income);
   elements.totalExpense.textContent = formatCurrency(expense);
   elements.netBalance.textContent = formatCurrency(net);
@@ -250,6 +267,15 @@ export function renderSummary({ income, expense, net, incomeCount, expenseCount 
   const ec = document.getElementById('totalExpenseCount');
   if (ic) ic.textContent = (incomeCount || 0) + ' transaksi';
   if (ec) ec.textContent = (expenseCount || 0) + ' transaksi';
+  if (prev) {
+    setTrend(elements.totalIncome?.closest('.metric-card'), trendPill(income, prev.income));
+    // Pengeluaran naik = kabar buruk → warna dibalik (tanda % tetap jujur)
+    const ep = trendPill(expense, prev.expense);
+    if (ep.cls === 'up') ep.cls = 'down';
+    else if (ep.cls === 'down') ep.cls = 'up';
+    setTrend(elements.totalExpense?.closest('.metric-card'), ep);
+    setTrend(elements.netBalance?.closest('.metric-card'), trendPill(net, prev.net));
+  }
 }
 
 export function renderLoanTotals(piutang, hutang, piutangCount, hutangCount) {
@@ -416,6 +442,10 @@ function updateTxMetaBar() {
   } else if ((cat === 'Piutang' || cat === 'Hutang') && elements.entryLoanPerson.value) {
     const arrow = cat === 'Hutang' ? '←' : '→';
     loanExtra = ` ${arrow} ${escapeHtml(elements.entryLoanPerson.value)} • ${elements.entryLoanType.value}`;
+  }
+  if ((cat === 'Piutang' || cat === 'Hutang') && mode === 'new' && amt > 0) {
+    const rate = readBungaRate();
+    if (rate > 0) loanExtra += `${loanExtra ? ' • ' : ''}Total ${escapeHtml(formatCurrency(amt + Math.round(amt * rate / 100)))}`;
   }
   bar.innerHTML = `<span>Nominal: ${escapeHtml(amtStr)}</span><span class="capitalize">${escapeHtml(jenis)}</span><span>${escapeHtml(catLabel)}</span>${loanExtra ? `<span class="tx-meta-blue">${loanExtra}</span>` : ''}`;
 }
@@ -712,15 +742,15 @@ export function openModal(entry = null) {
     elements.entryId.value = '';
     elements.entryDate.value = new Date().toISOString().split('T')[0];
     elements.entryType.value = 'expense';
-    elements.entryPayment.value = 'cash';
+    elements.entryPayment.value = 'transfer';
     setSelected(elements.typeGroup, 'expense');
     const bg = document.getElementById('txSegmentBg');
     if (bg) bg.className = 'tx-segment-bg tx-segment-expense';
     const hint = document.getElementById('txJenisHint');
     if (hint) hint.innerHTML = '<span class="tx-dot tx-dot-expense"></span> 💸 Uang keluar dari kamu — saldo berkurang';
     renderCategoryButtons('expense');
-    setSelected(elements.paymentGroup, 'cash');
-    updatePaymentDetail('cash');
+    setSelected(elements.paymentGroup, 'transfer');
+    updatePaymentDetail('transfer');
     ['paymentCCBank','paymentCCLast4','paymentQRISProvider','paymentEWalletProvider','paymentPaylaterProvider','paymentTransferBank','paymentDebitBank','paymentDebitLast4'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
@@ -1314,7 +1344,7 @@ export function getFormData() {
   if (isLoan && elements.entryLoanType.value === 'cicilan' && (!installmentAmount || installmentAmount <= 0) && tenorVal > 0 && totalForCalc > 0) {
     installmentAmount = Math.ceil(totalForCalc / tenorVal);
   }
-  const payment = elements.entryPayment.value || 'cash';
+  const payment = elements.entryPayment.value || 'transfer';
   const ppn = !!(elements.entryPPN && elements.entryPPN.checked);
   let paymentDetail = '';
   if (payment === 'credit') {
@@ -2337,7 +2367,7 @@ export function getRepayFormData() {
     amount: parseFormattedNumber(elements.repayAmount.value),
     date: elements.repayDate.value,
     description: elements.repayDesc.value.trim(),
-    payment: (elements.repayPayment && elements.repayPayment.value) || 'cash',
+    payment: (elements.repayPayment && elements.repayPayment.value) || 'transfer',
     paymentDetail: (elements.repayPaymentDetail && elements.repayPaymentDetail.value.trim()) || ''
   };
 }
@@ -2729,7 +2759,8 @@ export function renderKas(rows) {
     <span style="flex:1"><b>${r.label}</b><br><small style="color:#64748b">${r.code}</small></span>
     <span style="font-weight:800">${fmt(r.balance)}</span>
   </div>`).join('') || '<p style="color:#94a3b8;font-size:12px">Belum ada saldo.</p>';
-  const opts = rows.map(r => ({ value: r.payment, label: `${r.icon} ${r.label} (${fmt(r.balance)})` }));
+  const opts = rows.map(r => ({ value: r.payment, label: `${r.icon} ${r.label} (${fmt(r.balance)})` }))
+    .sort((a, b) => (a.value === 'transfer' ? -1 : 0) - (b.value === 'transfer' ? -1 : 0));
   fill('transferFrom', opts);
   fill('transferTo', opts);
   fill('reconAccount', opts);

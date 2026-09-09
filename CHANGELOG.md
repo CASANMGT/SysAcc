@@ -6,6 +6,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.6.1] - 2026-09-09
+
+### Changed
+- **Transfer-first** — default cara bayar di semua form (transaksi, pelunasan, gaji, transfer, import bank) kini Transfer, bukan Tunai
+
+### Fixed (audit kejujuran UI + bug)
+- **Tren kartu bohongan** — badge `+100%`/`0%`/`Stabil` statis kini dihitung beneran vs periode sebelumnya (pengeluaran naik = merah); label periode topbar ikut filter (dulu macet “Agustus 2026”)
+- **Klaim login palsu** — “Dipercaya 12.000+ bisnis / Rating 4.9 G2” diganti teks jujur (offline-first & gratis)
+- **Tombol Export Excel mati** (ketahuan eslint) — kini terhubung
+- **Restore JSON buang jurnal/barang/karyawan** — backup v3 kini digabung utuh + dilaporkan di toast
+- **Hapus semua sisakan jurnal hantu** — reset kini wipe total (jurnal, audit, stok, gaji, anggaran) + konfirmasi tegas
+- **CSV injection & CSV koma** — sel `= + - @` dinetralkan; parser hormati kutip + deteksi delimiter (roundtrip export→import aman)
+- **Print kena XSS yang sama** — semua field di-escape
+- Label “Pertumbuhan” → “Pertumbuhan masuk”; meta bar tampilkan total berbunga
+
+---
+
 ## [1.6.0] - 2026-09-09
 
 ### Added — Fase 1: Sistem pembukuan beneran
@@ -178,6 +195,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.6.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.6.1
 [1.6.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.6.0
 [1.5.2]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.2
 [1.5.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.5.1

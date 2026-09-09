@@ -44,7 +44,7 @@
         <p>Platform akuntansi modern untuk UMKM. Pantau arus kas, buat laporan instan, dan fokus mengembangkan bisnis.</p>
         <div class="login-hero-meta">
           <div class="login-avatars"><span>A</span><span>A</span><span>A</span></div>
-          <div class="login-meta-text"><strong>Dipercaya 12.000+ bisnis</strong><span>✦ Rating 4.9/5 di G2</span></div>
+          <div class="login-meta-text"><strong>Offline-first & gratis</strong><span>✦ Data tersimpan di perangkat Anda</span></div>
         </div>
         <div class="login-dots"><span class="dot active"></span><span class="dot"></span><span class="dot"></span></div>
       </div>
@@ -120,7 +120,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.6.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.6.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -182,7 +182,7 @@
           <div class="metric-card metric-emerald">
             <div class="metric-top">
               <div class="metric-icon">↗</div>
-              <span class="metric-trend up">+100%</span>
+              <span class="metric-trend neutral">—</span>
             </div>
             <div class="metric-label">Pemasukan</div>
             <div class="metric-value" id="totalIncome">Rp0</div>
@@ -191,7 +191,7 @@
           <div class="metric-card metric-rose">
             <div class="metric-top">
               <div class="metric-icon">↘</div>
-              <span class="metric-trend down">0%</span>
+              <span class="metric-trend neutral">—</span>
             </div>
             <div class="metric-label">Pengeluaran</div>
             <div class="metric-value" id="totalExpense">Rp0</div>
@@ -200,7 +200,7 @@
           <div class="metric-card metric-blue">
             <div class="metric-top">
               <div class="metric-icon">💳</div>
-              <span class="metric-trend neutral">Stabil</span>
+              <span class="metric-trend neutral">—</span>
             </div>
             <div class="metric-label">Saldo Bersih</div>
             <div class="metric-value" id="netBalance">Rp0</div>
@@ -289,7 +289,7 @@
             <div class="chart-stats">
               <div class="chart-stat"><span>Total Masuk</span><strong id="chartTotalMasuk">Rp 0</strong></div>
               <div class="chart-stat"><span>Rata-rata</span><strong id="chartRata">Rp 0</strong></div>
-              <div class="chart-stat highlight"><span>Pertumbuhan</span><strong id="chartGrowth">—</strong></div>
+              <div class="chart-stat highlight"><span>Pertumbuhan masuk</span><strong id="chartGrowth">—</strong></div>
             </div>
           </div>
 
@@ -401,7 +401,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.6.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.6.1</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -467,7 +467,7 @@
       <input type="hidden" id="entryId">
       <input type="hidden" id="entryType" value="expense">
       <input type="hidden" id="entryCategory" value="">
-      <input type="hidden" id="entryPayment" value="cash">
+      <input type="hidden" id="entryPayment" value="transfer">
       <input type="hidden" id="entryLoanId" value="">
       <input type="hidden" id="entryLoanMode" value="new">
       <input type="hidden" id="entryLoanType" value="lunas">
@@ -623,10 +623,10 @@
           <div id="paymentGroupWrap" class="tx-section">
             <span class="tx-label">Bayar pakai apa?</span>
             <div id="paymentGroup" class="tx-payment-grid">
-              <button type="button" class="select-btn selected" data-value="cash">💵 Tunai</button>
+              <button type="button" class="select-btn" data-value="cash">💵 Tunai</button>
               <button type="button" class="select-btn" data-value="credit">💳 Credit Card</button>
               <button type="button" class="select-btn" data-value="qris">📱 QRIS</button>
-              <button type="button" class="select-btn" data-value="transfer">🏦 Transfer</button>
+              <button type="button" class="select-btn selected" data-value="transfer">🏦 Transfer</button>
               <button type="button" class="select-btn" data-value="debit">💳 Debit</button>
               <button type="button" class="select-btn" data-value="ewallet">📲 E-Wallet</button>
               <button type="button" class="select-btn" data-value="paylater">🛒 Paylater</button>
@@ -881,8 +881,8 @@
         <div class="form-group">
           <label for="repayPayment">Bayar pakai apa?</label>
           <select id="repayPayment">
-            <option value="cash">💵 Tunai</option>
             <option value="transfer">🏦 Transfer</option>
+            <option value="cash">💵 Tunai</option>
             <option value="qris">📱 QRIS</option>
             <option value="ewallet">📲 E-Wallet</option>
             <option value="debit">💳 Debit</option>
@@ -961,8 +961,8 @@
         <h2>💼 Gaji Karyawan</h2>
         <div class="modal-header-actions" style="display:flex;gap:6px;align-items:center">
           <select id="payrollPayment" title="Bayar dari kas" style="height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px">
-            <option value="cash">💵 Tunai</option>
             <option value="transfer">🏦 Transfer</option>
+            <option value="cash">💵 Tunai</option>
             <option value="qris">📱 QRIS</option>
             <option value="ewallet">📲 E-Wallet</option>
             <option value="debit">💳 Debit</option>

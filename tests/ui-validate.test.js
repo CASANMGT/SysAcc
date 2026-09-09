@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateForm, terbilang } from '../ui.js';
+import { validateForm, terbilang, trendPill } from '../ui.js';
 
 beforeEach(() => {
   window.__getOutstandingHutang = () => [];
@@ -40,6 +40,16 @@ describe('validateForm', () => {
   it('pinjaman lunas/tak dikenal → suruh pilih ulang', () => {
     window.__getOutstandingPiutang = () => [];
     expect(validateForm(base({ category: 'Piutang', loanMode: 'settle', loanId: 'x', amount: 1000 }))).toMatch(/pilih ulang/i);
+  });
+});
+
+describe('trendPill', () => {
+  it('naik / turun / stabil / kosong', () => {
+    expect(trendPill(120, 100)).toEqual({ text: '+20%', cls: 'up' });
+    expect(trendPill(80, 100)).toEqual({ text: '-20%', cls: 'down' });
+    expect(trendPill(100, 100)).toEqual({ text: 'Stabil', cls: 'neutral' });
+    expect(trendPill(0, 0)).toEqual({ text: '—', cls: 'neutral' });
+    expect(trendPill(50, 0)).toEqual({ text: '+100%', cls: 'up' });
   });
 });
 

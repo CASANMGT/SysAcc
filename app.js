@@ -34,7 +34,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.6.1';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -1024,6 +1024,9 @@ function handleImport(file) {
     if (result.loans) parts.push(`${result.loans} pinjaman`);
     if (result.repayments) parts.push(`${result.repayments} pembayaran`);
     if (result.people) parts.push(`${result.people} kontak`);
+    if (result.journals) parts.push(`${result.journals} jurnal`);
+    if (result.items) parts.push(`${result.items} barang`);
+    if (result.employees) parts.push(`${result.employees} karyawan`);
     if (parts.length) UI.showSuccess('Data digabung: ' + parts.join(', ') + (result.skipped ? ` (${result.skipped} baris rusak/duplikat dilewati)` : ''));
     else UI.showInfo(result && result.skipped ? `${result.skipped} baris dilewati (rusak/duplikat)` : 'Tidak ada data baru (mungkin duplikat)');
     refresh();
@@ -1145,7 +1148,7 @@ function render() {
     } else loadMoreWrap.classList.add('hidden');
   }
 
-  UI.renderSummary(totals);
+  UI.renderSummary(totals, prevPeriodTotals());
   UI.renderCategoryBreakdown(categories);
   UI.updateSortArrows(sortColumn, sortDirection);
   UI.updateSearchResultsCount(searchFiltered.length, filtered.length);
@@ -1159,6 +1162,7 @@ function render() {
   );
 
   renderFilterPills();
+  syncTopbarPeriod();
   renderArusKasChart(searchFiltered);
   renderDonut(categories);
   updateTableCount(paginated.length, filtered.length, sorted.length);
@@ -1171,6 +1175,53 @@ function render() {
     // keep transaksi view in sync, but don't reset page unless needed
     renderFullTransaksi();
   }
+}
+
+// Label periode jujur di topbar (dulu statis "Agustus 2026" selamanya)
+function syncTopbarPeriod() {
+  const el = document.getElementById('topbarPeriod');
+  if (!el) return;
+  const f = currentFilters;
+  const monthName = (d) => d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  const now = new Date();
+  let label = 'Semua waktu';
+  if (f.period === 'this-month') label = monthName(now);
+  else if (f.period === 'last-month') label = monthName(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  else if (f.period === 'this-year') label = `Tahun ${now.getFullYear()}`;
+  else if (f.period === 'custom' && (f.startDate || f.endDate)) {
+    const fmt = (s) => { const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }); };
+    label = `${f.startDate ? fmt(f.startDate) : '…'} – ${f.endDate ? fmt(f.endDate) : '…'} `;
+  }
+  el.textContent = label.trim() + ' ▾';
+}
+
+// Total periode SEBELUM rentang filter aktif (panjang sama) — untuk tren kartu.
+// Jujur: tren selalu vs periode sebelumnya, bukan angka statis.
+function prevPeriodTotals() {
+  const f = currentFilters;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  let s, e;
+  if (f.period === 'this-month') { s = new Date(now.getFullYear(), now.getMonth(), 1); e = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
+  else if (f.period === 'last-month') { s = new Date(now.getFullYear(), now.getMonth() - 1, 1); e = new Date(now.getFullYear(), now.getMonth(), 0); }
+  else if (f.period === 'this-year') { s = new Date(now.getFullYear(), 0, 1); e = new Date(now.getFullYear(), 11, 31); }
+  else if (f.period === 'custom' && (f.startDate || f.endDate)) {
+    s = f.startDate ? new Date(f.startDate) : new Date(-8640000000000000);
+    e = f.endDate ? new Date(f.endDate) : now;
+  } else { e = now; s = new Date(now); s.setDate(s.getDate() - 29); }
+  const span = Math.max(Math.round((e - s) / 86400000) + 1, 1);
+  const ps = new Date(s); ps.setDate(ps.getDate() - span);
+  const pe = new Date(s); pe.setDate(pe.getDate() - 1);
+  let income = 0, expense = 0;
+  currentEntries.forEach(en => {
+    if (f.type !== 'all' && en.type !== f.type) return;
+    if (f.category !== 'all' && en.category !== f.category) return;
+    const d = new Date(en.date);
+    if (isNaN(d) || d < ps || d > pe) return;
+    const a = Number(en.amount) || 0;
+    if (en.type === 'income') income += a; else expense += a;
+  });
+  return { income, expense, net: income - expense };
 }
 
 function renderFilterPills() {
@@ -1615,10 +1666,9 @@ function buildTaxReport() {
 }
 
 function handleClearAll() {
-  if (confirm('Hapus semua transaksi? Tindakan ini tidak dapat dibatalkan.')) {
-    Storage.clearAllEntries();
-    Storage.clearAllLoans();
-    UI.showSuccess('Semua transaksi dihapus');
+  if (confirm('Hapus SEMUA data (transaksi, pinjaman, jurnal, stok, gaji)? Kontak dipertahankan. Tindakan ini tidak dapat dibatalkan.')) {
+    Storage.clearAllData();
+    UI.showSuccess('Semua data dihapus');
     refresh();
   }
 }
@@ -1676,7 +1726,7 @@ function handlePrint() {
   const rows = sorted.map(e => {
     const sign = e.type === 'income' ? '+' : '-';
     const pay = e.paymentDetail ? `${e.payment} (${e.paymentDetail})` : (e.payment || '');
-    return `<tr><td>${e.date}</td><td>${e.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}</td><td>${e.category}</td><td>${pay}</td><td>${e.description || ''}</td><td style="text-align:right">${sign} Rp${Number(e.amount).toLocaleString('id-ID')}</td><td style="text-align:right">Rp${Number(e.balance).toLocaleString('id-ID')}</td></tr>`;
+    return `<tr><td>${escapeHtml(e.date)}</td><td>${e.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}</td><td>${escapeHtml(Reports.getCategoryLabel(e.category))}</td><td>${escapeHtml(pay)}</td><td>${escapeHtml(e.description || '')}</td><td style="text-align:right">${sign} Rp${Number(e.amount).toLocaleString('id-ID')}</td><td style="text-align:right">Rp${Number(e.balance).toLocaleString('id-ID')}</td></tr>`;
   }).join('');
 
   const html = `<!DOCTYPE html><html><head><title>Wynara - ${new Date().toLocaleDateString('id-ID')}</title>
@@ -1978,7 +2028,7 @@ function handlePayrollRun() {
   const todo = emps.filter(e => !paid[e.id]);
   if (!todo.length) return UI.showInfo(`Gaji ${monthLabel} sudah diproses semua`);
   if (!confirm(`Proses gaji ${monthLabel} untuk ${todo.length} karyawan?`)) return;
-  const payment = document.getElementById('payrollPayment')?.value || 'cash';
+  const payment = document.getElementById('payrollPayment')?.value || 'transfer';
   const date = now.toISOString().split('T')[0];
   let ok = 0;
   todo.forEach(e => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createLoan, addRepayment, getLoanById, updateLoan } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -56,6 +56,18 @@ describe('importEntries', () => {
   it('file rusak → throw pesan jelas', () => {
     expect(() => importEntries('bukan json')).toThrow(/invalid/i);
     expect(() => clearAllEntries()).not.toThrow();
+  });
+});
+
+describe('parseCsvRow', () => {
+  it('kutip dengan koma tetap 1 kolom', () => {
+    expect(parseCsvRow('"2026-09-01","Makan, minum",50000')).toEqual(['2026-09-01', 'Makan, minum', '50000']);
+  });
+  it('kutip ganda jadi 1 kutip', () => {
+    expect(parseCsvRow('"a""b",c')).toEqual(['a"b', 'c']);
+  });
+  it('delimiter titik-koma', () => {
+    expect(parseCsvRow('a;b;c', ';')).toEqual(['a', 'b', 'c']);
   });
 });
 
