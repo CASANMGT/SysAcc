@@ -3646,3 +3646,25 @@ tr:hover .table-row-actions {
   .dash-card { box-shadow: none; border: 1px solid var(--border); }
   body { background: white; }
 }
+/* ===== Chart theme vars (P0-3): readable in dark mode ===== */
+:root {
+  --chart-grid: #f1f5f9;
+  --chart-axis: #94a3b8;
+  --chart-dot-idle: #cbd5e1;
+  --chart-income: #10b981;
+  --chart-expense: #fb7185;
+}
+.dark-mode {
+  --chart-grid: #334155;
+  --chart-axis: #64748b;
+  --chart-dot-idle: #475569;
+  --chart-income: #34d399;
+  --chart-expense: #fb7185;
+}
+.dark-mode .donut-svg circle:first-of-type { stroke: #334155; }
+.dark-mode .donut-center span { color: #94a3b8; }
+.dark-mode .chart-months span { color: #94a3b8; }
+.dark-mode .dash-panel-legend { color: #94a3b8; }
+
+/* Notif "Buka" chip (P0-4), dark mode */
+.dark-mode .notif-goto { background: #1e3a8a; color: #bfdbfe; border-color: #1e40af; }

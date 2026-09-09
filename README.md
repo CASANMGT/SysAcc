@@ -2,7 +2,7 @@
 
 > Clean, offline-first accounting for UMKM Indonesia — pemasukan, pengeluaran, piutang/hutang cicilan, laporan & kontak.
 
-![Version](https://img.shields.io/badge/version-1.11.0-blue)
+![Version](https://img.shields.io/badge/version-1.12.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%2B%20LocalStorage-lightgrey)
 
@@ -52,7 +52,7 @@ Live: `http://localhost:3456` — login `admin / admin`
 - Neraca komparatif (awal vs kini + selisih) melengkapi L/R komparatif
 - Kas: transfer antar dompet, rekonsiliasi fisik, saldo dompet dari jurnal
 - Import mutasi bank CSV (match ±3 hari), invoice `INV/…` + cetak, PPh Final 0.5% + reminder tgl 15, aging piutang + tagih via WA
-- Gaji UU: halaman Karyawan & Gaji (Data tab + edit panel 3 sub-tab, Proses tab per-periode + draft/final, Laporan tab), BPJS/THR/PPh otomatis, slip rinci; karyawan: email, bank, L/P, lahir, HP, alamat, mulai kerja, kontrak, PTKP
+- Gaji UU: halaman Karyawan & Gaji (Data tab + edit panel 3 sub-tab, Proses tab per-periode + draft/final + **salin bulan lalu** + bonus/denda + **⚙️ tarif iuran editable** — JKK/JKM/JHT/JP/Kes perusahaan & karyawan, Laporan tab), **PPh 21 TER atas netto (PMK 168/2023)** + biaya jabatan cap Rp500rb + **NPWP (tanpa NPWP +20%)**, BPJS/THR otomatis, slip rinci; karyawan: email, bank, L/P, lahir, HP, alamat, mulai kerja, kontrak, PTKP
 - Rupiah desimal di semua kolom uang (`1.234,56`)
 - COA custom, Jual multi-baris dari stok (+HPP/struk), laporan Gaji bulanan/tahunan + cetak, cetak semua laporan, kunci periode, L/R komparatif + anggaran vs realisasi
 
@@ -72,8 +72,10 @@ Live: `http://localhost:3456` — login `admin / admin`
 - Backup `wynara-backup-YYYY-MM-DD.json` + restore + **cadangan otomatis IndexedDB** (pulih saat boot) + pengingat backup >30 hari
 - Anggaran bulanan + **anggaran per kategori** + **saldo per dompet** + recurring auto-post + kategori custom delete
 - **Kwitansi** 🧾 per transaksi (terbilang + PPN 11% + cetak), **Urungkan hapus** 6 detik
-- PWA installable (offline), Bantuan + Changelog modal, `npm test` → 55 tes vitest
-- Sidebar `Ringkasan ↔ Transaksi` views (`showView:176`), topbar search sync, theme `dark-mode` (toggle in Pengaturan)
+- PWA installable (offline), Bantuan + Changelog modal, 137 tes vitest
+- Sidebar `Ringkasan ↔ Transaksi` views (`showView:176`), topbar search sync, theme `dark-mode` (toggle in Pengaturan; **chart ikut gelap** via CSS vars `--chart-*`)
+- **Notifikasi terpadu** (badge 🔔: pinjaman + stok + hutang supplier + PPh) dengan tombol **Buka →** menuju bagian terkait
+- **ARIA penuh**: semua tombol ikon + 17 tombol tutup modal punya `aria-label`; rincian gaji `aria-expanded`
 - Toast (`success/error/warning/info`), focus trap, keyboard `Ctrl+N` / `/` / `Esc` / `?`
 - Print, pagination `prev/next/loadMore`, empty filtered state
 
@@ -128,7 +130,7 @@ accounting-system/
 ├─ manifest.json
 ├─ vendor/      # xlsx.full.min.js + inter-*.woff2 (lokal, CDN cuma fallback)
 ├─ icons/       # icon.svg + icon-192/512.png
-├─ tests/       # vitest: + payroll (BPJS/THR/TER), parse desimal (112 tes)
+├─ tests/       # vitest: + payroll (BPJS/THR/TER netto+NPWP), parse desimal (137 tes)
 ├─ package.json # type module, scripts: test (vitest run), dev
 ├─ README.md
 ├─ CHANGELOG.md
@@ -139,9 +141,10 @@ accounting-system/
 
 ## 🔖 Version
 
-Current: **1.11.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
+Current: **1.12.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
 
-Test: `npm install` sekali, lalu `npm test` (vitest, 129 tes) atau `npm run check` (lint + test).
+Test: `npm install` sekali, lalu `npm test` (vitest, 137 tes) atau `npm run check` (lint + test).
+(PowerShell execution policy memblokir npm/npx — jalankan `node node_modules/vitest/vitest.mjs run`.)
 
 Versioning: `MAJOR.MINOR.PATCH` — storage `version:1` in JSON backup.
 
@@ -160,11 +163,15 @@ See [CHANGELOG.md](./CHANGELOG.md).
 - Aging + WA, jatuh tempo, PPh Final 0.5% + reminder, PPN transaksi, invoice + cetak
 - Stok (beli/jual/HPP/opname), multi-kas + transfer + rekonsiliasi, import mutasi bank, gaji + slip
 
+**Selesai di v1.12.0 ✅**
+- PPh 21 TER atas netto (PMK 168/2023) + NPWP + biaya jabatan cap; salin bulan lalu; bonus/denda payroll
+- Dark-mode charts (CSS vars), notifikasi terpadu + lompat ke bagian terkait, ARIA icon buttons
+
 **Berikutnya (Fase 4, belum)**
 - Sync cloud multi-device (butuh backend + kunci API — Supabase/Firebase)
 - Multi-user + peran (owner/kasir/akuntan), PIN lokal sebagai langkah awal
 - Aset tetap + penyusutan, multi-cabang, dashboard owner (margin, runway kas)
-- Export PDF laporan, bottom-nav mobile, warna chart dark-mode, audit `aria`
+- Export PDF laporan, bottom-nav mobile, e-Bupot PPh Final
 
 **Selesai di v1.4.0 ✅**
 - Backup otomatis (mirror IDB + pengingat + label) + validasi schema import JSON

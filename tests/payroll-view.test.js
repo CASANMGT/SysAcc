@@ -20,7 +20,7 @@ beforeAll(async () => {
     </div>
     <div id="payrollTabData"></div><div id="payrollTabProcess" hidden></div><div id="payrollTabReport" hidden></div>
     <h3 id="empTableTitle"></h3><table><tbody id="empTableBody"></tbody></table>
-    <div id="empPanel"><h3 id="empPanelTitle"></h3>
+    <dialog id="empModal"><div id="empPanel"><h3 id="empPanelTitle"></h3>
       <div id="empSubTabs"><button class="chip selected" data-value="main"></button><button class="chip" data-value="salary"></button><button class="chip" data-value="tax"></button></div>
       <input type="hidden" id="empViewId">
       <input id="empViewName"><input id="empViewRole">
@@ -36,7 +36,7 @@ beforeAll(async () => {
       <input type="checkbox" id="empViewBpjsKes"><input type="checkbox" id="empViewBpjsTk">
       <button id="empViewSave"></button>
       <div id="empSubMain"></div><div id="empSubSalary" hidden></div><div id="empSubTax" hidden></div>
-    </div>
+    </div></dialog>
     <div id="payrollCards"></div>
     <div id="payrollSteps"><span class="pstep" data-s="1"><b class="pdot">1</b></span><span class="pstep" data-s="2"><b class="pdot">2</b></span><span class="pstep" data-s="3"><b class="pdot">3</b></span></div>
     <table><tbody id="payrollTableBody"></tbody></table>
@@ -97,5 +97,50 @@ describe('renderPayrollProcess', () => {
 describe('thrAmount dipakai di proses', () => {
   it('Mamat (8 bln) dapat proporsional 8/12', () => {
     expect(thrAmount(EMPS[0], new Date('2026-09-30'))).toBe(4000000);
+  });
+});
+
+describe('openEmpModal / closeEmpModal', () => {
+  it('buka isi form + tutup tanpa error', () => {
+    UI.openEmpModal({ ...EMPS[0], email: 'mamat@mail.com' });
+    expect(document.getElementById('empPanelTitle').textContent).toBe('Edit karyawan');
+    expect(document.getElementById('empViewName').value).toBe('Mamat');
+    UI.closeEmpModal();
+    UI.openEmpModal(null);
+    expect(document.getElementById('empPanelTitle').textContent).toBe('Tambah karyawan');
+    expect(document.getElementById('empViewName').value).toBe('');
+    UI.closeEmpModal();
+  });
+});
+
+describe('paySlipDetailHTML', () => {
+  it('tampilkan angka BPJS + THR dua bahasa', () => {
+    const emp = EMPS[0];
+    const slip = computeSlip(emp, { overtime: 100000, thr: 4000000, pph: true, refDate: new Date('2026-09-30') });
+    const html = UI.paySlipDetailHTML({ emp, slip, overtime: 100000, withThr: true, withPph: true, paid: false });
+    expect(html).toMatch(/Masuk kantong karyawan/);
+    expect(html).toMatch(/Dibayar perusahaan/);
+    expect(html).toMatch(/BPJS Kesehatan pekerja 1%/);
+    expect(html).toMatch(/JHT pekerja 2%/);
+    expect(html).toMatch(/JP pekerja 1%/);
+    expect(html).toMatch(/PPh 21 TER/);
+    expect(html).toMatch(/BPJS Kesehatan perusahaan 4%/);
+    expect(html).toMatch(/JHT perusahaan 3,7%/);
+    expect(html).toMatch(/THR Keagamaan/);
+    expect(html).toMatch(/Bonus bulan ini/);
+    expect(html).toMatch(/Denda\/absensi/);
+  });
+  it('tampilkan plafon bila gaji di atas batas', () => {
+    const emp = { ...EMPS[0], baseSalary: 15000000, allowance: 0 };
+    const slip = computeSlip(emp, { overtime: 0, thr: 0, pph: false, refDate: new Date('2026-09-30') });
+    const html = UI.paySlipDetailHTML({ emp, slip, overtime: 0, withThr: false, withPph: false, paid: false });
+    expect(html).toMatch(/plafon/);
+  });
+  it('tanpa potongan bila BPJS off', () => {
+    const emp = { ...EMPS[0], bpjsKes: false, bpjsTk: false };
+    const slip = computeSlip(emp, { overtime: 0, thr: 0, pph: false, refDate: new Date('2026-09-30') });
+    const html = UI.paySlipDetailHTML({ emp, slip, overtime: 0, withThr: false, withPph: false, paid: false });
+    expect(html).not.toMatch(/BPJS Kesehatan pekerja/);
+    expect(html).toMatch(/BPJS nonaktif/);
   });
 });

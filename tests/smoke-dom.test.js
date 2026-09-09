@@ -106,6 +106,8 @@ describe('charts', () => {
     const svg = document.getElementById('arusKasChart').innerHTML;
     expect(svg).toMatch(/path|circle/);
     expect(document.getElementById('chartGrowth').textContent).toMatch(/%/);
+    expect(svg).toMatch(/var\(--chart-income/);
+    expect(svg).toMatch(/var\(--chart-grid/);
   });
   it('arus kas kosong → pesan', () => {
     Charts.renderArusKasChart([], { range: 6, show: { income: true, expense: true } });

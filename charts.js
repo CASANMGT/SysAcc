@@ -56,8 +56,8 @@ export function renderArusKasChart(entries, opts) {
   if (totalEl) totalEl.textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(total);
   if (rataEl) rataEl.textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Math.round(total / activeMonths));
   if (!hasAny) {
-    svg.innerHTML = '<text x="300" y="80" text-anchor="middle" fill="#94a3b8" font-size="12">Belum ada data</text><text x="300" y="100" text-anchor="middle" fill="#cbd5e1" font-size="11">Tambah transaksi untuk melihat tren</text>';
-    if (growthEl) { growthEl.textContent = '—'; growthEl.style.color = '#64748b'; }
+    svg.innerHTML = '<text x="300" y="80" text-anchor="middle" style="fill:var(--chart-axis,#94a3b8)" font-size="12">Belum ada data</text><text x="300" y="100" text-anchor="middle" style="fill:var(--chart-dot-idle,#cbd5e1)" font-size="11">Tambah transaksi untuk melihat tren</text>';
+    if (growthEl) { growthEl.textContent = '—'; growthEl.style.color = ''; }
     return;
   }
   const W = 600, H = 180, pad = { l: 44, r: 8, t: 10, b: 20 };
@@ -78,25 +78,26 @@ export function renderArusKasChart(entries, opts) {
   });
   const dots = data.map((d, i) => {
     const tip = `${labels[i]} • Masuk ${fmtCompactRp(d.income)} • Keluar ${fmtCompactRp(d.expense)}`;
-    return `<g><title>${tip}</title><circle cx="${x(i)}" cy="${y(d.income)}" r="${i === lastIdx ? 5 : 3.5}" fill="${d.income > 0 ? '#10b981' : '#cbd5e1'}" stroke="white" stroke-width="2"><title>${tip}</title></circle></g>`;
+    const dotFill = d.income > 0 ? 'var(--chart-income,#10b981)' : 'var(--chart-dot-idle,#cbd5e1)';
+    return `<g><title>${tip}</title><circle cx="${x(i)}" cy="${y(d.income)}" r="${i === lastIdx ? 5 : 3.5}" style="fill:${dotFill}" stroke="white" stroke-width="2"><title>${tip}</title></circle></g>`;
   }).join('');
   svg.innerHTML = `
-    ${yTicks.map(t => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${t.yy}" y2="${t.yy}" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="4 6"/><text x="${pad.l - 6}" y="${t.yy + 4}" text-anchor="end" fill="#94a3b8" font-size="9">${fmtCompactRp(Math.round(t.v))}</text>`).join('')}
-    ${show.income && n > 1 ? `<path d="${areaIncome}" fill="#10b981" fill-opacity="0.12"/>` : ''}
-    ${show.income && n > 1 ? `<path d="M ${incomePts}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
-    ${show.income && n === 1 && data[0].income > 0 ? `<circle cx="${x(0)}" cy="${y(data[0].income)}" r="6" fill="#10b981" stroke="white" stroke-width="2"><title>${labels[0]} • ${fmtCompactRp(data[0].income)}</title></circle>` : ''}
-    ${show.expense && n > 1 ? `<path d="M ${expensePts}" fill="none" stroke="#fb7185" stroke-width="2" stroke-dasharray="6 6" opacity="0.7"/>` : ''}
+    ${yTicks.map(t => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${t.yy}" y2="${t.yy}" style="stroke:var(--chart-grid,#f1f5f9)" stroke-width="1" stroke-dasharray="4 6"/><text x="${pad.l - 6}" y="${t.yy + 4}" text-anchor="end" style="fill:var(--chart-axis,#94a3b8)" font-size="9">${fmtCompactRp(Math.round(t.v))}</text>`).join('')}
+    ${show.income && n > 1 ? `<path d="${areaIncome}" style="fill:var(--chart-income,#10b981)" fill-opacity="0.12"/>` : ''}
+    ${show.income && n > 1 ? `<path d="M ${incomePts}" fill="none" style="stroke:var(--chart-income,#10b981)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+    ${show.income && n === 1 && data[0].income > 0 ? `<circle cx="${x(0)}" cy="${y(data[0].income)}" r="6" style="fill:var(--chart-income,#10b981)" stroke="white" stroke-width="2"><title>${labels[0]} • ${fmtCompactRp(data[0].income)}</title></circle>` : ''}
+    ${show.expense && n > 1 ? `<path d="M ${expensePts}" fill="none" style="stroke:var(--chart-expense,#fb7185)" stroke-width="2" stroke-dasharray="6 6" opacity="0.7"/>` : ''}
     ${dots}
   `;
   if (growthEl) {
     const last = data[lastIdx].income;
     const prev = n > 1 ? data[lastIdx - 1].income : 0;
-    if (prev === 0 && last > 0) { growthEl.textContent = '+100%'; growthEl.style.color = '#047857'; }
-    else if (prev === 0 && last === 0) { growthEl.textContent = '—'; growthEl.style.color = '#64748b'; }
+    if (prev === 0 && last > 0) { growthEl.textContent = '+100%'; growthEl.style.color = 'var(--chart-income,#10b981)'; }
+    else if (prev === 0 && last === 0) { growthEl.textContent = '—'; growthEl.style.color = ''; }
     else {
       const pct = Math.round(((last - prev) / (prev || 1)) * 100);
       growthEl.textContent = (pct > 0 ? '+' : '') + pct + '%';
-      growthEl.style.color = pct >= 0 ? '#047857' : '#be123c';
+      growthEl.style.color = pct >= 0 ? 'var(--chart-income,#10b981)' : 'var(--chart-expense,#fb7185)';
     }
   }
 }

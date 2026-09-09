@@ -6,6 +6,32 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.12.0] - 2026-09-09
+
+### Fixed — PPh 21 sesuai PMK 168/2023 (perbaikan legal)
+- **Tarif TER kini dihitung atas NETTO**, bukan bruto: netto = bruto − biaya jabatan (5%, maks Rp500.000) − iuran JHT 2% − iuran JP 1% — slip lama menghitung pajak lebih tinggi
+- **No. NPWP** per karyawan (field baru + kolom impor Excel): tanpa NPWP otomatis kena **surcharge +20%** sesuai UU; slip menampilkan status NPWP
+- Rincian PPh di slip sekarang transparan: `TER TK/0 × netto Rp… (tanpa NPWP +20%)`
+- Bonus masuk dasar BPJS & PPh; denda hanya memotong take-home (tidak mengurangi dasar pajak) — dijelaskan di UI
+
+### Added — Payroll
+- **⚙️ Tarif iuran editable** — panel baru di Proses Gaji: semua tarif bisa diubah per bulan (dibayar perusahaan: BPJS Kes 4%, JHT 3,7%, JP 2%, **JKK kecelakaan kerja 0,54%** [range risiko 0,24–1,74%], JKM 0,3%; dipotong karyawan: Kes 1%, JHT 2%, JP 1%). Tarif tersimpan di draft, ikut salin bulan lalu, terkunci saat Final
+- **📋 Salin bulan lalu**: copy lembur/bonus/potongan/pengaturan dari bulan sebelumnya ke draft bulan ini
+- **Bonus & Denda/absensi** per karyawan (input di rincian expandable), ikut draft, snapshot & deskripsi transaksi final
+- Legenda THR & PPh di bawah tabel proses (masa kerja n/12; TER atas netto)
+
+### Improved — UI/UX
+- **Mode gelap kini benar-benar gelap**: gridline/axis/titik/area chart pakai CSS variables (`--chart-*`) dengan override dark — dulu garis grid & area hilang di dark mode; donut & label ikut
+- **Notifikasi terpadu**: badge 🔔 menghitung pinjaman jatuh tempo + stok menipis + hutang supplier lewat tempo + PPh Final belum dibayar; klik bell → daftar + tombol **Buka →** melompat langsung ke Pinjeman/Stok/Laporan Pajak
+- Header tabel proses gaji dijelaskan (Tambahan = tunjangan+lembur+bonus+THR; Potongan = BPJS+PPh+denda; Gaji bersih = THP) + tooltip
+- Subjudul "Proses gaji" pakai bahasa awam
+- **ARIA**: 17 tombol tutup modal + semua tombol ikon dinamis (stok, karyawan, supplier, kontak) kini punya `aria-label` bernama; rincian karyawan pakai `aria-expanded`
+
+### Tests
+- 139 tests pass — PPh diuji: netto formula, cap biaya jabatan, surcharge tanpa NPWP, bonus masuk dasar, denda tidak mengurangi dasar; tarif override (JKK risiko tinggi, iuran karyawan 2%, tarif invalid → default)
+
+---
+
 ## [1.11.0] - 2026-09-09
 
 ### Added — Login & merek

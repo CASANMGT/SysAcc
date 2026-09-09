@@ -1,7 +1,7 @@
 import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
 import { accountLabel } from './coa.js';
-import { computeSlip, thrAmount } from './payroll.js';
+import { computeSlip, thrAmount, DEFAULT_RATES } from './payroll.js';
 
 const elements = {
   entriesBody: document.getElementById('entriesBody'),
@@ -2740,8 +2740,8 @@ export function renderContacts(people, loans) {
           </div>
         </div>
         <div class="contact-actions">
-          <button class="btn btn-ghost edit-contact-btn" data-contact-id="${p.id}" data-contact-name="${escapeHtml(p.name)}" data-contact-type="${p.type || 'person'}" data-contact-phone="${escapeHtml(p.phone || '')}" title="Edit">✎</button>
-          <button class="btn btn-danger delete-contact-btn" data-contact-id="${p.id}" data-contact-name="${escapeHtml(p.name)}">🗑</button>
+          <button class="btn btn-ghost edit-contact-btn" data-contact-id="${p.id}" data-contact-name="${escapeHtml(p.name)}" data-contact-type="${p.type || 'person'}" data-contact-phone="${escapeHtml(p.phone || '')}" aria-label="Edit ${escapeHtml(p.name)}" title="Edit">✎</button>
+          <button class="btn btn-danger delete-contact-btn" data-contact-id="${p.id}" data-contact-name="${escapeHtml(p.name)}" aria-label="Hapus ${escapeHtml(p.name)}" title="Hapus">🗑</button>
         </div>
       </div>
     `;
@@ -2790,8 +2790,8 @@ export function renderStock(items) {
       <span style="font-size:18px">${isLow ? '⚠️' : '📦'}</span>
       <span style="flex:1;min-width:0"><b>${escapeHtml(i.name)}</b>${i.sku ? ` <small style="color:#94a3b8">${escapeHtml(i.sku)}</small>` : ''}<br>
       <small style="color:#64748b">Stok ${i.stock} • Jual ${fmt(i.price)} • Modal ${fmt(i.cost)} • Nilai ${fmt(i.stock * i.cost)}</small></span>
-      <button class="btn btn-ghost stock-edit" data-id="${i.id}" style="font-size:11px;padding:2px 8px">✎</button>
-      <button class="btn btn-ghost stock-del" data-id="${i.id}" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
+      <button class="btn btn-ghost stock-edit" data-id="${i.id}" aria-label="Edit ${escapeHtml(i.name)}" title="Edit" style="font-size:11px;padding:2px 8px">✎</button>
+      <button class="btn btn-ghost stock-del" data-id="${i.id}" aria-label="Hapus ${escapeHtml(i.name)}" title="Hapus" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
     </div>`;
   }).join('');
 }
@@ -2868,9 +2868,9 @@ export function renderEmployees(emps, paidMap) {
       <span style="font-size:18px">${who}</span>
       <span style="flex:1"><b>${escapeHtml(e.name)}</b>${extra ? `<br><small style="color:#64748b">${extra}</small>` : ''}<br>
       <small style="color:#64748b">${fmt(gross)}/bln (pokok ${fmt(e.baseSalary ?? e.salary)}${Number(e.allowance) > 0 ? ` + tunj ${fmt(e.allowance)}` : ''}) ${paid ? '• ✅ bulan ini sudah' : ''}${e.bpjsKes === false || e.bpjsTk === false ? ' • BPJS off' : ''}</small></span>
-      <button class="btn btn-ghost emp-slip" data-id="${e.id}" style="font-size:11px;padding:2px 8px" title="Slip gaji">🧾</button>
-      <button class="btn btn-ghost emp-edit" data-id="${e.id}" style="font-size:11px;padding:2px 8px">✎</button>
-      <button class="btn btn-ghost emp-del" data-id="${e.id}" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
+      <button class="btn btn-ghost emp-slip" data-id="${e.id}" aria-label="Slip gaji ${escapeHtml(e.name)}" title="Slip gaji" style="font-size:11px;padding:2px 8px">🧾</button>
+      <button class="btn btn-ghost emp-edit" data-id="${e.id}" aria-label="Edit ${escapeHtml(e.name)}" title="Edit" style="font-size:11px;padding:2px 8px">✎</button>
+      <button class="btn btn-ghost emp-del" data-id="${e.id}" aria-label="Hapus ${escapeHtml(e.name)}" title="Hapus" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
     </div>`;
   }).join('');
 }
@@ -3389,8 +3389,8 @@ export function renderSuppliers(purchases) {
       <span style="font-size:18px">${isPaid ? '✅' : '📥'}</span>
       <span style="flex:1"><b>${escapeHtml(p.supplier)}</b> <small style="color:#94a3b8">${escapeHtml(p.date || '')}</small><br>
       <small style="color:#64748b">${(p.lines || []).map(l => `${l.qty}× ${escapeHtml(l.name || '')}`).join(', ')} • Total ${fmt(p.totalCost)} • Sudah ${fmt(paid)} • <b>Sisa ${fmt(out)}</b>${dueTxt}</small></span>
-      ${!isPaid ? `<button class="btn btn-ghost sup-pay" data-id="${p.id}" style="font-size:11px;padding:4px 10px">💰 Bayar</button>` : ''}
-      ${(p.payments || []).length === 0 ? `<button class="btn btn-ghost sup-del" data-id="${p.id}" style="font-size:11px;padding:4px 8px;color:#ef4444">✕</button>` : ''}
+      ${!isPaid ? `<button class="btn btn-ghost sup-pay" data-id="${p.id}" aria-label="Bayar ${escapeHtml(p.supplier)}" title="Bayar" style="font-size:11px;padding:4px 10px">💰 Bayar</button>` : ''}
+      ${(p.payments || []).length === 0 ? `<button class="btn btn-ghost sup-del" data-id="${p.id}" aria-label="Hapus pembelian ${escapeHtml(p.supplier)}" title="Hapus" style="font-size:11px;padding:4px 8px;color:#ef4444">✕</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -3450,6 +3450,83 @@ export function setPayrollTab(tab) {
   document.getElementById('payrollTabProcess').hidden = tab !== 'process';
   document.getElementById('payrollTabReport').hidden = tab !== 'report';
 }
+function empIncomplete(e) {
+  const missing = [];
+  if (!e.startDate) missing.push('tanggal bergabung (THR tidak bisa dihitung)');
+  if (!e.phone) missing.push('nomor HP');
+  return missing.length ? 'Belum lengkap: ' + missing.join(', ') : '';
+}
+function pctFmt(part, base) {
+  if (!(base > 0) || !(part > 0)) return '';
+  return (part / base * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 }) + '%';
+}
+export function paySlipDetailHTML(r) {
+  const e = r.emp, s = r.slip;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const B = s.bases || { gross: s.gross, kesWage: s.gross, jpWage: s.gross };
+  const R = s.rates || DEFAULT_RATES;
+  const pct = (v) => ((Number(v) || 0) * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 }) + '%';
+  const dis = r.paid ? 'disabled' : '';
+  const row = (kid, hr, amt, sign) => {
+    if (!(amt > 0)) return '';
+    return `<div style="display:flex;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px dashed #e2e8f0"><span style="flex:1">${kid}<br><small style="color:#64748b">${hr}</small></span><b style="white-space:nowrap">${sign}${fmt(amt)}</b></div>`;
+  };
+  const cap = (used, full) => (used < full ? ` (plafon ${fmt(used)})` : '');
+  const tenureTxt = s.tenureMonths >= 12 ? 'penuh (12+ bulan)' : `${s.tenureMonths} bulan → proporsional`;
+  const received = [
+    row('Gaji tetap tiap bulan', 'Gaji pokok', s.base, '+'),
+    row('Uang tambahan tetap', 'Tunjangan tetap', s.allow, '+'),
+    row('Uang lembur bulan ini', 'Lembur', s.overtime, '+'),
+    row('Bonus bulan ini', 'Bonus/insentif', s.bonus, '+'),
+    row(`Bonus hari raya — kerja ${tenureTxt}`, 'THR Keagamaan (Permenaker 6/2016)', s.thr, '+'),
+    row(`Iuran berobat — gajimu dipotong ${pctFmt(s.ded.kesSelf, B.kesWage)}`, `BPJS Kesehatan pekerja ${pct(R.kesSelf)} × ${fmt(B.kesWage)}${cap(B.kesWage, B.gross)}`, s.ded.kesSelf, '−'),
+    row(`Tabungan hari tua — gajimu dipotong ${pctFmt(s.ded.jhtSelf, B.gross)}`, `JHT pekerja ${pct(R.jhtSelf)} × ${fmt(B.gross)}`, s.ded.jhtSelf, '−'),
+    row(`Tabungan pensiun — gajimu dipotong ${pctFmt(s.ded.jpSelf, B.jpWage)}`, `JP pekerja ${pct(R.jpSelf)} × ${fmt(B.jpWage)}${cap(B.jpWage, B.gross)}`, s.ded.jpSelf, '−'),
+    row('Pajak gaji — dipotong otomatis', `PPh 21 TER ${escapeHtml(e.ptkp || 'TK/0')} × netto ${fmt(s.pphNetto)}${e.npwp ? '' : ' (tanpa NPWP +20%)'}`, s.ded.pph21, '−'),
+    row('Denda/absensi bulan ini', 'Potongan langsung (tidak mengurangi dasar BPJS/PPh)', s.deduct, '−'),
+  ].join('');
+  const company = [
+    row('Iuran berobat — perusahaan yang bayar', `BPJS Kesehatan perusahaan ${pct(R.kesComp)} × ${fmt(B.kesWage)}${cap(B.kesWage, B.gross)}`, s.comp.kesComp, '+'),
+    row('Tabungan hari tua — perusahaan yang bayar', `JHT perusahaan ${pct(R.jhtComp)} × ${fmt(B.gross)}`, s.comp.jhtComp, '+'),
+    row('Tabungan pensiun — perusahaan yang bayar', `JP perusahaan ${pct(R.jpComp)} × ${fmt(B.jpWage)}${cap(B.jpWage, B.gross)}`, s.comp.jpComp, '+'),
+    row('Asuransi kecelakaan kerja — perusahaan yang bayar', `JKK ${pct(R.jkk)} × ${fmt(B.gross)}`, s.comp.jkk, '+'),
+    row('Santunan kematian — perusahaan yang bayar', `JKM ${pct(R.jkm)} × ${fmt(B.gross)}`, s.comp.jkm, '+'),
+  ].join('');
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-bottom:8px">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:11px;color:#64748b">Lembur bulan ini</div>
+        <input type="text" class="pay-lembur" data-id="${e.id}" value="${r.overtime > 0 ? r.overtime : ''}" placeholder="Rp" inputmode="decimal" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:11px;color:#64748b">Bonus bulan ini</div>
+        <input type="text" class="pay-bonus" data-id="${e.id}" value="${(r.slip.bonus || 0) > 0 ? r.slip.bonus : ''}" placeholder="Rp" inputmode="decimal" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:11px;color:#64748b">Denda/absensi</div>
+        <input type="text" class="pay-denda" data-id="${e.id}" value="${(r.slip.deduct || 0) > 0 ? r.slip.deduct : ''}" placeholder="Rp" inputmode="decimal" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:11px;color:#64748b">THR: <b>${fmt(s.thr)}</b></div>
+        <label class="login-check" style="font-size:11px;display:block;margin-top:4px"><input type="checkbox" class="pay-thr" data-id="${e.id}" ${r.withThr ? 'checked' : ''} ${dis}> Sertakan THR</label>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:11px;color:#64748b">PPh 21: <b>${fmt(s.ded.pph21)}</b></div>
+        <label class="login-check" style="font-size:11px;display:block;margin-top:4px"><input type="checkbox" class="pay-pph" data-id="${e.id}" ${r.withPph ? 'checked' : ''} ${dis}> Hitung PPh</label>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px">Masuk kantong karyawan = <b>${fmt(s.takeHome)}</b></div>
+        ${received || '<div style="font-size:12px;color:#94a3b8">—</div>'}
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px">Dibayar perusahaan = <b>${fmt(s.employerCost)}</b></div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:4px">Gaji + THR ${fmt(s.gross + s.thr)} + iuran ${fmt(s.totalComp)}</div>
+        ${company || '<div style="font-size:12px;color:#94a3b8">BPJS nonaktif untuk karyawan ini.</div>'}
+      </div>
+    </div>`;
+}
 export function renderEmpTable(emps, term) {
   const body = document.getElementById('empTableBody');
   if (!body) return;
@@ -3469,9 +3546,21 @@ export function renderEmpTable(emps, term) {
       <td style="padding:10px">${escapeHtml(e.contract === 'harian' ? 'Harian' : e.contract === 'kontrak' ? 'Kontrak' : 'Tetap')}</td>
       <td style="padding:10px">${e.active === false ? '😴 Nonaktif' : '🟢 Aktif'}</td>
       <td style="padding:10px;text-align:right">${fmt(gross)}</td>
-      <td style="padding:10px;text-align:right"><button class="btn btn-ghost emp-view-edit" data-id="${e.id}" style="font-size:12px">✎ Edit</button></td>
+      <td style="padding:10px;text-align:right"><button class="btn btn-ghost emp-view-edit" data-id="${e.id}" aria-label="Edit ${escapeHtml(e.name)}" title="Edit" style="font-size:12px">✎ Edit</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8">Belum ada karyawan yang cocok.</td></tr>';
+}
+export function openEmpModal(emp) {
+  fillEmpPanel(emp);
+  const m = document.getElementById('empModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+  if (m) trapFocus(m);
+}
+export function closeEmpModal() {
+  const m = document.getElementById('empModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
 }
 export function fillEmpPanel(emp) {
   const isNew = !emp;
@@ -3494,6 +3583,7 @@ export function fillEmpPanel(emp) {
   v('empViewGender', emp?.gender || '');
   v('empViewBirth', emp?.birthDate || '');
   v('empViewPtkp', emp?.ptkp || 'TK/0');
+  v('empViewNpwp', emp?.npwp || '');
   v('empViewAddress', emp?.address || '');
   const bk = document.getElementById('empViewBpjsKes');
   if (bk) bk.checked = emp ? emp.bpjsKes !== false : true;
@@ -3524,6 +3614,7 @@ export function getEmpPanelData() {
     gender: document.getElementById('empViewGender')?.value || '',
     birthDate: document.getElementById('empViewBirth')?.value || '',
     ptkp: document.getElementById('empViewPtkp')?.value || 'TK/0',
+    npwp: (document.getElementById('empViewNpwp')?.value || '').replace(/[^0-9]/g, ''),
     address: document.getElementById('empViewAddress')?.value.trim() || '',
     bpjsKes: document.getElementById('empViewBpjsKes')?.checked !== false,
     bpjsTk: document.getElementById('empViewBpjsTk')?.checked !== false
@@ -3555,18 +3646,45 @@ export function renderPayrollProcess(rows, monthLabel, status) {
   const allChecked = rows.length > 0 && rows.every(r => r.checked || r.paid);
   const ca = document.getElementById('payrollCheckAll');
   if (ca) ca.checked = allChecked;
+  const panel = document.getElementById('payrollRatesPanel');
+  if (panel) {
+    const R = rows[0]?.slip?.rates || DEFAULT_RATES;
+    const dis = status === 'final' ? 'disabled' : '';
+    const cell = (key, label, hint) => `<div><div style="font-size:11px;color:#64748b">${label}</div><input type="text" inputmode="decimal" class="pay-rate" data-rate="${key}" aria-label="Tarif ${label} (%)" value="${(Number(R[key]) * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}" ${dis} style="width:100%;height:32px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px"><div style="font-size:10px;color:#94a3b8">${hint}</div></div>`;
+    panel.innerHTML = rows.length ? `<details style="margin:0 16px 8px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#475569;user-select:none">⚙️ Tarif iuran BPJS &amp; pajak <span style="font-weight:400;color:#94a3b8">(klik untuk lihat/ubah)</span></summary>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:8px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px">Tarif standar BPJS terisi otomatis — ubah hanya kalau ada SK khusus. Berlaku untuk semua karyawan bulan ini. JKK mengikuti kelas risiko usaha (0,24%–1,74%), JKM &amp; JKK dibayar perusahaan.</div>
+        <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:4px">Dibayar perusahaan</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px">
+          ${cell('kesComp', 'BPJS Kesehatan', 'standar 4')}
+          ${cell('jhtComp', 'JHT', 'standar 3,7')}
+          ${cell('jpComp', 'JP', 'standar 2')}
+          ${cell('jkk', 'JKK kecelakaan kerja', 'standar 0,54 • kecil 0,24')}
+          ${cell('jkm', 'JKM kematian', 'standar 0,3')}
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:4px">Dipotong dari gaji karyawan</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">
+          ${cell('kesSelf', 'BPJS Kesehatan', 'standar 1')}
+          ${cell('jhtSelf', 'JHT', 'standar 2')}
+          ${cell('jpSelf', 'JP', 'standar 1')}
+        </div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:8px">Isi angka persen, mis. <b>0,24</b> = 0,24%. PPh 21 tetap ikut tarif TER resmi (tidak bisa diubah) — bisa dimatikan per karyawan.</div>
+      </div>
+    </details>` : '';
+  }
   body.innerHTML = rows.length ? rows.map(r => {
     const e = r.emp;
     const initial = (e.name || '?')[0]?.toUpperCase() || '?';
-    const tambahan = r.slip.allow + r.slip.overtime + r.slip.thr;
-    const potongan = r.slip.totalDed;
+    const tambahan = r.slip.allow + r.slip.overtime + (r.slip.bonus || 0) + r.slip.thr;
+    const potongan = r.slip.totalDed + (r.slip.deduct || 0);
     const stTxt = r.paid ? 'Sudah' : status === 'final' ? 'Final' : 'Draft';
     const open = payrollExpanded === e.id;
     return `<tr style="border-bottom:1px solid #f8fafc;${r.paid ? 'opacity:0.6' : ''}">
       <td style="padding:10px"><input type="checkbox" class="pay-check" data-id="${e.id}" ${r.checked ? 'checked' : ''} ${r.paid ? 'disabled' : ''} aria-label="Pilih ${escapeHtml(e.name)}"></td>
-      <td style="padding:10px"><button type="button" class="pay-expand" data-id="${e.id}" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;text-align:left">
+      <td style="padding:10px"><button type="button" class="pay-expand" data-id="${e.id}" aria-expanded="${open ? 'true' : 'false'}" aria-label="Rincian ${escapeHtml(e.name)}" title="Klik untuk lihat rincian THR, BPJS & PPh" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;text-align:left">
         <span style="width:32px;height:32px;border-radius:50%;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center;font-weight:700">${escapeHtml(initial)}</span>
-        <span><b>${escapeHtml(e.name)}</b><br><small style="color:#64748b">${escapeHtml(e.role || '')}</small></span>
+        <span><b>${escapeHtml(e.name)}</b><br><small style="color:#64748b">${escapeHtml(e.role || '')}</small>${empIncomplete(e) ? `<br><small style="color:#b45309" title="${escapeHtml(empIncomplete(e))}">Belum lengkap</small>` : ''}</span>
         <span style="color:#94a3b8">${open ? '▴' : '▾'}</span></button></td>
       <td style="padding:10px;text-align:right">${fmt(r.slip.base)}</td>
       <td style="padding:10px;text-align:right">${fmt(tambahan)}</td>
@@ -3577,12 +3695,7 @@ export function renderPayrollProcess(rows, monthLabel, status) {
     ${open ? `<tr><td></td><td colspan="6" style="padding:0 10px 12px">
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px">
         <div style="font-size:12px;font-weight:700;margin-bottom:8px">Rincian komponen gaji</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px">
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px"><div style="font-size:11px;color:#64748b">Gaji pokok</div><b>${fmt(r.slip.base)}</b>${r.slip.allow > 0 ? `<div style="font-size:11px;color:#64748b">+ tunj ${fmt(r.slip.allow)}</div>` : ''}</div>
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px"><div style="font-size:11px;color:#64748b">Lembur</div><input type="text" class="pay-lembur" data-id="${e.id}" value="${r.overtime > 0 ? r.overtime : ''}" placeholder="Rp" inputmode="decimal" ${r.paid ? 'disabled' : ''} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></div>
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px"><div style="font-size:11px;color:#64748b">THR</div><b>${fmt(r.slip.thr)}</b><label class="login-check" style="font-size:11px;display:block"><input type="checkbox" class="pay-thr" data-id="${e.id}" ${r.withThr ? 'checked' : ''} ${r.paid ? 'disabled' : ''}> Sertakan</label></div>
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px"><div style="font-size:11px;color:#64748b">Potongan (BPJS+PPh)</div><b>${fmt(potongan)}</b><label class="login-check" style="font-size:11px;display:block"><input type="checkbox" class="pay-pph" data-id="${e.id}" ${r.withPph ? 'checked' : ''} ${r.paid ? 'disabled' : ''}> PPh 21</label></div>
-        </div>
+        ${paySlipDetailHTML(r)}
         ${r.thrNote ? `<div style="font-size:11px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:8px">ⓘ ${escapeHtml(r.thrNote)}</div>` : ''}
       </div>
     </td></tr>` : ''}`;
@@ -3614,6 +3727,22 @@ export function bindPayrollView(handlers) {
   once('empAddBtn', 'click', handlers.onAdd);
   once('empPanelClose', 'click', handlers.onClose);
   once('empViewCancel', 'click', handlers.onCancel);
+  once('empImportBtn', 'click', handlers.onImportClick);
+  const empImportFile = document.getElementById('empImportFile');
+  if (empImportFile && !empImportFile.dataset.bound) {
+    empImportFile.dataset.bound = '1';
+    empImportFile.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f && handlers.onImportFile) handlers.onImportFile(f);
+      e.target.value = '';
+    });
+  }
+  const empModal = document.getElementById('empModal');
+  if (empModal && !empModal.dataset.bound) {
+    empModal.dataset.bound = '1';
+    empModal.addEventListener('click', (e) => { if (e.target === empModal) handlers.onClose(); });
+    empModal.addEventListener('cancel', (e) => { e.preventDefault(); handlers.onClose(); });
+  }
   document.getElementById('empViewForm')?.addEventListener('submit', (e) => { e.preventDefault(); handlers.onSave(); });
   if (!document.body.dataset.payview) {
     document.body.dataset.payview = '1';
@@ -3641,13 +3770,19 @@ export function bindPayrollView(handlers) {
     document.getElementById('payrollTableBody')?.addEventListener('change', (e) => {
       if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph')) handlers.onDetailChange();
     });
+    document.getElementById('payrollRatesPanel')?.addEventListener('change', (e) => {
+      const el = e.target.closest('.pay-rate');
+      if (el) handlers.onRate(el);
+    });
     document.getElementById('payrollTableBody')?.addEventListener('input', (e) => {
       if (e.target.closest('.pay-lembur')) handlers.onLembur(e.target.closest('.pay-lembur'));
+      else if (e.target.closest('.pay-bonus') || e.target.closest('.pay-denda')) handlers.onLembur(e.target);
     });
     document.getElementById('payrollDraftBtn')?.addEventListener('click', handlers.onDraft);
+    document.getElementById('payrollCopyBtn')?.addEventListener('click', handlers.onCopy);
     document.getElementById('payrollFinalBtn')?.addEventListener('click', handlers.onFinal);
   }
-  ['empViewBase', 'empViewAllowance'].forEach(id => {
+  ['empViewBase', 'empViewAllowance', 'empViewNpwp'].forEach(id => {
     const el = document.getElementById(id);
     if (el) bindRupiah(el);
   });

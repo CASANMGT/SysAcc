@@ -14,6 +14,26 @@ export const JP_SELF = 0.01;
 export const JKK_DEFAULT = 0.0054; // risiko sedang (0.24%–1.74% sesuai tingkat risiko)
 export const JKM_COMPANY = 0.003;
 
+// Set tarif lengkap — dipakai computeSlip, bisa dioverride per proses gaji
+// (panel ⚙️ Tarif). Semua nilai pecahan (0.04 = 4%).
+export const DEFAULT_RATES = {
+  kesComp: KES_COMPANY, jhtComp: JHT_COMPANY, jpComp: JP_COMPANY,
+  jkk: JKK_DEFAULT, jkm: JKM_COMPANY,
+  kesSelf: KES_SELF, jhtSelf: JHT_SELF, jpSelf: JP_SELF,
+};
+export function sanitizeRates(r) {
+  const out = {};
+  Object.keys(DEFAULT_RATES).forEach(k => {
+    const n = Number(r && r[k]);
+    out[k] = Number.isFinite(n) && n >= 0 && n <= 1 ? n : DEFAULT_RATES[k];
+  });
+  return out;
+}
+// PPh 21 TER (PMK 168/2023): tarif dikenakan atas PENGHASILAN NETO bulanan.
+export const BIAYA_JABATAN_RATE = 0.05; // 5% bruto
+export const BIAYA_JABATAN_MAX = 500000; // maks Rp500rb/bulan
+export const NPWP_SURCHARGE = 0.2; // tanpa NPWP → +20%
+
 // TER bulanan PMK 168/2023: [batasAtas, tarif]. Kategori dari status PTKP.
 const TER_A = [
   [5400000, 0], [5650000, 0.0025], [5950000, 0.005], [6300000, 0.0075],
@@ -91,45 +111,61 @@ export function thrAmount(emp, refDate) {
   return Math.round((base * months) / 12);
 }
 
-// Slip lengkap. opts: { overtime, thr (0/otomatis), pph (true/false), refDate }
+// Slip lengkap. opts: { overtime, bonus, deduct, thr (0/otomatis), pph (true/false), refDate,
+// rates ({kesComp,jhtComp,jpComp,jkk,jkm,kesSelf,jhtSelf,jpSelf} — pecahan, opsional) }
+// bonus: tambahan bulan ini (masuk bruto BPJS & PPh). deduct: potongan langsung
+// (denda/absensi) — memotong take-home, TIDAK mengurangi dasar BPJS/PPh.
 export function computeSlip(emp, opts = {}) {
   const e = emp || {};
   const ref = opts.refDate instanceof Date ? opts.refDate : new Date();
+  const R = sanitizeRates(opts.rates);
   const base = rupiah(e.baseSalary);
   const allow = rupiah(e.allowance);
   const overtime = rupiah(opts.overtime);
-  const gross = base + allow + overtime;
+  const bonus = rupiah(opts.bonus);
+  const deduct = rupiah(opts.deduct);
+  const gross = base + allow + overtime + bonus;
   const thr = opts.thr === 'auto' ? thrAmount(e, ref) : rupiah(opts.thr);
   const useKes = e.bpjsKes !== false;
   const useTk = e.bpjsTk !== false;
   const wage = Math.min(gross, KES_CAP);
   const wageJp = Math.min(gross, JP_CAP);
-  const jkkRate = Number(e.jkkRate) > 0 ? Number(e.jkkRate) : JKK_DEFAULT;
+  const jkkRate = Number(e.jkkRate) > 0 ? Number(e.jkkRate) : R.jkk;
 
   const ded = { kesSelf: 0, jhtSelf: 0, jpSelf: 0, pph21: 0 };
   const comp = { kesComp: 0, jhtComp: 0, jpComp: 0, jkk: 0, jkm: 0 };
   if (useKes && gross > 0) {
-    comp.kesComp = rupiah(wage * KES_COMPANY);
-    ded.kesSelf = rupiah(wage * KES_SELF);
+    comp.kesComp = rupiah(wage * R.kesComp);
+    ded.kesSelf = rupiah(wage * R.kesSelf);
   }
   if (useTk && gross > 0) {
-    comp.jhtComp = rupiah(gross * JHT_COMPANY);
-    ded.jhtSelf = rupiah(gross * JHT_SELF);
-    comp.jpComp = rupiah(wageJp * JP_COMPANY);
-    ded.jpSelf = rupiah(wageJp * JP_SELF);
+    comp.jhtComp = rupiah(gross * R.jhtComp);
+    ded.jhtSelf = rupiah(gross * R.jhtSelf);
+    comp.jpComp = rupiah(wageJp * R.jpComp);
+    ded.jpSelf = rupiah(wageJp * R.jpSelf);
     comp.jkk = rupiah(gross * jkkRate);
-    comp.jkm = rupiah(gross * JKM_COMPANY);
+    comp.jkm = rupiah(gross * R.jkm);
   }
-  if (opts.pph === true && gross + thr > 0) {
-    ded.pph21 = rupiah((gross + thr) * terRate(gross + thr, terCategory(e.ptkp)));
+  // PPh 21 TER (PMK 168/2023): bruto − biaya jabatan (5%, maks 500rb) − iuran
+  // JHT/JP dibayar sendiri = netto. Tarif TER dihitung atas netto.
+  const jabatan = Math.min(rupiah((gross + thr) * BIAYA_JABATAN_RATE), BIAYA_JABATAN_MAX);
+  const netto = Math.max(gross + thr - jabatan - ded.jhtSelf - ded.jpSelf, 0);
+  if (opts.pph === true && netto > 0) {
+    let pph = rupiah(netto * terRate(netto, terCategory(e.ptkp)));
+    if (!e.npwp && pph > 0) pph = rupiah(pph * (1 + NPWP_SURCHARGE)); // pasal 21 tanpa NPWP
+    ded.pph21 = pph;
   }
   const totalDed = ded.kesSelf + ded.jhtSelf + ded.jpSelf + ded.pph21;
   const totalComp = comp.kesComp + comp.jhtComp + comp.jpComp + comp.jkk + comp.jkm;
   return {
-    base, allow, overtime, gross, thr,
+    base, allow, overtime, bonus, deduct, gross, thr,
     ded, comp, totalDed, totalComp,
-    takeHome: gross + thr - totalDed,
+    rates: R,
+    takeHome: gross + thr - totalDed - deduct,
     employerCost: gross + thr + totalComp,
     tenureMonths: tenureMonths(e.startDate, ref),
+    bases: { gross, kesWage: wage, jpWage: wageJp },
+    pphJabatan: jabatan,
+    pphNetto: netto,
   };
 }

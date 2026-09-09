@@ -15,6 +15,73 @@
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
   <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+  <dialog id="empModal" class="modal">
+    <form id="empViewForm" class="modal-content" style="max-width:640px">
+      <header class="modal-header">
+        <h2 id="empPanelTitle">Tambah karyawan</h2>
+        <button type="button" class="modal-close" id="empPanelClose" aria-label="Tutup">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="chip-group" style="margin-bottom:12px" id="empSubTabs">
+          <button type="button" class="chip selected" data-value="main">Data utama</button>
+          <button type="button" class="chip" data-value="salary">Gaji & rekening</button>
+          <button type="button" class="chip" data-value="tax">Pajak & BPJS</button>
+        </div>
+        <input type="hidden" id="empViewId">
+        <div id="empSubMain">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label style="font-size:12px">Nama lengkap*<input type="text" id="empViewName" required maxlength="60" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+            <label style="font-size:12px">Jabatan<input type="text" id="empViewRole" maxlength="40" placeholder="mis. Kasir" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+            <label style="font-size:12px">Status kerja
+              <select id="empViewContract" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
+                <option value="tetap">Tetap</option>
+                <option value="kontrak">Kontrak</option>
+                <option value="harian">Harian</option>
+              </select></label>
+            <label style="font-size:12px">Tanggal bergabung<input type="date" id="empViewStart" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+            <label style="font-size:12px">Nomor HP<input type="tel" id="empViewPhone" maxlength="18" placeholder="Contoh: 0812 3456 7890" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+            <label style="font-size:12px">Email <span style="opacity:.6">(opsional)</span><input type="email" id="empViewEmail" maxlength="80" placeholder="Contoh: nama@email.com" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+          </div>
+          <label style="font-size:12px;display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="empViewActive" checked> Aktif (masuk proses gaji)</label>
+        </div>
+        <div id="empSubSalary" hidden>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label style="font-size:12px">Gaji pokok*<input type="text" id="empViewBase" required inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+            <label style="font-size:12px">Tunjangan tetap<input type="text" id="empViewAllowance" inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+            <label style="font-size:12px">Bank<input type="text" id="empViewBank" maxlength="40" placeholder="mis. BCA" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+            <label style="font-size:12px">No. rekening<input type="text" id="empViewBankAcc" maxlength="30" inputmode="numeric" placeholder="mis. 1234567890" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+          </div>
+        </div>
+        <div id="empSubTax" hidden>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label style="font-size:12px">Jenis kelamin
+              <select id="empViewGender" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
+                <option value="">—</option>
+                <option value="L">👨 Laki-laki</option>
+                <option value="P">👩 Perempuan</option>
+              </select></label>
+            <label style="font-size:12px">Tanggal lahir<input type="date" id="empViewBirth" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">Status PTKP
+                        <select id="empViewPtkp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
+                          <option value="TK/0">TK/0</option><option value="TK/1">TK/1</option><option value="TK/2">TK/2</option><option value="TK/3">TK/3</option>
+                          <option value="K/0">K/0</option><option value="K/1">K/1</option><option value="K/2">K/2</option><option value="K/3">K/3</option>
+                        </select></label>
+                      <label style="font-size:12px">No. NPWP <span style="opacity:.6">(opsional — kosong = pajak +20%)</span><input type="text" id="empViewNpwp" maxlength="20" inputmode="numeric" placeholder="15-16 digit" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+            <label style="font-size:12px">Alamat<input type="text" id="empViewAddress" maxlength="120" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:10px;font-size:13px">
+            <label class="login-check"><input type="checkbox" id="empViewBpjsKes" checked> BPJS Kesehatan</label>
+            <label class="login-check"><input type="checkbox" id="empViewBpjsTk" checked> BPJS Kerja</label>
+          </div>
+          <p style="font-size:11px;color:#64748b;margin-top:8px">Lengkapi sebelum menghitung pajak dan BPJS.</p>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="empViewCancel">Batal</button>
+        <button type="submit" class="btn btn-primary" id="empViewSave">Simpan perubahan</button>
+      </footer>
+    </form>
+  </dialog>
 
   <!-- LOGIN - new two-column layout matching uploaded design -->
   <div id="loginScreen" class="login-screen-new">
@@ -116,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.11.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.12.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -295,7 +362,7 @@
           <div class="dash-panel dash-panel-donut">
             <div class="dash-panel-head">
               <h3>Pengeluaran per Kategori</h3>
-              <button class="dash-panel-icon">⋯</button>
+              <button class="dash-panel-icon" aria-label="Opsi panel" title="Opsi">⋯</button>
             </div>
             <div class="donut-wrap">
               <div class="donut-chart">
@@ -400,7 +467,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.11.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.12.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -474,11 +541,14 @@
           </div>
 
           <div id="payrollTabData">
-            <div style="display:grid;grid-template-columns:1fr;gap:12px" class="payroll-grid">
               <div class="dash-panel" style="padding:16px">
                 <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
                   <h3 id="empTableTitle" style="flex:1">Daftar karyawan</h3>
-                  <button class="btn btn-primary" id="empAddBtn" style="font-size:12px">＋ Tambah karyawan</button>
+                  <div style="display:flex;gap:8px">
+                    <button class="btn btn-ghost" id="empImportBtn" style="font-size:12px" title="Impor dari Excel">📥 Impor</button>
+                    <input type="file" id="empImportFile" accept=".xlsx,.xls,.csv" hidden>
+                    <button class="btn btn-primary" id="empAddBtn" style="font-size:12px">＋ Tambah karyawan</button>
+                  </div>
                 </div>
                 <input type="search" id="empSearch" placeholder="🔍 Cari nama, jabatan, atau status..." style="width:100%;height:40px;padding:0 12px;border:1px solid #e2e8f0;border-radius:12px;background:white;font-size:13px;margin-bottom:10px">
                 <div style="overflow-x:auto">
@@ -495,70 +565,6 @@
                   </table>
                 </div>
               </div>
-              <div class="dash-panel" style="padding:16px" id="empPanel">
-                <div style="display:flex;align-items:center;margin-bottom:10px">
-                  <h3 id="empPanelTitle" style="flex:1">Tambah karyawan</h3>
-                  <button type="button" class="modal-close" id="empPanelClose" aria-label="Tutup">×</button>
-                </div>
-                <div class="chip-group" style="margin-bottom:12px" id="empSubTabs">
-                  <button type="button" class="chip selected" data-value="main">Data utama</button>
-                  <button type="button" class="chip" data-value="salary">Gaji & rekening</button>
-                  <button type="button" class="chip" data-value="tax">Pajak & BPJS</button>
-                </div>
-                <form id="empViewForm">
-                  <input type="hidden" id="empViewId">
-                  <div id="empSubMain">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                      <label style="font-size:12px">Nama lengkap*<input type="text" id="empViewName" required maxlength="60" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                      <label style="font-size:12px">Jabatan<input type="text" id="empViewRole" maxlength="40" placeholder="mis. Kasir" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                      <label style="font-size:12px">Status kerja
-                        <select id="empViewContract" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
-                          <option value="tetap">Tetap</option>
-                          <option value="kontrak">Kontrak</option>
-                          <option value="harian">Harian</option>
-                        </select></label>
-                      <label style="font-size:12px">Tanggal bergabung<input type="date" id="empViewStart" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                      <label style="font-size:12px">Nomor HP<input type="tel" id="empViewPhone" maxlength="18" placeholder="Contoh: 0812 3456 7890" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                      <label style="font-size:12px">Email <span style="opacity:.6">(opsional)</span><input type="email" id="empViewEmail" maxlength="80" placeholder="Contoh: nama@email.com" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                    </div>
-                    <label style="font-size:12px;display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="empViewActive" checked> Aktif (masuk proses gaji)</label>
-                  </div>
-                  <div id="empSubSalary" hidden>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                      <label style="font-size:12px">Gaji pokok*<input type="text" id="empViewBase" required inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                      <label style="font-size:12px">Tunjangan tetap<input type="text" id="empViewAllowance" inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                      <label style="font-size:12px">Bank<input type="text" id="empViewBank" maxlength="40" placeholder="mis. BCA" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                      <label style="font-size:12px">No. rekening<input type="text" id="empViewBankAcc" maxlength="30" inputmode="numeric" placeholder="mis. 1234567890" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                    </div>
-                  </div>
-                  <div id="empSubTax" hidden>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                      <label style="font-size:12px">Jenis kelamin
-                        <select id="empViewGender" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
-                          <option value="">—</option>
-                          <option value="L">👨 Laki-laki</option>
-                          <option value="P">👩 Perempuan</option>
-                        </select></label>
-                      <label style="font-size:12px">Tanggal lahir<input type="date" id="empViewBirth" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                      <label style="font-size:12px">Status PTKP
-                        <select id="empViewPtkp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
-                          <option value="TK/0">TK/0</option><option value="TK/1">TK/1</option><option value="TK/2">TK/2</option><option value="TK/3">TK/3</option>
-                          <option value="K/0">K/0</option><option value="K/1">K/1</option><option value="K/2">K/2</option><option value="K/3">K/3</option>
-                        </select></label>
-                      <label style="font-size:12px">Alamat<input type="text" id="empViewAddress" maxlength="120" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
-                    </div>
-                    <div style="display:flex;gap:12px;margin-top:10px;font-size:13px">
-                      <label class="login-check"><input type="checkbox" id="empViewBpjsKes" checked> BPJS Kesehatan</label>
-                      <label class="login-check"><input type="checkbox" id="empViewBpjsTk" checked> BPJS Kerja</label>
-                    </div>
-                    <p style="font-size:11px;color:#64748b;margin-top:8px">Lengkapi sebelum menghitung pajak dan BPJS.</p>
-                  </div>
-                  <div style="display:flex;gap:8px;margin-top:14px">
-                    <button type="button" class="btn btn-secondary" id="empViewCancel" style="flex:1">Batal</button>
-                    <button type="submit" class="btn btn-primary" style="flex:2" id="empViewSave">Simpan perubahan</button>
-                  </div>
-                </form>
-              </div>
             </div>
           </div>
 
@@ -566,9 +572,10 @@
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
               <div style="flex:1;min-width:180px">
                 <h2 style="margin:0">Proses gaji</h2>
-                <p style="margin:0;font-size:12px;color:#64748b">Tinjau perhitungan sebelum mencatat pembayaran.</p>
+                <p style="margin:0;font-size:12px;color:#64748b">Cek dulu angkanya. Kalau sudah pas, tekan Finalisasi — gaji tercatat otomatis.</p>
               </div>
               <label style="font-size:12px">Periode <input type="month" id="payrollPeriod" style="height:40px;border:1px solid #e2e8f0;border-radius:12px;padding:0 10px;font-size:13px"></label>
+              <button type="button" class="btn btn-ghost" id="payrollCopyBtn" title="Salin lembur/bonus/pengaturan dari bulan sebelumnya">📋 Salin bulan lalu</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px" id="payrollCards"></div>
             <div style="display:flex;align-items:center;gap:0;margin:4px 0 14px;font-size:12px" id="payrollSteps">
@@ -583,16 +590,18 @@
                 <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:13px">
                   <thead><tr style="font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
                     <th style="padding:12px;width:36px"><input type="checkbox" id="payrollCheckAll" aria-label="Pilih semua"></th>
-                    <th style="padding:12px;text-align:left">Karyawan</th>
-                    <th style="padding:12px;text-align:right">Gaji pokok</th>
-                    <th style="padding:12px;text-align:right">Tambahan</th>
-                    <th style="padding:12px;text-align:right">Potongan</th>
-                    <th style="padding:12px;text-align:right">Gaji bersih</th>
-                    <th style="padding:12px;text-align:left">Status</th>
-                  </tr></thead>
-                  <tbody id="payrollTableBody"></tbody>
-                </table>
-              </div>
+                  <th style="padding:12px;text-align:left">Karyawan</th>
+                  <th style="padding:12px;text-align:right">Gaji pokok</th>
+                  <th style="padding:12px;text-align:right" title="Tunjangan tetap + lembur + bonus + THR">Tambahan <span style="opacity:.6">ⓘ</span></th>
+                  <th style="padding:12px;text-align:right" title="BPJS (Kes 1% + JHT 2% + JP 1%) + PPh 21 + denda">Potongan <span style="opacity:.6">ⓘ</span></th>
+                  <th style="padding:12px;text-align:right" title="Uang yang benar-benar diterima karyawan">Gaji bersih (THP)</th>
+                  <th style="padding:12px;text-align:left">Status</th>
+                </tr></thead>
+                <tbody id="payrollTableBody"></tbody>
+              </table>
+            </div>
+            <div style="padding:0 16px 12px;font-size:11px;color:#64748b">ℹ️ THR otomatis: kerja ≥12 bulan = 1× gaji+tunjangan; kurang dari itu proporsional n/12. PPh 21 = tarif TER atas <b>netto</b> (PMK 168/2023); tanpa NPWP +20%.</div>
+            <div id="payrollRatesPanel"></div>
               <div id="payrollDetail"></div>
               <div class="table-foot" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid #f1f5f9">
                 <span id="payrollFootNote" style="font-size:12px;color:#64748b"></span>
@@ -616,7 +625,6 @@
           <div id="payrollTabReport" hidden>
             <div id="payrollViewReport"></div>
           </div>
-        </div>
 
       </main>
     </div>
@@ -940,7 +948,7 @@
         <h2>📊 Laporan</h2>
         <div class="modal-header-actions" style="display:flex;gap:6px;align-items:center">
           <button type="button" class="btn btn-ghost" id="printReportBtn" title="Cetak laporan ini">🖨️ Cetak</button>
-          <button type="button" class="modal-close" id="closeReportBtn">&times;</button>
+          <button type="button" class="modal-close" aria-label="Tutup" id="closeReportBtn">&times;</button>
         </div>
       </header>
       <div class="modal-body">
@@ -968,7 +976,7 @@
         <h2>💰 Kasih Pinjam & Pinjam Uang</h2>
         <div class="modal-header-actions">
           <button type="button" class="btn btn-primary" id="addLoanBtn">＋ Tambah</button>
-          <button type="button" class="modal-close" id="closeLoansBtn">&times;</button>
+          <button type="button" class="modal-close" aria-label="Tutup" id="closeLoansBtn">&times;</button>
         </div>
       </header>
       <div class="modal-body">
@@ -1005,7 +1013,7 @@
     <div class="modal-content" style="max-width: 400px;">
       <header class="modal-header">
         <h2>Pilih Rentang Tanggal</h2>
-        <button type="button" class="modal-close" id="customDateClose">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="customDateClose">&times;</button>
       </header>
       <div class="modal-body">
         <div class="form-group">
@@ -1028,7 +1036,7 @@
     <form id="repayForm" class="modal-content" style="max-width: 460px;">
       <header class="modal-header">
         <h2 id="repayModalTitle">Catat Bayar/Terima</h2>
-        <button type="button" class="modal-close" id="repayModalClose">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="repayModalClose">&times;</button>
       </header>
       <div class="modal-body">
         <input type="hidden" id="repayLoanId">
@@ -1079,7 +1087,7 @@
     <div class="modal-content" style="max-width: 440px;">
       <header class="modal-header">
         <h2>🧾 Kwitansi</h2>
-        <button type="button" class="modal-close" id="receiptModalClose">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="receiptModalClose">&times;</button>
       </header>
       <div class="modal-body">
         <div id="receiptPreview" style="border:1px solid #e2e8f0;border-radius:12px;padding:16px;background:white"></div>
@@ -1096,7 +1104,7 @@
     <div class="modal-content modal-lg">
       <header class="modal-header">
         <h2>📦 Stok Barang</h2>
-        <button type="button" class="modal-close" id="closeStockBtn">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="closeStockBtn">&times;</button>
       </header>
       <div class="modal-body">
         <div id="stockAlert"></div>
@@ -1143,7 +1151,7 @@
             <option value="other">📦 Lainnya</option>
           </select>
           <button type="button" class="btn btn-primary" id="payrollRunBtn">▶️ Proses bulan ini</button>
-          <button type="button" class="modal-close" id="closePayrollBtn">&times;</button>
+          <button type="button" class="modal-close" aria-label="Tutup" id="closePayrollBtn">&times;</button>
         </div>
       </header>
       <div class="modal-body">
@@ -1200,7 +1208,7 @@
     <div class="modal-content modal-lg">
       <header class="modal-header">
         <h2>💳 Kas & Rekonsiliasi</h2>
-        <button type="button" class="modal-close" id="closeKasBtn">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="closeKasBtn">&times;</button>
       </header>
       <div class="modal-body">
         <div id="kasList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
@@ -1228,7 +1236,7 @@
     <div class="modal-content modal-lg">
       <header class="modal-header">
         <h2>🏦 Import Mutasi Bank</h2>
-        <button type="button" class="modal-close" id="closeBankBtn">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="closeBankBtn">&times;</button>
       </header>
       <div class="modal-body">
         <p style="font-size:12px;color:#64748b">CSV BCA / Mandiri / BRI (atau umum: Tanggal, Keterangan, Debit, Kredit). Baris yang cocok nominal+tanggal (±3 hari) otomatis ditandai.</p>
@@ -1247,7 +1255,7 @@
     <div class="modal-content modal-lg">
       <header class="modal-header">
         <h2>📚 Daftar Akun (COA)</h2>
-        <button type="button" class="modal-close" id="closeCoaBtn">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="closeCoaBtn">&times;</button>
       </header>
       <div class="modal-body">
         <p style="font-size:12px;color:#64748b">Akun bawaan tidak bisa diubah. Tambah akun sendiri mis. <b>5120 Beban Iklan</b> — otomatis masuk Laba Rugi & Neraca.</p>
@@ -1273,7 +1281,7 @@
     <div class="modal-content modal-lg">
       <header class="modal-header">
         <h2>🧾 Jual Barang</h2>
-        <button type="button" class="modal-close" id="closeSaleBtn">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="closeSaleBtn">&times;</button>
       </header>
       <div class="modal-body">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -1311,7 +1319,7 @@
     <div class="modal-content modal-lg">
       <header class="modal-header">
         <h2>📥 Beli ke Supplier</h2>
-        <button type="button" class="modal-close" id="closeBuyBtn">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="closeBuyBtn">&times;</button>
       </header>
       <div class="modal-body">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -1339,7 +1347,7 @@
     <form id="supplierPayForm" class="modal-content" style="max-width: 440px;">
       <header class="modal-header">
         <h2 id="supplierPayTitle">Bayar Supplier</h2>
-        <button type="button" class="modal-close" id="supplierPayClose">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="supplierPayClose">&times;</button>
       </header>
       <div class="modal-body">
         <input type="hidden" id="supplierPayId">
@@ -1377,7 +1385,7 @@
         <h2>👥 Daftar Kontak</h2>
         <div class="modal-header-actions">
           <button type="button" class="btn btn-primary" id="addContactBtn">＋ Tambah</button>
-          <button type="button" class="modal-close" id="closeContactsBtn">&times;</button>
+          <button type="button" class="modal-close" aria-label="Tutup" id="closeContactsBtn">&times;</button>
         </div>
       </header>
       <div class="modal-body">
@@ -1393,7 +1401,7 @@
     <form id="contactForm" class="modal-content" style="max-width: 440px;">
       <header class="modal-header">
         <h2 id="contactFormTitle">Tambah Kontak</h2>
-        <button type="button" class="modal-close" id="contactFormClose">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="contactFormClose">&times;</button>
       </header>
       <div class="modal-body">
         <input type="hidden" id="contactFormId">
@@ -1425,7 +1433,7 @@
     <div class="modal-content" style="max-width:520px">
       <header class="modal-header">
         <h2>⚙️ Pengaturan</h2>
-        <button type="button" class="modal-close" id="closeSettingsBtn">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="closeSettingsBtn">&times;</button>
       </header>
       <div class="modal-body">
         <div class="settings-grid">
@@ -1524,7 +1532,7 @@
     <div class="modal-content" style="max-width: 520px;">
       <header class="modal-header">
         <h2 id="infoModalTitle">Info</h2>
-        <button type="button" class="modal-close" id="infoModalClose">&times;</button>
+        <button type="button" class="modal-close" aria-label="Tutup" id="infoModalClose">&times;</button>
       </header>
       <div class="modal-body" id="infoModalBody" style="font-size:13px;line-height:1.7"></div>
       <footer class="modal-footer">

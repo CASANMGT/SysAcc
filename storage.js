@@ -1757,6 +1757,7 @@ export function saveEmployee(emp) {
     birthDate: /^\d{4}-\d{2}-\d{2}$/.test(emp.birthDate || '') ? emp.birthDate : '',
     phone: String(emp.phone || '').replace(/[^0-9+]/g, '').slice(0, 18),
     email: String(emp.email || '').replace(/[<>"'&\s]/g, '').slice(0, 80),
+    npwp: String(emp.npwp || '').replace(/[^0-9]/g, '').slice(0, 20),
     bankName: cleanEmpStr(emp.bankName, 40),
     bankAcc: String(emp.bankAcc || '').replace(/[^0-9]/g, '').slice(0, 30),
     address: cleanEmpStr(emp.address, 120),
