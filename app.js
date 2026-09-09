@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -373,6 +373,9 @@ function bindEvents() {
   document.getElementById('kasOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
   document.getElementById('bankOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
   UI.bindStock(handleStockSave, handleStockEdit, handleStockDelete);
+  UI.bindBuy(handleBuySave);
+  UI.bindSupplierList(handleSupplierPay, handleSupplierDelete);
+  UI.bindSupplierPay(handleSupplierPaySubmit);
   UI.bindSale(handleSaleSave);
   UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
   document.getElementById('coaOpenBtn')?.addEventListener('click', () => { refreshCoa(); UI.openCoa(); });
@@ -1044,6 +1047,7 @@ function handleImport(file) {
     if (result.journals) parts.push(`${result.journals} jurnal`);
     if (result.items) parts.push(`${result.items} barang`);
     if (result.employees) parts.push(`${result.employees} karyawan`);
+    if (result.purchases) parts.push(`${result.purchases} pembelian`);
     if (parts.length) UI.showSuccess('Data digabung: ' + parts.join(', ') + (result.skipped ? ` (${result.skipped} baris rusak/duplikat dilewati)` : ''));
     else UI.showInfo(result && result.skipped ? `${result.skipped} baris dilewati (rusak/duplikat)` : 'Tidak ada data baru (mungkin duplikat)');
     refresh();
@@ -1670,8 +1674,7 @@ function buildProfitLoss() {
   return { ...cur, prev, range, budget: { limit: budget ? Number(budget.amount) || 0 : 0, spent, cats } };
 }
 
-function buildBalanceSheet() {
-  const bal = balances(Storage.getAllJournals());
+function bsSnapshot(bal) {
   const all = getAccounts();
   const assetCodes = all.filter(a => a.type === 'asset').map(a => a.code);
   const liabCodes = all.filter(a => a.type === 'liability').map(a => a.code);
@@ -1686,12 +1689,29 @@ function buildBalanceSheet() {
   const totalL = liabs.reduce((s, x) => s + x.total, 0);
   const eq = Storage.getOpeningEquity();
   const modal = eq ? Number(eq.amount) || 0 : 0;
-  // Laba ditahan = total pendapatan − total beban (kumulatif)
-  const rev = (bal['4101']?.credit || 0) - (bal['4101']?.debit || 0);
+  // Laba ditahan = total pendapatan − total beban (kumulatif s/d tanggal neraca)
+  const revCodes = ACCOUNTS.filter(a => a.type === 'revenue').map(a => a.code);
+  const rev = revCodes.reduce((s, c) => s + ((bal[c]?.credit || 0) - (bal[c]?.debit || 0)), 0);
   const expCodes = ACCOUNTS.filter(a => a.type === 'expense').map(a => a.code);
   const exp = expCodes.reduce((s, c) => s + ((bal[c]?.debit || 0) - (bal[c]?.credit || 0)), 0);
   const laba = rev - exp;
   return { assets, liabs, totalA, totalL, modal, laba, equity: modal + laba, balanced: totalA - (totalL + modal + laba) };
+}
+
+function buildBalanceSheet() {
+  const range = journalDateRange();
+  const journals = Storage.getAllJournals();
+  const cur = bsSnapshot(balances(journals, range.end ? { end: range.end } : {}));
+  // Pembanding = posisi sehari sebelum periode berjalan (saldo awal)
+  let prev = null;
+  let prevLabel = '';
+  if (range.start) {
+    const s = range.start <= (range.end || range.start) ? range.start : (range.end || range.start);
+    const before = addDaysStr(s, -1);
+    prev = bsSnapshot(balances(journals, { end: before }));
+    prevLabel = `per ${before.slice(8, 10)}/${before.slice(5, 7)}/${before.slice(0, 4)}`;
+  }
+  return { ...cur, prev, prevLabel, range };
 }
 
 function buildTaxReport() {
@@ -2048,6 +2068,7 @@ function handleCoaDelete(code) {
 /* ===== Stok ===== */
 function refreshStock() {
   UI.renderStock(Storage.getAllItems());
+  refreshSuppliers();
 }
 function handleStockSave() {
   const d = UI.getStockFormData();
@@ -2087,6 +2108,64 @@ function handleStockDelete(id) {
   UI.showSuccess('Barang dihapus');
   refreshStock();
   queueMirror();
+}
+
+/* ===== Beli supplier ===== */
+function refreshSuppliers() {
+  UI.renderSuppliers(Storage.getAllPurchases());
+}
+function handleBuySave() {
+  const d = UI.getBuyData();
+  if (!d.supplier) return UI.showError('Tulis dulu nama supplier');
+  if (!d.lines.length) return UI.showError('Pilih dulu barang + isi qty dan harga modal');
+  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
+  try {
+    const p = Storage.createPurchase(d);
+    const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+    UI.closeBuy();
+    UI.showSuccess(`Beli ke ${p.supplier} ${fmt(p.totalCost)} — jadi hutang, stok masuk`);
+    refreshStock();
+    refreshSuppliers();
+    render();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menyimpan pembelian');
+  }
+}
+function handleSupplierPay(id) {
+  const p = Storage.getPurchaseById(id);
+  if (p) UI.openSupplierPay(p);
+}
+function handleSupplierPaySubmit() {
+  const d = UI.getSupplierPayData();
+  if (!d.id) return;
+  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
+  try {
+    const p = Storage.addPurchasePayment(d.id, d);
+    const out = Storage.purchaseOutstanding(p);
+    UI.closeSupplierPay();
+    UI.showSuccess(out <= 0.01 ? `Lunas! ${p.supplier}` : `Bayar tercatat — sisa Rp${Math.round(out).toLocaleString('id-ID')}`);
+    refreshSuppliers();
+    render();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menyimpan pembayaran');
+  }
+}
+function handleSupplierDelete(id) {
+  const p = Storage.getPurchaseById(id);
+  if (!p) return;
+  if (!confirm(`Hapus pembelian ke ${p.supplier}? Stok akan dikembalikan.`)) return;
+  try {
+    Storage.deletePurchase(id);
+    UI.showSuccess('Pembelian dihapus, stok dikembalikan');
+    refreshStock();
+    refreshSuppliers();
+    render();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menghapus (stok sudah terjual?)');
+  }
 }
 
 /* ===== Gaji ===== */

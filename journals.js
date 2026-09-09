@@ -136,6 +136,33 @@ export function buildTransferJournal({ fromPayment, toPayment, amount, date, mem
   return balanced(lines) ? j : null;
 }
 
+// Beli ke supplier (hutang): Dr Persediaan Cr Hutang Usaha.
+export function buildPurchaseJournal({ amount, date, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const m = memo || 'Beli supplier';
+  const lines = [
+    { account: INVENTORY_ACCOUNT, debit: amt, credit: 0, memo: m },
+    { account: AP_ACCOUNT, debit: 0, credit: amt, memo: m },
+  ];
+  const j = { id: jid('J'), date, memo: m, ref: 'purchase', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
+
+// Bayar supplier: Dr Hutang Usaha Cr Kas.
+export function buildPurchasePayJournal({ amount, date, payment, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const cash = accountForPayment(payment || 'transfer');
+  const m = memo || 'Bayar supplier';
+  const lines = [
+    { account: AP_ACCOUNT, debit: amt, credit: 0, memo: m },
+    { account: cash, debit: 0, credit: amt, memo: m },
+  ];
+  const j = { id: jid('J'), date, memo: m, ref: 'purchase-pay', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
+
 // Penyesuaian stok/opname & selisih kas: Dr/Cr Persediaan atau Kas vs Beban Lainnya.
 export function buildAdjustJournal({ account, amount, date, memo, increase }) {
   const amt = Math.round(Number(amount) || 0);

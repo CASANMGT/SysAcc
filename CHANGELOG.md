@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.9.0] - 2026-09-09
+
+### Added — Tutup loop inventori + paket investor
+- **Beli ke supplier** — modal multi-baris (supplier, jatuh tempo, modal/pcs): stok masuk + jurnal Persediaan/Hutang Usaha; bayar bertahap (cicil hutang) + hapus kembalikan stok (ditolak bila sudah terjual); ikut backup/restore
+- **Neraca komparatif** — kolom saldo awal + ± per akun dan total (siap untuk investor & akuntan)
+
+---
+
 ## [1.8.0] - 2026-09-09
 
 ### Added — Akun & penjualan terpadu
@@ -225,6 +233,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.9.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.9.0
 [1.8.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.8.0
 [1.7.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.7.0
 [1.6.1]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.6.1

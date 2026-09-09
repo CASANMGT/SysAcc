@@ -120,7 +120,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.8.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.9.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -404,7 +404,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.8.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.9.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -966,6 +966,11 @@
           <input type="search" id="stockSearch" class="loan-search" placeholder="🔍 Cari barang...">
         </div>
         <div id="stockList"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin:16px 0 8px">
+          <h3 style="font-size:13px;flex:1">📥 Hutang ke Supplier</h3>
+          <button type="button" class="btn btn-primary" id="buyOpenBtn" style="font-size:12px;padding:6px 12px">＋ Beli</button>
+        </div>
+        <div id="supplierList"></div>
       </div>
     </div>
   </dialog>
@@ -1146,6 +1151,70 @@
         <button type="button" class="btn btn-primary" id="saleSave">💰 Simpan Penjualan</button>
       </footer>
     </div>
+  </dialog>
+
+  <dialog id="buyModal" class="modal">
+    <div class="modal-content modal-lg">
+      <header class="modal-header">
+        <h2>📥 Beli ke Supplier</h2>
+        <button type="button" class="modal-close" id="closeBuyBtn">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="flex:2;min-width:140px;font-size:11px;color:#64748b">Supplier siapa?*
+            <input type="text" id="buySupplier" placeholder="Nama toko/supplier" maxlength="60" list="peopleList" autocomplete="off" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          <label style="flex:1;min-width:110px;font-size:11px;color:#64748b">Tanggal
+            <input type="date" id="buyDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          <label style="flex:1;min-width:110px;font-size:11px;color:#64748b">Jatuh tempo <span style="opacity:.6">(boleh kosong)</span>
+            <input type="date" id="buyDue" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+        </div>
+        <div id="buyRows" style="display:flex;flex-direction:column;gap:8px"></div>
+        <button type="button" class="btn btn-ghost" id="buyAddRow" style="margin:8px 0">＋ Tambah barang</button>
+        <label style="display:block;font-size:11px;color:#64748b;margin-bottom:8px">Catatan <span style="opacity:.6">(boleh kosong)</span>
+          <input type="text" id="buyNote" placeholder="mis. Nota #123" maxlength="100" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+        <div id="buyTotal" style="font-size:15px;font-weight:800;text-align:right">Total Rp0 • jadi hutang usaha</div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="buyCancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="buySave">📥 Simpan Pembelian</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog id="supplierPayModal" class="modal">
+    <form id="supplierPayForm" class="modal-content" style="max-width: 440px;">
+      <header class="modal-header">
+        <h2 id="supplierPayTitle">Bayar Supplier</h2>
+        <button type="button" class="modal-close" id="supplierPayClose">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="supplierPayId">
+        <div id="supplierPaySummary" style="font-size:13px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:10px"></div>
+        <div class="form-group">
+          <label for="supplierPayAmount">Berapa uang?</label>
+          <input type="number" id="supplierPayAmount" step="0.01" min="1" required>
+        </div>
+        <div class="form-group">
+          <label for="supplierPayPayment">Bayar pakai apa?</label>
+          <select id="supplierPayPayment">
+            <option value="transfer">🏦 Transfer</option>
+            <option value="cash">💵 Tunai</option>
+            <option value="qris">📱 QRIS</option>
+            <option value="ewallet">📲 E-Wallet</option>
+            <option value="debit">💳 Debit</option>
+            <option value="other">📦 Lainnya</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="supplierPayDate">Tanggal berapa?</label>
+          <input type="date" id="supplierPayDate" required>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="supplierPayCancel">Batal</button>
+        <button type="submit" class="btn btn-primary">Bayar</button>
+      </footer>
+    </form>
   </dialog>
 
   <dialog id="contactsModal" class="modal">

@@ -2,7 +2,7 @@
 
 > Clean, offline-first accounting for UMKM Indonesia — pemasukan, pengeluaran, piutang/hutang cicilan, laporan & kontak.
 
-![Version](https://img.shields.io/badge/version-1.8.0-blue)
+![Version](https://img.shields.io/badge/version-1.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%2B%20LocalStorage-lightgrey)
 
@@ -48,7 +48,8 @@ Live: `http://localhost:3456` — login `admin / admin`
 - Modal Awal di Pengaturan → Neraca balance (Aset = Kewajiban + Modal + Laba)
 
 **Usaha kecil**
-- Stok: beli/jual dari form transaksi (rata-rata modal, cegah oversell), opname, alert menipis
+- Stok: beli/jual dari form transaksi (rata-rata modal, cegah oversell), opname, alert menipis; **Beli ke supplier** (hutang usaha, bayar bertahap, jatuh tempo)
+- Neraca komparatif (awal vs kini + selisih) melengkapi L/R komparatif
 - Kas: transfer antar dompet, rekonsiliasi fisik, saldo dompet dari jurnal
 - Import mutasi bank CSV (match ±3 hari), invoice `INV/…` + cetak, PPh Final 0.5% + reminder tgl 15, aging piutang + tagih via WA
 - Gaji UU: BPJS Kes/TK otomatis, THR proporsional, PPh 21 TER, tabel proses (lembur/THR/PPh per baris, THP live), slip rinci; karyawan: L/P, lahir, HP, alamat, mulai kerja, kontrak, PTKP
@@ -138,9 +139,9 @@ accounting-system/
 
 ## 🔖 Version
 
-Current: **1.8.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
+Current: **1.9.0** — see `VERSION` + `CHANGELOG.md`. Displayed in sidebar footer & `Pengaturan`.
 
-Test: `npm install` sekali, lalu `npm test` (vitest, 119 tes) atau `npm run check` (lint + test).
+Test: `npm install` sekali, lalu `npm test` (vitest, 123 tes) atau `npm run check` (lint + test).
 
 Versioning: `MAJOR.MINOR.PATCH` — storage `version:1` in JSON backup.
 

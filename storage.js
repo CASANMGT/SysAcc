@@ -1,5 +1,5 @@
 import { totalOwed } from './loanmath.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal } from './journals.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -249,7 +249,7 @@ export function clearAllData() {
   [
     STORAGE_KEY, LOAN_KEY, REPAY_KEY, JOURN_KEY, AUDIT_KEY,
     'wynara_recurring', 'wynara_budget', 'wynara_catBudget',
-    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY
+    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -685,7 +685,7 @@ function importJSONFile(file) {
           return;
         }
         const data = JSON.parse(e.target.result);
-        let cE = 0, cL = 0, cR = 0, cP = 0, cJ = 0, cI = 0, cM = 0, skipped = 0;
+        let cE = 0, cL = 0, cR = 0, cP = 0, cJ = 0, cI = 0, cM = 0, cB = 0, skipped = 0;
         if (Array.isArray(data)) {
           // legacy: array of entries
           const valid = [];
@@ -791,6 +791,26 @@ function importJSONFile(file) {
               localStorage.setItem(LOCK_KEY, JSON.stringify(merged));
             } catch {}
           }
+          if (Array.isArray(data.purchases)) {
+            const have = new Set(getPurchases().map(p => p.id));
+            const toAdd = [];
+            data.purchases.forEach(p => {
+              if (!p || !p.id || have.has(p.id)) { skipped++; return; }
+              if (!p.supplier || !isValidDateStr(String(p.date || '').slice(0, 10)) || !Array.isArray(p.lines) || !p.lines.length) { skipped++; return; }
+              have.add(p.id);
+              toAdd.push(p);
+            });
+            if (toAdd.length) {
+              savePurchases(getPurchases().concat(toAdd));
+              cB = toAdd.length;
+              toAdd.forEach(p => {
+                (p.lines || []).forEach(l => {
+                  try { applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost }); } catch {}
+                });
+              });
+            }
+          }
+        }
           if (Array.isArray(data.coa)) {
             const have = new Set(getCustomAccounts().map(a => a.code));
             const clean = data.coa.filter(a => a && /^\d{4}$/.test(a.code) && !have.has(a.code) && COA_TYPES.includes(a.type) && a.name);
@@ -798,8 +818,7 @@ function importJSONFile(file) {
               try { localStorage.setItem(COA_KEY, JSON.stringify(getCustomAccounts().concat(clean))); } catch { skipped += clean.length; }
             }
           }
-        }
-        resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, skipped });
+        resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, purchases: cB || 0, skipped });
       } catch (err) {
         reject(new Error('Gagal membaca JSON: ' + err.message));
       }
@@ -1380,6 +1399,7 @@ export function snapshotAll() {
     equity: getOpeningEquity(),
     coa: getCustomAccounts(),
     locks: getLockedMonths(),
+    purchases: getPurchases(),
     exportedAt: new Date().toISOString(),
     version: 3
   };
@@ -1474,7 +1494,29 @@ export function restoreAll(snap) {
       try { localStorage.setItem(COA_KEY, JSON.stringify(getCustomAccounts().concat(clean.map(a => ({ code: a.code, name: String(a.name).slice(0, 60), type: a.type, category: String(a.category || '').slice(0, 60), custom: true }))))) ; } catch {}
     }
   }
-  return { entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ, items: cI, employees: cM };
+  let cB = 0;
+  if (Array.isArray(snap.purchases)) {
+    const have = new Set(getPurchases().map(p => p.id));
+    const toAdd = [];
+    snap.purchases.forEach(p => {
+      if (!p || !p.id || have.has(p.id)) return;
+      if (!p.supplier || !isValidDateStr(String(p.date || '').slice(0, 10))) return;
+      if (!Array.isArray(p.lines) || !p.lines.length) return;
+      have.add(p.id);
+      toAdd.push(p);
+    });
+    if (toAdd.length) {
+      savePurchases(getPurchases().concat(toAdd));
+      cB = toAdd.length;
+      // Stok ikut dipulihkan (jurnalnya sudah ada di backup, jangan posting ulang)
+      toAdd.forEach(p => {
+        (p.lines || []).forEach(l => {
+          try { applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost, keepCost: false }); } catch {}
+        });
+      });
+    }
+  }
+  return { entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ, items: cI, employees: cM, purchases: cB };
 }
 
 export function stampLastBackup() {
@@ -1783,6 +1825,136 @@ export function deleteCustomAccount(code, journalBalances) {
     throw new Error('Akun sudah ada mutasi — tidak bisa dihapus');
   }
   localStorage.setItem(COA_KEY, JSON.stringify(getCustomAccounts().filter(a => a.code !== code)));
+}
+
+// ===== Beli ke supplier (hutang usaha + stok masuk) =====
+const PURCH_KEY = 'wynara_purchases';
+
+function getPurchases() {
+  try {
+    const v = localStorage.getItem(PURCH_KEY);
+    const a = v ? JSON.parse(v) : [];
+    return Array.isArray(a) ? a : [];
+  } catch { return []; }
+}
+
+function savePurchases(list) {
+  try {
+    localStorage.setItem(PURCH_KEY, JSON.stringify(list));
+  } catch (e) {
+    if (e && e.name === 'QuotaExceededError') throw new Error('Penyimpanan pembelian penuh');
+    throw e;
+  }
+}
+
+export function getAllPurchases() {
+  return getPurchases().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+}
+
+export function getPurchaseById(id) {
+  return getPurchases().find(p => p.id === id) || null;
+}
+
+export function purchasePaidTotal(p) {
+  return (Array.isArray(p.payments) ? p.payments : []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+}
+
+export function purchaseOutstanding(p) {
+  return Math.max((Number(p.totalCost) || 0) - purchasePaidTotal(p), 0);
+}
+
+function sanitizePurchaseLine(l) {
+  if (!l || typeof l !== 'object') return null;
+  const item = getItemById(l.itemId);
+  if (!item) return null;
+  const qty = Math.max(Math.floor(Number(l.qty) || 0), 0);
+  const unitCost = Math.max(Number(l.unitCost) || 0, 0);
+  if (qty <= 0 || unitCost <= 0) return null;
+  return { itemId: item.id, name: item.name, qty, unitCost, lineTotal: Math.round(qty * unitCost) };
+}
+
+export function createPurchase({ supplier, date, dueDate, lines, note }) {
+  const cleanLines = (Array.isArray(lines) ? lines : []).map(sanitizePurchaseLine).filter(Boolean);
+  if (!cleanLines.length) throw new Error('Isi dulu barang + qty + harga modal');
+  if (!isValidDateStr(String(date || '').slice(0, 10))) throw new Error('Tanggal tidak valid');
+  const person = String(supplier || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
+  if (!person) throw new Error('Tulis dulu nama supplier');
+  const totalCost = cleanLines.reduce((s, l) => s + l.lineTotal, 0);
+  const rec = {
+    id: generateId(),
+    supplier: person,
+    date: String(date).slice(0, 10),
+    dueDate: isValidDateStr(dueDate) ? String(dueDate).slice(0, 10) : '',
+    lines: cleanLines,
+    totalCost,
+    payments: [],
+    status: 'active',
+    note: String(note || '').slice(0, 100),
+    createdAt: new Date().toISOString()
+  };
+  // Stok masuk dulu (gagal → batal semua)
+  const applied = [];
+  try {
+    cleanLines.forEach(l => {
+      applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost });
+      applied.push(l);
+    });
+  } catch (err) {
+    applied.forEach(l => { try { applyStockMove(l.itemId, { qtyOut: l.qty }); } catch {} });
+    throw err;
+  }
+  const list = getPurchases();
+  list.push(rec);
+  savePurchases(list);
+  try {
+    const j = buildPurchaseJournal({ amount: totalCost, date: rec.date, memo: `Beli ke ${person}` });
+    if (j) { j.refId = rec.id; postJournal(j); }
+  } catch {}
+  try { savePerson(person, 'perusahaan'); } catch {}
+  logAudit('create', 'purchase', rec.id, null, { supplier: person, total: totalCost });
+  return rec;
+}
+
+export function addPurchasePayment(purchaseId, { amount, date, payment, paymentDetail, note }) {
+  const list = getPurchases();
+  const idx = list.findIndex(p => p.id === purchaseId);
+  if (idx === -1) throw new Error('Pembelian tidak ditemukan');
+  const p = list[idx];
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) throw new Error('Nominal harus lebih dari 0');
+  if (amt > purchaseOutstanding(p) + 0.01) throw new Error(`Melebihi sisa ${purchaseOutstanding(p).toLocaleString('id-ID')}`);
+  if (!isValidDateStr(String(date || '').slice(0, 10))) throw new Error('Tanggal tidak valid');
+  p.payments.push({
+    id: generateId(),
+    amount: amt,
+    date: String(date).slice(0, 10),
+    payment: payment || 'transfer',
+    paymentDetail: String(paymentDetail || '').slice(0, 60),
+    note: String(note || '').slice(0, 100),
+    createdAt: new Date().toISOString()
+  });
+  if (purchaseOutstanding(p) <= 0.01) p.status = 'paid';
+  savePurchases(list);
+  try {
+    const j = buildPurchasePayJournal({ amount: amt, date: String(date).slice(0, 10), payment: payment || 'transfer', memo: `Bayar ${p.supplier}` });
+    if (j) { j.refId = purchaseId; postJournal(j); }
+  } catch {}
+  logAudit('create', 'purchase-pay', purchaseId, null, { amount: amt, date: p.payments[p.payments.length - 1].date });
+  return p;
+}
+
+export function deletePurchase(id) {
+  const list = getPurchases();
+  const p = list.find(x => x.id === id);
+  if (!p) return false;
+  if ((p.payments || []).length) throw new Error('Sudah ada pembayaran — hapus pembayaran dulu via riwayat? (belum didukung, hubungi admin data)');
+  // Kembalikan stok (gagal bila sudah terjual → tolak hapus)
+  p.lines.forEach(l => applyStockMove(l.itemId, { qtyOut: l.qty }));
+  savePurchases(list.filter(x => x.id !== id));
+  deleteJournalsByRef('purchase', id);
+  deleteJournalsByRef('purchase-pay', id);
+  logAudit('delete', 'purchase', id, { supplier: p.supplier, total: p.totalCost }, null);
+  return true;
 }
 
 // ===== Kunci periode (YYYY-MM) — bulan dikunci tak bisa tambah/ubah =====

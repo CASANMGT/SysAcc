@@ -126,6 +126,18 @@ describe('buildLoanJournal / buildRepaymentJournal', () => {
   });
 });
 
+describe('purchase journals', () => {
+  it('beli: Dr Persediaan Cr Hutang Usaha', async () => {
+    const { buildPurchaseJournal, buildPurchasePayJournal } = await import('../journals.js');
+    const j = buildPurchaseJournal({ amount: 500000, date: '2026-09-01', memo: 'Beli' });
+    expect(j.lines.find(l => l.account === '1301').debit).toBe(500000);
+    expect(j.lines.find(l => l.account === '2103').credit).toBe(500000);
+    const p = buildPurchasePayJournal({ amount: 200000, date: '2026-09-02', payment: 'transfer', memo: 'Bayar' });
+    expect(p.lines.find(l => l.account === '2103').debit).toBe(200000);
+    expect(p.lines.find(l => l.account === '1102').credit).toBe(200000);
+  });
+});
+
 describe('transfer & adjust', () => {
   it('transfer antar kas', () => {
     const j = buildTransferJournal({ fromPayment: 'cash', toPayment: 'transfer', amount: 1000000, date: '2026-09-01' });

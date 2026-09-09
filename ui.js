@@ -2074,28 +2074,44 @@ function renderPLReport(d) {
 
 function renderBSReport(d) {
   if (!d) return '';
-  const row = (x) => `<tr><td>${escapeHtml(accountLabel(x.code))}</td><td class="amount-col">${formatCurrency(x.total)}</td></tr>`;
+  const hasPrev = !!d.prev;
+  const prevOf = (list, code) => (list || []).find(x => x.code === code)?.total || 0;
+  const delta = (cur, prv) => {
+    if (!hasPrev) return '';
+    const v = cur - prv;
+    const cls = v > 0 ? 'income' : v < 0 ? 'expense' : '';
+    return `<td class="amount-col ${cls}">${v > 0 ? '+' : ''}${formatCurrency(v)}</td>`;
+  };
+  const prevCell = (v) => hasPrev ? `<td class="amount-col" style="color:#64748b">${formatCurrency(v)}</td>` : '';
+  const prevHead = hasPrev ? '<th class="amount-col">Awal</th><th class="amount-col">±</th>' : '';
+  const row = (x, prevList) => {
+    const p = prevOf(prevList, x.code);
+    return `<tr><td>${escapeHtml(accountLabel(x.code))}</td><td class="amount-col">${formatCurrency(x.total)}</td>${prevCell(p)}${delta(x.total, p)}</tr>`;
+  };
+  const colspan = hasPrev ? 4 : 2;
   return `
     <div class="report-summary">
       <div class="report-summary-item"><span class="label">Total Aset</span><span class="value">${formatCurrency(d.totalA)}</span></div>
       <div class="report-summary-item"><span class="label">Kewajiban + Modal</span><span class="value">${formatCurrency(d.totalL + d.equity)}</span></div>
       <div class="report-summary-item"><span class="label">Selisih</span><span class="value ${Math.abs(d.balanced) < 1 ? 'income' : 'expense'}">${Math.abs(d.balanced) < 1 ? '✓ Balance' : formatCurrency(d.balanced)}</span></div>
+      ${hasPrev ? `<div class="report-summary-item"><span class="label">Δ Aset vs awal</span><span class="value ${d.totalA - d.prev.totalA >= 0 ? 'income' : 'expense'}">${(d.totalA - d.prev.totalA >= 0 ? '+' : '') + formatCurrency(d.totalA - d.prev.totalA)}</span></div>` : ''}
     </div>
+    ${hasPrev ? `<p style="font-size:11px;color:#64748b">Banding vs saldo awal ${escapeHtml(d.prevLabel || '')}.</p>` : ''}
     <h4 style="margin:12px 0;">💰 Aset</h4>
-    <table class="report-table"><tbody>
-      ${d.assets.length ? d.assets.map(row).join('') : '<tr><td colspan="2">Tidak ada aset</td></tr>'}
-      <tr><td><b>Total Aset</b></td><td class="amount-col"><b>${formatCurrency(d.totalA)}</b></td></tr>
+    <table class="report-table"><thead><tr><th>Akun</th><th class="amount-col">Kini</th>${prevHead}</tr></thead><tbody>
+      ${d.assets.length ? d.assets.map(x => row(x, hasPrev ? d.prev.assets : [])).join('') : `<tr><td colspan="${colspan}">Tidak ada aset</td></tr>`}
+      <tr><td><b>Total Aset</b></td><td class="amount-col"><b>${formatCurrency(d.totalA)}</b></td>${prevCell(hasPrev ? d.prev.totalA : 0)}${hasPrev ? delta(d.totalA, d.prev.totalA) : ''}</tr>
     </tbody></table>
     <h4 style="margin:12px 0;">📋 Kewajiban</h4>
-    <table class="report-table"><tbody>
-      ${d.liabs.length ? d.liabs.map(row).join('') : '<tr><td colspan="2">Tidak ada kewajiban</td></tr>'}
-      <tr><td><b>Total Kewajiban</b></td><td class="amount-col"><b>${formatCurrency(d.totalL)}</b></td></tr>
+    <table class="report-table"><thead><tr><th>Akun</th><th class="amount-col">Kini</th>${prevHead}</tr></thead><tbody>
+      ${d.liabs.length ? d.liabs.map(x => row(x, hasPrev ? d.prev.liabs : [])).join('') : `<tr><td colspan="${colspan}">Tidak ada kewajiban</td></tr>`}
+      <tr><td><b>Total Kewajiban</b></td><td class="amount-col"><b>${formatCurrency(d.totalL)}</b></td>${prevCell(hasPrev ? d.prev.totalL : 0)}${hasPrev ? delta(d.totalL, d.prev.totalL) : ''}</tr>
     </tbody></table>
     <h4 style="margin:12px 0;">🏦 Modal</h4>
-    <table class="report-table"><tbody>
-      <tr><td>Modal Awal (3101)</td><td class="amount-col">${formatCurrency(d.modal)}</td></tr>
-      <tr><td>Laba Ditahan (berjalan)</td><td class="amount-col">${formatCurrency(d.laba)}</td></tr>
-      <tr><td><b>Total Modal</b></td><td class="amount-col"><b>${formatCurrency(d.equity)}</b></td></tr>
+    <table class="report-table"><thead><tr><th>Akun</th><th class="amount-col">Kini</th>${prevHead}</tr></thead><tbody>
+      <tr><td>Modal Awal (3101)</td><td class="amount-col">${formatCurrency(d.modal)}</td>${prevCell(hasPrev ? d.prev.modal : 0)}${hasPrev ? delta(d.modal, hasPrev ? d.prev.modal : 0) : ''}</tr>
+      <tr><td>Laba Ditahan (berjalan)</td><td class="amount-col">${formatCurrency(d.laba)}</td>${prevCell(hasPrev ? d.prev.laba : 0)}${hasPrev ? delta(d.laba, hasPrev ? d.prev.laba : 0) : ''}</tr>
+      <tr><td><b>Total Modal</b></td><td class="amount-col"><b>${formatCurrency(d.equity)}</b></td>${prevCell(hasPrev ? d.prev.equity : 0)}${hasPrev ? delta(d.equity, hasPrev ? d.prev.equity : 0) : ''}</tr>
     </tbody></table>`;
 }
 
@@ -3256,6 +3272,170 @@ export function bindSale(onSave) {
   document.getElementById('saleModal')?.addEventListener('click', (e) => { if (e.target.id === 'saleModal') closeSale(); });
   document.getElementById('saleAddRow')?.addEventListener('click', () => { addSaleRow(); });
   document.getElementById('saleSave')?.addEventListener('click', onSave);
+}
+
+/* ===== Beli ke supplier ===== */
+export function openBuy() {
+  const m = document.getElementById('buyModal');
+  if (!m) return;
+  document.getElementById('buySupplier').value = '';
+  document.getElementById('buyDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('buyDue').value = '';
+  document.getElementById('buyNote').value = '';
+  document.getElementById('buyRows').innerHTML = '';
+  addBuyRow();
+  addBuyRow();
+  recalcBuy();
+  if (!m.open) { try { m.showModal(); } catch {} }
+  trapFocus(m);
+}
+export function closeBuy() {
+  const m = document.getElementById('buyModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
+}
+export function addBuyRow() {
+  const box = document.getElementById('buyRows');
+  if (!box) return;
+  const items = getItemList();
+  const row = document.createElement('div');
+  row.className = 'buy-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+  row.innerHTML = `
+    <select class="buy-item" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+      <option value="">— Pilih barang —</option>
+      ${items.map(i => `<option value="${i.id}">${escapeHtml(i.name)} (modal ${formatCurrency(i.cost)})</option>`).join('')}
+    </select>
+    <input type="number" class="buy-qty" min="1" step="1" value="1" title="Berapa pcs?" style="flex:0 0 64px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <input type="text" class="buy-cost" placeholder="Rp modal/pcs" inputmode="decimal" title="Harga modal per pcs" style="flex:1;min-width:110px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <span class="buy-sub" style="flex:1;min-width:80px;font-size:12px;font-weight:700;text-align:right"></span>
+    <button type="button" class="btn btn-ghost buy-del" style="font-size:12px;padding:4px 8px;color:#ef4444">✕</button>`;
+  const sel = row.querySelector('.buy-item');
+  const cost = row.querySelector('.buy-cost');
+  sel.addEventListener('change', () => {
+    const it = items.find(x => x.id === sel.value);
+    if (it && !cost.dataset.touched) cost.value = it.cost ? String(it.cost) : '';
+    recalcBuy();
+  });
+  cost.addEventListener('input', () => { cost.dataset.touched = '1'; });
+  cost.addEventListener('blur', () => { const v = parseIdrInput(cost.value); cost.value = v ? formatIdrInput(v) : ''; recalcBuy(); });
+  row.querySelector('.buy-qty').addEventListener('input', recalcBuy);
+  row.querySelector('.buy-del').addEventListener('click', () => { row.remove(); recalcBuy(); });
+  box.appendChild(row);
+  bindRupiah(cost);
+  recalcBuy();
+}
+export function recalcBuy() {
+  const data = readBuyRows();
+  const el = document.getElementById('buyTotal');
+  if (el) el.textContent = 'Total ' + formatCurrency(data.total) + ' • jadi hutang usaha';
+  document.querySelectorAll('#buyRows .buy-row').forEach((row, i) => {
+    const sub = row.querySelector('.buy-sub');
+    if (sub) sub.textContent = data.lines[i] ? formatCurrency(data.lines[i].qty * data.lines[i].unitCost) : '';
+  });
+}
+function readBuyRows() {
+  const lines = [];
+  document.querySelectorAll('#buyRows .buy-row').forEach(row => {
+    const itemId = row.querySelector('.buy-item')?.value || '';
+    const qty = Math.max(parseInt(row.querySelector('.buy-qty')?.value || '0', 10) || 0, 0);
+    const unitCost = Math.round(Number(parseIdrInput(row.querySelector('.buy-cost')?.value || '')) || 0);
+    if (itemId && qty > 0 && unitCost > 0) {
+      const it = getItemList().find(x => x.id === itemId);
+      lines.push({ itemId, qty, unitCost, name: it ? it.name : '' });
+    }
+  });
+  return { lines, total: lines.reduce((s, l) => s + l.qty * l.unitCost, 0) };
+}
+export function getBuyData() {
+  const { lines, total } = readBuyRows();
+  return {
+    supplier: document.getElementById('buySupplier')?.value.trim() || '',
+    date: document.getElementById('buyDate')?.value || new Date().toISOString().split('T')[0],
+    dueDate: document.getElementById('buyDue')?.value || '',
+    note: document.getElementById('buyNote')?.value.trim() || '',
+    lines, total
+  };
+}
+export function bindBuy(onSave) {
+  document.getElementById('closeBuyBtn')?.addEventListener('click', closeBuy);
+  document.getElementById('buyCancel')?.addEventListener('click', closeBuy);
+  document.getElementById('buyModal')?.addEventListener('click', (e) => { if (e.target.id === 'buyModal') closeBuy(); });
+  document.getElementById('buyAddRow')?.addEventListener('click', () => { addBuyRow(); });
+  document.getElementById('buySave')?.addEventListener('click', onSave);
+  document.getElementById('buyOpenBtn')?.addEventListener('click', openBuy);
+}
+export function renderSuppliers(purchases) {
+  const box = document.getElementById('supplierList');
+  if (!box) return;
+  if (!purchases.length) {
+    box.innerHTML = '<p style="color:#94a3b8;font-size:12px">Belum ada hutang supplier. Klik ＋ Beli.</p>';
+    return;
+  }
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  box.innerHTML = purchases.map(p => {
+    const paid = (p.payments || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const out = Math.max((Number(p.totalCost) || 0) - paid, 0);
+    const isPaid = p.status === 'paid' || out <= 0.01;
+    let dueTxt = '';
+    if (!isPaid && p.dueDate) {
+      const dd = Math.ceil((new Date(p.dueDate + 'T00:00:00') - today) / 86400000);
+      dueTxt = dd < 0 ? ` • <b style="color:#dc2626">Telat ${Math.abs(dd)} hari</b>` : ` • jatuh tempo ${p.dueDate.slice(8, 10)}/${p.dueDate.slice(5, 7)}`;
+    }
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px;${isPaid ? 'opacity:0.65' : ''}">
+      <span style="font-size:18px">${isPaid ? '✅' : '📥'}</span>
+      <span style="flex:1"><b>${escapeHtml(p.supplier)}</b> <small style="color:#94a3b8">${escapeHtml(p.date || '')}</small><br>
+      <small style="color:#64748b">${(p.lines || []).map(l => `${l.qty}× ${escapeHtml(l.name || '')}`).join(', ')} • Total ${fmt(p.totalCost)} • Sudah ${fmt(paid)} • <b>Sisa ${fmt(out)}</b>${dueTxt}</small></span>
+      ${!isPaid ? `<button class="btn btn-ghost sup-pay" data-id="${p.id}" style="font-size:11px;padding:4px 10px">💰 Bayar</button>` : ''}
+      ${(p.payments || []).length === 0 ? `<button class="btn btn-ghost sup-del" data-id="${p.id}" style="font-size:11px;padding:4px 8px;color:#ef4444">✕</button>` : ''}
+    </div>`;
+  }).join('');
+}
+export function bindSupplierList(onPay, onDelete) {
+  document.getElementById('supplierList')?.addEventListener('click', (e) => {
+    const pay = e.target.closest('.sup-pay');
+    const del = e.target.closest('.sup-del');
+    if (pay) onPay(pay.dataset.id);
+    if (del) onDelete(del.dataset.id);
+  });
+}
+/* Bayar supplier */
+let supplierPayId = null;
+export function openSupplierPay(purchase) {
+  supplierPayId = purchase ? purchase.id : null;
+  const m = document.getElementById('supplierPayModal');
+  if (!m || !purchase) return;
+  const paid = (purchase.payments || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const out = Math.max((Number(purchase.totalCost) || 0) - paid, 0);
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  document.getElementById('supplierPayTitle').textContent = `Bayar — ${purchase.supplier}`;
+  document.getElementById('supplierPaySummary').innerHTML = `Total ${fmt(purchase.totalCost)} • Sudah ${fmt(paid)} • <b>Sisa ${fmt(out)}</b>`;
+  document.getElementById('supplierPayAmount').value = out > 0 ? String(Math.round(out)) : '';
+  document.getElementById('supplierPayDate').value = new Date().toISOString().split('T')[0];
+  if (!m.open) { try { m.showModal(); } catch {} }
+  trapFocus(m);
+}
+export function closeSupplierPay() {
+  const m = document.getElementById('supplierPayModal');
+  if (!m) return;
+  releaseFocus(m);
+  if (m.open) { try { m.close(); } catch {} }
+}
+export function getSupplierPayData() {
+  return {
+    id: supplierPayId,
+    amount: Number(document.getElementById('supplierPayAmount')?.value || 0) || 0,
+    payment: document.getElementById('supplierPayPayment')?.value || 'transfer',
+    date: document.getElementById('supplierPayDate')?.value || ''
+  };
+}
+export function bindSupplierPay(onSubmit) {
+  document.getElementById('supplierPayClose')?.addEventListener('click', closeSupplierPay);
+  document.getElementById('supplierPayCancel')?.addEventListener('click', closeSupplierPay);
+  document.getElementById('supplierPayModal')?.addEventListener('click', (e) => { if (e.target.id === 'supplierPayModal') closeSupplierPay(); });
+  document.getElementById('supplierPayForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSubmit(); });
 }
 
 export function bindContactsActions(onDelete, onEdit) {

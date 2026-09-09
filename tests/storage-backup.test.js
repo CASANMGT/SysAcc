@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, saveCustomAccount, getCustomAccounts, deleteCustomAccount } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, getAllJournals } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -99,6 +99,42 @@ describe('custom COA storage', () => {
     saveCustomAccount({ code: '5121', name: 'Y', type: 'expense' });
     expect(() => deleteCustomAccount('5121', { 5121: { debit: 100, credit: 0 } })).toThrow();
     deleteCustomAccount('5121', {});
+  });
+});
+
+describe('purchase flow', () => {
+  it('beli masuk stok + jurnal + hutang; bayar melunasi', () => {
+    const it = saveItem({ name: 'Gula', cost: 10000, price: 15000, stock: 0 });
+    const p = createPurchase({
+      supplier: 'Toko Makmur', date: '2026-09-01', dueDate: '2026-09-15',
+      lines: [{ itemId: it.id, qty: 10, unitCost: 10000 }]
+    });
+    expect(p.totalCost).toBe(100000);
+    expect(getItemById(it.id).stock).toBe(10);
+    expect(getItemById(it.id).cost).toBe(10000);
+    // jurnal beli ada
+    expect(getAllJournals().some(j => j.ref === 'purchase' && j.refId === p.id)).toBe(true);
+    // bayar sebagian
+    const p2 = addPurchasePayment(p.id, { amount: 40000, date: '2026-09-05', payment: 'transfer' });
+    expect(purchaseOutstanding(p2)).toBe(60000);
+    expect(getPurchaseById(p.id).status).toBe('active');
+    addPurchasePayment(p.id, { amount: 60000, date: '2026-09-06', payment: 'cash' });
+    expect(getPurchaseById(p.id).status).toBe('paid');
+    expect(getAllJournals().filter(j => j.ref === 'purchase-pay').length).toBe(2);
+  });
+  it('validasi: supplier kosong, baris kosong, melebihi sisa', () => {
+    expect(() => createPurchase({ supplier: '', date: '2026-09-01', lines: [] })).toThrow();
+    const it = saveItem({ name: 'Kopi', cost: 5000, price: 8000, stock: 0 });
+    const p = createPurchase({ supplier: 'S', date: '2026-09-01', lines: [{ itemId: it.id, qty: 2, unitCost: 5000 }] });
+    expect(() => addPurchasePayment(p.id, { amount: 20000, date: '2026-09-02' })).toThrow();
+  });
+  it('hapus kembalikan stok; tolak bila sudah terjual', () => {
+    const it = saveItem({ name: 'Teh', cost: 3000, price: 5000, stock: 0 });
+    const p = createPurchase({ supplier: 'S2', date: '2026-09-01', lines: [{ itemId: it.id, qty: 5, unitCost: 3000 }] });
+    expect(getItemById(it.id).stock).toBe(5);
+    // jual 5 via entry langsung? simulasi: kurangi stok manual lalu hapus → gagal
+    saveItem({ id: it.id, name: 'Teh', cost: 3000, price: 5000, stock: 0 });
+    expect(() => deletePurchase(p.id)).toThrow();
   });
 });
 
