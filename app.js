@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.10.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -369,10 +369,28 @@ function bindEvents() {
   document.getElementById('stockBtnSidebar')?.addEventListener('click', () => { refreshStock(); UI.openStock(); });
   document.getElementById('saleEntryBtn')?.addEventListener('click', () => UI.openSale());
   document.getElementById('saleEntryBtn2')?.addEventListener('click', () => UI.openSale());
-  document.getElementById('payrollBtnSidebar')?.addEventListener('click', () => { refreshPayroll(); UI.openPayroll(); });
+  document.getElementById('payrollBtnSidebar')?.addEventListener('click', () => showView('viewPayroll'));
   document.getElementById('kasOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
   document.getElementById('bankOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
   UI.bindStock(handleStockSave, handleStockEdit, handleStockDelete);
+  UI.bindPayrollView({
+    onTab: handlePayrollTab,
+    onSearch: (v) => { payrollEmpSearch = v; UI.renderEmpTable(Storage.getAllEmployees(), payrollEmpSearch); },
+    onAdd: () => UI.fillEmpPanel(null),
+    onEdit: handleEmpViewEdit,
+    onSave: handleEmpViewSave,
+    onCancel: () => UI.fillEmpPanel(null),
+    onClose: () => UI.fillEmpPanel(null),
+    onPeriod: handlePayrollPeriod,
+    onCheckAll: handlePayrollCheckAll,
+    onCheck: handlePayrollCheck,
+    onExpand: handlePayrollExpand,
+    onDetailChange: handlePayrollDetailChange,
+    onLembur: handlePayrollLembur,
+    onDraft: handlePayrollDraft,
+    onFinal: handlePayrollFinal
+  });
+  loadPayrollCache();
   UI.bindBuy(handleBuySave);
   UI.bindSupplierList(handleSupplierPay, handleSupplierDelete);
   UI.bindSupplierPay(handleSupplierPaySubmit);
@@ -389,12 +407,13 @@ function bindEvents() {
     const target = document.getElementById(viewId);
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi' };
+    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar' };
     const sel = map[viewId];
     if (sel) document.querySelector(sel)?.classList.add('active');
     sidebar?.classList.remove('open');
     overlay?.classList.add('hidden');
     if (viewId === 'viewTransaksi') renderFullTransaksi();
+    if (viewId === 'viewPayroll') renderPayrollView();
   }
   // default view
   showView('viewRingkasan');
@@ -2536,6 +2555,270 @@ function handleSaleSave() {
   } catch (err) {
     UI.showError(err && err.message ? err.message : 'Gagal menyimpan penjualan');
   }
+}
+
+/* ===== Halaman Karyawan & Gaji ===== */
+let payrollViewMonth = '';
+let payrollEmpSearch = '';
+let payrollCache = {}; // empId -> {overtime, withThr, withPph, checked}
+
+function payrollMonthEnd(key) {
+  const [y, m] = String(key || '').split('-').map(Number);
+  if (!y || !m) { const n = new Date(); return n; }
+  return new Date(y, m, 0);
+}
+function payrollMonthLabel(key) {
+  const [y, m] = String(key || '').split('-').map(Number);
+  if (!y || !m) return '';
+  return new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+}
+function ensurePayrollMonth() {
+  if (!/^\d{4}-\d{2}$/.test(payrollViewMonth)) {
+    const n = new Date();
+    payrollViewMonth = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const per = document.getElementById('payrollPeriod');
+  if (per && !per.value) per.value = payrollViewMonth;
+  if (per && per.value !== payrollViewMonth && document.activeElement !== per) per.value = payrollViewMonth;
+}
+function loadPayrollCache() {
+  ensurePayrollMonth();
+  const saved = (Storage.getPayrollDraft(payrollViewMonth) || {}).items || {};
+  payrollCache = {};
+  Storage.getAllEmployees().forEach(e => {
+    const s = saved[e.id] || {};
+    payrollCache[e.id] = {
+      overtime: Math.max(Number(s.overtime) || 0, 0),
+      withThr: !!s.withThr,
+      withPph: s.withPph === undefined ? true : !!s.withPph,
+      checked: s.checked === undefined ? true : !!s.checked
+    };
+  });
+}
+function payRowsForView() {
+  ensurePayrollMonth();
+  const ref = payrollMonthEnd(payrollViewMonth);
+  const paid = payrollPaidMap(payrollViewMonth);
+  return Storage.getAllEmployees()
+    .filter(e => e.active !== false && Storage.empGross(e) > 0)
+    .map(emp => {
+      const c = payrollCache[emp.id] || { overtime: 0, withThr: false, withPph: true, checked: true };
+      const slip = computeSlip(emp, { overtime: c.overtime, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref });
+      const thrNote = c.withThr && slip.thr <= 0 ? 'Masa kerja belum 1 bulan — THR Rp0. Jangan centang bila belum waktunya.' : '';
+      return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, withThr: !!c.withThr, withPph: !!c.withPph, thrNote };
+    });
+}
+function renderPayrollView() {
+  ensurePayrollMonth();
+  const tab = UI.getPayrollTab();
+  if (tab === 'data') {
+    UI.renderEmpTable(Storage.getAllEmployees(), payrollEmpSearch);
+    if (!window.__empPanelInit) { window.__empPanelInit = true; UI.fillEmpPanel(null); }
+  } else if (tab === 'process') {
+    const draft = Storage.getPayrollDraft(payrollViewMonth);
+    UI.renderPayrollProcess(payRowsForView(), payrollMonthLabel(payrollViewMonth), draft ? draft.status : 'new');
+  } else {
+    const box = document.getElementById('payrollViewReport');
+    if (box) {
+      const d = buildPayrollReport();
+      box.innerHTML = payrollReportHTML(d);
+      window.__payrollRepData = d;
+    }
+  }
+}
+function payrollReportHTML(d) {
+  // Render ulang via fungsi laporan (simpan sementara ke container laporan)
+  const host = document.getElementById('reportContent');
+  const prev = host ? host.innerHTML : '';
+  const prevData = window.__payrollRepData;
+  window.__payrollRepData = d;
+  UI.renderReport('payrollrep', d);
+  const html = host ? host.innerHTML : '';
+  if (host) host.innerHTML = prev;
+  window.__payrollRepData = prevData;
+  return html;
+}
+
+/* ===== Handler halaman gaji ===== */
+function handlePayrollTab(tab) {
+  UI.setPayrollTab(tab);
+  renderPayrollView();
+}
+function handleEmpViewSave() {
+  const d = UI.getEmpPanelData();
+  if (!d.name) return UI.showError('Nama karyawan wajib diisi');
+  if (!(d.baseSalary > 0)) return UI.showError('Gaji pokok harus lebih dari 0');
+  try {
+    const saved = d.id
+      ? Storage.saveEmployee({ ...d, id: d.id })
+      : Storage.saveEmployee(d);
+    Storage.logAudit(d.id ? 'update' : 'create', 'employee', saved.id, null, { name: saved.name });
+    UI.showSuccess(d.id ? 'Perubahan karyawan disimpan' : `Karyawan “${saved.name}” ditambahkan`);
+    UI.fillEmpPanel(null);
+    loadPayrollCache();
+    renderPayrollView();
+    refresh();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menyimpan karyawan');
+  }
+}
+function handleEmpViewEdit(id) {
+  const e = Storage.getAllEmployees().find(x => x.id === id);
+  if (e) {
+    UI.fillEmpPanel(e);
+    document.getElementById('empPanel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+function handlePayrollPeriod(val) {
+  if (/^\d{4}-\d{2}$/.test(val || '')) {
+    payrollViewMonth = val;
+    loadPayrollCache();
+    renderPayrollView();
+  }
+}
+function handlePayrollCheck(id, checked) {
+  if (payrollCache[id]) payrollCache[id].checked = !!checked;
+  renderPayrollView();
+}
+function handlePayrollCheckAll(checked) {
+  Object.keys(payrollCache).forEach(k => { payrollCache[k].checked = !!checked; });
+  renderPayrollView();
+}
+function handlePayrollExpand(id) {
+  UI.setPayrollExpanded(id);
+  renderPayrollView();
+}
+function handlePayrollDetailChange() {
+  // baca status checkbox THR/PPh dari DOM ke cache lalu render ulang
+  document.querySelectorAll('#payrollTableBody .pay-thr').forEach(el => {
+    const id = el.dataset.id;
+    if (payrollCache[id]) payrollCache[id].withThr = el.checked;
+  });
+  document.querySelectorAll('#payrollTableBody .pay-pph').forEach(el => {
+    const id = el.dataset.id;
+    if (payrollCache[id]) payrollCache[id].withPph = el.checked;
+  });
+  renderPayrollView();
+}
+function handlePayrollLembur(input) {
+  const empId = input.dataset.id;
+  if (empId && payrollCache[empId]) {
+    payrollCache[empId].overtime = Math.max(Number(UI.parseIdrInput(input.value)) || 0, 0);
+  }
+  // Patch sel tanpa render ulang (jaga fokus ketik)
+  patchPayrollRow(empId);
+}
+function patchPayrollRow(empId) {
+  const c = payrollCache[empId];
+  const emp = Storage.getAllEmployees().find(x => x.id === empId);
+  if (!c || !emp) return;
+  const ref = payrollMonthEnd(payrollViewMonth);
+  const s = computeSlip(emp, { overtime: c.overtime, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref });
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  document.querySelectorAll('#payrollTableBody tr').forEach(tr => {
+    const chk = tr.querySelector('.pay-check');
+    if (chk && chk.dataset.id === empId) {
+      const tds = tr.querySelectorAll('td');
+      if (tds[3]) tds[3].textContent = fmt(s.allow + s.overtime + s.thr);
+      if (tds[4]) tds[4].textContent = fmt(s.totalDed);
+      if (tds[5]) tds[5].innerHTML = `<b>${fmt(s.takeHome)}</b>`;
+    }
+  });
+  // total footer
+  let total = 0;
+  Object.keys(payrollCache).forEach(k => {
+    const cc = payrollCache[k];
+    const em = Storage.getAllEmployees().find(x => x.id === k);
+    if (!em || !cc.checked) return;
+    const ss = computeSlip(em, { overtime: cc.overtime, thr: cc.withThr ? thrAmount(em, ref) : 0, pph: cc.withPph, refDate: ref });
+    total += ss.takeHome;
+  });
+  const foot = document.getElementById('payrollFootTotal');
+  if (foot) foot.textContent = fmt(total);
+}
+function handlePayrollDraft() {
+  ensurePayrollMonth();
+  const items = {};
+  Object.keys(payrollCache).forEach(k => { items[k] = { ...payrollCache[k] }; });
+  // sinkron nilai lembur dari DOM (bila sedang diketik)
+  document.querySelectorAll('#payrollTableBody .pay-lembur').forEach(el => {
+    const id = el.dataset.id;
+    if (items[id]) items[id].overtime = Math.max(Number(UI.parseIdrInput(el.value)) || 0, 0);
+  });
+  try {
+    Storage.savePayrollDraft(payrollViewMonth, { items, status: 'draft' });
+    loadPayrollCache();
+    UI.showSuccess(`Draft ${payrollMonthLabel(payrollViewMonth)} disimpan`);
+    renderPayrollView();
+    queueMirror();
+  } catch (err) {
+    UI.showError('Gagal menyimpan draft');
+  }
+}
+function handlePayrollFinal() {
+  ensurePayrollMonth();
+  if (Storage.isMonthLocked(payrollViewMonth + '-01')) return UI.showError(`Bulan ${payrollViewMonth} terkunci — buka di Pengaturan`);
+  // sinkron lembur dari DOM
+  document.querySelectorAll('#payrollTableBody .pay-lembur').forEach(el => {
+    const id = el.dataset.id;
+    if (payrollCache[id]) payrollCache[id].overtime = Math.max(Number(UI.parseIdrInput(el.value)) || 0, 0);
+  });
+  const emps = Storage.getAllEmployees();
+  const paid = payrollPaidMap(payrollViewMonth);
+  const ref = payrollMonthEnd(payrollViewMonth);
+  const [y, m] = payrollViewMonth.split('-').map(Number);
+  const date = `${payrollViewMonth}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+  const payment = document.getElementById('payrollViewPayment')?.value || 'transfer';
+  const monthLabel = payrollMonthLabel(payrollViewMonth);
+  const todo = Object.keys(payrollCache).filter(k => payrollCache[k].checked && !paid[k]);
+  if (!todo.length) return UI.showInfo('Tidak ada yang perlu diproses (sudah dibayar / belum dicentang)');
+  if (!confirm(`Finalisasi gaji ${monthLabel} untuk ${todo.length} karyawan? Transaksi dicatat dan bulan ditandai final.`)) return;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  let ok = 0, compTotal = 0;
+  todo.forEach(k => {
+    const e = emps.find(x => x.id === k);
+    if (!e) return;
+    const c = payrollCache[k];
+    try {
+      const slip = computeSlip(e, { overtime: c.overtime, thr: c.withThr ? thrAmount(e, ref) : 0, pph: c.withPph, refDate: ref });
+      const bits = [`pokok ${fmt(slip.base)}`];
+      if (slip.allow > 0) bits.push(`tunj ${fmt(slip.allow)}`);
+      if (slip.overtime > 0) bits.push(`lembur ${fmt(slip.overtime)}`);
+      if (slip.thr > 0) bits.push(`THR ${fmt(slip.thr)}`);
+      const deds = [];
+      if (slip.ded.kesSelf > 0) deds.push(`BPJS Kes ${fmt(slip.ded.kesSelf)}`);
+      if (slip.ded.jhtSelf > 0) deds.push(`JHT ${fmt(slip.ded.jhtSelf)}`);
+      if (slip.ded.jpSelf > 0) deds.push(`JP ${fmt(slip.ded.jpSelf)}`);
+      if (slip.ded.pph21 > 0) deds.push(`PPh ${fmt(slip.ded.pph21)}`);
+      Storage.createEntry({
+        date, type: 'expense', category: 'gaji-out', payment,
+        description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})`,
+        amount: slip.takeHome, person: e.name,
+        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, thr: slip.thr, ded: slip.ded, comp: slip.comp, takeHome: slip.takeHome, employerCost: slip.employerCost }
+      });
+      compTotal += slip.totalComp;
+      ok++;
+    } catch {}
+  });
+  if (compTotal > 0) {
+    try {
+      Storage.postJournal({
+        id: `BPJS-${payrollViewMonth}-${Date.now().toString(36)}`,
+        date, memo: `Iuran BPJS perusahaan ${monthLabel}`, ref: 'payroll-bpjs', refId: payrollViewMonth,
+        lines: [
+          { account: '5112', debit: Math.round(compTotal), credit: 0, memo: `BPJS ${monthLabel}` },
+          { account: '2110', debit: 0, credit: Math.round(compTotal), memo: `BPJS ${monthLabel}` },
+        ]
+      });
+    } catch {}
+  }
+  Storage.logAudit('create', 'payroll-run', payrollViewMonth, null, { count: ok, month: monthLabel });
+  try { Storage.markPayrollFinal(payrollViewMonth); } catch {}
+  UI.showSuccess(ok ? `Gaji ${monthLabel} final: ${ok} karyawan` : 'Tidak ada yang diproses');
+  loadPayrollCache();
+  renderPayrollView();
+  refresh();
 }
 
 function handleLogout() {

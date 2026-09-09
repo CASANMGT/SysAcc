@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.10.0] - 2026-09-09
+
+### Added — Halaman Karyawan & Gaji (sesuai desain)
+- **Tab Data Karyawan**: tabel (avatar, jabatan, status kerja, aktif, gaji pokok) + cari + panel edit samping dengan sub-tab Data utama / Gaji & rekening / Pajak & BPJS; field baru email + bank + no. rekening
+- **Tab Proses Gaji**: pilih periode (bulan apa pun, mundur/maju), kartu ringkasan (dipilih, pokok, status Draft/Final), stepper 3 langkah, tabel centang + rincian expandable (lembur/THR/PPh editable, THP live), total footer + catatan kesiapan, Simpan draft (tersimpan per bulan) & Finalisasi (catat + tandai final, hormati kunci periode)
+- **Tab Laporan Gaji**: laporan bulanan/tahunan + cetak, tertanam di halaman
+- Sidebar kini buka halaman (modal lama pensiun)
+
+---
+
 ## [1.9.0] - 2026-09-09
 
 ### Added — Tutup loop inventori + paket investor
@@ -233,6 +243,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+[1.10.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.10.0
 [1.9.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.9.0
 [1.8.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.8.0
 [1.7.0]: https://github.com/CASANMGT/SysAcc/releases/tag/v1.7.0

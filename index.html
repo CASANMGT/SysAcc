@@ -109,7 +109,7 @@
           <button class="sidebar-item" id="contactsBtnSidebar">👥 Kontak</button>
           <button class="sidebar-item" id="loanBtnSidebar">🤝 Pinjemin</button>
           <button class="sidebar-item" id="stockBtnSidebar">📦 Stok</button>
-          <button class="sidebar-item" id="payrollBtnSidebar">💼 Gaji</button>
+          <button class="sidebar-item" id="payrollBtnSidebar">👥 Karyawan & Gaji</button>
           <button class="sidebar-item" id="themeToggleSidebar">⚙️ Pengaturan</button>
         </nav>
         <div class="sidebar-help">
@@ -120,7 +120,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.9.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.10.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -404,7 +404,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.9.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.10.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -461,6 +461,164 @@
                 <div class="table-pager" style="display:flex;gap:4px"><button id="transaksiPrev" disabled>‹</button><span class="pager-active" id="transaksiPagerNum">1</span><button id="transaksiNext" disabled>›</button></div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div id="viewPayroll" class="view-section hidden">
+          <div class="view-header">
+            <div>
+              <h1>Karyawan & Gaji</h1>
+              <p>Kelola data tim dan komponen penggajian.</p>
+            </div>
+          </div>
+          <div class="chip-group" id="payrollTabs" role="tablist" aria-label="Tab gaji" style="margin-bottom:12px">
+            <button type="button" class="chip selected" data-value="data" role="tab">Data Karyawan</button>
+            <button type="button" class="chip" data-value="process" role="tab">Proses Gaji</button>
+            <button type="button" class="chip" data-value="report" role="tab">Laporan Gaji</button>
+          </div>
+
+          <div id="payrollTabData">
+            <div style="display:grid;grid-template-columns:1fr;gap:12px" class="payroll-grid">
+              <div class="dash-panel" style="padding:16px">
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+                  <h3 id="empTableTitle" style="flex:1">Daftar karyawan</h3>
+                  <button class="btn btn-primary" id="empAddBtn" style="font-size:12px">＋ Tambah karyawan</button>
+                </div>
+                <input type="search" id="empSearch" placeholder="🔍 Cari nama, jabatan, atau status..." style="width:100%;height:40px;padding:0 12px;border:1px solid #e2e8f0;border-radius:12px;background:white;font-size:13px;margin-bottom:10px">
+                <div style="overflow-x:auto">
+                  <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:13px">
+                    <thead><tr style="font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+                      <th style="padding:10px;text-align:left">Nama</th>
+                      <th style="padding:10px;text-align:left">Jabatan</th>
+                      <th style="padding:10px;text-align:left">Status kerja</th>
+                      <th style="padding:10px;text-align:left">Status</th>
+                      <th style="padding:10px;text-align:right">Gaji pokok</th>
+                      <th style="padding:10px;width:90px"></th>
+                    </tr></thead>
+                    <tbody id="empTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="dash-panel" style="padding:16px" id="empPanel">
+                <div style="display:flex;align-items:center;margin-bottom:10px">
+                  <h3 id="empPanelTitle" style="flex:1">Tambah karyawan</h3>
+                  <button type="button" class="modal-close" id="empPanelClose" aria-label="Tutup">×</button>
+                </div>
+                <div class="chip-group" style="margin-bottom:12px" id="empSubTabs">
+                  <button type="button" class="chip selected" data-value="main">Data utama</button>
+                  <button type="button" class="chip" data-value="salary">Gaji & rekening</button>
+                  <button type="button" class="chip" data-value="tax">Pajak & BPJS</button>
+                </div>
+                <form id="empViewForm">
+                  <input type="hidden" id="empViewId">
+                  <div id="empSubMain">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <label style="font-size:12px">Nama lengkap*<input type="text" id="empViewName" required maxlength="60" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">Jabatan<input type="text" id="empViewRole" maxlength="40" placeholder="mis. Kasir" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">Status kerja
+                        <select id="empViewContract" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
+                          <option value="tetap">Tetap</option>
+                          <option value="kontrak">Kontrak</option>
+                          <option value="harian">Harian</option>
+                        </select></label>
+                      <label style="font-size:12px">Tanggal bergabung<input type="date" id="empViewStart" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">Nomor HP<input type="tel" id="empViewPhone" maxlength="18" placeholder="Contoh: 0812 3456 7890" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">Email <span style="opacity:.6">(opsional)</span><input type="email" id="empViewEmail" maxlength="80" placeholder="Contoh: nama@email.com" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                    </div>
+                    <label style="font-size:12px;display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="empViewActive" checked> Aktif (masuk proses gaji)</label>
+                  </div>
+                  <div id="empSubSalary" hidden>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <label style="font-size:12px">Gaji pokok*<input type="text" id="empViewBase" required inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">Tunjangan tetap<input type="text" id="empViewAllowance" inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">Bank<input type="text" id="empViewBank" maxlength="40" placeholder="mis. BCA" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">No. rekening<input type="text" id="empViewBankAcc" maxlength="30" inputmode="numeric" placeholder="mis. 1234567890" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                    </div>
+                  </div>
+                  <div id="empSubTax" hidden>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <label style="font-size:12px">Jenis kelamin
+                        <select id="empViewGender" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
+                          <option value="">—</option>
+                          <option value="L">👨 Laki-laki</option>
+                          <option value="P">👩 Perempuan</option>
+                        </select></label>
+                      <label style="font-size:12px">Tanggal lahir<input type="date" id="empViewBirth" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                      <label style="font-size:12px">Status PTKP
+                        <select id="empViewPtkp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:4px">
+                          <option value="TK/0">TK/0</option><option value="TK/1">TK/1</option><option value="TK/2">TK/2</option><option value="TK/3">TK/3</option>
+                          <option value="K/0">K/0</option><option value="K/1">K/1</option><option value="K/2">K/2</option><option value="K/3">K/3</option>
+                        </select></label>
+                      <label style="font-size:12px">Alamat<input type="text" id="empViewAddress" maxlength="120" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:4px"></label>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:10px;font-size:13px">
+                      <label class="login-check"><input type="checkbox" id="empViewBpjsKes" checked> BPJS Kesehatan</label>
+                      <label class="login-check"><input type="checkbox" id="empViewBpjsTk" checked> BPJS Kerja</label>
+                    </div>
+                    <p style="font-size:11px;color:#64748b;margin-top:8px">Lengkapi sebelum menghitung pajak dan BPJS.</p>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:14px">
+                    <button type="button" class="btn btn-secondary" id="empViewCancel" style="flex:1">Batal</button>
+                    <button type="submit" class="btn btn-primary" style="flex:2" id="empViewSave">Simpan perubahan</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div id="payrollTabProcess" hidden>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+              <div style="flex:1;min-width:180px">
+                <h2 style="margin:0">Proses gaji</h2>
+                <p style="margin:0;font-size:12px;color:#64748b">Tinjau perhitungan sebelum mencatat pembayaran.</p>
+              </div>
+              <label style="font-size:12px">Periode <input type="month" id="payrollPeriod" style="height:40px;border:1px solid #e2e8f0;border-radius:12px;padding:0 10px;font-size:13px"></label>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px" id="payrollCards"></div>
+            <div style="display:flex;align-items:center;gap:0;margin:4px 0 14px;font-size:12px" id="payrollSteps">
+              <span class="pstep" data-s="1" style="display:flex;align-items:center;gap:6px"><b class="pdot">1</b> Komponen gaji</span>
+              <span style="flex:1;height:2px;background:#e2e8f0;margin:0 8px"></span>
+              <span class="pstep" data-s="2" style="display:flex;align-items:center;gap:6px"><b class="pdot">2</b> Tinjau</span>
+              <span style="flex:1;height:2px;background:#e2e8f0;margin:0 8px"></span>
+              <span class="pstep" data-s="3" style="display:flex;align-items:center;gap:6px"><b class="pdot">3</b> Catat pembayaran</span>
+            </div>
+            <div class="dash-panel" style="padding:0;overflow:hidden">
+              <div style="overflow-x:auto">
+                <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:13px">
+                  <thead><tr style="font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+                    <th style="padding:12px;width:36px"><input type="checkbox" id="payrollCheckAll" aria-label="Pilih semua"></th>
+                    <th style="padding:12px;text-align:left">Karyawan</th>
+                    <th style="padding:12px;text-align:right">Gaji pokok</th>
+                    <th style="padding:12px;text-align:right">Tambahan</th>
+                    <th style="padding:12px;text-align:right">Potongan</th>
+                    <th style="padding:12px;text-align:right">Gaji bersih</th>
+                    <th style="padding:12px;text-align:left">Status</th>
+                  </tr></thead>
+                  <tbody id="payrollTableBody"></tbody>
+                </table>
+              </div>
+              <div id="payrollDetail"></div>
+              <div class="table-foot" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid #f1f5f9">
+                <span id="payrollFootNote" style="font-size:12px;color:#64748b"></span>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <span style="font-size:12px">Total gaji bersih<br><strong id="payrollFootTotal" style="font-size:18px">Rp0</strong></span>
+                  <select id="payrollViewPayment" title="Bayar dari kas" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px">
+                    <option value="transfer">🏦 Transfer</option>
+                    <option value="cash">💵 Tunai</option>
+                    <option value="qris">📱 QRIS</option>
+                    <option value="ewallet">📲 E-Wallet</option>
+                    <option value="debit">💳 Debit</option>
+                    <option value="other">📦 Lainnya</option>
+                  </select>
+                  <button class="btn btn-ghost" id="payrollDraftBtn">💾 Simpan draft</button>
+                  <button class="btn btn-primary" id="payrollFinalBtn">✓ Finalisasi</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="payrollTabReport" hidden>
+            <div id="payrollViewReport"></div>
           </div>
         </div>
 

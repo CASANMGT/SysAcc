@@ -2191,16 +2191,17 @@ function renderPayrollReport(d) {
     <p style="font-size:11px;color:#64748b">Potongan kary. = BPJS Kes 1% + JHT 2% + JP 1%. Iuran prsh. = Kes 4% + JHT 3.7% + JP 2% + JKK + JKM 0.3%.</p>`;
 }
 function bindPayrollRepToggle() {
-  const body = document.getElementById('reportContent');
-  if (!body || body.dataset.paybound) return;
-  body.dataset.paybound = '1';
-  body.addEventListener('click', (e) => {
+  if (document.body.dataset.payrepbound) return;
+  document.body.dataset.payrepbound = '1';
+  document.addEventListener('click', (e) => {
     const mode = e.target.closest('[data-paymode]');
     if (mode) {
       payrollRepMode = mode.dataset.paymode;
-      const tb = document.getElementById('payrollRepBody');
+      // render ulang di container terdekat (modal laporan / halaman gaji)
+      const host = mode.closest('#reportContent, #payrollViewReport') || document.getElementById('reportContent');
+      const tb = host ? host.querySelector('#payrollRepBody') : document.getElementById('payrollRepBody');
       if (tb && window.__payrollRepData) tb.innerHTML = payrollRepRows(window.__payrollRepData);
-      document.querySelectorAll('[data-paymode]').forEach(b => b.classList.toggle('selected', b === mode));
+      if (host) host.querySelectorAll('[data-paymode]').forEach(b => b.classList.toggle('selected', b === mode));
       return;
     }
     if (e.target.closest('#payrollPrintBtn') && window.__payrollRepData) {
@@ -3436,6 +3437,220 @@ export function bindSupplierPay(onSubmit) {
   document.getElementById('supplierPayCancel')?.addEventListener('click', closeSupplierPay);
   document.getElementById('supplierPayModal')?.addEventListener('click', (e) => { if (e.target.id === 'supplierPayModal') closeSupplierPay(); });
   document.getElementById('supplierPayForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSubmit(); });
+}
+
+/* ===== Halaman Karyawan & Gaji ===== */
+let payrollTab = 'data';
+let payrollExpanded = null;
+export function getPayrollTab() { return payrollTab; }
+export function setPayrollTab(tab) {
+  payrollTab = tab;
+  document.querySelectorAll('#payrollTabs .chip').forEach(b => b.classList.toggle('selected', b.dataset.value === tab));
+  document.getElementById('payrollTabData').hidden = tab !== 'data';
+  document.getElementById('payrollTabProcess').hidden = tab !== 'process';
+  document.getElementById('payrollTabReport').hidden = tab !== 'report';
+}
+export function renderEmpTable(emps, term) {
+  const body = document.getElementById('empTableBody');
+  if (!body) return;
+  const t = (term || '').trim().toLowerCase();
+  const rows = t ? emps.filter(e => `${e.name || ''} ${e.role || ''} ${e.contract || ''} ${e.active === false ? 'nonaktif' : 'aktif'}`.toLowerCase().includes(t)) : emps;
+  const title = document.getElementById('empTableTitle');
+  if (title) title.textContent = `Daftar karyawan (${emps.length})`;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const colors = ['#dbeafe', '#ede9fe', '#dcfce7', '#fef3c7', '#fce7f3'];
+  body.innerHTML = rows.length ? rows.map(e => {
+    const initial = (e.name || '?')[0]?.toUpperCase() || '?';
+    const color = colors[(e.name || '').length % colors.length];
+    const gross = Math.round(Number(e.baseSalary ?? e.salary) || 0);
+    return `<tr style="border-bottom:1px solid #f8fafc">
+      <td style="padding:10px"><span style="display:inline-flex;align-items:center;gap:8px"><span style="width:32px;height:32px;border-radius:50%;background:${color};display:inline-flex;align-items:center;justify-content:center;font-weight:700">${escapeHtml(initial)}</span><b>${escapeHtml(e.name)}</b></span></td>
+      <td style="padding:10px">${escapeHtml(e.role || '—')}</td>
+      <td style="padding:10px">${escapeHtml(e.contract === 'harian' ? 'Harian' : e.contract === 'kontrak' ? 'Kontrak' : 'Tetap')}</td>
+      <td style="padding:10px">${e.active === false ? '😴 Nonaktif' : '🟢 Aktif'}</td>
+      <td style="padding:10px;text-align:right">${fmt(gross)}</td>
+      <td style="padding:10px;text-align:right"><button class="btn btn-ghost emp-view-edit" data-id="${e.id}" style="font-size:12px">✎ Edit</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" style="padding:24px;text-align:center;color:#94a3b8">Belum ada karyawan yang cocok.</td></tr>';
+}
+export function fillEmpPanel(emp) {
+  const isNew = !emp;
+  document.getElementById('empPanelTitle').textContent = isNew ? 'Tambah karyawan' : 'Edit karyawan';
+  document.getElementById('empViewSave').textContent = isNew ? 'Tambah karyawan' : 'Simpan perubahan';
+  const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+  v('empViewId', emp?.id || '');
+  v('empViewName', emp?.name || '');
+  v('empViewRole', emp?.role || '');
+  v('empViewContract', emp?.contract || 'tetap');
+  v('empViewStart', emp?.startDate || '');
+  v('empViewPhone', emp?.phone || '');
+  v('empViewEmail', emp?.email || '');
+  const act = document.getElementById('empViewActive');
+  if (act) act.checked = emp ? emp.active !== false : true;
+  v('empViewBase', emp ? (emp.baseSalary ?? emp.salary ?? '') : '');
+  v('empViewAllowance', emp?.allowance ?? '');
+  v('empViewBank', emp?.bankName || '');
+  v('empViewBankAcc', emp?.bankAcc || '');
+  v('empViewGender', emp?.gender || '');
+  v('empViewBirth', emp?.birthDate || '');
+  v('empViewPtkp', emp?.ptkp || 'TK/0');
+  v('empViewAddress', emp?.address || '');
+  const bk = document.getElementById('empViewBpjsKes');
+  if (bk) bk.checked = emp ? emp.bpjsKes !== false : true;
+  const bt = document.getElementById('empViewBpjsTk');
+  if (bt) bt.checked = emp ? emp.bpjsTk !== false : true;
+  setEmpSubTab('main');
+}
+export function setEmpSubTab(sub) {
+  document.querySelectorAll('#empSubTabs .chip').forEach(b => b.classList.toggle('selected', b.dataset.value === sub));
+  document.getElementById('empSubMain').hidden = sub !== 'main';
+  document.getElementById('empSubSalary').hidden = sub !== 'salary';
+  document.getElementById('empSubTax').hidden = sub !== 'tax';
+}
+export function getEmpPanelData() {
+  return {
+    id: document.getElementById('empViewId')?.value || null,
+    name: document.getElementById('empViewName')?.value.trim() || '',
+    role: document.getElementById('empViewRole')?.value.trim() || '',
+    contract: document.getElementById('empViewContract')?.value || 'tetap',
+    startDate: document.getElementById('empViewStart')?.value || '',
+    phone: (document.getElementById('empViewPhone')?.value || '').trim(),
+    email: (document.getElementById('empViewEmail')?.value || '').trim(),
+    active: document.getElementById('empViewActive')?.checked !== false,
+    baseSalary: Number(parseIdrInput(document.getElementById('empViewBase')?.value || '')) || 0,
+    allowance: Number(parseIdrInput(document.getElementById('empViewAllowance')?.value || '')) || 0,
+    bankName: document.getElementById('empViewBank')?.value.trim() || '',
+    bankAcc: (document.getElementById('empViewBankAcc')?.value || '').trim(),
+    gender: document.getElementById('empViewGender')?.value || '',
+    birthDate: document.getElementById('empViewBirth')?.value || '',
+    ptkp: document.getElementById('empViewPtkp')?.value || 'TK/0',
+    address: document.getElementById('empViewAddress')?.value.trim() || '',
+    bpjsKes: document.getElementById('empViewBpjsKes')?.checked !== false,
+    bpjsTk: document.getElementById('empViewBpjsTk')?.checked !== false
+  };
+}
+/* Proses gaji (halaman): rows = [{emp, slip, checked, paid, overtime, withThr, withPph}] */
+export function renderPayrollProcess(rows, monthLabel, status) {
+  const body = document.getElementById('payrollTableBody');
+  if (!body) return;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const sel = rows.filter(r => r.checked && !r.paid);
+  const sumPokok = sel.reduce((s, r) => s + r.slip.base + r.slip.allow, 0);
+  const sumNet = sel.reduce((s, r) => s + r.slip.takeHome, 0);
+  const cards = document.getElementById('payrollCards');
+  if (cards) {
+    const statTxt = status === 'final' ? 'Final' : status === 'draft' ? 'Draft' : 'Baru';
+    cards.innerHTML = `
+      <div class="dash-panel" style="padding:14px"><div style="font-size:11px;color:#64748b">Karyawan dipilih</div><div style="font-size:20px;font-weight:800">${sel.length} orang</div></div>
+      <div class="dash-panel" style="padding:14px"><div style="font-size:11px;color:#64748b">Gaji pokok + tunjangan</div><div style="font-size:20px;font-weight:800">${fmt(sumPokok)}</div></div>
+      <div class="dash-panel" style="padding:14px"><div style="font-size:11px;color:#64748b">Status ${escapeHtml(monthLabel)}</div><div style="font-size:14px;font-weight:800"><span class="chip" style="font-size:12px">${statTxt}</span></div></div>`;
+  }
+  document.querySelectorAll('#payrollSteps .pstep').forEach(el => {
+    const s = Number(el.dataset.s);
+    const on = s === 1 || (s === 2 && sel.length > 0) || (s === 3 && status === 'final');
+    el.querySelector('.pdot').style.cssText = `width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;background:${on ? '#2563eb' : '#e2e8f0'};color:${on ? '#fff' : '#64748b'}`;
+    el.style.fontWeight = on ? '700' : '400';
+    el.style.color = on ? '#1d4ed8' : '#64748b';
+  });
+  const allChecked = rows.length > 0 && rows.every(r => r.checked || r.paid);
+  const ca = document.getElementById('payrollCheckAll');
+  if (ca) ca.checked = allChecked;
+  body.innerHTML = rows.length ? rows.map(r => {
+    const e = r.emp;
+    const initial = (e.name || '?')[0]?.toUpperCase() || '?';
+    const tambahan = r.slip.allow + r.slip.overtime + r.slip.thr;
+    const potongan = r.slip.totalDed;
+    const stTxt = r.paid ? 'Sudah' : status === 'final' ? 'Final' : 'Draft';
+    const open = payrollExpanded === e.id;
+    return `<tr style="border-bottom:1px solid #f8fafc;${r.paid ? 'opacity:0.6' : ''}">
+      <td style="padding:10px"><input type="checkbox" class="pay-check" data-id="${e.id}" ${r.checked ? 'checked' : ''} ${r.paid ? 'disabled' : ''} aria-label="Pilih ${escapeHtml(e.name)}"></td>
+      <td style="padding:10px"><button type="button" class="pay-expand" data-id="${e.id}" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;text-align:left">
+        <span style="width:32px;height:32px;border-radius:50%;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center;font-weight:700">${escapeHtml(initial)}</span>
+        <span><b>${escapeHtml(e.name)}</b><br><small style="color:#64748b">${escapeHtml(e.role || '')}</small></span>
+        <span style="color:#94a3b8">${open ? '▴' : '▾'}</span></button></td>
+      <td style="padding:10px;text-align:right">${fmt(r.slip.base)}</td>
+      <td style="padding:10px;text-align:right">${fmt(tambahan)}</td>
+      <td style="padding:10px;text-align:right">${fmt(potongan)}</td>
+      <td style="padding:10px;text-align:right"><b>${fmt(r.slip.takeHome)}</b></td>
+      <td style="padding:10px"><span class="chip" style="font-size:11px">${stTxt}</span></td>
+    </tr>
+    ${open ? `<tr><td></td><td colspan="6" style="padding:0 10px 12px">
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px">Rincian komponen gaji</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px">
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px"><div style="font-size:11px;color:#64748b">Gaji pokok</div><b>${fmt(r.slip.base)}</b>${r.slip.allow > 0 ? `<div style="font-size:11px;color:#64748b">+ tunj ${fmt(r.slip.allow)}</div>` : ''}</div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px"><div style="font-size:11px;color:#64748b">Lembur</div><input type="text" class="pay-lembur" data-id="${e.id}" value="${r.overtime > 0 ? r.overtime : ''}" placeholder="Rp" inputmode="decimal" ${r.paid ? 'disabled' : ''} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px"><div style="font-size:11px;color:#64748b">THR</div><b>${fmt(r.slip.thr)}</b><label class="login-check" style="font-size:11px;display:block"><input type="checkbox" class="pay-thr" data-id="${e.id}" ${r.withThr ? 'checked' : ''} ${r.paid ? 'disabled' : ''}> Sertakan</label></div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px"><div style="font-size:11px;color:#64748b">Potongan (BPJS+PPh)</div><b>${fmt(potongan)}</b><label class="login-check" style="font-size:11px;display:block"><input type="checkbox" class="pay-pph" data-id="${e.id}" ${r.withPph ? 'checked' : ''} ${r.paid ? 'disabled' : ''}> PPh 21</label></div>
+        </div>
+        ${r.thrNote ? `<div style="font-size:11px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:8px">ⓘ ${escapeHtml(r.thrNote)}</div>` : ''}
+      </div>
+    </td></tr>` : ''}`;
+  }).join('') : '<tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8">Belum ada karyawan aktif. Tambah di tab Data Karyawan.</td></tr>';
+  const foot = document.getElementById('payrollFootTotal');
+  if (foot) foot.textContent = fmt(sumNet);
+  const note = document.getElementById('payrollFootNote');
+  if (note) {
+    const issues = [];
+    sel.forEach(r => {
+      if (r.withThr && r.slip.thr <= 0) issues.push(`${r.emp.name}: THR dicentang tapi masa kerja < 1 bulan`);
+      if (r.withPph && !r.emp.ptkp) issues.push(`${r.emp.name}: PTKP kosong (pakai TK/0)`);
+    });
+    note.innerHTML = issues.length
+      ? `<span style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px;display:inline-block">⚠️ ${escapeHtml(issues[0])}${issues.length > 1 ? ` +${issues.length - 1} lagi` : ''}</span>`
+      : (sel.length ? '<span style="color:#059669">✓ BPJS + PPh dihitung otomatis, siap difinalisasi.</span>' : 'Centang karyawan untuk diproses.');
+  }
+  const fin = document.getElementById('payrollFinalBtn');
+  if (fin) fin.disabled = sel.length === 0;
+}
+export function setPayrollExpanded(id) {
+  payrollExpanded = payrollExpanded === id ? null : id;
+}
+export function bindPayrollView(handlers) {
+  const once = (id, ev, fn) => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.bound) { el.dataset.bound = '1'; el.addEventListener(ev, fn); }
+  };
+  once('empAddBtn', 'click', handlers.onAdd);
+  once('empPanelClose', 'click', handlers.onClose);
+  once('empViewCancel', 'click', handlers.onCancel);
+  document.getElementById('empViewForm')?.addEventListener('submit', (e) => { e.preventDefault(); handlers.onSave(); });
+  if (!document.body.dataset.payview) {
+    document.body.dataset.payview = '1';
+    document.getElementById('payrollTabs')?.addEventListener('click', (e) => {
+      const b = e.target.closest('.chip');
+      if (b) handlers.onTab(b.dataset.value);
+    });
+    document.getElementById('empSubTabs')?.addEventListener('click', (e) => {
+      const b = e.target.closest('.chip');
+      if (b) setEmpSubTab(b.dataset.value);
+    });
+    document.getElementById('empSearch')?.addEventListener('input', (e) => handlers.onSearch(e.target.value));
+    document.getElementById('empTableBody')?.addEventListener('click', (e) => {
+      const b = e.target.closest('.emp-view-edit');
+      if (b) handlers.onEdit(b.dataset.id);
+    });
+    document.getElementById('payrollPeriod')?.addEventListener('change', (e) => handlers.onPeriod(e.target.value));
+    document.getElementById('payrollCheckAll')?.addEventListener('change', (e) => handlers.onCheckAll(e.target.checked));
+    document.getElementById('payrollTableBody')?.addEventListener('click', (e) => {
+      const ex = e.target.closest('.pay-expand');
+      if (ex) { handlers.onExpand(ex.dataset.id); return; }
+      const ch = e.target.closest('.pay-check');
+      if (ch) { handlers.onCheck(ch.dataset.id, ch.checked); return; }
+    });
+    document.getElementById('payrollTableBody')?.addEventListener('change', (e) => {
+      if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph')) handlers.onDetailChange();
+    });
+    document.getElementById('payrollTableBody')?.addEventListener('input', (e) => {
+      if (e.target.closest('.pay-lembur')) handlers.onLembur(e.target.closest('.pay-lembur'));
+    });
+    document.getElementById('payrollDraftBtn')?.addEventListener('click', handlers.onDraft);
+    document.getElementById('payrollFinalBtn')?.addEventListener('click', handlers.onFinal);
+  }
+  ['empViewBase', 'empViewAllowance'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) bindRupiah(el);
+  });
 }
 
 export function bindContactsActions(onDelete, onEdit) {

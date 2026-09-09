@@ -249,7 +249,7 @@ export function clearAllData() {
   [
     STORAGE_KEY, LOAN_KEY, REPAY_KEY, JOURN_KEY, AUDIT_KEY,
     'wynara_recurring', 'wynara_budget', 'wynara_catBudget',
-    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY
+    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY, DRAFT_KEY
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -789,6 +789,16 @@ function importJSONFile(file) {
               const valid = data.locks.filter(m => /^\d{4}-\d{2}$/.test(m));
               const merged = [...new Set(getLockedMonths().concat(valid))].sort();
               localStorage.setItem(LOCK_KEY, JSON.stringify(merged));
+            } catch {}
+          }
+          if (data.drafts && typeof data.drafts === 'object' && !Array.isArray(data.drafts)) {
+            try {
+              let o = {};
+              try { o = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch {}
+              Object.keys(data.drafts).forEach(k => {
+                if (/^\d{4}-\d{2}$/.test(k) && data.drafts[k] && typeof data.drafts[k] === 'object' && !o[k]) o[k] = data.drafts[k];
+              });
+              localStorage.setItem(DRAFT_KEY, JSON.stringify(o));
             } catch {}
           }
           if (Array.isArray(data.purchases)) {
@@ -1400,6 +1410,7 @@ export function snapshotAll() {
     coa: getCustomAccounts(),
     locks: getLockedMonths(),
     purchases: getPurchases(),
+    drafts: (() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch { return {}; } })(),
     exportedAt: new Date().toISOString(),
     version: 3
   };
@@ -1485,6 +1496,16 @@ export function restoreAll(snap) {
       const valid = snap.locks.filter(m => /^\d{4}-\d{2}$/.test(m));
       const merged = [...new Set(getLockedMonths().concat(valid))].sort();
       localStorage.setItem(LOCK_KEY, JSON.stringify(merged));
+    } catch {}
+  }
+  if (snap.drafts && typeof snap.drafts === 'object' && !Array.isArray(snap.drafts)) {
+    try {
+      let o = {};
+      try { o = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch {}
+      Object.keys(snap.drafts).forEach(k => {
+        if (/^\d{4}-\d{2}$/.test(k) && snap.drafts[k] && typeof snap.drafts[k] === 'object' && !o[k]) o[k] = snap.drafts[k];
+      });
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(o));
     } catch {}
   }
   if (Array.isArray(snap.coa)) {
@@ -1735,6 +1756,9 @@ export function saveEmployee(emp) {
     gender: emp.gender === 'P' ? 'P' : (emp.gender === 'L' ? 'L' : ''),
     birthDate: /^\d{4}-\d{2}-\d{2}$/.test(emp.birthDate || '') ? emp.birthDate : '',
     phone: String(emp.phone || '').replace(/[^0-9+]/g, '').slice(0, 18),
+    email: String(emp.email || '').replace(/[<>"'&\s]/g, '').slice(0, 80),
+    bankName: cleanEmpStr(emp.bankName, 40),
+    bankAcc: String(emp.bankAcc || '').replace(/[^0-9]/g, '').slice(0, 30),
     address: cleanEmpStr(emp.address, 120),
     startDate: /^\d{4}-\d{2}-\d{2}$/.test(emp.startDate || '') ? emp.startDate : '',
     contract: ['tetap', 'kontrak', 'harian'].includes(emp.contract) ? emp.contract : 'tetap',
@@ -1762,6 +1786,30 @@ export function empGross(emp) {
 
 export function deleteEmployee(id) {
   localStorage.setItem(EMP_KEY, JSON.stringify(getAllEmployees().filter(e => e.id !== id)));
+}
+
+// ===== Draft proses gaji per bulan: { [YYYY-MM]: { items: {empId: {overtime, withThr, withPph, checked}}, status } =====
+const DRAFT_KEY = 'wynara_payroll_drafts';
+
+export function getPayrollDraft(monthKey) {
+  try {
+    const v = localStorage.getItem(DRAFT_KEY);
+    const o = v ? JSON.parse(v) : {};
+    return (o && o[monthKey]) || null;
+  } catch { return null; }
+}
+
+export function savePayrollDraft(monthKey, draft) {
+  let o = {};
+  try { o = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch {}
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) throw new Error('Periode tidak valid');
+  o[monthKey] = { items: (draft && draft.items) || {}, status: (draft && draft.status) || 'draft', updatedAt: new Date().toISOString() };
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(o)); } catch {}
+  return o[monthKey];
+}
+
+export function markPayrollFinal(monthKey) {
+  return savePayrollDraft(monthKey, { ...(getPayrollDraft(monthKey) || {}), status: 'final' });
 }
 
 // ===== Nomor invoice: INV/2026/09/0042 =====
