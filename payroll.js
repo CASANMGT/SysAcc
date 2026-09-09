@@ -25,10 +25,19 @@ export function sanitizeRates(r) {
   const out = {};
   Object.keys(DEFAULT_RATES).forEach(k => {
     const n = Number(r && r[k]);
-    out[k] = Number.isFinite(n) && n >= 0 && n <= 1 ? n : DEFAULT_RATES[k];
+    const valid = Number.isFinite(n) && n >= 0 && n <= (RATE_LIMITS[k] ?? 1);
+    // Guard anti salah ketik: di atas batas legal tarif → kembali ke standar
+    // (mis. jkk 54 berarti 54% — 300× lipat batas risiko 1,74%)
+    out[k] = valid ? n : DEFAULT_RATES[k];
   });
   return out;
 }
+// Batas masuk akal per tarif (fraksi). Di atas ini dianggap salah ketik.
+export const RATE_LIMITS = {
+  kesComp: 0.05, jhtComp: 0.05, jpComp: 0.03,
+  jkk: 0.0174, jkm: 0.01,
+  kesSelf: 0.03, jhtSelf: 0.025, jpSelf: 0.02,
+};
 // PPh 21 TER (PMK 168/2023): tarif dikenakan atas PENGHASILAN NETO bulanan.
 export const BIAYA_JABATAN_RATE = 0.05; // 5% bruto
 export const BIAYA_JABATAN_MAX = 500000; // maks Rp500rb/bulan

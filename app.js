@@ -6,7 +6,7 @@ import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath
 import * as Charts from './charts.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, balances } from './journals.js';
 import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts } from './coa.js';
-import { computeSlip, thrAmount, sanitizeRates } from './payroll.js';
+import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS } from './payroll.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.13.1';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -3015,6 +3015,12 @@ function handlePayrollRateChange(input) {
   let v = Number(raw);
   if (!Number.isFinite(v) || v < 0) v = 0;
   if (v > 100) v = 100;
+  const limit = (RATE_LIMITS[key] ?? 1) * 100;
+  if (v > limit) {
+    UI.showError(`Tarif ${input.getAttribute('aria-label') || key} maksimal ${limit.toLocaleString('id-ID')}% — ketik angka persen seperti 0,54 (bukan 54)`);
+    renderPayrollView();
+    return;
+  }
   payrollRates = { ...payrollRates, [key]: v / 100 };
   const items = {};
   Object.keys(payrollCache).forEach(k => { items[k] = { ...payrollCache[k] }; });

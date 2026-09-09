@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.13.1] - 2026-09-09
+
+### Fixed — Guard tarif salah ketik (JKK 300× lipat)
+- Kasus nyata: JKK terisi `54` (artinya 54%) → potongan `0,54% × 7,5jt` jadi **Rp4.050.000** padahal harusnya **Rp40.500**. Sekarang tarif di atas batas legal otomatis di-setel balik ke standar BPJS
+- Panel ⚙️ Tarif menolak simpan di atas batas risiko (JKK maks 1,74%, JKM maks 1%, dst) + pesan "ketik angka persen seperti 0,54, bukan 54"
+- **Live hint** saat mengetik: `= Rp5.400 per Rp1jt` (merah + ⚠ kalau lewat batas)
+
+---
+
 ## [1.13.0] - 2026-09-09
 
 ### Added — Laporan beranda penuh (Fase 4: A–G)

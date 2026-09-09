@@ -83,6 +83,17 @@ describe('computeSlip', () => {
     expect(s.comp.jkm).toBe(15000);
     expect(s.ded.kesSelf).toBe(50000); // >1 dianggap invalid → default 1%
   });
+  it('guard salah ketik: jkk 54 (54%) → balik ke standar 0,54%', () => {
+    // kasus nyata: 0,54% × 7,5jt = Rp40.500, bukan Rp4.050.000
+    const s = computeSlip({ baseSalary: 6500000, allowance: 1000000 }, { rates: { jkk: 0.54 } });
+    expect(s.comp.jkk).toBe(Math.round(7500000 * 0.0054)); // 40500
+    expect(s.rates.jkk).toBe(0.0054);
+  });
+  it('jkk rata-rata 1,2% masih diizinkan (dalam batas risiko)', () => {
+    const s = computeSlip(emp, { rates: { jkk: 0.012 } });
+    expect(s.comp.jkk).toBe(60000);
+    expect(s.rates.jkk).toBe(0.012);
+  });
   it('plafon kes 12jt & JP', () => {
     const s = computeSlip({ baseSalary: 15000000, allowance: 5000000 }, {});
     expect(s.comp.kesComp).toBe(Math.round(KES_CAP * 0.04));

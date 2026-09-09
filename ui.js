@@ -1,7 +1,7 @@
 import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
 import { accountLabel } from './coa.js';
-import { computeSlip, thrAmount, DEFAULT_RATES } from './payroll.js';
+import { computeSlip, thrAmount, DEFAULT_RATES, RATE_LIMITS } from './payroll.js';
 
 const elements = {
   entriesBody: document.getElementById('entriesBody'),
@@ -3706,7 +3706,7 @@ export function renderPayrollProcess(rows, monthLabel, status) {
   if (panel) {
     const R = rows[0]?.slip?.rates || DEFAULT_RATES;
     const dis = status === 'final' ? 'disabled' : '';
-    const cell = (key, label, hint) => `<div><div style="font-size:11px;color:#64748b">${label}</div><input type="text" inputmode="decimal" class="pay-rate" data-rate="${key}" aria-label="Tarif ${label} (%)" value="${(Number(R[key]) * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}" ${dis} style="width:100%;height:32px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px"><div style="font-size:10px;color:#94a3b8">${hint}</div></div>`;
+    const cell = (key, label, hint) => `<div><div style="font-size:11px;color:#64748b">${label}</div><input type="text" inputmode="decimal" class="pay-rate" data-rate="${key}" aria-label="Tarif ${label} (%)" value="${(Number(R[key]) * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}" ${dis} style="width:100%;height:32px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px"><div class="rate-hint" data-std="${hint}" style="font-size:10px;color:#94a3b8">${hint} • =Rp${Math.round(Number(R[key]) * 10000).toLocaleString('id-ID')} per Rp1jt</div></div>`;
     panel.innerHTML = rows.length ? `<details style="margin:0 16px 8px">
       <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#475569;user-select:none">⚙️ Tarif iuran BPJS &amp; pajak <span style="font-weight:400;color:#94a3b8">(klik untuk lihat/ubah)</span></summary>
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:8px">
@@ -3834,6 +3834,21 @@ export function bindPayrollView(handlers) {
     document.getElementById('payrollRatesPanel')?.addEventListener('change', (e) => {
       const el = e.target.closest('.pay-rate');
       if (el) handlers.onRate(el);
+    });
+    document.getElementById('payrollRatesPanel')?.addEventListener('input', (e) => {
+      const el = e.target.closest('.pay-rate');
+      if (!el) return;
+      const hint = el.parentElement?.querySelector('.rate-hint');
+      if (!hint) return;
+      const raw = String(el.value || '').replace(',', '.').trim();
+      const v = Number(raw);
+      const key = el.dataset.rate;
+      const limit = ((RATE_LIMITS[key] ?? 1) * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+      if (!Number.isFinite(v)) { hint.style.color = '#94a3b8'; hint.textContent = `${hint.dataset.std || ''} • ketik angka, mis. 0,54`; return; }
+      const perJuta = Math.round(v * 10000);
+      const over = v > ((RATE_LIMITS[key] ?? 1) * 100);
+      hint.style.color = over ? '#b91c1c' : '#94a3b8';
+      hint.textContent = `${hint.dataset.std || ''} • =Rp${perJuta.toLocaleString('id-ID')} per Rp1jt${over ? ` ⚠ maks ${limit}%` : ''}`;
     });
     document.getElementById('payrollTableBody')?.addEventListener('input', (e) => {
       if (e.target.closest('.pay-lembur')) handlers.onLembur(e.target.closest('.pay-lembur'));
