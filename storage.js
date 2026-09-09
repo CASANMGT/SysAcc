@@ -119,6 +119,7 @@ function stockMovesFor(entry) {
 // Opsi jurnal + gerakan stok untuk sebuah entry (dibaca saat post).
 function journalOptsFor(entry) {
   const opts = { ppn: !!entry.ppn };
+  if (opts.ppn) opts.ppnRate = getPpn().rate;
   if (entry.itemId && entry.qty > 0) {
     const item = getItemById(entry.itemId);
     if (item) {
@@ -2139,6 +2140,25 @@ export function setRole(role) {
 
 export function getRole() {
   try { return sessionStorage.getItem(ROLE_KEY) === 'kasir' ? 'kasir' : 'owner'; } catch { return 'owner'; }
+}
+
+// ===== Tarif PPN configurable (default 11%) =====
+// BUKA PERTANYAAN: posisi tarif resmi (11% vs 12% dengan DPP nilai lain) —
+// ubah lewat Pengaturan bila tarif berubah. Jangan hardcode di pemanggil.
+const PPN_KEY = 'wynara_ppn';
+export function getPpn() {
+  try {
+    const v = JSON.parse(localStorage.getItem(PPN_KEY) || 'null');
+    const r = Number(v && v.rate);
+    if (Number.isFinite(r) && r >= 0 && r <= 0.3) return { rate: r };
+  } catch {}
+  return { rate: 0.11 };
+}
+export function savePpn(rate) {
+  const r = Number(String(rate ?? '').replace(',', '.'));
+  if (!Number.isFinite(r) || r < 0 || r > 0.3) throw new Error('Tarif PPN harus 0–30%');
+  try { localStorage.setItem(PPN_KEY, JSON.stringify({ rate: r })); } catch {}
+  return r;
 }
 
 // ===== Aset tetap & penyusutan =====

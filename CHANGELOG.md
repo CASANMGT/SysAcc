@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.15.1] - 2026-09-09
+
+### Iterasi audit 1 — keamanan tampilan, mobile, tax config
+- **Kredensial default kini kontekstual** — hint `admin/admin` di layar login hanya muncul selagi sandi masih default; hilang otomatis setelah diganti (PDP hygiene)
+- **Bottom nav "+ Lainnya"** — akses Kontak, Pinjemin, Stok, Kas & Pengaturan dari HP (sebelumnya tak terjangkau)
+- **Tarif PPN configurable** (hingga kini hardcode 11%) — Pengaturan → Tarif PPN; dipakai transaksi, 🧾 Jual (DPP/PPN live), kwitansi & Laporan PPN; lulus fitting audit "never hardcode tax rate"
+- `AUDIT_STATE.md` ditambahkan: baseline rubric + backlog audit + open questions regulasi
+
+---
+
 ## [1.15.0] - 2026-09-09
 
 ### Added — Laporan level akuntan senior Indonesia

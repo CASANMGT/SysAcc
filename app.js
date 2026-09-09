@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.15.1';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -67,6 +67,16 @@ let loginListenerAdded = false;
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('appRoot').classList.add('hidden');
+  // Hint kredensial hanya saat sandi masih default (belum pernah diganti) — hilang setelah diganti
+  const hint = document.getElementById('loginHint');
+  if (hint) {
+    const a = Storage.getAuth();
+    const pristine = a.alg === 'plain';
+    hint.textContent = pristine
+      ? 'Pertama kali? Masuk "admin" / sandi "admin" — ganti segera di Pengaturan → Keamanan'
+      : 'Masuk dengan akun yang diberikan pemilik';
+    hint.style.display = pristine ? '' : 'none';
+  }
   if (!loginListenerAdded) {
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     const eye = document.getElementById('loginEye');
@@ -183,6 +193,7 @@ function showApp() {
     UI.showError('Gagal menampilkan data: ' + (err.message || err));
   }
   UI.initIdrInputs();
+  UI.updatePpnLabels();
   if (!keyboardBound) {
     document.addEventListener('keydown', handleKeyboardShortcut);
     keyboardBound = true;
@@ -509,6 +520,17 @@ function bindEvents() {
     else if (t === 'gaji') showView('viewPayroll');
     else if (t === 'reports') showView('viewLaporan');
     else if (t === 'add') { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); }
+    else if (t === 'more') {
+      const links = [
+        { goto: 'contacts', icon: '👥', label: 'Kontak', aria: 'Kontak' },
+        { goto: 'loans', icon: '🤝', label: 'Pinjemin', aria: 'Pinjemin' },
+        { goto: 'stock', icon: '📦', label: 'Stok', aria: 'Stok barang' },
+        { goto: 'kas', icon: '💳', label: 'Kas', aria: 'Kas dan rekonsiliasi' },
+        { goto: 'settings', icon: '⚙️', label: 'Pengaturan', aria: 'Pengaturan' },
+      ];
+      const html = links.map(l => `<button type="button" class="notif-goto" data-goto="${l.goto}" aria-label="${l.aria}" style="display:flex;align-items:center;gap:10px;width:100%;background:none;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:6px;cursor:pointer">${l.icon} ${l.label}</button>`).join('');
+      UI.openInfoModal('Menu lainnya', html);
+    }
   });
   // keep active toggle for other sidebar items
   document.querySelectorAll('.sidebar-item').forEach(btn => {
@@ -533,6 +555,9 @@ function bindEvents() {
     const target = btn.dataset.goto;
     if (target === 'loans') UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople());
     else if (target === 'stock') { refreshStock(); UI.openStock(); }
+    else if (target === 'contacts') UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans());
+    else if (target === 'kas') { refreshKas(); UI.openKas(); }
+    else if (target === 'settings') openSettings();
     else if (target === 'tax') {
       const tab = document.querySelector('.report-tab[data-report="tax"]');
       if (tab) tab.click(); else renderReport();
@@ -1856,8 +1881,9 @@ function buildPPNReport() {
     (j.lines || []).forEach(l => {
       const t = KEY[l.account];
       const deb = Number(l.debit) || 0, cr = Number(l.credit) || 0;
-      if (t === 'keluaran' && cr > 0) { by[m].keluarPPN += cr - deb; by[m].keluarDPP += (cr - deb) / 0.11; }
-      if (t === 'masukan' && deb > 0) { by[m].masukPPN += deb - cr; by[m].masukDPP += (deb - cr) / 0.11; }
+      const RATE = Storage.getPpn().rate;
+      if (t === 'keluaran' && cr > 0) { by[m].keluarPPN += cr - deb; by[m].keluarDPP += (cr - deb) / RATE; }
+      if (t === 'masukan' && deb > 0) { by[m].masukPPN += deb - cr; by[m].masukDPP += (deb - cr) / RATE; }
     });
   });
   const months = Object.values(by).sort((a, b) => a.month.localeCompare(b.month)).map(x => ({
@@ -3602,6 +3628,8 @@ function openSettings() {
   if (notif) notif.checked = safeLocalGet('wynara_notif') !== 'false';
   const themeBox = document.getElementById('settingTheme');
   if (themeBox) themeBox.checked = document.body.classList.contains('dark-mode');
+  const ppnInput = document.getElementById('ppnRateInput');
+  if (ppnInput) ppnInput.value = (Storage.getPpn().rate * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 });
   const lastBackupEl = document.getElementById('lastBackupLabel');
   if (lastBackupEl) {
     const last = Storage.getLastBackup();
@@ -3799,6 +3827,18 @@ function saveSettings() {
   queueMirror();
   const notif = document.getElementById('settingNotif');
   if (notif) safeLocalSet('wynara_notif', String(notif.checked));
+  // Tarif PPN configurable
+  const ppnInput = document.getElementById('ppnRateInput');
+  if (ppnInput && String(ppnInput.value || '').trim() !== '') {
+    try {
+      const r = Storage.savePpn(ppnInput.value);
+      Storage.logAudit('update', 'ppn-rate', 'settings', { rate: Storage.getPpn().rate }, { rate: r });
+      UI.updatePpnLabels();
+      UI.showInfo(`Tarif PPN kini ${(r * 100).toLocaleString('id-ID')}%`);
+    } catch (err) {
+      UI.showError(err && err.message ? err.message : 'Tarif PPN tidak valid');
+    }
+  }
   closeSettings();
   UI.showSuccess('Pengaturan disimpan');
   render();

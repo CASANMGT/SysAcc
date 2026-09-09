@@ -151,7 +151,7 @@
           <div id="loginError" class="login-error hidden">Username atau kata sandi salah</div>
           <button type="submit" class="btn btn-primary login-btn-new">Masuk <span>→</span></button>
         </form>
-        <p class="login-hint">Pemilik: admin / admin — kasir: <b>kasir</b> + PIN (atur di Pengaturan → Keamanan)</p>
+        <p class="login-hint" id="loginHint">Masuk dengan akun yang diberikan pemilik</p>
       </div>
       <p class="login-terms">Syarat layanan &nbsp;•&nbsp; Kebijakan privasi</p>
     </div>
@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.15.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.15.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -476,7 +476,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.15.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.15.1</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1510,7 +1510,14 @@
           <label class="login-check"><input type="checkbox" id="settingNotif" checked> Notifikasi pinjaman jatuh tempo</label>
         </div>
         <div class="form-group">
-          <label class="login-check"><input type="checkbox" id="settingTheme"> 🌙 Mode gelap</label>
+          <label>Tarif PPN (%) — ubah bila tarif berubah</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <input type="text" id="ppnRateInput" placeholder="mis. 11" inputmode="decimal" style="flex:1;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Tax dipakai transaksi, jual barang, kwitansi &amp; laporan PPN</div>
+        </div>
+        <div class="form-group">
+          <label class="login-check"><input type="checkbox" id="settingNotif"> Notifikasi pinjaman jatuh tempo</label>
         </div>
         <div class="form-group">
           <label>Backup &amp; Restore</label>
@@ -1609,6 +1616,7 @@
   <button type="button" class="bn-add" data-bnav="add" aria-label="Tambah transaksi" title="Tambah transaksi">＋</button>
   <button type="button" class="bn-item" data-bnav="reports"><span aria-hidden="true">📊</span>Laporan</button>
   <button type="button" class="bn-item" data-bnav="gaji"><span aria-hidden="true">👥</span>Gaji</button>
+  <button type="button" class="bn-item" data-bnav="more" aria-haspopup="dialog"><span aria-hidden="true">⋯</span>Lainnya</button>
 </nav>
 
 <dialog id="assetModal" class="modal">

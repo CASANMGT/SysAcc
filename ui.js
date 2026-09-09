@@ -2,6 +2,7 @@ import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCate
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
 import { accountLabel } from './coa.js';
 import { computeSlip, thrAmount, DEFAULT_RATES, RATE_LIMITS } from './payroll.js';
+import { getPpn } from './storage.js';
 
 const elements = {
   entriesBody: document.getElementById('entriesBody'),
@@ -1503,7 +1504,8 @@ function renderReceiptPreview() {
   const amt = Math.round(Number(e.amount) || 0);
   const fmt = (v) => 'Rp' + Number(v).toLocaleString('id-ID');
   let dpp = amt, ppn = 0;
-  if (withPPN) { dpp = Math.round(amt / 1.11); ppn = amt - dpp; }
+  const PN_RATE = getPpn().rate;
+  if (withPPN) { dpp = Math.round(amt / (1 + PN_RATE)); ppn = amt - dpp; }
   const payLabel = `${getPaymentIcon(e.payment)} ${getPaymentLabel(e.payment)}${e.paymentDetail ? ' • ' + escapeHtml(e.paymentDetail) : ''}`;
   box.innerHTML = `
     <div style="text-align:center;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:12px">
@@ -1517,7 +1519,7 @@ function renderReceiptPreview() {
       <tr><td style="padding:4px 0;color:#64748b">Bayar pakai</td><td>${payLabel}</td></tr>
       ${e.description ? `<tr><td style="padding:4px 0;color:#64748b">Catatan</td><td>${escapeHtml(e.description)}</td></tr>` : ''}
       ${withPPN ? `<tr><td style="padding:4px 0;color:#64748b">DPP</td><td>${fmt(dpp)}</td></tr>
-      <tr><td style="padding:4px 0;color:#64748b">PPN 11%</td><td>${fmt(ppn)}</td></tr>` : ''}
+      <tr><td style="padding:4px 0;color:#64748b">PPN ${(PN_RATE * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%</td><td>${fmt(ppn)}</td></tr>` : ''}
       <tr><td style="padding:8px 0;color:#64748b"><b>Jumlah</b></td><td style="font-size:20px;font-weight:800">${fmt(amt)}</td></tr>
       <tr><td colspan="2" style="padding:6px 0;font-style:italic;background:#f8fafc;border-radius:8px;padding:8px">Terbilang: “${terbilang(amt)} rupiah”</td></tr>
     </table>
@@ -2243,7 +2245,7 @@ function renderPPNReport(d) {
       <div class="report-summary-item"><span class="label">Kurang / (Lebih) Bayar</span><span class="value ${netGood ? 'expense' : 'income'}">${netGood ? 'Kurang bayar' : 'Lebih bayar'} ${fmt(Math.abs(d.net))}</span></div>
       <div class="report-summary-item"><span class="label">Tahun</span><span class="value">${d.year}</span></div>
     </div>
-    <p style="font-size:11px;color:#64748b">PPN dihitung dari akun: <b>2105 PPN Keluaran</b> (penjualan) dan <b>1401 PPN Masukan</b> (pembelian). DPP adalah perkiraan (PPN ÷ 11%). Lampirkan ke SPT Masa PPN (1111); pastikan sudah terdaftar sebagai Pengusaha Kena Pajak (PKP) bila omzet &gt; Rp4,8M.</p>
+    <p style="font-size:11px;color:#64748b">PPN dihitung dari akun: <b>2105 PPN Keluaran</b> (penjualan) dan <b>1401 PPN Masukan</b> (pembelian). DPP perkiraan (PPN ÷ ${(getPpn().rate * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%). Ubah tarif di Pengaturan bila tarif resmi berubah. Lampirkan ke SPT Masa PPN (1111); pastikan sudah terdaftar sebagai Pengusaha Kena Pajak (PKP) bila omzet &gt; Rp4,8M.</p>
     <table class="report-table">
       <thead><tr><th>Bulan</th><th class="amount-col">Penjualan (DPP)</th><th class="amount-col">PPN Keluar</th><th class="amount-col">Pembelian (DPP)</th><th class="amount-col">PPN Masuk</th><th class="amount-col">Kurang/(Lebih)</th></tr></thead>
       <tbody>${d.months.length ? d.months.map(m => `<tr><td>${m.month}</td><td class="amount-col">${fmt(m.keluarDPP)}</td><td class="amount-col expense">${fmt(m.keluarPPN)}</td><td class="amount-col">${fmt(m.masukDPP)}</td><td class="amount-col income">${fmt(m.masukPPN)}</td><td class="amount-col ${m.net >= 0 ? 'expense' : 'income'}">${fmt(m.net)}</td></tr>`).join('') : '<tr><td colspan="6">Belum ada transaksi PPN</td></tr>'}</tbody>
@@ -2817,6 +2819,20 @@ function applyIdrFormat(input) {
 
 export function bindRupiah(el) {
   if (el) applyIdrFormat(el);
+}
+
+// Sinkron label "PPN 11%" statis ke tarif tersimpan (patch text-node, listener aman)
+export function updatePpnLabels() {
+  const rate = (getPpn().rate * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+  document.querySelectorAll('#entryPPN, #receiptPPN, #salePPN').forEach(cb => {
+    const p = cb.parentElement;
+    if (!p) return;
+    p.childNodes.forEach(node => {
+      if (node.nodeType === 3 && /PPN [\d.,]+%/.test(node.nodeValue)) {
+        node.nodeValue = node.nodeValue.replace(/PPN [\d.,]+%/, `PPN ${rate}%`);
+      }
+    });
+  });
 }
 
 let idrInitDone = false;
@@ -3443,7 +3459,8 @@ export function recalcSale() {
   const sum = document.getElementById('saleSummary');
   if (!sum) return;
   const ppn = !!document.getElementById('salePPN')?.checked;
-  const dpp = ppn ? data.total / 1.11 : data.total;
+  const P_RATE = getPpn().rate;
+  const dpp = ppn ? data.total / (1 + P_RATE) : data.total;
   const ppnAmt = ppn ? data.total - dpp : 0;
   const items = getItemList();
   const untung = data.lines.reduce((s, l) => { const it = items.find(x => x.id === l.itemId); const c = it ? Number(it.cost) || 0 : 0; return s + l.qty * (l.price - c); }, 0);
@@ -3451,7 +3468,7 @@ export function recalcSale() {
   if (data.total <= 0) { sum.innerHTML = '<span style="color:#94a3b8">Pilih barang, isi qty & harga.</span>'; return; }
   sum.innerHTML = `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>Masuk kas</span><b style="font-size:14px">${formatCurrency(data.total)}</b>
-    ${ppn ? `<span style="opacity:.7">(DPP ${formatCurrency(Math.round(dpp))} + PPN ${formatCurrency(Math.round(ppnAmt))})</span>` : ''}</div>
+    ${ppn ? `<span style="opacity:.7">(DPP ${formatCurrency(Math.round(dpp))} + PPN ${(P_RATE * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}% ${formatCurrency(Math.round(ppnAmt))})</span>` : ''}</div>
     <div style="font-size:11px;color:${good ? '#059669' : '#dc2626'};font-weight:600;margin-top:2px">${good ? '📈' : '📉'} Estimasi untung ${formatCurrency(Math.round(untung))}</div>
   </div>`;
 }

@@ -20,8 +20,9 @@ function balanced(lines) {
   return Math.abs(d - c) < 0.005 && d > 0;
 }
 
-function splitPPN(gross) {
-  const dpp = Math.round(gross / (1 + PPN_RATE));
+function splitPPN(gross, rate) {
+  const r = Number.isFinite(Number(rate)) ? Number(rate) : PPN_RATE;
+  const dpp = Math.round(gross / (1 + r));
   return { dpp, ppn: gross - dpp };
 }
 
@@ -35,7 +36,7 @@ export function buildEntryJournal(entry, opts = {}) {
   const lines = [];
   if (entry.type === 'income') {
     if (opts.ppn) {
-      const { dpp, ppn } = splitPPN(amt);
+      const { dpp, ppn } = splitPPN(amt, opts.ppnRate);
       lines.push({ account: cash, debit: amt, credit: 0, memo });
       lines.push({ account: REVENUE_ACCOUNT, debit: 0, credit: dpp, memo });
       lines.push({ account: PPN_OUT, debit: 0, credit: ppn, memo });
@@ -58,7 +59,7 @@ export function buildEntryJournal(entry, opts = {}) {
   } else {
     const exp = expenseAccountFor(entry.category);
     if (opts.ppn) {
-      const { dpp, ppn } = splitPPN(amt);
+      const { dpp, ppn } = splitPPN(amt, opts.ppnRate);
       lines.push({ account: exp, debit: dpp, credit: 0, memo });
       lines.push({ account: PPN_IN, debit: ppn, credit: 0, memo });
       lines.push({ account: cash, debit: 0, credit: amt, memo });
