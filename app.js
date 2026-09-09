@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.15.2';
+const APP_VERSION = '1.15.3';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -85,6 +85,7 @@ function showLogin() {
       const isText = pass.type === 'text';
       pass.type = isText ? 'password' : 'text';
       eye.textContent = isText ? '👁️' : '🙈';
+      try { eye.setAttribute('aria-pressed', String(!isText)); } catch {}
     });
     // clear error as soon as user retypes
     ['loginUser', 'loginPass'].forEach(id => {
@@ -163,6 +164,7 @@ function showApp() {
   document.getElementById('appRoot').classList.remove('hidden');
   const role = Storage.getRole();
   document.getElementById('appRoot').setAttribute('data-role', role);
+  updateBackupDot();
   // version display
   const vs = document.getElementById('appVersionSidebar');
   const vf = document.getElementById('appVersionFooter');
@@ -217,7 +219,22 @@ function queueMirror() {
   if (mirrorTimer) clearTimeout(mirrorTimer);
   mirrorTimer = setTimeout(() => {
     try { IDB.mirrorSnapshot(Storage.snapshotAll()); } catch {}
+    // Cadangan otomatis (IDB) tercatat — timestamps dipakai indikator topbar
+    try { localStorage.setItem('wynara_last_backup', new Date().toISOString()); } catch {}
+    try { updateBackupDot(); } catch {}
   }, 2000);
+}
+function updateBackupDot() {
+  const dot = document.getElementById('backupDot');
+  if (!dot) return;
+  let last = Storage.getLastBackup();
+  if (!last) { dot.textContent = '💾'; dot.title = 'Pengingat: buka Pengaturan → JSON Backup untuk menyimpan cadangan pertama'; dot.style.opacity = '.35'; dot.setAttribute('aria-label', 'Cadangan belum pernah dibuat'); return; }
+  const days = Math.floor((Date.now() - last.getTime()) / 86400000);
+  const t = last.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  dot.style.opacity = days > 7 ? '1' : '.55';
+  dot.textContent = days > 7 ? '🔴' : '💾';
+  dot.title = days > 7 ? `Cadangan terakhir ${t} — lebih dari 7 hari, unduh JSON di Pengaturan` : `Cadangan otomatis terakhir: ${t}`;
+  dot.setAttribute('aria-label', dot.title);
 }
 
 function bootDataSafety() {

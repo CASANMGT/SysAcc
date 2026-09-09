@@ -141,7 +141,7 @@
             <div class="login-input-wrap">
               <span class="login-input-icon">🔒</span>
               <input type="password" id="loginPass" placeholder="Masukkan kata sandi" required autocomplete="current-password">
-              <button type="button" class="login-eye" id="loginEye" aria-label="Tampilkan kata sandi">👁️</button>
+              <button type="button" class="login-eye" id="loginEye" aria-label="Tampilkan atau sembunyikan kata sandi" aria-pressed="false">👁️</button>
             </div>
           </div>
           <div class="login-row">
@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.15.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.15.3</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -209,6 +209,7 @@
             <span>🔍</span>
             <input type="search" id="searchInputTop" placeholder="Cari transaksi..." aria-label="Cari transaksi">
           </div>
+          <span id="backupDot" title="Cadangan otomatis" aria-label="Status cadangan" style="cursor:default">💾</span>
           <button class="topbar-icon-btn" id="notifBtn" aria-label="Notifikasi"><span>🔔</span><span class="notif-badge" style="display:none">0</span></button>
           <div class="topbar-avatar-main">AD</div>
           <div class="topbar-actions-hidden" style="display:none">
@@ -476,7 +477,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.15.2</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.15.3</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -512,7 +513,7 @@
                     <th style="padding:12px;text-align:left;white-space:nowrap">TANGGAL</th>
                     <th style="padding:12px;text-align:left">KATEGORI</th>
                     <th style="padding:12px;text-align:left">CATATAN</th>
-                    <th style="padding:12px;text-align:left">TEMAN</th>
+                    <th style="padding:12px;text-align:left">KONTAK</th>
                     <th style="padding:12px;text-align:left">BAYAR PAKAI</th>
                     <th style="padding:12px;text-align:left">MASUK/KELUAR</th>
                     <th style="padding:12px;text-align:right;white-space:nowrap">UANG</th>
@@ -767,7 +768,7 @@
                   <div class="quick-select-hint" id="hutangPickerHint">Hanya yang aktif dengan sisa &gt; 0</div>
                 </div>
                 <div class="tx-piutang-field" id="loanContactTypeField">
-                  <label class="tx-piutang-label">Teman / Perusahaan?</label>
+                  <label class="tx-piutang-label">Kontak / Perusahaan?</label>
                   <div id="contactTypeGroup" class="tx-pill-group">
                     <button type="button" class="select-btn selected" data-value="person">👤 Orang</button>
                     <button type="button" class="select-btn" data-value="perusahaan">🏢 Perusahaan</button>

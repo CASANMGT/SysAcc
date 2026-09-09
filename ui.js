@@ -1517,7 +1517,7 @@ function renderReceiptPreview() {
     <table style="width:100%;font-size:13px;border-collapse:collapse">
       <tr><td style="padding:4px 0;color:#64748b;width:110px">Jenis</td><td><b>${e.type === 'income' ? '📥 Uang masuk' : '📤 Uang keluar'}</b></td></tr>
       <tr><td style="padding:4px 0;color:#64748b">Kategori</td><td>${getCategoryIcon(e.category)} ${escapeHtml(getCategoryLabel(e.category))}</td></tr>
-      ${e.person ? `<tr><td style="padding:4px 0;color:#64748b">Teman</td><td>${escapeHtml(e.person)}</td></tr>` : ''}
+      ${e.person ? `<tr><td style="padding:4px 0;color:#64748b">Kontak</td><td>${escapeHtml(e.person)}</td></tr>` : ''}
       <tr><td style="padding:4px 0;color:#64748b">Bayar pakai</td><td>${payLabel}</td></tr>
       ${e.description ? `<tr><td style="padding:4px 0;color:#64748b">Catatan</td><td>${escapeHtml(e.description)}</td></tr>` : ''}
       ${withPPN ? `<tr><td style="padding:4px 0;color:#64748b">DPP</td><td>${fmt(dpp)}</td></tr>

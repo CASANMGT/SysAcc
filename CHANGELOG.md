@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.15.3] - 2026-09-09
+
+### Iterasi audit 3 — kecukupan data & keterbacaan
+- **💾 Indikator cadangan di topbar** — dot berstatus otomatis: ⚪ belum pernah, 💾 (≤7 hari), 🔴 + situasi bila >7 hari; timestamp tiap tulis (IDB mirror)
+- **⌨️ Focus ring universal** (`:focus-visible` biru 2px) + `aria-pressed` pada toggle sandi — jalur keyboard hidup
+- **Nama seragam "Kontak"** — sebelumnya TEMAN di tabel, "Teman" di kwitansi & panel piutang; Pinjemin tetap santai nama pertanyaannya tapi entitas sekarang konsisten
+
+---
+
 ## [1.15.2] - 2026-09-09
 
 ### Iterasi audit 2 — kurangi beban kognitif
