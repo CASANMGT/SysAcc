@@ -1970,7 +1970,7 @@ export function createPurchase({ supplier, date, dueDate, lines, note }) {
   return rec;
 }
 
-export function addPurchasePayment(purchaseId, { amount, date, payment, paymentDetail, note }) {
+export function addPurchasePayment(purchaseId, { amount, date, payment, paymentDetail, note, withhold: whRaw }) {
   const list = getPurchases();
   const idx = list.findIndex(p => p.id === purchaseId);
   if (idx === -1) throw new Error('Pembelian tidak ditemukan');
@@ -1979,6 +1979,14 @@ export function addPurchasePayment(purchaseId, { amount, date, payment, paymentD
   if (!isFinite(amt) || amt <= 0) throw new Error('Nominal harus lebih dari 0');
   if (amt > purchaseOutstanding(p) + 0.01) throw new Error(`Melebihi sisa ${purchaseOutstanding(p).toLocaleString('id-ID')}`);
   if (!isValidDateStr(String(date || '').slice(0, 10))) throw new Error('Tanggal tidak valid');
+  // Pemotongan pajak atas nama vendor (PPh 23 jasa 2% / PPh 4(2) sewa 10%)
+  let withhold = null;
+  const whType = String(whRaw || '');
+  if (whType === '23' || whType === '42') {
+    const pph = Math.round(amt * (whType === '23' ? 0.02 : 0.10));
+    if (pph <= 0 || pph >= amt) throw new Error('Nominal terlalu kecil untuk pemotongan pajak');
+    withhold = { type: whType, amount: pph };
+  }
   p.payments.push({
     id: generateId(),
     amount: amt,
@@ -1986,12 +1994,13 @@ export function addPurchasePayment(purchaseId, { amount, date, payment, paymentD
     payment: payment || 'transfer',
     paymentDetail: String(paymentDetail || '').slice(0, 60),
     note: String(note || '').slice(0, 100),
+    withhold,
     createdAt: new Date().toISOString()
   });
   if (purchaseOutstanding(p) <= 0.01) p.status = 'paid';
   savePurchases(list);
   try {
-    const j = buildPurchasePayJournal({ amount: amt, date: String(date).slice(0, 10), payment: payment || 'transfer', memo: `Bayar ${p.supplier}` });
+    const j = buildPurchasePayJournal({ amount: amt, date: String(date).slice(0, 10), payment: payment || 'transfer', memo: `Bayar ${p.supplier}`, withhold });
     if (j) { j.refId = purchaseId; postJournal(j); }
   } catch {}
   logAudit('create', 'purchase-pay', purchaseId, null, { amount: amt, date: p.payments[p.payments.length - 1].date });

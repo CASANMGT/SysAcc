@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.15.3</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.16.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -477,7 +477,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.15.3</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.16.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1441,6 +1441,15 @@
         <div class="form-group">
           <label for="supplierPayDate">Tanggal berapa?</label>
           <input type="date" id="supplierPayDate" required>
+        </div>
+        <div class="form-group">
+          <label for="supplierPayWithhold">Pajak dipotong dari bayaran ini? <span style="opacity:.6">(atas nama vendor)</span></label>
+          <select id="supplierPayWithhold">
+            <option value="">— Tidak potong —</option>
+            <option value="23">PPh 23 — jasa 2%</option>
+            <option value="42">PPh 4(2) — sewa tanah/bangunan 10%</option>
+          </select>
+          <div id="supplierPayWithholdInfo" style="font-size:11px;color:#64748b;margin-top:4px">Potongan kamu setor ke negara; vendor terima bukti potong 23/4(2) dari kamu.</div>
         </div>
       </div>
       <footer class="modal-footer">

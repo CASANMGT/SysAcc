@@ -23,6 +23,7 @@ export const ACCOUNTS = [
   { code: '2104', name: 'Hutang Gaji', type: 'liability' },
   { code: '2105', name: 'PPN Keluaran', type: 'liability' },
   { code: '2106', name: 'PPh Final Terutang', type: 'liability' },
+  { code: '2107', name: 'PPh Dipotong (23 / 4-2)', type: 'liability' },
   { code: '2110', name: 'Hutang BPJS', type: 'liability' },
   // Modal
   { code: '3101', name: 'Modal Awal', type: 'equity' },

@@ -136,6 +136,27 @@ describe('purchase journals', () => {
     expect(p.lines.find(l => l.account === '2103').debit).toBe(200000);
     expect(p.lines.find(l => l.account === '1102').credit).toBe(200000);
   });
+  it('bayar jasa: PPh 23 dipotong (Dr Hutang penuh, Cr Kas net, Cr 2107)', async () => {
+    const { buildPurchasePayJournal } = await import('../journals.js');
+    const j = buildPurchasePayJournal({
+      amount: 200000, date: '2026-09-03', payment: 'transfer', memo: 'Bayar jasa',
+      withhold: { type: '23', amount: 4000 }
+    });
+    const { d, c } = totals(j);
+    expect(d).toBe(c);
+    expect(j.lines.find(l => l.account === '2103').debit).toBe(200000);
+    expect(j.lines.find(l => l.account === '1102').credit).toBe(196000);
+    expect(j.lines.find(l => l.account === '2107').credit).toBe(4000);
+  });
+  it('pemotongan >= nominal → fallthrough penuh (tanpa 2107)', async () => {
+    const { buildPurchasePayJournal } = await import('../journals.js');
+    const j = buildPurchasePayJournal({
+      amount: 3000, date: '2026-09-03', payment: 'cash', memo: 'X',
+      withhold: { type: '23', amount: 3000 }
+    });
+    expect(j.lines.find(l => l.account === '2107')).toBeUndefined();
+    expect(j.lines.find(l => l.account === '1101').credit).toBe(3000);
+  });
 });
 
 describe('transfer & adjust', () => {

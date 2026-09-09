@@ -3655,6 +3655,12 @@ export function openSupplierPay(purchase) {
   document.getElementById('supplierPaySummary').innerHTML = `Total ${fmt(purchase.totalCost)} • Sudah ${fmt(paid)} • <b>Sisa ${fmt(out)}</b>`;
   document.getElementById('supplierPayAmount').value = out > 0 ? String(Math.round(out)) : '';
   document.getElementById('supplierPayDate').value = new Date().toISOString().split('T')[0];
+  const wh = document.getElementById('supplierPayWithhold');
+  if (wh) {
+    wh.value = '';
+    const whInfo = document.getElementById('supplierPayWithholdInfo');
+    if (whInfo) whInfo.textContent = 'Potongan kamu setor ke negara; vendor terima bukti potong 23/4(2) dari kamu.';
+  }
   if (!m.open) { try { m.showModal(); } catch {} }
   trapFocus(m);
 }
@@ -3669,7 +3675,8 @@ export function getSupplierPayData() {
     id: supplierPayId,
     amount: Number(document.getElementById('supplierPayAmount')?.value || 0) || 0,
     payment: document.getElementById('supplierPayPayment')?.value || 'transfer',
-    date: document.getElementById('supplierPayDate')?.value || ''
+    date: document.getElementById('supplierPayDate')?.value || '',
+    withhold: document.getElementById('supplierPayWithhold')?.value || ''
   };
 }
 export function bindSupplierPay(onSubmit) {
@@ -3677,6 +3684,21 @@ export function bindSupplierPay(onSubmit) {
   document.getElementById('supplierPayCancel')?.addEventListener('click', closeSupplierPay);
   document.getElementById('supplierPayModal')?.addEventListener('click', (e) => { if (e.target.id === 'supplierPayModal') closeSupplierPay(); });
   document.getElementById('supplierPayForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSubmit(); });
+  const whSel = document.getElementById('supplierPayWithhold');
+  const whInfo = document.getElementById('supplierPayWithholdInfo');
+  const updWh = () => {
+    if (!whSel || !whInfo) return;
+    const amt = Number(document.getElementById('supplierPayAmount')?.value || 0) || 0;
+    if (!whSel.value) { whInfo.textContent = 'Potongan kamu setor ke negara; vendor terima bukti potong 23/4(2) dari kamu.'; return; }
+    const rate = whSel.value === '23' ? 0.02 : 0.10;
+    const pph = Math.round(amt * rate);
+    whInfo.innerHTML = pph > 0 && pph < amt
+      ? `<span style="color:#b45309">PPh dipotong <b>${fmtNum(pph)}</b> — kas keluar <b>${fmtNum(amt - pph)}</b> • hutang berkurang ${fmtNum(amt)}</span>`
+      : '<span style="color:#b91c1c">Nominal terlalu kecil untuk dipotong</span>';
+  };
+  function fmtNum(v) { return 'Rp' + Math.round(v).toLocaleString('id-ID'); }
+  whSel?.addEventListener('change', updWh);
+  document.getElementById('supplierPayAmount')?.addEventListener('input', updWh);
 }
 
 /* ===== Halaman Karyawan & Gaji ===== */

@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.16.0] - 2026-09-09
+
+### Iterasi audit 4 — pajak bayaran vendor (akuntan)
+- **PPh 23 & PPh 4(2) di pembayaran supplier** — modal Bayar Supplier kini punya pilihan: PPh 23 (jasa 2%) / PPh 4(2) (sewa tanah-bangunan 10%); estimasi live "PPh dipotong RpX • kas keluar RpY"
+- Jurnal yang benar secara akuntansi: **Dr Hutang (penuh) · Cr Kas (netto) · Cr 2107 PPh Dipotong** — biaya tetap ada di Laba Rugi, pajak jadi liabilities sampai disetor
+- Estimasi `supplierPayWithholdInfo` live saat ketik nominal; pilihan ter-reset tiap buka modal
+- Lock periodik juga berjalan di pembayaran (F1 check): test baru 2 test + `2107` di Neraca & Neraca Saldo
+
+---
+
 ## [1.15.3] - 2026-09-09
 
 ### Iterasi audit 3 — kecukupan data & keterbacaan

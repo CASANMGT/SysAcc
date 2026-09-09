@@ -150,16 +150,22 @@ export function buildPurchaseJournal({ amount, date, memo }) {
   return balanced(lines) ? j : null;
 }
 
-// Bayar supplier: Dr Hutang Usaha Cr Kas.
-export function buildPurchasePayJournal({ amount, date, payment, memo }) {
+// Bayar supplier: Dr Hutang Usaha, Cr Kas − komunikasi pajak terpotong (PPh 23/4(2)).
+// withhold: { type: '23'|'42', amount } — bagian yang kita setor ke negara atas nama vendor.
+export function buildPurchasePayJournal({ amount, date, payment, memo, withhold }) {
   const amt = Math.round(Number(amount) || 0);
   if (!isFinite(amt) || amt <= 0) return null;
   const cash = accountForPayment(payment || 'transfer');
   const m = memo || 'Bayar supplier';
-  const lines = [
-    { account: AP_ACCOUNT, debit: amt, credit: 0, memo: m },
-    { account: cash, debit: 0, credit: amt, memo: m },
-  ];
+  const pph = Math.round(Number(withhold && withhold.amount) || 0);
+  const lines = [];
+  lines.push({ account: AP_ACCOUNT, debit: amt, credit: 0, memo: m });
+  if (pph > 0 && pph < amt) {
+    lines.push({ account: cash, debit: 0, credit: amt - pph, memo: m });
+    lines.push({ account: '2107', debit: 0, credit: pph, memo: `PPh ${withhold.type === '42' ? '4(2)' : '23'} dipotong ${m}`.trim() });
+  } else {
+    lines.push({ account: cash, debit: 0, credit: amt, memo: m });
+  }
   const j = { id: jid('J'), date, memo: m, ref: 'purchase-pay', refId: null, lines };
   return balanced(lines) ? j : null;
 }
