@@ -17,15 +17,15 @@ beforeAll(async () => {
 });
 
 describe('halaman Laporan', () => {
-  it('section + header + 15 tab tampil setelah klik sidebar', () => {
+  it('section + header + 16 tab tampil setelah klik sidebar', () => {
     document.getElementById('reportBtnSidebar').click();
     const sec = document.getElementById('viewLaporan');
     expect(sec.classList.contains('hidden')).toBe(false);
     expect(sec.querySelector('h1').textContent).toMatch(/Laporan/);
-    expect(document.querySelectorAll('.page-report-tab').length).toBe(15);
+    expect(document.querySelectorAll('.page-report-tab').length).toBe(16);
     expect(document.getElementById('pageReportContent').innerHTML.trim().length).toBeGreaterThan(0);
   });
-  it('semua 15 tab render konten tanpa error', () => {
+  it('semua 16 tab render konten tanpa error', () => {
     const tabs = [...document.querySelectorAll('.page-report-tab')];
     const failed = [];
     tabs.forEach(b => {

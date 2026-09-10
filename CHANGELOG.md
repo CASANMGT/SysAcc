@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.18.0] - 2026-09-10
+
+### Added — Tab Pengeluaran vs Anggaran (gaya screenshot)
+- **Tab "Pengeluaran" baru** (Laporan → Ikhtisar, modal + halaman): kartu Anggaran bulan ini / Biaya tercatat / Sisa anggaran, filter Kategori + Pembayar, tabel Anggaran per kategori (limit, tercatat, selisih hijau/merah), grafik batang Komposisi biaya, tabel Pengeluaran terbaru (tanggal, deskripsi, kategori, pembayar, jumlah, bayar pakai)
+- Semua dari data real: budget bulanan + budget per kategori (Pengaturan) × entri pengeluaran periode aktif; ikut periode selector, PDF & Excel
+- Catatan jujur: "Pengajuan tambahan" & status reimbursement (Belum diganti) butuh model data penggantian dana — masuk backlog, belum di rilis ini
+
+---
+
 ## [1.17.7] - 2026-09-10
 
 ### Changed — Changelog jadi halaman (bukan modal)

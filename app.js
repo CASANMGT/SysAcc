@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.17.7';
+const APP_VERSION = '1.18.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -735,6 +735,13 @@ function bindEvents() {
     UI.showSuccess(`CSV pajak ${d.year} diunduh — siap untuk DJP/e-Bupot`);
   };
   document.addEventListener('wynara:tax-csv', buildTaxCsv);
+  document.addEventListener('wynara:expense-filter', (ev) => {
+    const det = ev.detail || {};
+    if (det.kind === 'cat') expenseCatFilter = det.value || 'all';
+    if (det.kind === 'person') expensePersonFilter = det.value || 'all';
+    renderReport();
+    renderPageReport();
+  });
   document.addEventListener('wynara:ledger-toggle', (ev) => {
     const det = ev.detail || {};
     UI.toggleDrill(det.kind || 'ledger', det.code || '');
@@ -1997,6 +2004,8 @@ function computeReportData(type) {
       return buildPayrollReport();
     case 'products':
       return buildProductsReport();
+    case 'pengeluaran':
+      return buildExpenseReport();
     case 'trial':
       return buildTrialBalance();
     case 'ppn':
@@ -2081,6 +2090,41 @@ function buildPPh21Report() {
 }
 
 // Laporan produk terlaris — dari entri penjualan (sale.lines)
+let expenseCatFilter = 'all';
+let expensePersonFilter = 'all';
+// Laporan Pengeluaran vs Anggaran — dari budget + entri pengeluaran periode aktif
+function buildExpenseReport() {
+  const all = Reports.filterEntries(Storage.getAllEntries(), currentFilters).filter(e => e.type === 'expense');
+  const budget = Storage.getBudget();
+  const catLimits = Storage.getCategoryBudgets() || {};
+  const budgetTotal = budget ? Number(budget.amount) || 0 : 0;
+  const byCat = {};
+  all.forEach(e => {
+    const c = e.category || 'lainnya';
+    if (!byCat[c]) byCat[c] = 0;
+    byCat[c] += Number(e.amount) || 0;
+  });
+  const persons = [...new Set(all.map(e => (e.person || '').trim()).filter(Boolean))].sort();
+  const cats = [...new Set([...Object.keys(byCat), ...Object.keys(catLimits)])];
+  const rows = cats.map(c => {
+    let label = c, icon = '';
+    try { label = Reports.getCategoryLabel(c) || c; icon = Reports.getCategoryIcon(c) || ''; } catch {}
+    const spent = Math.round(byCat[c] || 0);
+    const limit = Math.round(Number(catLimits[c]) || 0);
+    return { category: c, label, icon, budget: limit, spent, diff: limit - spent };
+  }).sort((a, b) => b.spent - a.spent);
+  const fCat = expenseCatFilter, fPer = expensePersonFilter;
+  const fRows = rows.filter(r => (fCat === 'all' || r.category === fCat));
+  const fAll = all.filter(e => (fCat === 'all' || (e.category || 'lainnya') === fCat) && (fPer === 'all' || (e.person || '').trim() === fPer));
+  const spentTotal = Math.round(fAll.reduce((s, e) => s + (Number(e.amount) || 0), 0));
+  const recent = fAll.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5).map(e => {
+    let label = e.category || 'lainnya', icon = '';
+    try { label = Reports.getCategoryLabel(e.category) || label; icon = Reports.getCategoryIcon(e.category) || ''; } catch {}
+    return { date: e.date, description: e.description || '-', category: e.category, label, icon, person: (e.person || '').trim(), payment: e.payment || '', amount: Math.round(Number(e.amount) || 0) };
+  });
+  const compMax = Math.max(1, ...fRows.map(r => r.spent));
+  return { budgetTotal: Math.round(budgetTotal), spentTotal, remaining: Math.round(budgetTotal - spentTotal), rows: fRows, compMax, recent, persons, cats, fCat, fPer };
+}
 function buildProductsReport() {
   const byItem = {};
   try {

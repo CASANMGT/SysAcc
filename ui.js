@@ -1680,6 +1680,8 @@ export function reportHTMLFor(type, data) {
       return renderPayrollReport(data);
     case 'products':
       return renderProductsReport(data);
+    case 'pengeluaran':
+      return renderExpenseReport(data);
     case 'trial':
       return renderTrialReport(data);
     case 'ppn':
@@ -2324,6 +2326,67 @@ function renderPPh21Report(d) {
     <table class="report-table">
       <thead><tr><th>Bulan</th><th class="amount-col">Gaji bersih (THP)</th><th class="amount-col">PPh 21 terpotong</th><th class="amount-col">Karyawan</th></tr></thead>
       <tbody>${d.rows.length ? d.rows.map(m => `<tr><td>${m.month}</td><td class="amount-col">${fmt(m.thp)}</td><td class="amount-col expense">${fmt(m.pph)}</td><td class="amount-col">${m.count}</td></tr>`).join('') : '<tr><td colspan="4">Belum ada data gaji</td></tr>'}</tbody>
+    </table>`;
+}
+
+// Pengeluaran vs Anggaran — kartu, filter, tabel per kategori, komposisi, terbaru
+function renderExpenseReport(d) {
+  if (!d) return '';
+  const fmt = (v) => formatCurrency(Math.round(Number(v) || 0));
+  const compact = (v) => formatCurrencyCompact(Math.round(Number(v) || 0));
+  if (!d.rows.length && !d.recent.length) {
+    return reportEmpty('Belum ada pengeluaran pada periode ini', 'Catat pengeluaran dulu — tombol ＋, atau atur anggaran di Pengaturan.');
+  }
+  const opt = (val, label, selected) => `<option value="${escapeHtml(val)}" ${selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  const catOpts = opt('all', 'Semua kategori', d.fCat === 'all') + d.cats.map(c => {
+    let label = c;
+    try { label = getCategoryLabel(c) || c; } catch {}
+    return opt(c, label, d.fCat === c);
+  }).join('');
+  const perOpts = opt('all', 'Semua pembayar', d.fPer === 'all') + d.persons.map(p => opt(p, p || '—', d.fPer === p)).join('');
+  const sisaCls = d.remaining >= 0 ? 'income' : 'expense';
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Anggaran bulan ini</span><span class="value">${fmt(d.budgetTotal)}</span></div>
+      <div class="report-summary-item"><span class="label">Biaya tercatat</span><span class="value expense">${fmt(d.spentTotal)}</span></div>
+      <div class="report-summary-item"><span class="label">Sisa anggaran</span><span class="value ${sisaCls}">${fmt(d.remaining)}</span></div>
+      <div class="report-summary-item"><span class="label">Transaksi</span><span class="value">${d.recent.length ? d.recent.length + '+' : 0} terbaru</span></div>
+    </div>
+    ${!d.budgetTotal ? '<p style="font-size:11px;color:#b45309;margin:6px 0">💡 Belum ada anggaran — atur di Pengaturan → Anggaran Bulanan & per Kategori agar tabel Selisih terisi.</p>' : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
+      <label style="font-size:11px;color:#64748b">Kategori<br><select onchange="document.dispatchEvent(new CustomEvent('wynara:expense-filter',{detail:{kind:'cat',value:this.value}}))" style="height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px;max-width:200px">${catOpts}</select></label>
+      <label style="font-size:11px;color:#64748b">Pembayar<br><select onchange="document.dispatchEvent(new CustomEvent('wynara:expense-filter',{detail:{kind:'person',value:this.value}}))" style="height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px;max-width:200px">${perOpts}</select></label>
+    </div>
+    <h4 style="margin:12px 0 6px">Anggaran per kategori</h4>
+    <table class="report-table">
+      <thead><tr><th>Kategori</th><th class="amount-col">Anggaran</th><th class="amount-col">Biaya tercatat</th><th class="amount-col">Selisih</th></tr></thead>
+      <tbody>
+        ${d.rows.map(r => `<tr><td>${r.icon} ${escapeHtml(r.label)}</td>
+          <td class="amount-col">${r.budget ? fmt(r.budget) : '<span style="color:#cbd5e1">—</span>'}</td>
+          <td class="amount-col">${fmt(r.spent)}</td>
+          <td class="amount-col ${r.diff >= 0 ? 'income' : 'expense'}">${r.budget ? fmt(r.diff) : '<span style="color:#cbd5e1">—</span>'}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    <p style="font-size:11px;color:#64748b">Selisih = anggaran − tercatat (hijau = masih ada sisa). Atur limit di Pengaturan → Anggaran per Kategori.</p>
+    <h4 style="margin:12px 0 6px">Komposisi biaya</h4>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
+      ${d.rows.slice(0, 8).map(r => `<div style="display:flex;align-items:center;gap:8px;font-size:12px">
+        <span style="flex:0 0 130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(r.label)}</span>
+        <span style="flex:1;background:#f1f5f9;border-radius:9999px;height:14px;overflow:hidden"><span style="display:block;height:100%;width:${Math.max(2, Math.round((r.spent / d.compMax) * 100))}%;background:#3b82f6;border-radius:9999px"></span></span>
+        <b style="flex:0 0 70px;text-align:right">${compact(r.spent)}</b>
+      </div>`).join('')}
+    </div>
+    <h4 style="margin:12px 0 6px">Pengeluaran terbaru</h4>
+    <table class="report-table">
+      <thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Kategori</th><th>Pembayar</th><th class="amount-col">Jumlah</th><th>Bayar pakai</th></tr></thead>
+      <tbody>
+        ${d.recent.map(x => `<tr><td style="white-space:nowrap;font-size:11px">${formatDate(x.date)}</td>
+          <td>${escapeHtml(x.description)}</td>
+          <td>${x.icon} ${escapeHtml(x.label)}</td>
+          <td>${escapeHtml(x.person || '—')}</td>
+          <td class="amount-col expense">${fmt(x.amount)}</td>
+          <td style="font-size:11px">${escapeHtml(getPaymentLabel(x.payment) || '')}</td></tr>`).join('') || '<tr><td colspan="6">Tidak ada data</td></tr>'}
+      </tbody>
     </table>`;
 }
 
