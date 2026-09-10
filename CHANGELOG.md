@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.18.4] - 2026-09-10
+
+### Fixed — guard loloskan JS-lama + HTML-baru (dari screenshot user)
+- Guard v1.18.3 mensyaratkan `pageReportContent` hilang — HTML baru selalu memilikinya, sehingga kombinasi **JS basi + HTML segar** (drawer tak tertutup, tanpa scroll-reset, tombol meluber) lolos tanpa purge
+- Guard disederhanakan total: **versi tidak sama persis → purge**. JS lama tanpa penanda = selalu beda = selalu diperbaiki otomatis
+- Revert CSS luas v1.18.2 sudah aman di rilis ini (wrap hanya inline header Laporan)
+- 149/149 tests ✓
+
+---
+
 ## [1.18.3] - 2026-09-10
 
 ### Fixed — CSS header + versi basi persisten
