@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.18.1] - 2026-09-10
+
+### Fixed — file basi tidak mungkin lagi (self-heal total)
+- **Skew-check HTML↔JS di inline script**: tiap load, versi HTML (`__htmlVersion`) dibandingkan versi JS (`__APP_VERSION`); bila beda → buang SW + seluruh cache → reload sekali (anti-loop). Berlaku untuk HTML versi APAPUN yang termuat — termasuk salinan basi lama
+- **Auto-reload saat SW baru aktif**: update versi langsung terasa tanpa hard-refresh manual
+- `app.js` menandai `window.__APP_VERSION` di top-level
+
+---
+
 ## [1.18.0] - 2026-09-10
 
 ### Added — Tab Pengeluaran vs Anggaran (gaya screenshot)

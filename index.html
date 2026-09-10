@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.18.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.18.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -477,7 +477,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.18.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.18.1</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1789,12 +1789,39 @@
     // Boot watchdog: if the ES module fails (blocked storage, file:// , syntax),
     // tell the user on the login screen instead of failing silently.
     window.__bootError = null;
+    // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
+    // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
+    window.__htmlVersion = '1.18.1';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
     window.addEventListener('load', function () {
       setTimeout(function () {
-        if (window.__appBooted) return;
+        if (window.__appBooted) {
+          // Self-heal split-brain: JS sudah jalan tapi versinya beda dari HTML
+          // (atau JS lama tanpa penanda versi) → buang SW + cache, reload SEKALI.
+          try {
+            var jsV = window.__APP_VERSION || null;
+            if ((jsV && jsV !== window.__htmlVersion) || (!jsV && document.getElementById('viewLaporan') && !document.getElementById('pageReportContent'))) {
+              if (!sessionStorage.getItem('wynara_swfix')) {
+                sessionStorage.setItem('wynara_swfix', '1');
+                var burn = function () { try { window.location.reload(); } catch {} };
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(function (rs) {
+                    return Promise.all(rs.map(function (r) { return r.unregister(); }));
+                  }).then(function () {
+                    if ('caches' in window) caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }).then(burn).catch(burn);
+                    else burn();
+                  }).catch(burn);
+                  return;
+                }
+                burn();
+                return;
+              }
+            }
+          } catch {}
+          return;
+        }
         var box = document.getElementById('loginError');
         if (box) {
           box.classList.remove('hidden');
@@ -1807,9 +1834,25 @@
   </script>
   <script>
     // PWA: daftarkan service worker (http/https saja, bukan file://)
+    // + auto-reload SEKALI saat SW baru aktif (agar update langsung terasa).
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
+        navigator.serviceWorker.register('sw.js').then((reg) => {
+          reg.addEventListener('updatefound', () => {
+            const nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', () => {
+              if (nw.state === 'activated') {
+                try {
+                  if (!sessionStorage.getItem('wynara_swreload')) {
+                    sessionStorage.setItem('wynara_swreload', '1');
+                    window.location.reload();
+                  }
+                } catch {}
+              }
+            });
+          });
+        }).catch(() => {});
       });
     }
   </script>

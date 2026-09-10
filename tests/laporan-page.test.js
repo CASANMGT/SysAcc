@@ -48,4 +48,9 @@ describe('halaman Laporan', () => {
     await new Promise(r => setTimeout(r, 50));
     expect(document.getElementById('changelogContent').innerHTML.trim().length).toBeGreaterThan(0);
   });
+  it('penanda versi sinkron (anti split-brain cache)', () => {
+    const htmlVer = document.querySelector('script').textContent.match(/__htmlVersion = '([^']+)'/);
+    expect(window.__APP_VERSION).toBeTruthy();
+    expect(htmlVer && htmlVer[1]).toBe(window.__APP_VERSION);
+  });
 });
