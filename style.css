@@ -1181,6 +1181,7 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
 /* Report Tables */
 .report-table {
   width: 100%;
+  min-width: 620px;
   border-collapse: collapse;
   font-size: var(--text-sm);
 }
@@ -1200,6 +1201,14 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
+}
+/* Kolom memo boleh wrap (memo payroll panjang) — tanggal/akun/angka tetap sebaris */
+.report-table td.memo-col {
+  white-space: normal;
+  word-break: break-word;
+  vertical-align: top;
+  min-width: 160px;
+  max-width: 460px;
 }
 
 .report-table .amount-col {

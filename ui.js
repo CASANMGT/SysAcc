@@ -2071,9 +2071,9 @@ function renderJournalReport(journals) {
       <tbody>
         ${data.map(j => (j.lines || []).map((l, i) => `
           <tr>
-            <td>${i === 0 ? formatDate(j.date) : ''}</td>
-            <td>${i === 0 ? escapeHtml(j.memo || '') : ''}</td>
-            <td style="padding-left:${i === 0 ? 8 : 24}px">${escapeHtml(accountLabel(l.account))}</td>
+            <td style="white-space:nowrap">${i === 0 ? formatDate(j.date) : ''}</td>
+            <td class="memo-col" title="${i === 0 ? escapeHtml(j.memo || '') : ''}">${i === 0 ? escapeHtml(j.memo || '') : ''}</td>
+            <td style="padding-left:${i === 0 ? 8 : 24}px;white-space:nowrap">${escapeHtml(accountLabel(l.account))}</td>
             <td class="amount-col">${l.debit ? formatCurrency(l.debit) : ''}</td>
             <td class="amount-col">${l.credit ? formatCurrency(l.credit) : ''}</td>
           </tr>`).join('')).join('')}
@@ -2110,7 +2110,7 @@ function drillLinesHTML(lines, kind, code) {
       <thead><tr><th style="font-size:10px">Tanggal</th><th style="font-size:10px">Keterangan jurnal</th><th class="amount-col" style="font-size:10px">Debit</th><th class="amount-col" style="font-size:10px">Kredit</th></tr></thead>
       <tbody>${lines.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(l => `<tr>
         <td style="white-space:nowrap;font-size:11px;color:#64748b">${formatDate(l.date)}</td>
-        <td style="font-size:12px">${escapeHtml(l.memo || '')}</td>
+        <td class="memo-col" style="font-size:12px" title="${escapeHtml(l.memo || '')}">${escapeHtml(l.memo || '')}</td>
         <td class="amount-col" style="font-size:12px">${l.debit ? formatCurrency(l.debit) : ''}</td>
         <td class="amount-col" style="font-size:12px">${l.credit ? formatCurrency(l.credit) : ''}</td>
       </tr>`).join('')}

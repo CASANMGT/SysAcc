@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.20.2] - 2026-09-10
+
+### Fixed — Teks bertumpuk di Jurnal + audit UI/UX Laporan
+- **Memo jurnal wrap** (bukan `nowrap` meluber): memo payroll panjang kini turun baris rapi + tooltip penuh; tanggal/akun/angka tetap sebaris — tidak ada lagi teks menutupi kolom Akun. Berlaku juga di sub-tabel drill-down
+- **Tabel laporan min-width 620px**: kolom punya napas, panel scroll horizontal di HP (terverifikasi screenshot headless 460px)
+- 152/152 tests ✓
+
+---
+
 ## [1.20.1] - 2026-09-10
 
 ### Fixed — JURANG halaman Laporan: satu `</div>` hilang (akar masalah)
