@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.18.3] - 2026-09-10
+
+### Fixed — CSS header + versi basi persisten
+- **Revert rule CSS terlalu luas** (`.view-header > div:last-child` ikut merusak judul halaman Gaji & panel Changelog) → wrap hanya di baris aksi header Laporan (inline, aman)
+- Semua penanda versi disegarakan (APP/VERSION/HTML/SW `v1-18-3`) agar skew-check & self-heal mengenali rilis ini
+- 149/149 tests ✓
+
+---
+
 ## [1.18.2] - 2026-09-10
 
 ### Fixed — Laporan tidak "nempel ke atas" (dari screenshot user)

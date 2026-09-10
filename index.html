@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.18.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.18.3</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -477,7 +477,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.18.2</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.18.3</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -644,7 +644,7 @@
               <h1>Laporan</h1>
               <p>Semua laporan keuangan dalam satu halaman — nyaman dibaca di HP.</p>
             </div>
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
               <input type="search" id="reportSearchInput" placeholder="🔍 Cari akun / memo (Jurnal & Buku Besar)" aria-label="Cari akun atau memo" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:12px;min-width:180px" hidden>
               <select id="pageReportPeriod" aria-label="Periode laporan" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:12px;background:white">
                 <option value="all">Periode: Semua</option>
@@ -1791,7 +1791,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.18.2';
+    window.__htmlVersion = '1.18.3';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
