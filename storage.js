@@ -273,6 +273,7 @@ export function exportJSON() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   stampLastBackup();
+  try { localStorage.setItem('wynara_last_export', String(Date.now())); } catch {}
 }
 
 // String backup untuk dibagikan (WhatsApp/Email) tanpa unduhan dulu

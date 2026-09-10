@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.17.1';
+const APP_VERSION = '1.17.2';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -159,12 +159,18 @@ async function handleLogin(e) {
   }
 }
 
+// Mode Sederhana — sembunyikan alat akuntan (jurnal, kertas kerja) via CSS body[data-mode]
+function applySimpleMode(mode) {
+  try { document.body.dataset.mode = mode === 'sederhana' ? 'sederhana' : 'akuntan'; } catch {}
+}
 function showApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appRoot').classList.remove('hidden');
   const role = Storage.getRole();
   document.getElementById('appRoot').setAttribute('data-role', role);
+  applySimpleMode(safeLocalGet('wynara_mode'));
   updateBackupDot();
+  nudgeBackupExport();
   // version display
   const vs = document.getElementById('appVersionSidebar');
   const vf = document.getElementById('appVersionFooter');
@@ -235,6 +241,18 @@ function updateBackupDot() {
   dot.textContent = days > 7 ? '🔴' : '💾';
   dot.title = days > 7 ? `Cadangan terakhir ${t} — lebih dari 7 hari, unduh JSON di Pengaturan` : `Cadangan otomatis terakhir: ${t}`;
   dot.setAttribute('aria-label', dot.title);
+}
+// Nudge cadangan FILE (bukan IDB): >14 hari sejak unduhan terakhir → ingatkan maksimal 1×/bulan
+function nudgeBackupExport() {
+  let lastExport = 0;
+  try { lastExport = Number(localStorage.getItem('wynara_last_export')) || 0; } catch {}
+  const days = lastExport ? Math.floor((Date.now() - lastExport) / 86400000) : 999;
+  if (days < 14) return;
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+  try { if (safeLocalGet('wynara_nudge_export') === monthKey) return; } catch {}
+  UI.showWarning('Cadangan FILE belum diunduh lebih dari 14 hari — Pengaturan → ⬇️ JSON Backup. Mirror IndexedDB bisa hilang bila browser dibersihkan.');
+  try { safeLocalSet('wynara_nudge_export', monthKey); } catch {}
 }
 
 function bootDataSafety() {
@@ -3830,6 +3848,8 @@ function openSettings() {
   if (themeBox) themeBox.checked = document.body.classList.contains('dark-mode');
   const ppnInput = document.getElementById('ppnRateInput');
   if (ppnInput) ppnInput.value = (Storage.getPpn().rate * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+  const modeBox = document.getElementById('settingModeSederhana');
+  if (modeBox) modeBox.checked = safeLocalGet('wynara_mode') === 'sederhana';
   const lastBackupEl = document.getElementById('lastBackupLabel');
   if (lastBackupEl) {
     const last = Storage.getLastBackup();
@@ -4027,6 +4047,19 @@ function saveSettings() {
   queueMirror();
   const notif = document.getElementById('settingNotif');
   if (notif) safeLocalSet('wynara_notif', String(notif.checked));
+  // Mode Sederhana (masking alat akuntan)
+  const modeBox = document.getElementById('settingModeSederhana');
+  if (modeBox) {
+    const mode = modeBox.checked ? 'sederhana' : 'akuntan';
+    safeLocalSet('wynara_mode', mode);
+    applySimpleMode(mode);
+    if (mode === 'sederhana' && ['journal', 'ledger', 'trial', 'audit', 'ppn', 'pph21'].includes(currentReportType)) {
+      currentReportType = 'monthly';
+      renderPageReport();
+      const tab = document.querySelector('.report-tab[data-report="monthly"]');
+      if (tab) tab.click();
+    }
+  }
   // Tarif PPN configurable
   const ppnInput = document.getElementById('ppnRateInput');
   if (ppnInput && String(ppnInput.value || '').trim() !== '') {

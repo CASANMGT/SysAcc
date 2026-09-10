@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.17.2] - 2026-09-09
+
+### Iterasi audit 12 — progresif disclosure (U1-lite) & pengaman data
+- **🎭 Mode Sederhana** — toggle di Pengaturan: menyembunyikan alat khusus akuntan (Jurnal, Buku Besar, Neraca Saldo di tab laporan + tombol Jurnal penyesuaian & Penutupan bulan). Kuis pemilik warung tak lagi memilih laporan "neraca saldo" yang tak ini butuhkan. Default: **Mode Akuntan penuh** (tidak berubah untuk siapa pun)
+- **Pengingat unduhan cadangan** — bila >14 hari sejak file .json backup terakhir diunduh → peringatan toast (1×/bulan). IDB mirror tidak selamat jika browser dibersihkan
+- Tests 144/144 ✓
+
+---
+
 ## [1.17.1] - 2026-09-09
 
 ### Iterasi audit 11 — PDF berstandar filing & akses sisa

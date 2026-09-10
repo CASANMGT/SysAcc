@@ -3,24 +3,24 @@
 Baseline: v1.15.0 (audit dibuat atas v1.14.2; sebagian finding sudah terdafikan di v1.15.0).
 Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
-## Current scores (rubric, 0–100; setelah iter 11)
+## Current scores (rubric, 0–100; setelah iter 12)
 
 | Axis | Nilai | Catatan |
 |---|---|---|
 | F1 Core ledger | 86 | — |
 | F2 Tax conformance | 76 | — |
 | F3 Payroll & HR | 73 | — |
-| F4 Data durability | 50 | — |
-| F5 Reporting | 92 | **PDF memiliki label periode** |
+| F4 Data durability | 52 | **nudge file backup >14 hari** |
+| F5 Reporting | 92 | — |
 | F6 Task efficiency | 83 | — |
-| F7 Cognitive load | 76 | — |
+| F7 Cognitive load | 80 | **Mode Sederhana** progressive disclosure aktif |
 | F8 Mobile | 82 | — |
-| F9 Accessibility | 64 | tiered aria-label kategori anggaran |
-| **Grade** | **~87** | iter 1–11 |
+| F9 Accessibility | 64 | — |
+| **Grade** | **~88** | iter 1–12 |
 
 ## Completed (lanjut)
 
-- iter 11 (v1.17.1): **F5** PDF/Cetak menyertakan label periode aktif → F5 91→92. **F9** aria-label anggaran kategori. Tests 144/144 ✓.
+- iter 12 (v1.17.2): **U1-lite** Mode Sederhana (gating CSS `data-mode`, reset laporan aktif bila sembunyi) → F7 76→80. **F4** nudge unduhan .json (1×/bulan) → 50→52. Tests 144/144 ✓.
 
 - iter 5 (v1.16.1): **B6** saldo awal per akun (draft + live balance + reversible ref 'opening' + auto-modal ke 3101) → F1 80→86, F5 84→86. Tests 144/144 ✓.
 

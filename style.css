@@ -3684,6 +3684,16 @@ tr:hover .table-row-actions {
   padding: 2px;
   user-select: none;
 }
+
+/* ===== Mode Sederhana: sembunyikan alat khusus akuntan ===== */
+body[data-mode="sederhana"] [data-accountant-only],
+body[data-mode="sederhana"] .report-tab[data-report="journal"],
+body[data-mode="sederhana"] .report-tab[data-report="ledger"],
+body[data-mode="sederhana"] .page-report-tab[data-report="journal"],
+body[data-mode="sederhana"] .page-report-tab[data-report="ledger"],
+body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
+  display: none !important;
+}
 .bottomnav { display: none; }
 @media (max-width: 768px) {
   body { padding-bottom: 76px; }

@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.17.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.17.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -477,7 +477,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.17.1</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.17.2</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -652,8 +652,8 @@
                 <option value="last-quarter">Kuartal lalu (3 bulan)</option>
                 <option value="this-year">Tahun ini</option>
               </select>
-              <button type="button" class="btn btn-ghost" id="adjustOpenBtn" title="Catat jurnal penyesuaian manual (debit/kredit)">＋ Jurnal penyesuaian</button>
-              <button type="button" class="btn btn-ghost" id="closingBtn" title="Tutup bulan: pendapatan & beban → Laba Ditahan (idempoten)">🔒 Penutupan bulan</button>
+              <button type="button" class="btn btn-ghost" id="adjustOpenBtn" data-accountant-only title="Catat jurnal penyesuaian manual (debit/kredit)">＋ Jurnal penyesuaian</button>
+              <button type="button" class="btn btn-ghost" id="closingBtn" data-accountant-only title="Tutup bulan: pendapatan & beban → Laba Ditahan (idempoten)">🔒 Penutupan bulan</button>
               <button type="button" class="btn btn-ghost" id="pageReportExcel" title="Unduh laporan aktif ke Excel (.xlsx)">⬇️ Excel</button>
               <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
             </div>
@@ -1547,6 +1547,10 @@
             <input type="text" id="ppnRateInput" placeholder="mis. 11" inputmode="decimal" style="flex:1;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
           </div>
           <div style="font-size:11px;color:#64748b;margin-top:4px">Tax dipakai transaksi, jual barang, kwitansi &amp; laporan PPN</div>
+        </div>
+        <div class="form-group">
+          <label class="login-check"><input type="checkbox" id="settingModeSederhana"> 🎭 Mode Sederhana (sembunyikan jurnal/kertas kerja akuntan)</label>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Untuk pemilik tanpa latar akuntansi: tab Jurnal/Buku Besar/Neraca Saldo & tombol Penutupan disembunyikan. LR & Neraca tetap ada.</div>
         </div>
         <div class="form-group">
           <label class="login-check"><input type="checkbox" id="settingNotif"> Notifikasi pinjaman jatuh tempo</label>
