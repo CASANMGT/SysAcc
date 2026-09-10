@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.19.0';
+const APP_VERSION = '1.19.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -468,6 +468,13 @@ function bindEvents() {
       overlay.classList.add('hidden');
     });
   }
+  // Pengaman drawer: T klik item sidebar MANAPUN → drawer selalu tertutup.
+  // (showView juga menutup; ini lapis kedua agar tak ada drawer nyangkut.)
+  document.getElementById('sidebar')?.addEventListener('click', (ev) => {
+    if (!ev.target.closest('.sidebar-item')) return;
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('sidebarOverlay')?.classList.add('hidden');
+  });
   document.getElementById('reportBtnSidebar')?.addEventListener('click', () => showView('viewLaporan'));
   document.getElementById('contactsBtnSidebar')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
   document.getElementById('loanBtnSidebar')?.addEventListener('click', () => UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople()));

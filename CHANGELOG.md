@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.19.1] - 2026-09-10
+
+### Fixed — drawer nyangkut + purge anti-macet
+- **Delegasi global drawer**: klik item sidebar MANAPUN selalu menutup drawer (lapis kedua di atas showView) — menutup kemungkinan drawer overlay menutupi konten di HP
+- **Purge anti-macet**: counter 3 percobaan; percobaan ke-3 memakai `?fresh=` (SW tidak bisa sajikan cache basi untuk URL baru) + URL dibersihkan otomatis setelah cocok
+- Sinkron versi 1.19.1 di semua penanda (APP/VERSION/HTML/SW)
+- 149/149 tests ✓ (target: 150+ setelah tambah test drawer)
+
+---
+
 ## [1.19.0] - 2026-09-10
 
 ### Changed — Halaman Laporan ditulis ulang ikut standar Ringkasan/Gaji

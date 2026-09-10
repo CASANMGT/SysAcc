@@ -53,4 +53,12 @@ describe('halaman Laporan', () => {
     expect(window.__APP_VERSION).toBeTruthy();
     expect(htmlVer && htmlVer[1]).toBe(window.__APP_VERSION);
   });
+  it('drawer tertutup saat klik item sidebar (tidak menutupi konten HP)', () => {
+    const sb = document.getElementById('sidebar');
+    sb.classList.add('open');
+    document.getElementById('sidebarOverlay').classList.remove('hidden');
+    document.getElementById('reportBtnSidebar').click();
+    expect(sb.classList.contains('open')).toBe(false);
+    expect(document.getElementById('sidebarOverlay').classList.contains('hidden')).toBe(true);
+  });
 });
