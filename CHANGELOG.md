@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.18.2] - 2026-09-10
+
+### Fixed — Laporan tidak "nempel ke atas" (dari screenshot user)
+- **Scroll ke atas tiap pindah view**: `showView` kini reset scroll window + `#main-content` — posisi scroll halaman panjang sebelumnya tidak lagi terbawa, header "Laporan" selalu terlihat penuh
+- **Header Laporan wrap**: tombol Periode/Jurnal/Penutupan/Excel/Cetak + search kini turun baris rapi di layar sempit (sebelumnya meluber terpotong "Exce…")
+- 149/149 tests ✓
+
+---
+
 ## [1.18.1] - 2026-09-10
 
 ### Fixed — file basi tidak mungkin lagi (self-heal total)

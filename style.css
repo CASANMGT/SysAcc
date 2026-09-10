@@ -3535,7 +3535,8 @@ tr:hover .table-row-actions {
 .sched-badge.next { background: #dbeafe; color: #1d4ed8; }
 .sched-badge.todo { background: var(--bg); color: var(--text-muted); }
 .view-section.hidden { display: none !important; }
-.view-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.view-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.view-header > div:last-child { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .view-header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
 .view-header p { font-size: 13px; color: #64748b; margin-top: 4px; }
 .transaksi-toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }

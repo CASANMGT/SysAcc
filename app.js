@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.18.1';
+const APP_VERSION = '1.18.2';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -568,6 +568,9 @@ function bindEvents() {
   document.addEventListener('wynara:stock-search', refreshStock);
   document.getElementById('themeToggleSidebar')?.addEventListener('click', handleThemeToggle);
   function showView(viewId) {
+    // Selalu mulai dari atas: posisi scroll view sebelumnya tidak boleh terbawa.
+    try { window.scrollTo(0, 0); } catch {}
+    try { document.querySelector('#main-content')?.scrollTo(0, 0); } catch {}
     document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
     // Fallback defensif: bila section target hilang dari DOM (cache basi),
     // jangan pernah biarkan layar putih — tampilkan Ringkasan.
