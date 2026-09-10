@@ -57,6 +57,7 @@ Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
 - **[iter 6 → fixed iter 7]** Regroup tab laporan memutus wiring tab grup 2–3 — diperbaiki via delegasi body-level.
 - **[ditemukan dari laporan user → fixed v1.17.6]** Halaman Laporan putih total: SW cache-name beku (`wynara-v1-11-0`) → split-brain HTML lama + JS baru. Pelajaran: **nama cache = VERSION, wajib bump tiap rilis** + boot guard + showView fallback. F4 durability lesson logged.
+- **[jurang laporan → fixed v1.20.1]** BUKAN cache: opener `div.payroll-grid` terhapus oleh edit lama, closer tertinggal → `#viewLaporan`/`#viewChangelog` terlempar keluar `main`, tampil di bawah wrapper `100vh` kosong. Pelajaran: **test nesting struktural (`closest('#main-content')`) kini permanen** — terbukti gagal-tanpa/lulus-dengan fix.
 
 ## Frozen
 

@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.20.1] - 2026-09-10
+
+### Fixed — JURANG halaman Laporan: satu `</div>` hilang (akar masalah)
+- **Diagnosis forensik** (bukan cache!): salah satu edit lama menghapus pembuka `<div class="payroll-grid">` tapi penutupnya tertinggal → `#viewPayroll` tertutup prematur → `main` + wrapper ikut tertutup → `#viewLaporan` + `#viewChangelog` terlempar jadi anak langsung `#appRoot`, tampil DI BAWAH wrapper `min-height:100vh` yang kosong = jurang raksasa + konten kiri tertutup sidebar
+- **Perbaikan 1 baris**: kembalikan pembuka `payroll-grid` — nesting kembali sempurna (parser + headless Chrome: `PARENT:MAIN`, `H1TOP:88`)
+- **Test struktural permanen**: semua view wajib di dalam `#main-content` (terbukti GAGAL tanpa fix, lulus dengan fix)
+- File debug sementara (`debug-*.html`) tidak ikut rilis
+- 152/152 tests ✓
+
+---
+
 ## [1.20.0] - 2026-09-10
 
 ### Added — Drawer menu samping (toggle hamburger)

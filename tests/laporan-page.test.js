@@ -71,4 +71,14 @@ describe('halaman Laporan', () => {
     toggle.click();
     expect(document.body.classList.contains('sb-collapsed')).toBe(false);
   });
+  it('struktur DOM: semua view + tab gaji bersarang benar (anti jurang layout)', () => {
+    const main = document.getElementById('main-content');
+    ['viewRingkasan', 'viewTransaksi', 'viewPayroll', 'viewLaporan', 'viewChangelog'].forEach(id => {
+      const el = document.getElementById(id);
+      expect(el.closest('#main-content')).toBe(main);
+    });
+    expect(document.getElementById('payrollTabProcess').closest('#viewPayroll')).toBeTruthy();
+    expect(document.getElementById('payrollTabData').closest('#viewPayroll')).toBeTruthy();
+    expect(document.getElementById('pageReportContent').closest('#viewLaporan')).toBeTruthy();
+  });
 });
