@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.17.7] - 2026-09-10
+
+### Changed — Changelog jadi halaman (bukan modal)
+- Link "Changelog" di footer sidebar kini membuka **halaman Changelog sendiri** (bukan popup modal yang rapuh): isi `CHANGELOG.md` di-render rapi (heading, list, bold, code) langsung di halaman
+- Fallback bila file tak terjangkau: tampilkan versi berjalan + petunjuk repo
+- Test regresi: boot penuh + buka halaman Changelog (148/148 tests)
+
+---
+
 ## [1.17.6] - 2026-09-10
 
 ### Fixed — Halaman Laporan putih kosong (split-brain cache)

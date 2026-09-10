@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.17.6';
+const APP_VERSION = '1.17.7';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -572,7 +572,7 @@ function bindEvents() {
     const target = document.getElementById(viewId) || document.getElementById('viewRingkasan');
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar', viewLaporan: '#reportBtnSidebar' };
+    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar', viewLaporan: '#reportBtnSidebar', viewChangelog: '#changelogLink' };
     const sel = map[viewId];
     if (sel) document.querySelector(sel)?.classList.add('active');
     const bnView = { viewRingkasan: 'ringkasan', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewLaporan: 'reports' }[viewId];
@@ -893,17 +893,43 @@ function bindEvents() {
       `<p><b>Data aman:</b> Pengaturan → JSON Backup tiap bulan. Cadangan otomatis tersimpan di browser ini.</p>`);
   });
 
+function loadChangelogPage() {
+  const box = document.getElementById('changelogContent');
+  if (!box) return;
+  box.innerHTML = '<p style="color:#94a3b8">Memuat…</p>';
+  const fallback = `<p>Sedang berjalan <b>v${APP_VERSION}</b>. Riwayat lengkap ada di file <code>CHANGELOG.md</code> pada repo.</p>`;
+  fetch('CHANGELOG.md').then(r => {
+    if (!r.ok) throw new Error('not-found');
+    return r.text();
+  }).then(t => {
+    box.innerHTML = renderChangelogMd(t);
+  }).catch(() => {
+    box.innerHTML = fallback;
+  });
+}
+// Markdown minimal (aman XSS: escape dulu, lalu format sebaris)
+function renderChangelogMd(t) {
+  const esc = t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const inline = (s) => s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  const out = [];
+  let inList = false;
+  const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+  esc.split('\n').forEach(line => {
+    if (/^### /.test(line)) { closeList(); out.push(`<h4 style="margin:14px 0 4px">${inline(line.slice(4))}</h4>`); }
+    else if (/^## /.test(line)) { closeList(); out.push(`<h3 style="margin:18px 0 6px">${inline(line.slice(3))}</h3>`); }
+    else if (/^# /.test(line)) { closeList(); out.push(`<h2 style="margin:18px 0 6px">${inline(line.slice(2))}</h2>`); }
+    else if (/^---+$/.test(line)) { closeList(); out.push('<hr style="border:none;border-top:1px solid #e2e8f0;margin:14px 0">'); }
+    else if (/^- /.test(line)) { if (!inList) { out.push('<ul style="padding-left:20px;margin:4px 0">'); inList = true; } out.push(`<li>${inline(line.slice(2))}</li>`); }
+    else if (!line.trim()) { closeList(); }
+    else { closeList(); out.push(`<p style="margin:4px 0">${inline(line)}</p>`); }
+  });
+  closeList();
+  return out.join('');
+}
   document.getElementById('changelogLink')?.addEventListener('click', (e) => {
     e.preventDefault();
-    fetch('CHANGELOG.md').then(r => {
-      if (!r.ok) throw new Error('not-found');
-      return r.text();
-    }).then(t => {
-      const esc = t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-      UI.openInfoModal('📜 Changelog v' + APP_VERSION, `<pre style="white-space:pre-wrap;font-size:12px;max-height:50vh;overflow:auto">${esc}</pre>`);
-    }).catch(() => {
-      UI.openInfoModal('📜 Changelog v' + APP_VERSION, '<p>Lihat file CHANGELOG.md di repo untuk detail.</p>');
-    });
+    showView('viewChangelog');
+    loadChangelogPage();
   });
   // transaksi view filters
   document.getElementById('transaksiSearch')?.addEventListener('input', (e) => {
