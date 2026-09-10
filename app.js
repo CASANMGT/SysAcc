@@ -35,11 +35,32 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.17.5';
+const APP_VERSION = '1.17.6';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
   window.__appBooted = true;
+  // Self-heal split-brain cache: JS baru + HTML lama (tanpa anchor wajib) →
+  // buang service worker + cache, lalu reload SEKALI. Mencegah halaman putih.
+  const anchors = ['loginScreen', 'appRoot', 'viewRingkasan', 'viewLaporan', 'pageReportContent', 'reportBtnSidebar'];
+  const missing = anchors.filter(id => !document.getElementById(id));
+  if (missing.length) {
+    try {
+      if (!sessionStorage.getItem('wynara_swfix')) {
+        sessionStorage.setItem('wynara_swfix', '1');
+        const done = () => { try { window.location.reload(); } catch {} };
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))).then(() => {
+            if ('caches' in window) caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).then(done).catch(done);
+            else done();
+          }).catch(done);
+        } else done();
+        const box = document.getElementById('loginError');
+        if (box) { box.classList.remove('hidden'); box.textContent = 'Memperbarui aplikasi ke versi terbaru…'; }
+        return;
+      }
+    } catch {}
+  }
   if (!isLoggedIn()) {
     showLogin();
     return;
@@ -225,8 +246,8 @@ function queueMirror() {
   if (mirrorTimer) clearTimeout(mirrorTimer);
   mirrorTimer = setTimeout(() => {
     try { IDB.mirrorSnapshot(Storage.snapshotAll()); } catch {}
-    // Cadangan otomatis (IDB) tercatat — timestamps dipakai indikator topbar
-    try { localStorage.setItem('wynara_last_backup', new Date().toISOString()); } catch {}
+    // Cadangan otomatis (IDB) tercatat — pakai kunci kanonis yang sama dengan storage.js
+    try { localStorage.setItem('wynara_lastBackup', new Date().toISOString()); } catch {}
     try { updateBackupDot(); } catch {}
   }, 2000);
 }
@@ -546,7 +567,9 @@ function bindEvents() {
   document.getElementById('themeToggleSidebar')?.addEventListener('click', handleThemeToggle);
   function showView(viewId) {
     document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
-    const target = document.getElementById(viewId);
+    // Fallback defensif: bila section target hilang dari DOM (cache basi),
+    // jangan pernah biarkan layar putih — tampilkan Ringkasan.
+    const target = document.getElementById(viewId) || document.getElementById('viewRingkasan');
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
     const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar', viewLaporan: '#reportBtnSidebar' };
@@ -3643,7 +3666,7 @@ async function handleBackupShare() {
   }
 }
 function stampShares() {
-  try { localStorage.setItem('wynara_last_backup', new Date().toISOString()); } catch {}
+  try { localStorage.setItem('wynara_lastBackup', new Date().toISOString()); } catch {}
 }
 
 /* ===== Saldo awal per akun ===== */

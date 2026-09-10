@@ -2,8 +2,11 @@
 // - Local files: cache-first (install saat pertama, update saat versi berubah)
 // - CDN fallback (xlsx): network-first, cache kalau sempat
 // - Selain itu: network-first, fallback cache
+//
+// PENTING RILIS: naikkan CACHE di bawah ini SETIAP rilis (samakan dengan VERSION).
+// Nama cache yang beku menyebabkan split-brain: index.html lama + app.js baru.
 
-const CACHE = 'wynara-v1-11-0';
+const CACHE = 'wynara-v1-17-6';
 const CORE = [
   './',
   './index.html',

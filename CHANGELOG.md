@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.17.6] - 2026-09-10
+
+### Fixed — Halaman Laporan putih kosong (split-brain cache)
+- **Akar masalah**: nama cache service worker beku di `wynara-v1-11-0` sejak v1.11.0 → browser mencampur `index.html` lama (tanpa section Laporan) dengan `app.js` baru → klik Laporan = hide-all + target null = layar putih
+- **4 lapis perbaikan**: (1) nama cache kini ikut VERSION tiap rilis + catatan wajib-bump; (2) guard saat boot — bila anchor wajib hilang dari DOM, buang SW + cache lalu reload sekali (anti-loop via session flag); (3) `showView` fallback ke Ringkasan, tidak pernah layar putih; (4) selaraskan kunci `wynara_lastBackup` (dot 💾 sebelumnya selalu "belum pernah")
+- 144/144 tests ✓
+
+---
+
 ## [1.17.5] - 2026-09-09
 
 ### Iterasi audit 15 — laporan in-depth lagi

@@ -55,7 +55,8 @@ Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
 ## Regressions
 
-- **[iter 6 → fixed iter 7]** Regroup tab laporan memutus wiring tab grup 2–3 (listener hanya di grup pertama) — laporan L/R, Neraca, Pajak, dll tak bisa dibuka dari halaman. Perbaikan: delegasi body-level. **Pelajaran:** binding berbasis `getElementById(id container)` pecah saat konten direstrukturisasi → pakai delegasi elemen bertipe.
+- **[iter 6 → fixed iter 7]** Regroup tab laporan memutus wiring tab grup 2–3 — diperbaiki via delegasi body-level.
+- **[ditemukan dari laporan user → fixed v1.17.6]** Halaman Laporan putih total: SW cache-name beku (`wynara-v1-11-0`) → split-brain HTML lama + JS baru. Pelajaran: **nama cache = VERSION, wajib bump tiap rilis** + boot guard + showView fallback. F4 durability lesson logged.
 
 ## Frozen
 
