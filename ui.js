@@ -3482,11 +3482,15 @@ export function addSaleRow() {
     if (it && !price.dataset.touched) price.value = it.price ? String(it.price) : '';
     recalcSale();
   };
-  sel.addEventListener('change', () => { price.dataset.touched = ''; syncPrice(); });
+  const maybeAutoAdd = () => {
+    // Multi-baris lancar: baris baru muncul otomatis saat baris terakhir terisi lengkap
+    if (sel.value && Number(qty.value) > 0 && box.querySelectorAll('.sale-row').length < 8 && row === box.lastElementChild) addSaleRow();
+  };
+  sel.addEventListener('change', () => { price.dataset.touched = ''; syncPrice(); maybeAutoAdd(); });
   price.addEventListener('input', () => { price.dataset.touched = '1'; });
   price.addEventListener('focus', () => { price.value = parseIdrInput(price.value); try { price.select(); } catch {} });
   price.addEventListener('blur', () => { const v = parseIdrInput(price.value); price.value = v ? formatIdrInput(v) : ''; recalcSale(); });
-  [qty, price].forEach(el => el.addEventListener('input', recalcSale));
+  [qty, price].forEach(el => el.addEventListener('input', () => { recalcSale(); maybeAutoAdd(); }));
   row.querySelector('.sale-del').addEventListener('click', () => { row.remove(); recalcSale(); });
   box.appendChild(row);
   bindRupiah(price);
@@ -3589,14 +3593,23 @@ export function addBuyRow() {
     <button type="button" class="btn btn-ghost buy-del" style="font-size:12px;padding:4px 8px;color:#ef4444">✕</button>`;
   const sel = row.querySelector('.buy-item');
   const cost = row.querySelector('.buy-cost');
+  const qtyBuy = row.querySelector('.buy-qty');
+  const maybeAutoAddBuy = () => {
+    // Baris baru otomatis saat baris terakhir terisi lengkap
+    if (sel.value && Number(qtyBuy.value) > 0 && box.querySelectorAll('.buy-row').length < 8 && row === box.lastElementChild) addBuyRow();
+  };
   sel.addEventListener('change', () => {
     const it = items.find(x => x.id === sel.value);
     if (it && !cost.dataset.touched) cost.value = it.cost ? String(it.cost) : '';
     recalcBuy();
+    maybeAutoAddBuy();
   });
   cost.addEventListener('input', () => { cost.dataset.touched = '1'; });
-  cost.addEventListener('blur', () => { const v = parseIdrInput(cost.value); cost.value = v ? formatIdrInput(v) : ''; recalcBuy(); });
-  row.querySelector('.buy-qty').addEventListener('input', recalcBuy);
+  cost.addEventListener('blur', () => { const v = parseIdrInput(cost.value); cost.value = v ? formatIdrInput(v) : ''; recalcBuy(); maybeAutoAddBuy(); });
+  qtyBuy.addEventListener('input', () => {
+    recalcBuy();
+    maybeAutoAddBuy();
+  });
   row.querySelector('.buy-del').addEventListener('click', () => { row.remove(); recalcBuy(); });
   box.appendChild(row);
   bindRupiah(cost);
@@ -3910,6 +3923,7 @@ export function closeEmpModal() {
   if (m.open) { try { m.close(); } catch {} }
 }
 export function fillEmpPanel(emp) {
+  bindEmpEnterFlow();
   const isNew = !emp;
   document.getElementById('empPanelTitle').textContent = isNew ? 'Tambah karyawan' : 'Edit karyawan';
   document.getElementById('empViewSave').textContent = isNew ? 'Tambah karyawan' : 'Simpan perubahan';
@@ -3943,6 +3957,22 @@ export function setEmpSubTab(sub) {
   document.getElementById('empSubMain').hidden = sub !== 'main';
   document.getElementById('empSubSalary').hidden = sub !== 'salary';
   document.getElementById('empSubTax').hidden = sub !== 'tax';
+}
+// Enter di Nama/Jabatan → lompat ke tab Gaji (kurangi jalur ketuk T3)
+function bindEmpEnterFlow() {
+  ['empViewName', 'empViewRole'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.enterflow) return;
+    el.dataset.enterflow = '1';
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      setEmpSubTab('salary');
+      const base = document.getElementById('empViewBase');
+      if (base && !base.dataset.idrBound) bindRupiah(base);
+      try { base?.focus(); } catch {}
+    });
+  });
 }
 export function getEmpPanelData() {
   return {

@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.17.3] - 2026-09-09
+
+### Iterasi audit 13 — entri barang & karyawan lebih cepat (benchmarks)
+- **🧾/📥 Baris auto** — di modal Jual & Beli: baris berikutnya muncul otomatis begitu baris terakhir terisi lengkap (maks 8) — jual 2 barang hemat 1 ketukan 🧾 "Tambah barang"
+- **⏎ Enter di Nama/Jabatan karyawan → langsung tab Gaji + fokus field gaji** — offih jalur pendek T3
+- Tests 144/144 ✓
+
+---
+
 ## [1.17.2] - 2026-09-09
 
 ### Iterasi audit 12 — progresif disclosure (U1-lite) & pengaman data
