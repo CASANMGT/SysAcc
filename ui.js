@@ -4009,6 +4009,7 @@ export function renderPayrollProcess(rows, monthLabel, status) {
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap">
           <div style="font-size:12px;font-weight:700">Rincian komponen gaji</div>
           <button type="button" class="pay-print" data-id="${e.id}" aria-label="Cetak slip gaji ${escapeHtml(e.name)}" title="Cetak slip gaji (UU 13/2003 Ps. 93)" style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">🖨️ Cetak slip</button>
+          <button type="button" class="pay-wa" data-id="${e.id}" aria-label="Kirim slip WH di WhatsApp ${escapeHtml(e.name)}" title="Kirim ringkasan slip via WhatsApp" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">📤 WA</button>
         </div>
         ${paySlipDetailHTML(r)}
         ${r.thrNote ? `<div style="font-size:11px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:8px">ⓘ ${escapeHtml(r.thrNote)}</div>` : ''}
@@ -4083,6 +4084,8 @@ export function bindPayrollView(handlers) {
       if (ch) { handlers.onCheck(ch.dataset.id, ch.checked); return; }
       const pr = e.target.closest('.pay-print');
       if (pr && handlers.onPrintSlip) { handlers.onPrintSlip(pr.dataset.id); return; }
+      const wa = e.target.closest('.pay-wa');
+      if (wa && handlers.onSlipWa) { handlers.onSlipWa(wa.dataset.id); return; }
     });
     document.getElementById('payrollTableBody')?.addEventListener('change', (e) => {
       if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph')) handlers.onDetailChange();

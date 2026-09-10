@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.16.4';
+const APP_VERSION = '1.16.5';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -472,6 +472,7 @@ function bindEvents() {
     onRate: handlePayrollRateChange,
     onHadir: handlePayrollHadir,
     onPrintSlip: handlePayrollPrintSlip,
+    onSlipWa: handlePayrollSlipWa,
     onDraft: handlePayrollDraft,
     onFinal: handlePayrollFinal,
     onCopy: handlePayrollCopyPrev
@@ -623,6 +624,23 @@ function bindEvents() {
   }
   document.getElementById('pageReportPrint')?.addEventListener('click', () => UI.printPageReport());
   document.getElementById('pageReportExcel')?.addEventListener('click', () => UI.exportPageReportExcel());
+  document.getElementById('pageReportPeriod')?.addEventListener('change', (e) => {
+    const v = e.target.value;
+    let period = v, startDate = null, endDate = null;
+    if (v === 'last-quarter') {
+      const now = new Date();
+      const q = Math.floor(now.getMonth() / 3); // 0-based quarter index of running month
+      const pq = q === 0 ? { y: now.getFullYear() - 1, q: 3 } : { y: now.getFullYear(), q: q - 1 };
+      const s = new Date(pq.y, pq.q * 3, 1);
+      const en = new Date(pq.y, pq.q * 3 + 3, 0);
+      const iso = (d) => d.toISOString().split('T')[0];
+      startDate = iso(s); endDate = iso(en);
+      period = 'custom';
+    }
+    currentFilters = { period, type: 'all', category: 'all', startDate, endDate };
+    renderPageReport();
+    UI.showSuccess('Periode laporan diubah');
+  });
   document.getElementById('aksiKategori')?.addEventListener('click', () => UI.showInfo('Kelola kategori: pilih kategori saat tambah transaksi'));
   // Topbar search mirrors main search
   const topSearch = document.getElementById('searchInputTop');
@@ -3296,6 +3314,34 @@ function handlePayrollPrintSlip(empId) {
   </body></html>`);
   win.document.close();
   setTimeout(() => { try { win.focus(); win.print(); } catch {} }, 400);
+}
+function handlePayrollSlipWa(empId) {
+  const emp = Storage.getAllEmployees().find(x => x.id === empId);
+  const c = payrollCache[empId];
+  if (!emp || !c) return;
+  let phone = String(emp.phone || '').replace(/[^0-9]/g, '');
+  if (!phone || phone.length < 8) return UI.showError(`No. HP ${emp.name} kosong/tidak valid — isi di Data Karyawan agar slip bisa dikirim`);
+  if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+  const ref = payrollMonthEnd(payrollViewMonth);
+  const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+  const label = payrollMonthLabel(payrollViewMonth);
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const lines = [
+    `*Slip Gaji ${label}*`,
+    `${emp.name}${emp.role ? ' — ' + emp.role : ''}`,
+    '',
+    `Bruto: ${fmt(slip.gross + slip.thr)}${slip.thr > 0 ? ` (termasuk THR ${fmt(slip.thr)})` : ''}`,
+    slip.ded.kesSelf > 0 ? `BPJS Anda: −${fmt(slip.ded.kesSelf + slip.ded.jhtSelf + slip.ded.jpSelf)}` : '',
+    slip.ded.pph21 > 0 ? `PPh 21: −${fmt(slip.ded.pph21)}` : '',
+    slip.deduct > 0 ? `Denda: −${fmt(slip.deduct)}` : '',
+    '',
+    `*Diterima: ${fmt(slip.takeHome)}*`,
+    '',
+    'Dibayar perusahaan (BTW): BPJS Kes, JHT/JP, JKK & JKM.'
+  ].filter(l => l !== '').join('\n');
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(lines)}`;
+  window.open(url, '_blank');
+  UI.showSuccess('WhatsApp terbuka — teks slip sudah terisi, tinggal tekan kirim');
 }
 function handlePayrollCopyPrev() {
   ensurePayrollMonth();

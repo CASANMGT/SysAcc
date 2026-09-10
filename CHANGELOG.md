@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.16.5] - 2026-09-09
+
+### Iterasi audit 9 — slip WA + periode laporan (benchmark T10 & T8)
+- **📤 Kirim slip via WhatsApp** — tiap karyawan di Proses Gaji: tombol "WA" share ringkasan slip (bruto, BPJS, PPh, THP besar) ke wa.me; no. HP harus ada (auto-format 62)
+- **🗓️ Periode di halaman Laporan** — dropdown: Semua / Bulan ini / Bulan lalu / **Kuartal lalu (3 bulan otomatis)** / Tahun ini — T8 "Laba Rugi kuartalan PDF" jadi ≤5 tap; PDF & Excel ikut periode
+- Tests 144/144 ✓
+
+---
+
 ## [1.16.4] - 2026-09-09
 
 ### Iterasi audit 8 — aging hutang + temu fitur tersembunyi
