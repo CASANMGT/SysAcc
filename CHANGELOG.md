@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.17.4] - 2026-09-09
+
+### Iterasi audit 14 — penutupan bulan tanpa ketik (T7)
+- **🔒 Picker bulan untuk Penutupan**: modal chips berisi 6 bulan terakhir + status "✓ sudah ditutup" / "Tutup →" — tidak lagi mengetik `YYYY-MM` di prompt mentah (salah-tulisformat membunuh alur)
+- confirm 1 kali menjaga idempoten & lock; T7 = **≪9 taps** (Laporan → Penutupan → pilih → Tutup)
+- Tests 144/144 ✓
+
+---
+
 ## [1.17.3] - 2026-09-09
 
 ### Iterasi audit 13 — entri barang & karyawan lebih cepat (benchmarks)

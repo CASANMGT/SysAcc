@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.17.3';
+const APP_VERSION = '1.17.4';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -605,6 +605,13 @@ function bindEvents() {
     UI.openInfoModal('🔔 Pengingat', `<ul style="padding-left:20px;margin:0;list-style:disc">${items}</ul>`);
   });
   document.getElementById('infoModalBody')?.addEventListener('click', (ev) => {
+    const cm = ev.target.closest('.close-month-btn[data-mk]');
+    if (cm) {
+      UI.closeInfoModal();
+      const mk = cm.dataset.mk;
+      if (confirm(`Tutup ${payrollMonthLabel(mk)}? Pendapatan & beban periode itu dipindah ke Laba Ditahan.`)) doClosing(mk);
+      return;
+    }
     const btn = ev.target.closest('.notif-goto[data-goto]');
     if (!btn) return;
     UI.closeInfoModal();
@@ -3550,10 +3557,20 @@ function buildClosingJournalData(mk) {
   return { id: `CLOSE-${mk}`, date, memo: `Jurnal penutupan ${label}`, ref: 'closing', refId: mk, lines, total, label };
 }
 function handleClosing() {
-  const n = new Date();
-  const cur = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
-  const mk = (prompt('Tutup bulan mana? (format YYYY-MM)', cur) || '').trim();
-  if (!/^\d{4}-\d{2}$/.test(mk)) { if (mk) UI.showError('Format bulan harus YYYY-MM'); return; }
+  const now = new Date();
+  const months = [];
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  const items = months.map((mk) => {
+    const label = payrollMonthLabel(mk);
+    const done = Storage.getAllJournals().some(j => j.id === `CLOSE-${mk}`);
+    return `<button type="button" class="close-month-btn" data-mk="${mk}" style="display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid ${done ? '#e2e8f0' : '#bfdbfe'};background:${done ? '#f8fafc' : '#eff6ff'};color:${done ? '#64748b' : '#1d4ed8'};border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:6px;cursor:pointer"><span>📅 ${label}</span><span style="font-size:11px">${done ? '✓ sudah ditutup' : 'Tutup →'}</span></button>`;
+  }).join('');
+  UI.openInfoModal('🔒 Penutupan bulan', `<p style="font-size:12px;color:#64748b;margin:0 0 10px">Pilih bulan yang sudah selesai — pendapatan & beban ditutup ke Laba Ditahan (idempoten; menerkat tetap aman).</p>${items.join('')}`);
+}
+function doClosing(mk) {
   const data = buildClosingJournalData(mk);
   if (!data) return UI.showInfo(`Tidak ada pendapatan/beban di ${mk}`);
   const deb = data.lines.reduce((s, l) => s + l.debit, 0);
