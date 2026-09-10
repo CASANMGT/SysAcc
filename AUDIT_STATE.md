@@ -3,24 +3,24 @@
 Baseline: v1.15.0 (audit dibuat atas v1.14.2; sebagian finding sudah terdafikan di v1.15.0).
 Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
-## Current scores (rubric, 0–100; setelah iter 9)
+## Current scores (rubric, 0–100; setelah iter 10)
 
 | Axis | Nilai | Catatan |
 |---|---|---|
 | F1 Core ledger | 86 | — |
 | F2 Tax conformance | 76 | — |
-| F3 Payroll & HR | 73 | **slip WA delivery** ✓ (UU 13/2003 close-the-loop) |
+| F3 Payroll & HR | 73 | — |
 | F4 Data durability | 50 | — |
-| F5 Reporting | 88 | **periode selector di halaman laporan** (support PDF kuartal) |
-| F6 Task efficiency | 83 | **T8 ≤5 tap ✓; T10 ≤6 tap ✓** |
+| F5 Reporting | 91 | **drill-down Buku Besar + Neraca Saldo** (klik akun → garis jurnal + subtotal) |
+| F6 Task efficiency | 83 | — |
 | F7 Cognitive load | 76 | — |
 | F8 Mobile | 82 | — |
 | F9 Accessibility | 62 | — |
-| **Grade** | **~85** | iter 1–9 |
+| **Grade** | **~86** | iter 1–10 |
 
 ## Completed (lanjut)
 
-- iter 9 (v1.16.5): **T10** WA slip per karyawan → F3 70→73. **T8** periode selector (kuartal otomatis) → F5 88 tetap, F6 80→83. Tests 144/144 ✓. Benchmark: T8 5 taps ✓, T10 4 taps ✓.
+- iter 10 (v1.17.0): **F5** drill-down laporan (klik akun ▸ di Buku Besar & Neraca Saldo → garis jurnal + subtotal; via event `wynara:ledger-toggle`) → F5 88→91. Tests 144/144 ✓.
 
 - iter 5 (v1.16.1): **B6** saldo awal per akun (draft + live balance + reversible ref 'opening' + auto-modal ke 3101) → F1 80→86, F5 84→86. Tests 144/144 ✓.
 

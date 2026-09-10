@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.16.5';
+const APP_VERSION = '1.17.0';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -680,6 +680,12 @@ function bindEvents() {
     UI.showSuccess(`CSV pajak ${d.year} diunduh — siap untuk DJP/e-Bupot`);
   };
   document.addEventListener('wynara:tax-csv', buildTaxCsv);
+  document.addEventListener('wynara:ledger-toggle', (ev) => {
+    const det = ev.detail || {};
+    UI.toggleDrill(det.kind || 'ledger', det.code || '');
+    renderReport();
+    renderPageReport();
+  });
   document.getElementById('importJsonBtn')?.addEventListener('click', () => document.getElementById('importJsonFile')?.click());
   document.getElementById('importJsonFile')?.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleImport(f); e.target.value = ''; });
   // Export mengikuti tampilan terfilter (bukan seluruh DB)
@@ -1894,7 +1900,7 @@ function computeReportData(type) {
     case 'journal':
       return journalInRange();
     case 'ledger':
-      return ledgerInRange();
+      return ledgerDrillData();
     case 'pl':
       return buildProfitLoss();
     case 'bs':
@@ -1921,8 +1927,20 @@ function computeReportData(type) {
 // Neraca Saldo — alat kerja utama akuntan (saldo debit/kredit per akun, cek seimbang)
 function buildTrialBalance() {
   const journals = Storage.getAllJournals();
-  const range = journalDateRange();
-  const bal = balances(journals, range.start || range.end ? { start: range.start, end: range.end } : {});
+  const drill = journalDateRange();
+  const inRange = (r) => (!drill.start || String(r.date) >= drill.start) && (!drill.end || String(r.date) <= drill.end);
+  const lines = {};
+  try {
+    journals.filter(inRange).forEach(j => {
+      (j.lines || []).forEach(l => {
+        if (!l || !l.account) return;
+        if (!lines[l.account]) lines[l.account] = [];
+        lines[l.account].push({ date: j.date, memo: j.memo || j.description || 'Jurnal', debit: Number(l.debit) || 0, credit: Number(l.credit) || 0 });
+      });
+    });
+  } catch {}
+  const rangeJournals = journals.filter(inRange);
+  const bal = balances(rangeJournals.length ? rangeJournals : journals, drill.start || drill.end ? drill : {});
   const accounts = getAccounts().map(a => ({ code: a.code, name: a.name, type: a.type, b: bal[a.code] || { debit: 0, credit: 0 } }));
   const totDeb = accounts.reduce((s, x) => s + x.b.debit, 0);
   const totCred = accounts.reduce((s, x) => s + x.b.credit, 0);
@@ -1930,7 +1948,7 @@ function buildTrialBalance() {
   try { unbalanced = findUnbalanced(journals); } catch {}
   let locked = [];
   try { locked = Storage.getLockedMonths(); } catch {}
-  return { rows: accounts, debit: totDeb, credit: totCred, diff: totDeb - totCred, balanced: Math.abs(totDeb - totCred) < 0.005, unbalanced, locked, rangeLabel: range.start && range.end ? `${range.start} — ${range.end}` : 'Semua akun' };
+  return { rows: accounts, debit: totDeb, credit: totCred, diff: totDeb - totCred, balanced: Math.abs(totDeb - totCred) < 0.005, unbalanced, locked, lines, rangeLabel: drill.start && drill.end ? `${drill.start} — ${drill.end}` : 'Semua akun' };
 }
 
 // Laporan PPN bulanan (gaya 1111): PPN Keluaran (2105) vs Masukan (1401)
@@ -2039,9 +2057,20 @@ function journalInRange() {
   });
 }
 
-function ledgerInRange() {
-  return balances(journalInRange());
+// Drill-down: balances + jurnal mentah periode yang sama (untuk ekspansi per akun)
+function ledgerDrillData() {
+  const journals = journalInRange();
+  const lines = {};
+  journals.forEach(j => {
+    (j.lines || []).forEach(l => {
+      if (!l || !l.account) return;
+      if (!lines[l.account]) lines[l.account] = [];
+      lines[l.account].push({ date: j.date, memo: j.memo || journalMemoOf(j), debit: Number(l.debit) || 0, credit: Number(l.credit) || 0 });
+    });
+  });
+  return { bal: balances(journals), journals, lines };
 }
+function journalMemoOf(j) { return j.description || j.note || j.memo || 'Jurnal'; }
 
 function addDaysStr(ymd, n) {
   const d = new Date(ymd + 'T00:00:00');

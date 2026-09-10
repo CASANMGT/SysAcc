@@ -2073,22 +2073,55 @@ function renderJournalReport(journals) {
     </table>`;
 }
 
-function renderLedgerReport(bal) {
+// State drill-down per laporan (klik akun → lihat transaksinya)
+const drillState = { ledger: '', trial: '' };
+export function toggleDrill(kind, code) {
+  if (drillState[kind] === code) drillState[kind] = '';
+  else drillState[kind] = code;
+}
+function drillEvent(kind, code) {
+  return `document.dispatchEvent(new CustomEvent('wynara:ledger-toggle',{detail:{kind:'${kind}',code:'${String(code).replace(/'/g, '')}'}}))`;
+}
+function drillLinesHTML(lines, kind, code) {
+  if (!drillState[kind] || drillState[kind] !== code) return '';
+  if (!lines || !lines.length) return `<tr style="background:#f8fafc"><td colspan="4" style="padding:8px 14px;color:#94a3b8;font-size:11px">Tidak ada transaksi untuk akun ini.</td></tr>`;
+  const deb = lines.reduce((s, l) => s + l.debit, 0);
+  const cred = lines.reduce((s, l) => s + l.credit, 0);
+  return `<tr style="background:#f8fafc"><td colspan="4" style="padding:6px 14px">
+    <table class="report-table" style="margin:0">
+      <thead><tr><th style="font-size:10px">Tanggal</th><th style="font-size:10px">Keterangan jurnal</th><th class="amount-col" style="font-size:10px">Debit</th><th class="amount-col" style="font-size:10px">Kredit</th></tr></thead>
+      <tbody>${lines.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(l => `<tr>
+        <td style="white-space:nowrap;font-size:11px;color:#64748b">${formatDate(l.date)}</td>
+        <td style="font-size:12px">${escapeHtml(l.memo || '')}</td>
+        <td class="amount-col" style="font-size:12px">${l.debit ? formatCurrency(l.debit) : ''}</td>
+        <td class="amount-col" style="font-size:12px">${l.credit ? formatCurrency(l.credit) : ''}</td>
+      </tr>`).join('')}
+      <tr style="border-top:1px solid #cbd5e1"><td colspan="2" style="font-weight:700;font-size:11px">Subtotal ${drillState[kind] === code ? escapeHtml(code) : ''}</td><td class="amount-col" style="font-weight:700">${formatCurrency(deb)}</td><td class="amount-col" style="font-weight:700">${formatCurrency(cred)}</td></tr>
+      </tbody></table></td></tr>`;
+}
+
+function renderLedgerReport(d) {
+  // backward-compatible: object {bal, journals, lines} atau plain balances map
+  const bal = d && d.bal ? d.bal : (d || {});
+  const linesMap = (d && d.lines) || null;
   const codes = Object.keys(bal || {}).sort();
   if (!codes.length) {
     return reportEmpty('Belum ada gerakan akun pada periode ini', 'Saldo muncul setelah ada transaksi atau saldo awal.');
   }
   return `
+    <p style="font-size:11px;color:#64748b">Klik salah satu akun untuk melihat pagar debit/kredit transaksinya.</p>
     <table class="report-table">
       <thead><tr><th>Akun</th><th class="amount-col">Debit</th><th class="amount-col">Kredit</th><th class="amount-col">Saldo</th></tr></thead>
       <tbody>
         ${codes.map(c => {
           const b = bal[c];
           const net = b.debit - b.credit;
-          return `<tr><td>${escapeHtml(accountLabel(c))}</td>
+          return `<tr style="cursor:pointer" onclick="${drillEvent('ledger', c)}" title="Lihat transaksi akun ini">
+            <td>${drillState.ledger === c ? '▾' : '▸'} ${escapeHtml(accountLabel(c))}</td>
             <td class="amount-col">${formatCurrency(b.debit)}</td>
             <td class="amount-col">${formatCurrency(b.credit)}</td>
-            <td class="amount-col" style="font-weight:700">${net >= 0 ? '' : '−'}${formatCurrency(Math.abs(net))} ${net >= 0 ? 'Db' : 'Kr'}</td></tr>`;
+            <td class="amount-col" style="font-weight:700">${net >= 0 ? '' : '−'}${formatCurrency(Math.abs(net))} ${net >= 0 ? 'Db' : 'Kr'}</td></tr>
+          ${drillLinesHTML(linesMap ? linesMap[c] : null, 'ledger', c)}`;
         }).join('')}
       </tbody>
     </table>`;
@@ -2216,12 +2249,12 @@ function renderTrialReport(d) {
     if (!rows.length) return '';
     const tDeb = rows.reduce((s, x) => s + x.b.debit, 0);
     const tCred = rows.reduce((s, x) => s + x.b.credit, 0);
-    const getItems = rows.map(x => `<tr>
+    const getItems = rows.map(x => `<tr style="cursor:default">
       <td style="text-align:left;color:#64748b;font-size:11px">${x.code}</td>
-      <td style="text-align:left">${x.name}</td>
+      <td style="text-align:left">${x.b.debit || x.b.credit ? `<span onclick="${drillEvent('trial', x.code)}" style="cursor:pointer" title="Lihat transaksi akun ini">${drillState.trial === x.code ? '▾' : '▸'} ${escapeHtml(x.name)}</span>` : escapeHtml(x.name)}</td>
       <td class="amount-col" style="${x.b.debit || x.b.credit ? '' : 'color:#cbd5e1'}">${x.b.debit ? fmt(x.b.debit) : ''}</td>
       <td class="amount-col" style="${x.b.debit || x.b.credit ? '' : 'color:#cbd5e1'}">${x.b.credit ? fmt(x.b.credit) : ''}</td>
-    </tr>`).join('');
+    </tr>${x.b.debit || x.b.credit ? drillLinesHTML(d.lines && d.lines[x.code], 'trial', x.code) : ''}`).join('');
     return `<tr style="background:#f1f5f9"><td colspan="2" style="font-weight:700">${TYPE_LABEL[t]}</td><td class="amount-col" style="font-weight:700">${tDeb ? fmt(tDeb) : ''}</td><td class="amount-col" style="font-weight:700">${tCred ? fmt(tCred) : ''}</td></tr>${getItems}`;
   }).join('');
   const badge = d.balanced
@@ -2234,6 +2267,7 @@ function renderTrialReport(d) {
       <div class="report-summary-item"><span class="label">Status</span><span class="value">${badge}</span></div>
       <div class="report-summary-item"><span class="label">Bulan</span><span class="value">${d.rangeLabel}</span></div>
     </div>
+    <p style="font-size:11px;color:#64748b;margin:6px 0">Klik akun berlabel ▸ untuk melihat transaksinya.</p>
     ${d.unbalanced.length ? `<p style="font-size:11px;color:#b91c1c;margin:6px 0">⚠ Terdeteksi <b>${d.unbalanced.length}</b> jurnal pincang (id: ${escapeHtml(d.unbalanced.slice(0, 5).join(', '))}${d.unbalanced.length > 5 ? '…' : ''}). Periksa di tab Jurnal.</p>` : `<p style="font-size:11px;color:#64748b;margin:6px 0">Semua jurnal seimbang. ${d.locked.length ? `Periode terkunci: ${d.locked.join(', ')}.` : 'Tidak ada periode terkunci.'}</p>`}
     <table class="report-table">
       <thead><tr><th>Kode</th><th>Akun</th><th class="amount-col">Debit</th><th class="amount-col">Kredit</th></tr></thead>

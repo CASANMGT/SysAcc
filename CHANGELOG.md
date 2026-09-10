@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.17.0] - 2026-09-09
+
+### Iterasi audit 10 — in-depth laporan (drill-down)
+- **Buku Besar drill-down** — klik akun ▸ → garis transaksinya ekspansi di bawah: tanggal, memo jurnal asli, debit/kredit + subtotal per akun (tidak perlu buka tab lain)
+- **Neraca Saldo drill-down** — setiap akun berlabel ▸ bisa dibukukun; detail jurnal menjadi baris yang sama
+- Periode selector di iterasi lalu kini tetap terpatan; nested braces drill-down di modal & halaman Laporan
+- Jurnal per akun punya memo asli & jurnal id (slaent kertas kerja auditor); print/PDF & Excel ikut memperhitungkan drill aktif
+
+---
+
 ## [1.16.5] - 2026-09-09
 
 ### Iterasi audit 9 — slip WA + periode laporan (benchmark T10 & T8)
