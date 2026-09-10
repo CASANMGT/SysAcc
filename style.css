@@ -3536,6 +3536,9 @@ tr:hover .table-row-actions {
 .sched-badge.todo { background: var(--bg); color: var(--text-muted); }
 .view-section.hidden { display: none !important; }
 .view-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+/* Standar aksi header + toolbar antar-view (Ringkasan, Gaji, Laporan) */
+.view-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.view-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
 .view-header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
 .view-header p { font-size: 13px; color: #64748b; margin-top: 4px; }
 .transaksi-toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }

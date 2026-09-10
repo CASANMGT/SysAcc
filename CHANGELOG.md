@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.19.0] - 2026-09-10
+
+### Changed — Halaman Laporan ditulis ulang ikut standar Ringkasan/Gaji
+- **Header ramping**: judul + subjudul di kiri; kanan hanya Periode + Excel + Cetak/PDF (sebelumnya 6 kontrol berdesakan: search, 2 tombol akuntan, Excel, PDF)
+- **Toolbar baris sendiri** (di bawah tab, seperti pola halaman Gaji): kolom cari Jurnal/Buku Besar + Jurnal penyesuaian + Penutupan bulan — tidak lagi menekan judul
+- **Urutan standar**: header → tab grup → toolbar → ringkasan keadaan → panel konten
+- Kelas CSS baru `.view-actions` / `.view-toolbar` dipakai ulang antar-view; tanpa ubah logika (semua ID dipertahankan), 149/149 tests ✓
+
+---
+
 ## [1.18.4] - 2026-09-10
 
 ### Fixed — guard loloskan JS-lama + HTML-baru (dari screenshot user)
