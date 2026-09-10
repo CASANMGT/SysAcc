@@ -55,7 +55,7 @@ Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
 ## Regressions
 
-- (belum ada)
+- **[iter 6 → fixed iter 7]** Regroup tab laporan memutus wiring tab grup 2–3 (listener hanya di grup pertama) — laporan L/R, Neraca, Pajak, dll tak bisa dibuka dari halaman. Perbaikan: delegasi body-level. **Pelajaran:** binding berbasis `getElementById(id container)` pecah saat konten direstrukturisasi → pakai delegasi elemen bertipe.
 
 ## Frozen
 

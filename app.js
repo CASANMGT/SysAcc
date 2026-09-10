@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.16.2';
+const APP_VERSION = '1.16.3';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -605,12 +605,20 @@ function bindEvents() {
   document.getElementById('aksiTambahKontak')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
   document.getElementById('aksiLaporan')?.addEventListener('click', () => showView('viewLaporan'));
   document.getElementById('ownerToReports')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewLaporan'); });
-  document.getElementById('pageReportTabs')?.addEventListener('click', (e) => {
-    const b = e.target.closest('.page-report-tab');
-    if (!b) return;
-    currentReportType = b.dataset.report;
-    renderPageReport();
-  });
+  // Tab laporan halaman: delegasi body (tab kini terbagi 3 grup chip)
+  if (!document.body.dataset.pagereportWired) {
+    document.body.dataset.pagereportWired = '1';
+    document.body.addEventListener('click', (e) => {
+      const b = e.target.closest('.page-report-tab');
+      if (!b) return;
+      currentReportType = b.dataset.report;
+      renderPageReport();
+      if (window.innerWidth > 768) {
+        const sec = document.getElementById('pageReportContent');
+        if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
   document.getElementById('pageReportPrint')?.addEventListener('click', () => UI.printPageReport());
   document.getElementById('pageReportExcel')?.addEventListener('click', () => UI.exportPageReportExcel());
   document.getElementById('aksiKategori')?.addEventListener('click', () => UI.showInfo('Kelola kategori: pilih kategori saat tambah transaksi'));

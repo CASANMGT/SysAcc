@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.16.3] - 2026-09-09
+
+### Fixed — Laporan halaman mati (bug wiring iter 6)
+- **Tab Laporan Resmi & Kepatuhan (10 tab) tidak merespon klik** — saat tab digroup 3 chip-group, listener cuma terpasang di grup pertama (id `pageReportTabs`). Kini **delegasi ke body** (`.page-report-tab`) sehingga 15 tab semua hidup; auto-scroll ke konten di desktop
+
+---
+
 ## [1.16.2] - 2026-09-09
 
 ### Iterasi audit 6 — laporan tak lagi dead-end (UX + akses)
