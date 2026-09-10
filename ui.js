@@ -2054,15 +2054,19 @@ function renderJournalReport(journals) {
   if (!journals || !journals.length) {
     return reportEmpty('Belum ada jurnal pada periode ini', 'Tiap transaksi otomatis membentuk jurnal — catat dulu lewat tombol ＋.');
   }
+  const data = journals.filter(j => matchSearch(j.memo, j.id, (j.lines || []).map(l => accountLabel(l.account)).join(' ')));
+  if (!data.length) {
+    return reportEmpty(`Jurnal tidak cocok: "${reportSearch}"`, 'Coba kata lain (memo transaksi / nama akun).');
+  }
   return `
     <div class="report-summary">
-      <div class="report-summary-item"><span class="label">Jurnal</span><span class="value">${journals.length}</span></div>
+      <div class="report-summary-item"><span class="label">Jurnal${reportSearch ? ` (filter "${reportSearch}" — ${data.length} cocok)` : ''}</span><span class="value">${journals.length}</span></div>
       <div class="report-summary-item"><span class="label">Total Debit = Kredit</span><span class="value income">✓ Balance</span></div>
     </div>
     <table class="report-table">
       <thead><tr><th>Tanggal</th><th>Memo</th><th>Akun</th><th class="amount-col">Debit</th><th class="amount-col">Kredit</th></tr></thead>
       <tbody>
-        ${journals.map(j => (j.lines || []).map((l, i) => `
+        ${data.map(j => (j.lines || []).map((l, i) => `
           <tr>
             <td>${i === 0 ? formatDate(j.date) : ''}</td>
             <td>${i === 0 ? escapeHtml(j.memo || '') : ''}</td>
@@ -2076,6 +2080,13 @@ function renderJournalReport(journals) {
 
 // State drill-down per laporan (klik akun → lihat transaksinya)
 const drillState = { ledger: '', trial: '' };
+// Filter pencarian laporan (dipakai tab Jurnal & Buku Besar)
+let reportSearch = '';
+export function setReportSearch(v) { reportSearch = String(v || '').trim().toLowerCase(); }
+function matchSearch(...parts) {
+  if (!reportSearch) return true;
+  return parts.some(p => String(p || '').toLowerCase().includes(reportSearch));
+}
 export function toggleDrill(kind, code) {
   if (drillState[kind] === code) drillState[kind] = '';
   else drillState[kind] = code;
@@ -2105,9 +2116,10 @@ function renderLedgerReport(d) {
   // backward-compatible: object {bal, journals, lines} atau plain balances map
   const bal = d && d.bal ? d.bal : (d || {});
   const linesMap = (d && d.lines) || null;
-  const codes = Object.keys(bal || {}).sort();
+  const allCodes = Object.keys(bal || {}).sort();
+  const codes = allCodes.filter(c => matchSearch(c, accountLabel(c)));
   if (!codes.length) {
-    return reportEmpty('Belum ada gerakan akun pada periode ini', 'Saldo muncul setelah ada transaksi atau saldo awal.');
+    return reportEmpty(allCodes.length ? `Akun tidak cocok: "${reportSearch}"` : 'Belum ada gerakan akun pada periode ini', allCodes.length ? 'Coba nama akun lain (mis. Kas, Beban).' : 'Saldo muncul setelah ada transaksi atau saldo awal.');
   }
   return `
     <p style="font-size:11px;color:#64748b">Klik salah satu akun untuk melihat pagar debit/kredit transaksinya.</p>

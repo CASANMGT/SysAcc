@@ -3,7 +3,7 @@
 Baseline: v1.15.0 (audit dibuat atas v1.14.2; sebagian finding sudah terdafikan di v1.15.0).
 Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
-## Current scores (rubric, 0–100; setelah iter 14)
+## Current scores (rubric, 0–100; setelah iter 15)
 
 | Axis | Nilai | Catatan |
 |---|---|---|
@@ -11,17 +11,16 @@ Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 | F2 Tax conformance | 76 | — |
 | F3 Payroll & HR | 73 | — |
 | F4 Data durability | 52 | — |
-| F5 Reporting | 92 | — |
-| F6 Task efficiency | 86 | **T7 ≤6 taps** (picker chips penutupan) |
+| F5 Reporting | 94 | **filter jurnal/bes + panel kertas kerja ringkas** |
+| F6 Task efficiency | 86 | — |
 | F7 Cognitive load | 80 | — |
 | F8 Mobile | 82 | — |
 | F9 Accessibility | 64 | — |
-| **Grade** | **~89** | iter 1–14 |
+| **Grade** | **~90** | iter 1–15 |
 
 ## Completed (lanjut)
 
-- iter 14 (v1.17.4): **F6** picker chips penutupan bulan (6 bulan + status, prompt() manual dinonaktifkan) → F6 85→86. Tests 144/144 ✓. Benchmark T7 = 6 taps ✓.
-- ditandai: penutupan bulan >6 bulan lalu tetap bisa via jurnal manual akuntan (Alasan di Frozen).
+- iter 15 (v1.17.5): **F5** filter akun/memo (Jurnal & Buku Besar) + Ringkasan Keadaan Pembukuan (collapse, auto-render) → F5 92→94. Tests 144/144 ✓.
 
 - iter 5 (v1.16.1): **B6** saldo awal per akun (draft + live balance + reversible ref 'opening' + auto-modal ke 3101) → F1 80→86, F5 84→86. Tests 144/144 ✓.
 

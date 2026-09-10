@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.17.5] - 2026-09-09
+
+### Iterasi audit 15 — laporan in-depth lagi
+- **🔍 Filter akun/memo di halaman Laporan (tab Jurnal & Buku Besar)** — bagian header, state module, incoming reset instan; label hit coastal `filter "x" — N cocok`
+- **🧾 Ringkasan keadaan pembukuan** — panel kertas kerja ringkas di halaman Laporan: ✓ jurnal lengkap/pincang, ✓ neraca saldo balance/ selisih, 🔒 penutupan terakhir, 🔒 Jumlah periode terkunci — detail collapse
+- Tests 144/144 ✓
+
+---
+
 ## [1.17.4] - 2026-09-09
 
 ### Iterasi audit 14 — penutupan bulan tanpa ketik (T7)

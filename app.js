@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.17.4';
+const APP_VERSION = '1.17.5';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -649,6 +649,13 @@ function bindEvents() {
   }
   document.getElementById('pageReportPrint')?.addEventListener('click', () => UI.printPageReport(periodLabelText()));
   document.getElementById('pageReportExcel')?.addEventListener('click', () => UI.exportPageReportExcel());
+  const searchInp = document.getElementById('reportSearchInput');
+  if (searchInp) searchInp.addEventListener('input', (e) => {
+    UI.setReportSearch(e.target.value || '');
+    const tab = document.querySelector('.page-report-tab.selected')?.dataset.report;
+    if (tab === 'journal' || tab === 'ledger') renderPageReport();
+    try { e.target.focus(); } catch {}
+  });
   document.getElementById('pageReportPeriod')?.addEventListener('change', (e) => {
     const v = e.target.value;
     let period = v, startDate = null, endDate = null;
@@ -2055,7 +2062,32 @@ function renderReport() {
 
 function renderPageReport() {
   if (!document.getElementById('pageReportContent')) return;
+  const tab = document.querySelector('.page-report-tab.selected')?.dataset.report || currentReportType;
+  const searchInp = document.getElementById('reportSearchInput');
+  if (searchInp) searchInp.hidden = !(tab === 'journal' || tab === 'ledger');
   UI.renderReportPage(currentReportType, computeReportData(currentReportType));
+  renderPageHealth();
+}
+// Kertas kerja ringkas: sekilas keadaan (jurnal pincang, penutupan terakhir, kunci)
+function renderPageHealth() {
+  const box = document.getElementById('pageReportHealth');
+  if (!box) return;
+  const t = buildTrialBalance();
+  const lastCloseDate = (Storage.getAllJournals().filter(j => (j.ref || '') === 'closing').map(j => j.date).sort().pop()) || '';
+  let closeText = 'belum ada penutupan (opsional)';
+  let closeColor = '#94a3b8';
+  if (lastCloseDate) {
+    const [y, m] = String(lastCloseDate).split('-').map(Number);
+    closeText = `🔒 penutupan terakhir ${new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}`;
+    closeColor = '#2563eb';
+  }
+  const chips = [
+    t.unbalanced.length === 0 ? '<span style="color:#059669;font-weight:600">✓ jurnal lengkap</span>' : `<span style="color:#b91c1c;font-weight:600">⚠ ${t.unbalanced.length} jurnal pincang</span>`,
+    t.balanced ? '<span style="color:#059669;font-weight:600">✓ neraca saldo seimbang</span>' : `<span style="color:#b91c1c;font-weight:600">⚠ selisih Rp${Math.abs(Math.round(t.diff)).toLocaleString('id-ID')}</span>`,
+    `<span style="color:${closeColor};font-weight:600">${closeText}</span>`,
+    t.locked.length ? `<span style="color:#64748b">🔒 ${t.locked.length} bulan terkunci</span>` : '<span style="color:#94a3b8">tidak ada periode terkunci</span>'
+  ];
+  box.innerHTML = chips.map(c => `<span class="chip" style="font-size:11px;margin:0 6px 6px 0">${c}</span>`).join('');
 }
 
 // Rentang tanggal dari filter periode aktif (untuk jurnal & buku besar)

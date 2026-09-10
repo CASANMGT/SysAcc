@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.17.4</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.17.5</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -477,7 +477,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.17.4</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.17.5</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -645,6 +645,7 @@
               <p>Semua laporan keuangan dalam satu halaman — nyaman dibaca di HP.</p>
             </div>
             <div style="display:flex;gap:8px">
+              <input type="search" id="reportSearchInput" placeholder="🔍 Cari akun / memo (Jurnal & Buku Besar)" aria-label="Cari akun atau memo" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:12px;min-width:180px" hidden>
               <select id="pageReportPeriod" aria-label="Periode laporan" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:12px;background:white">
                 <option value="all">Periode: Semua</option>
                 <option value="this-month">Bulan ini</option>
@@ -658,6 +659,10 @@
               <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
             </div>
           </div>
+          <details id="pageReportHealthWrap" style="margin-bottom:12px" open>
+            <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#475569;user-select:none">🧾 Ringkasan keadaan pembukuan (kertas kerja ringkas)</summary>
+            <div id="pageReportHealth" style="padding:10px 2px 2px"></div>
+          </details>
           <div class="chip-group" id="pageReportTabs" role="tablist" aria-label="Jenis laporan" style="margin-bottom:8px">
             <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">IKHTISAR</div>
             <button type="button" class="chip selected page-report-tab" data-report="monthly">Bulanan</button>
