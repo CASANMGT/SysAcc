@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.17.1] - 2026-09-09
+
+### Iterasi audit 11 — PDF berstandar filing & akses sisa
+- **📄 Header PDF/Cetak kini mencatat "Periode: …"** — dari filter aktif (Semua/Bulan/Kustom/Kuartal) — dulu hanya tanggal cetak, tidak tahu periode apakah yang dicetak di arsip
+- aria-label lucid: `＋` anggaran per kategori
+- Tests 144/144 ✓
+
+---
+
 ## [1.17.0] - 2026-09-09
 
 ### Iterasi audit 10 — in-depth laporan (drill-down)

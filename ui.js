@@ -1710,7 +1710,7 @@ export function openReportModal() {
   if (!elements.reportSection.open) elements.reportSection.showModal();
 }
 
-export function printReportHTML(title, innerHTML) {
+export function printReportHTML(title, innerHTML, periodLabel) {
   const w = window.open('', '_blank');
   if (!w) return false;
   w.document.write(`<html lang="id"><head><title>Wynara — ${escapeHtml(title)}</title><style>
@@ -1728,6 +1728,7 @@ export function printReportHTML(title, innerHTML) {
   </style></head><body>
     <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
       <div style="font-size:18px;font-weight:800">WYNARA — ${escapeHtml(title).toUpperCase()}</div>
+      ${periodLabel ? `<div style="font-size:12px;margin-top:2px"><b>Periode:</b> ${escapeHtml(periodLabel)}</div>` : ''}
       <div style="font-size:11px;color:#555">Dicetak ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
     </div>
     ${innerHTML}
@@ -1744,12 +1745,12 @@ export function printCurrentReport() {
   if (!printReportHTML(title, box.innerHTML)) alert('Popup diblokir browser — izinkan popup lalu coba lagi');
 }
 
-export function printPageReport() {
+export function printPageReport(periodLabel) {
   const box = document.getElementById('pageReportContent');
   if (!box) return;
   const tab = document.querySelector('.page-report-tab.selected');
   const title = tab ? tab.textContent.trim() : 'Laporan';
-  if (!printReportHTML(title, box.innerHTML)) alert('Popup diblokir browser — izinkan popup lalu coba lagi');
+  if (!printReportHTML(title, box.innerHTML, periodLabel)) alert('Popup diblokir browser — izinkan popup lalu coba lagi');
 }
 
 export function exportPageReportExcel() {

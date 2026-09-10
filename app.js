@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.17.0';
+const APP_VERSION = '1.17.1';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -622,7 +622,7 @@ function bindEvents() {
       }
     });
   }
-  document.getElementById('pageReportPrint')?.addEventListener('click', () => UI.printPageReport());
+  document.getElementById('pageReportPrint')?.addEventListener('click', () => UI.printPageReport(periodLabelText()));
   document.getElementById('pageReportExcel')?.addEventListener('click', () => UI.exportPageReportExcel());
   document.getElementById('pageReportPeriod')?.addEventListener('change', (e) => {
     const v = e.target.value;
@@ -1493,9 +1493,7 @@ function render() {
 }
 
 // Label periode jujur di topbar (dulu statis "Agustus 2026" selamanya)
-function syncTopbarPeriod() {
-  const el = document.getElementById('topbarPeriod');
-  if (!el) return;
+function periodLabelText() {
   const f = currentFilters;
   const monthName = (d) => d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
   const now = new Date();
@@ -1505,9 +1503,14 @@ function syncTopbarPeriod() {
   else if (f.period === 'this-year') label = `Tahun ${now.getFullYear()}`;
   else if (f.period === 'custom' && (f.startDate || f.endDate)) {
     const fmt = (s) => { const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }); };
-    label = `${f.startDate ? fmt(f.startDate) : '…'} – ${f.endDate ? fmt(f.endDate) : '…'} `;
+    label = `${f.startDate ? fmt(f.startDate) : '…'} – ${f.endDate ? fmt(f.endDate) : '…'}`;
   }
-  el.textContent = label.trim() + ' ▾';
+  return label;
+}
+function syncTopbarPeriod() {
+  const el = document.getElementById('topbarPeriod');
+  if (!el) return;
+  el.textContent = periodLabelText() + ' ▾';
 }
 
 // Total periode SEBELUM rentang filter aktif (panjang sama) — untuk tren kartu.

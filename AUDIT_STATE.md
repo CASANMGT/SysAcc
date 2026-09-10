@@ -3,7 +3,7 @@
 Baseline: v1.15.0 (audit dibuat atas v1.14.2; sebagian finding sudah terdafikan di v1.15.0).
 Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
-## Current scores (rubric, 0–100; setelah iter 10)
+## Current scores (rubric, 0–100; setelah iter 11)
 
 | Axis | Nilai | Catatan |
 |---|---|---|
@@ -11,16 +11,16 @@ Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 | F2 Tax conformance | 76 | — |
 | F3 Payroll & HR | 73 | — |
 | F4 Data durability | 50 | — |
-| F5 Reporting | 91 | **drill-down Buku Besar + Neraca Saldo** (klik akun → garis jurnal + subtotal) |
+| F5 Reporting | 92 | **PDF memiliki label periode** |
 | F6 Task efficiency | 83 | — |
 | F7 Cognitive load | 76 | — |
 | F8 Mobile | 82 | — |
-| F9 Accessibility | 62 | — |
-| **Grade** | **~86** | iter 1–10 |
+| F9 Accessibility | 64 | tiered aria-label kategori anggaran |
+| **Grade** | **~87** | iter 1–11 |
 
 ## Completed (lanjut)
 
-- iter 10 (v1.17.0): **F5** drill-down laporan (klik akun ▸ di Buku Besar & Neraca Saldo → garis jurnal + subtotal; via event `wynara:ledger-toggle`) → F5 88→91. Tests 144/144 ✓.
+- iter 11 (v1.17.1): **F5** PDF/Cetak menyertakan label periode aktif → F5 91→92. **F9** aria-label anggaran kategori. Tests 144/144 ✓.
 
 - iter 5 (v1.16.1): **B6** saldo awal per akun (draft + live balance + reversible ref 'opening' + auto-modal ke 3101) → F1 80→86, F5 84→86. Tests 144/144 ✓.
 
