@@ -3624,7 +3624,30 @@ export function renderSuppliers(purchases) {
   }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  box.innerHTML = purchases.map(p => {
+  // Aging hutang per keterlambatan/atfile (bkap query akuntan)
+  const buckets = { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
+  purchases.forEach(p => {
+    const paid = (p.payments || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const out = Math.max((Number(p.totalCost) || 0) - paid, 0);
+    if (p.status === 'paid' || out <= 0.01) return;
+    const base = p.dueDate ? new Date(p.dueDate + 'T00:00:00') : new Date(p.date + 'T00:00:00');
+    const over = Math.max(Math.floor((today - base) / 86400000), 0);
+    if (!p.dueDate) buckets.current += out;
+    else if (over <= 30) buckets.current += out;
+    else if (over <= 60) buckets.d30 += out;
+    else if (over <= 90) buckets.d60 += out;
+    else if (over <= 120) buckets.d90 += out;
+    else buckets.over90 += out;
+  });
+  const agingRows = [];
+  const addRow = (label, v, color) => { if (v > 0.01) agingRows.push(`<span style="background:${'white'};border:1px solid ${color}33;border-radius:9999px;padding:3px 10px;font-weight:600">${label}: <b style="color:${color}">${fmt(Math.round(v))}</b></span>`); };
+  addRow('Belum jatuh tempo', buckets.current, '#2563eb');
+  addRow('1–30 hari', buckets.d30, '#d97706');
+  addRow('31–60 hari', buckets.d60, '#dc2626');
+  addRow('61–90 hari', buckets.d90, '#991b1b');
+  addRow('90+ hari', buckets.over90, '#7f1d1d');
+  const agingHTML = agingRows.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;font-size:11px;align-items:center"><span style="color:#64748b;font-weight:700">Umur hutang:</span>${agingRows.join('')}</div>` : '';
+  box.innerHTML = agingHTML + purchases.map(p => {
     const paid = (p.payments || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
     const out = Math.max((Number(p.totalCost) || 0) - paid, 0);
     const isPaid = p.status === 'paid' || out <= 0.01;

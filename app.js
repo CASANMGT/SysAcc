@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.16.3';
+const APP_VERSION = '1.16.4';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -562,6 +562,7 @@ function bindEvents() {
         { goto: 'loans', icon: '🤝', label: 'Pinjemin', aria: 'Pinjemin' },
         { goto: 'stock', icon: '📦', label: 'Stok', aria: 'Stok barang' },
         { goto: 'kas', icon: '💳', label: 'Kas', aria: 'Kas dan rekonsiliasi' },
+        { goto: 'bank', icon: '🏦', label: 'Mutasi bank', aria: 'Import dan cocokkan mutasi bank' },
         { goto: 'settings', icon: '⚙️', label: 'Pengaturan', aria: 'Pengaturan' },
       ];
       const html = links.map(l => `<button type="button" class="notif-goto" data-goto="${l.goto}" aria-label="${l.aria}" style="display:flex;align-items:center;gap:10px;width:100%;background:none;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:6px;cursor:pointer">${l.icon} ${l.label}</button>`).join('');
@@ -593,6 +594,7 @@ function bindEvents() {
     else if (target === 'stock') { refreshStock(); UI.openStock(); }
     else if (target === 'contacts') UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans());
     else if (target === 'kas') { refreshKas(); UI.openKas(); }
+    else if (target === 'bank') { refreshKas(); UI.setBankRows([]); UI.openBank(); }
     else if (target === 'settings') openSettings();
     else if (target === 'tax') {
       const tab = document.querySelector('.report-tab[data-report="tax"]');

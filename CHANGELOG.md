@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.16.4] - 2026-09-09
+
+### Iterasi audit 8 — aging hutang + temu fitur tersembunyi
+- **📊 Aging hutang supplier** — bagian "Umur hutang" di Stok → Hutang ke Supplier: bucket *Belum jatuh tempo / 1–30 / 31–60 / 61–90 / 90+ hari* dengan nominal per bucket (alat nguhut & kertas kerja akuntan)
+- **🏦 Mutasi Bank masuk sheet "Lainnya"** — fitur import BCA/Mandiri/BRI ±3-day matching yang paling tinggi tingkat ketergunaannya kini terlihat di HP juga
+
+---
+
 ## [1.16.3] - 2026-09-09
 
 ### Fixed — Laporan halaman mati (bug wiring iter 6)

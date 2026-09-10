@@ -3,24 +3,24 @@
 Baseline: v1.15.0 (audit dibuat atas v1.14.2; sebagian finding sudah terdafikan di v1.15.0).
 Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
-## Current scores (rubric, 0–100; setelah iter 6)
+## Current scores (rubric, 0–100; setelah iter 8)
 
 | Axis | Nilai | Catatan |
 |---|---|---|
 | F1 Core ledger | 86 | — |
 | F2 Tax conformance | 76 | faktur pajak/Coretax ✗ |
-| F3 Payroll & HR | 70 | lembur/Dec recon/1721-A1 ✗ (nanti pakai konfirmasi) |
+| F3 Payroll & HR | 70 | Open Questions |
 | F4 Data durability | 50 | tanpa server |
-| F5 Reporting | 86 | — |
-| F6 Task efficiency | 78 | — |
+| F5 Reporting | 88 | **aging hutang usaha** ✓; AR aging sudah |
+| F6 Task efficiency | 80 | **Mutasi bank terjangkau di Lainnya** (T6) |
 | F7 Cognitive load | 76 | — |
-| F8 Mobile | 80 | — |
-| F9 Accessibility | 62 | **empty-states setiap tab laporan bernilai UI** + aria avatar |
-| **Grade** | **~82** | iter 1–6 |
+| F8 Mobile | 82 | Lainnya kini 6 tujuan (Kas, Mutasi) |
+| F9 Accessibility | 62 | — |
+| **Grade** | **~83** | iter 1–8 |
 
 ## Completed (lanjut)
 
-- iter 6 (v1.16.2): **U8** empty-state interaktif 6 laporan (monthly, kategori, arus kas, top, jurnal, buku besar) + F9 avatar aria. Tests 144/144 ✓.
+- iter 8 (v1.16.4): **F5** aging hutang supplier (5 bucket, nominal per bucket) → F5 86→88. **F6** Mutasi bank di "Lainnya" sheet → F6 78→80. Tests 144/144 ✓.
 
 - iter 5 (v1.16.1): **B6** saldo awal per akun (draft + live balance + reversible ref 'opening' + auto-modal ke 3101) → F1 80→86, F5 84→86. Tests 144/144 ✓.
 
