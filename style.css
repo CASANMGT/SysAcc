@@ -3297,7 +3297,12 @@ tr:hover .table-row-actions {
   border-bottom: 1px solid rgba(226,232,240,0.8);
 }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
-.topbar-burger { display: none; width: 36px; height: 36px; border-radius: 12px; border: 1px solid #e2e8f0; background: white; cursor: pointer; }
+.topbar-burger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 12px; border: 1px solid #e2e8f0; background: white; cursor: pointer; }
+/* Drawer bisa diciutkan di desktop juga (konten melebar penuh) */
+@media (min-width: 1025px) {
+  body.sb-collapsed .sidebar { transform: translateX(-100%); }
+  body.sb-collapsed .main-wrapper { margin-left: 0; }
+}
 .topbar-pills { display: flex; gap: 8px; }
 .topbar-pill {
   height: 32px;

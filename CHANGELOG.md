@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.20.0] - 2026-09-10
+
+### Added — Drawer menu samping (toggle hamburger)
+- Tombol **☰ kini selalu tampil** (dulu hanya HP): di desktop menciutkan sidebar jadi drawer geser — konten melebar penuh; pilihan tersimpan (`wynara_sb`)
+- Di HP tetap drawer overlay seperti semula + lapis penutup otomatis saat pilih menu (tidak bisa nyangkut menutupi konten)
+- `aria-expanded` + label "Buka atau tutup menu samping"
+- Layout statis halaman Laporan diverifikasi piksel-per-piksel via headless Chrome 460px: tanpa jurang, H1 tepat di bawah topbar
+- 151/151 tests ✓
+
+---
+
 ## [1.19.2] - 2026-09-10
 
 ### Fixed — Audit UI/UX halaman Laporan (7 temuan)

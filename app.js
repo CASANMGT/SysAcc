@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.19.2';
+const APP_VERSION = '1.20.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -192,6 +192,7 @@ function showApp() {
   const role = Storage.getRole();
   document.getElementById('appRoot').setAttribute('data-role', role);
   applySimpleMode(safeLocalGet('wynara_mode'));
+  try { if (safeLocalGet('wynara_sb') === '1') document.body.classList.add('sb-collapsed'); } catch {}
   updateBackupDot();
   nudgeBackupExport();
   // version display
@@ -460,8 +461,17 @@ function bindEvents() {
   const toggle = document.getElementById('sidebarToggle');
   if (toggle && sidebar) {
     toggle.addEventListener('click', () => {
-      sidebar.classList.toggle('open');
-      overlay.classList.toggle('hidden');
+      if (window.innerWidth <= 1024) {
+        const open = sidebar.classList.toggle('open');
+        overlay.classList.toggle('hidden');
+        try { toggle.setAttribute('aria-expanded', String(open)); } catch {}
+      } else {
+        const collapsed = document.body.classList.toggle('sb-collapsed');
+        try {
+          localStorage.setItem('wynara_sb', collapsed ? '1' : '0');
+          toggle.setAttribute('aria-expanded', String(!collapsed));
+        } catch {}
+      }
     });
     overlay.addEventListener('click', () => {
       sidebar.classList.remove('open');

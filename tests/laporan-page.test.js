@@ -61,4 +61,14 @@ describe('halaman Laporan', () => {
     expect(sb.classList.contains('open')).toBe(false);
     expect(document.getElementById('sidebarOverlay').classList.contains('hidden')).toBe(true);
   });
+  it('hamburger menciutkan sidebar di desktop (drawer toggle)', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true });
+    const toggle = document.getElementById('sidebarToggle');
+    expect(document.body.classList.contains('sb-collapsed')).toBe(false);
+    toggle.click();
+    expect(document.body.classList.contains('sb-collapsed')).toBe(true);
+    expect(localStorage.getItem('wynara_sb')).toBe('1');
+    toggle.click();
+    expect(document.body.classList.contains('sb-collapsed')).toBe(false);
+  });
 });
