@@ -7,7 +7,12 @@
     "test": "vitest run",
     "lint": "eslint .",
     "check": "npm run lint && npm test",
-    "dev": "python -m http.server 3456"
+    "dev": "python -m http.server 3456",
+    "sync:version": "node scripts/sync-version.mjs",
+    "release:patch": "node scripts/sync-version.mjs --bump patch",
+    "release:minor": "node scripts/sync-version.mjs --bump minor",
+    "release:major": "node scripts/sync-version.mjs --bump major",
+    "verify:prod": "node scripts/check-prod.mjs"
   },
   "license": "MIT",
   "bugs": {

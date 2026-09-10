@@ -31,13 +31,13 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F1 Core ledger | 15 | 86 | **78** | 11.70 | V17: V2/V4/V5/V6/V9 lulus; V3 4 lubang lock + V7 bunga tak diakui |
 | F2 Tax conformance | 12 | 76 | **76** | 9.12 | Faktur/NITKU open; PPN position open |
 | F3 Payroll & HR | 12 | 73 | **66** | 7.92 | Dec PPh 21 unresolved = correctness risk |
-| F4 Data durability | 15 | 52 | **52** | 7.80 | Blocked. Caps the whole rubric. |
+| F4 Data durability | 15 | 52 | **54** | 8.10 | Pipeline verified + check-prod guard + version-source tooling (kelas regresi skew ditutup) |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
 | F7 Cognitive load | 10 | 80 | **78** | 7.80 | Mode Sederhana helped; U2 Frozen |
 | F8 Mobile | 7 | 82 | **74** | 5.18 | 8 releases of mobile layout defects |
 | F9 Accessibility | 7 | 68 | **68** | 4.76 | U5 emoji icons untouched |
-| **OVERALL** | | ~~90~~ | | **73.80** | Baseline was 59.7 → **+14.1** (iter 17: refinement pengukuran, bukan regresi kode) |
+| **OVERALL** | | ~~90~~ | | **74.10** | Baseline was 59.7 → **+14.4** |
 
 Six of nine axes below 85. Stop condition not met on either clause.
 
@@ -83,8 +83,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 **P1**
 - **B3 (C3)** Akuntan + HRD roles; audit trail with real actor identity; maker-checker
 - **B5b** Faktur pajak numbering, NPWP/NITKU, Coretax export
-- **DEPLOY** Post-deploy version assertion (pipeline verified working 2026-09-10; add guard script)
-- **VERSION** Single source of truth — 4 of 8 regressions traced to hand-syncing four copies
+- **DEPLOY** Post-deploy assertion ✅ ada (`scripts/check-prod.mjs`) — pipeline verified working 2026-09-10
+- **VERSION** Single source ✅ (`VERSION` + `scripts/sync-version.mjs`; rilis via `npm run release:patch|minor|major`)
 
 **P2 — UI, frozen until iter 22**
 - **U5** Emoji icons → labelled icon set (F9)
@@ -112,7 +112,9 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 
 ---
 
-## Completed — iterations 1–17
+## Completed — iterations 1–18
+
+- **iter 18 (tooling, tanpa perubahan app → tanpa bump versi): DEPLOY guard + VERSION source tunggal.** `scripts/check-prod.mjs` (`npm run verify:prod`, dogfood PASS index+sw) + `scripts/sync-version.mjs` (`npm run sync:version`, `release:patch|minor|major`; idempoten terbukti zero-diff; fail-loudly terbukti via uji marker-hilang; bug Windows-path tertangkap saat verifikasi lalu diperbaiki). F4 52→54. Tests 152/152 ✓. SHIP GATE N/A (tanpa kode app baru; production tetap v1.20.2 terverifikasi via script baru).
 
 - **iter 17 (verify-only, tanpa perubahan kode): V1–V10 dieksekusi.**
   - V1 FAIL: Desember = TER bulanan identik ×12 (161000×12=1.932.000, contoh gapok 8jt+tunj 2jt TK/0); nol logika rekonsiliasi tahunan di payroll.js/app.js → B4a terkonfirmasi, fix di iter 19.
