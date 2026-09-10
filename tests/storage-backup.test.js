@@ -169,3 +169,34 @@ describe('updateLoan', () => {
     expect(getLoanById(loan.id).status).toBe('paid');
   });
 });
+
+describe('JKK anti-racun (regresi Rp4.050.000)', () => {
+  it('saveEmployee tanpa jkkRate menyimpan pecahan legal, bukan 0.54', async () => {
+    const { saveEmployee, getAllEmployees } = await import('../storage.js');
+    const saved = saveEmployee({ name: 'Korban JKK', baseSalary: 6500000, allowance: 1000000 });
+    expect(saved.jkkRate).toBe(0.0054);
+    expect(getAllEmployees().find(e => e.id === saved.id).jkkRate).toBe(0.0054);
+  });
+  it('slip karyawan hasil save = JKK 0,54% x 7,5jt = Rp40.500', async () => {
+    const { saveEmployee, getAllEmployees } = await import('../storage.js');
+    const { computeSlip } = await import('../payroll.js');
+    const saved = saveEmployee({ name: 'Slip JKK', baseSalary: 6500000, allowance: 1000000 });
+    const emp = getAllEmployees().find(e => e.id === saved.id);
+    const s = computeSlip(emp, {});
+    expect(s.comp.jkk).toBe(40500);
+  });
+  it('record lama beracun (jkkRate 0.54) tetap dihitung benar + sembuh saat disimpan ulang', async () => {
+    const { saveEmployee, getAllEmployees } = await import('../storage.js');
+    const { computeSlip } = await import('../payroll.js');
+    const s = computeSlip({ baseSalary: 6500000, allowance: 1000000, jkkRate: 0.54 }, {});
+    expect(s.comp.jkk).toBe(40500);
+    const healed = saveEmployee({ name: 'Sembuh', baseSalary: 1000000, jkkRate: 0.54 });
+    expect(healed.jkkRate).toBe(0.0054);
+    expect(getAllEmployees().find(e => e.id === healed.id).jkkRate).toBe(0.0054);
+  });
+  it('override legal 1,2% tetap dihormati', async () => {
+    const { computeSlip } = await import('../payroll.js');
+    const s = computeSlip({ baseSalary: 4000000, allowance: 1000000, jkkRate: 0.012 }, {});
+    expect(s.comp.jkk).toBe(60000);
+  });
+});

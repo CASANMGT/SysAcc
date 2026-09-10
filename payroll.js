@@ -38,6 +38,15 @@ export const RATE_LIMITS = {
   jkk: 0.0174, jkm: 0.01,
   kesSelf: 0.03, jhtSelf: 0.025, jpSelf: 0.02,
 };
+// JKK per karyawan: SELALU pecahan dalam batas risiko legal.
+// Nilai di luar batas (mis. 0.54 gaya-persen dari data lama, atau 54)
+// → fallback (tarif panel / standar). Satu-satunya pintu tarif JKK final.
+export function sanitizeJkkRate(v, fallback) {
+  const n = Number(v);
+  const fb = Number(fallback) > 0 && Number.isFinite(Number(fallback)) ? Number(fallback) : JKK_DEFAULT;
+  if (!Number.isFinite(n) || n <= 0 || n > RATE_LIMITS.jkk) return fb;
+  return n;
+}
 // PPh 21 TER (PMK 168/2023): tarif dikenakan atas PENGHASILAN NETO bulanan.
 export const BIAYA_JABATAN_RATE = 0.05; // 5% bruto
 export const BIAYA_JABATAN_MAX = 500000; // maks Rp500rb/bulan
@@ -139,7 +148,7 @@ export function computeSlip(emp, opts = {}) {
   const useTk = e.bpjsTk !== false;
   const wage = Math.min(gross, KES_CAP);
   const wageJp = Math.min(gross, JP_CAP);
-  const jkkRate = Number(e.jkkRate) > 0 ? Number(e.jkkRate) : R.jkk;
+  const jkkRate = sanitizeJkkRate(e.jkkRate, R.jkk);
 
   const ded = { kesSelf: 0, jhtSelf: 0, jpSelf: 0, pph21: 0 };
   const comp = { kesComp: 0, jhtComp: 0, jpComp: 0, jkk: 0, jkm: 0 };

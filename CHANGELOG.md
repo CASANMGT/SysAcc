@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.20.3] - 2026-09-10
+
+### Fixed — JKK Rp4.050.000 KEMBALI (akar sebenarnya)
+- **Bukan salah ketik user**: `saveEmployee` memberi default `jkkRate: 0.54` (gaya persen, cap 5) sementara `computeSlip` memakainya sebagai pecahan → semua karyawan tanpa override kena tarif 54%. Guard v1.13.1 tidak menjangkau jalur ini (label pakai `R.jkk` yang benar → label 0,54% tapi nominal 100× lipat)
+- **3 lapis**: `sanitizeJkkRate()` baru (satu-satunya pintu tarif JKK final; di luar 0–1,74% → fallback) dipakai di `computeSlip` (kebal terhadap data lama beracun apa pun) + dipakai di `saveEmployee` (data sembuh saat disimpan; override legal mis. 1,2% tetap dihormati)
+- Data lama beracun (0.54 tersimpan) langsung dihitung benar tanpa migrasi; 4 test regresi end-to-end (save→slip = Rp40.500)
+- 156/156 tests ✓
+
+---
+
 ## [1.20.2] - 2026-09-10
 
 ### Fixed — Teks bertumpuk di Jurnal + audit UI/UX Laporan

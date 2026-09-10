@@ -1,4 +1,5 @@
 import { totalOwed } from './loanmath.js';
+import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal } from './journals.js';
 
 const STORAGE_KEY = 'ledger_entries';
@@ -1785,7 +1786,7 @@ export function saveEmployee(emp) {
     ptkp: String(emp.ptkp || 'TK/0').toUpperCase().slice(0, 5),
     bpjsKes: emp.bpjsKes === undefined ? true : !!emp.bpjsKes,
     bpjsTk: emp.bpjsTk === undefined ? true : !!emp.bpjsTk,
-    jkkRate: Number(emp.jkkRate) > 0 ? Math.min(Number(emp.jkkRate), 5) : 0.54,
+    jkkRate: sanitizeJkkRate(emp.jkkRate, JKK_DEFAULT),
     active: emp.active === undefined ? true : !!emp.active,
     updatedAt: new Date().toISOString()
   };
