@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.19.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.19.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -477,7 +477,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.19.1</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.19.2</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -665,7 +665,7 @@
             <button type="button" class="chip page-report-tab" data-report="pengeluaran">Pengeluaran</button>
             <button type="button" class="chip page-report-tab" data-report="products">Produk</button>
           </div>
-          <div class="chip-group" role="presentation" style="margin-bottom:8px">
+          <div class="chip-group" role="group" aria-label="Laporan resmi" style="margin-bottom:8px">
             <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">LAPORAN RESMI</div>
             <button type="button" class="chip page-report-tab" data-report="pl">Laba Rugi</button>
             <button type="button" class="chip page-report-tab" data-report="bs">Neraca</button>
@@ -673,7 +673,7 @@
             <button type="button" class="chip page-report-tab" data-report="journal">Jurnal</button>
             <button type="button" class="chip page-report-tab" data-report="ledger">Buku Besar</button>
           </div>
-          <div class="chip-group" role="presentation" style="margin-bottom:14px">
+          <div class="chip-group" role="group" aria-label="Kepatuhan" style="margin-bottom:14px">
             <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">KEPATUHAN</div>
             <button type="button" class="chip page-report-tab" data-report="tax">Pajak</button>
             <button type="button" class="chip page-report-tab" data-report="ppn">PPN</button>
@@ -1794,7 +1794,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.19.1';
+    window.__htmlVersion = '1.19.2';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

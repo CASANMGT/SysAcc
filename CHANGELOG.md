@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.19.2] - 2026-09-10
+
+### Fixed — Audit UI/UX halaman Laporan (7 temuan)
+- **Drill-down bisa keyboard**: baris akun Buku Besar & Neraca Saldo kini `tabindex + role=button`, Enter/Space membuka rincian (sebelumnya hanya klik mouse)
+- **Excel tidak lagi campur tabel drill**: hanya tabel utama per sheet; toast info bila laporan tak punya tabel
+- **Cetak/PDF bersih**: baris filter dropdown tidak ikut tercetak (label yatim hilang)
+- **Dropdown Periode sinkron** dengan filter dashboard (Bulan ini/Lalu/Tahun ini); pilihan Kuartal halaman tetap diingat
+- **Search auto-reset** saat pindah dari tab Jurnal/Buku Besar (filter basi tidak terbawa)
+- **Grup tab berlabel** (Ikhtisar terlabel; Resmi & Kepatuhan `role=group` + aria-label) untuk screen reader
+- 150/150 tests ✓
+
+---
+
 ## [1.19.1] - 2026-09-10
 
 ### Fixed — drawer nyangkut + purge anti-macet

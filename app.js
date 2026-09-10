@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.19.1';
+const APP_VERSION = '1.19.2';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -693,6 +693,7 @@ function bindEvents() {
   });
   document.getElementById('pageReportPeriod')?.addEventListener('change', (e) => {
     const v = e.target.value;
+    pageReportPeriodUi = v;
     let period = v, startDate = null, endDate = null;
     if (v === 'last-quarter') {
       const now = new Date();
@@ -2165,11 +2166,20 @@ function renderReport() {
   UI.renderReport(currentReportType, computeReportData(currentReportType));
 }
 
+let pageReportPeriodUi = 'all';
 function renderPageReport() {
   if (!document.getElementById('pageReportContent')) return;
   const tab = document.querySelector('.page-report-tab.selected')?.dataset.report || currentReportType;
+  // Select periode mengikuti filter aktif (dashboard atau dropdown halaman)
+  if (['all', 'this-month', 'last-month', 'this-year'].includes(currentFilters.period)) pageReportPeriodUi = currentFilters.period;
+  const periodSel = document.getElementById('pageReportPeriod');
+  if (periodSel && [...periodSel.options].some(o => o.value === pageReportPeriodUi)) periodSel.value = pageReportPeriodUi;
+  // Search hanya relevan di Jurnal & Buku Besar — reset saat pindah tab lain
   const searchInp = document.getElementById('reportSearchInput');
-  if (searchInp) searchInp.hidden = !(tab === 'journal' || tab === 'ledger');
+  if (searchInp) {
+    searchInp.hidden = !(tab === 'journal' || tab === 'ledger');
+    if (searchInp.hidden && UI.getReportSearch()) { UI.setReportSearch(''); searchInp.value = ''; }
+  }
   UI.renderReportPage(currentReportType, computeReportData(currentReportType));
   renderPageHealth();
 }

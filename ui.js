@@ -1722,6 +1722,7 @@ export function printReportHTML(title, innerHTML, periodLabel) {
     th{background:#f3f4f6}
     .amount-col{text-align:right;font-variant-numeric:tabular-nums}
     h4{margin:14px 0 6px}
+    .report-filters{display:none !important}
     .report-summary{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
     .report-summary-item{border:1px solid #ddd;border-radius:8px;padding:8px 12px;font-size:11px}
     .report-summary-item .label{display:block;color:#666}
@@ -1762,8 +1763,8 @@ export function exportPageReportExcel() {
     if (!box) return;
     const tab = document.querySelector('.page-report-tab.selected');
     const title = (tab ? tab.textContent.trim() : 'Laporan') + ' — Wynara';
-    const tables = box.querySelectorAll('table');
-    if (!tables.length) return;
+    const tables = [...box.children].filter(el => el.tagName === 'TABLE');
+    if (!tables.length) { showInfo('Tidak ada tabel pada laporan ini untuk diunduh'); return; }
     const wb = XLSX.utils.book_new();
     let sheetIdx = 0;
     tables.forEach(table => {
@@ -2085,6 +2086,7 @@ const drillState = { ledger: '', trial: '' };
 // Filter pencarian laporan (dipakai tab Jurnal & Buku Besar)
 let reportSearch = '';
 export function setReportSearch(v) { reportSearch = String(v || '').trim().toLowerCase(); }
+export function getReportSearch() { return reportSearch; }
 function matchSearch(...parts) {
   if (!reportSearch) return true;
   return parts.some(p => String(p || '').toLowerCase().includes(reportSearch));
@@ -2093,8 +2095,10 @@ export function toggleDrill(kind, code) {
   if (drillState[kind] === code) drillState[kind] = '';
   else drillState[kind] = code;
 }
-function drillEvent(kind, code) {
-  return `document.dispatchEvent(new CustomEvent('wynara:ledger-toggle',{detail:{kind:'${kind}',code:'${String(code).replace(/'/g, '')}'}}))`;
+function drillAttrs(kind, code) {
+  const c = String(code).replace(/'/g, '');
+  const js = `document.dispatchEvent(new CustomEvent('wynara:ledger-toggle',{detail:{kind:'${kind}',code:'${c}'}}))`;
+  return `tabindex="0" role="button" style="cursor:pointer" title="Lihat transaksi akun ini (Enter)" onclick="${js}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${js}}"`;
 }
 function drillLinesHTML(lines, kind, code) {
   if (!drillState[kind] || drillState[kind] !== code) return '';
@@ -2131,7 +2135,7 @@ function renderLedgerReport(d) {
         ${codes.map(c => {
           const b = bal[c];
           const net = b.debit - b.credit;
-          return `<tr style="cursor:pointer" onclick="${drillEvent('ledger', c)}" title="Lihat transaksi akun ini">
+          return `<tr ${drillAttrs('ledger', c)}>
             <td>${drillState.ledger === c ? '▾' : '▸'} ${escapeHtml(accountLabel(c))}</td>
             <td class="amount-col">${formatCurrency(b.debit)}</td>
             <td class="amount-col">${formatCurrency(b.credit)}</td>
@@ -2266,7 +2270,7 @@ function renderTrialReport(d) {
     const tCred = rows.reduce((s, x) => s + x.b.credit, 0);
     const getItems = rows.map(x => `<tr style="cursor:default">
       <td style="text-align:left;color:#64748b;font-size:11px">${x.code}</td>
-      <td style="text-align:left">${x.b.debit || x.b.credit ? `<span onclick="${drillEvent('trial', x.code)}" style="cursor:pointer" title="Lihat transaksi akun ini">${drillState.trial === x.code ? '▾' : '▸'} ${escapeHtml(x.name)}</span>` : escapeHtml(x.name)}</td>
+      <td style="text-align:left">${x.b.debit || x.b.credit ? `<span ${drillAttrs('trial', x.code)}>${drillState.trial === x.code ? '▾' : '▸'} ${escapeHtml(x.name)}</span>` : escapeHtml(x.name)}</td>
       <td class="amount-col" style="${x.b.debit || x.b.credit ? '' : 'color:#cbd5e1'}">${x.b.debit ? fmt(x.b.debit) : ''}</td>
       <td class="amount-col" style="${x.b.debit || x.b.credit ? '' : 'color:#cbd5e1'}">${x.b.credit ? fmt(x.b.credit) : ''}</td>
     </tr>${x.b.debit || x.b.credit ? drillLinesHTML(d.lines && d.lines[x.code], 'trial', x.code) : ''}`).join('');
@@ -2353,7 +2357,7 @@ function renderExpenseReport(d) {
       <div class="report-summary-item"><span class="label">Transaksi</span><span class="value">${d.recent.length ? d.recent.length + '+' : 0} terbaru</span></div>
     </div>
     ${!d.budgetTotal ? '<p style="font-size:11px;color:#b45309;margin:6px 0">💡 Belum ada anggaran — atur di Pengaturan → Anggaran Bulanan & per Kategori agar tabel Selisih terisi.</p>' : ''}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
+    <div class="report-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px">
       <label style="font-size:11px;color:#64748b">Kategori<br><select onchange="document.dispatchEvent(new CustomEvent('wynara:expense-filter',{detail:{kind:'cat',value:this.value}}))" style="height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px;max-width:200px">${catOpts}</select></label>
       <label style="font-size:11px;color:#64748b">Pembayar<br><select onchange="document.dispatchEvent(new CustomEvent('wynara:expense-filter',{detail:{kind:'person',value:this.value}}))" style="height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px;max-width:200px">${perOpts}</select></label>
     </div>
