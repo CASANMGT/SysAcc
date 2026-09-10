@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.16.2] - 2026-09-09
+
+### Iterasi audit 6 — laporan tak lagi dead-end (UX + akses)
+- **Empty-state semua 6 tab laporan** kini kasih instruksi langkah berikutnya ("Catat transaksinya dulu — tombol ＋ di dashboard / bottom-bar"), bukan teks mati
+- **aria-label** pada avatar topbar (role img + title)
+- Tests 144/144 stable persi ke iter 7
+
+---
+
 ## [1.16.1] - 2026-09-09
 
 ### Iterasi audit 5 — saldo awal (pindah pembukuan → Wynara)

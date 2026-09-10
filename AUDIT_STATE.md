@@ -3,22 +3,24 @@
 Baseline: v1.15.0 (audit dibuat atas v1.14.2; sebagian finding sudah terdafikan di v1.15.0).
 Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
-## Current scores (rubric, 0–100; setelah iter 5)
+## Current scores (rubric, 0–100; setelah iter 6)
 
 | Axis | Nilai | Catatan |
 |---|---|---|
-| F1 Core ledger | 86 | **saldo awal per akun** ✓ (reversible); lock semua jalur |
-| F2 Tax conformance | 76 | PPh 23/4(2) ✓; faktur pajak/Coretax ✗ |
-| F3 Payroll & HR | 70 | lembur/Dec recon/1721-A1 ✗ (Open Questions) |
-| F4 Data durability | 50 | indikator cadangan; tanpa server |
-| F5 Reporting | 86 | Neraca kini konsisten mid-year overlay |
+| F1 Core ledger | 86 | — |
+| F2 Tax conformance | 76 | faktur pajak/Coretax ✗ |
+| F3 Payroll & HR | 70 | lembur/Dec recon/1721-A1 ✗ (nanti pakai konfirmasi) |
+| F4 Data durability | 50 | tanpa server |
+| F5 Reporting | 86 | — |
 | F6 Task efficiency | 78 | — |
 | F7 Cognitive load | 76 | — |
 | F8 Mobile | 80 | — |
-| F9 Accessibility | 60 | focus ring ✓ |
-| **Grade** | **~81** | iter 1–5 |
+| F9 Accessibility | 62 | **empty-states setiap tab laporan bernilai UI** + aria avatar |
+| **Grade** | **~82** | iter 1–6 |
 
 ## Completed (lanjut)
+
+- iter 6 (v1.16.2): **U8** empty-state interaktif 6 laporan (monthly, kategori, arus kas, top, jurnal, buku besar) + F9 avatar aria. Tests 144/144 ✓.
 
 - iter 5 (v1.16.1): **B6** saldo awal per akun (draft + live balance + reversible ref 'opening' + auto-modal ke 3101) → F1 80→86, F5 84→86. Tests 144/144 ✓.
 

@@ -1789,7 +1789,7 @@ export function updateSortArrows(column, direction) {
 
 function renderMonthlyReport(monthlyData) {
   if (!monthlyData.length) {
-    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada data untuk periode ini</p>';
+    return reportEmpty('Belum ada data untuk periode ini', 'Mulai dengan satu transaksi — bulan ini langsung terlihat.');
   }
 
   return `
@@ -1842,7 +1842,7 @@ function renderMonthlyReport(monthlyData) {
 
 function renderCategoryReport(categoryData) {
   if (!categoryData.length) {
-    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada data kategori</p>';
+    return reportEmpty('Belum ada data kategori', 'Catat transaksinya dulu — tombol ＋ di dashboard atau bottom-bar.');
   }
 
   const incomeCats = categoryData.filter(c => c.type === 'income');
@@ -1921,7 +1921,7 @@ function renderCategoryTable(categories, total, type) {
 
 function renderCashflowReport(cashflowData) {
   if (!cashflowData.length) {
-    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada data arus kas</p>';
+    return reportEmpty('Belum ada data arus kas', 'Catat pemasukan & pengeluaran selama 2–3 bulan — grafiknya muncul di sini.');
   }
 
   const maxValue = Math.max(...cashflowData.flatMap(m => [m.income, m.expense]), 1);
@@ -2000,7 +2000,7 @@ function renderCashflowReport(cashflowData) {
 
 function renderTopExpensesReport(topExpenses) {
   if (!topExpenses.length) {
-    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada data pengeluaran</p>';
+    return reportEmpty('Belum ada pengeluaran', 'Daftar pengeluaran terbesar muncul begitu ada angka.');
   }
 
   const total = topExpenses.reduce((a, b) => a + b.total, 0);
@@ -2041,9 +2041,17 @@ function renderTopExpensesReport(topExpenses) {
 }
 
 // ===== Laporan akuntansi (jurnal, buku besar, L/R, neraca, pajak, audit) =====
+// Empty-state dengan langkah berikutnya (bukan dead-end)
+function reportEmpty(msg, cta) {
+  return `<div style="text-align:center;padding:40px 16px;color:var(--text-muted)">
+    <div style="font-size:32px;margin-bottom:8px">🗂️</div>
+    <div style="font-weight:600;color:var(--text);margin-bottom:4px">${msg}</div>
+    ${cta ? `<div style="font-size:12px">${cta}</div>` : ''}
+  </div>`;
+}
 function renderJournalReport(journals) {
   if (!journals || !journals.length) {
-    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada jurnal pada periode ini</p>';
+    return reportEmpty('Belum ada jurnal pada periode ini', 'Tiap transaksi otomatis membentuk jurnal — catat dulu lewat tombol ＋.');
   }
   return `
     <div class="report-summary">
@@ -2068,7 +2076,7 @@ function renderJournalReport(journals) {
 function renderLedgerReport(bal) {
   const codes = Object.keys(bal || {}).sort();
   if (!codes.length) {
-    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada gerakan akun pada periode ini</p>';
+    return reportEmpty('Belum ada gerakan akun pada periode ini', 'Saldo muncul setelah ada transaksi atau saldo awal.');
   }
   return `
     <table class="report-table">

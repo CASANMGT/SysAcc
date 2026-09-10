@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.16.1';
+const APP_VERSION = '1.16.2';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
