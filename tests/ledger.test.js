@@ -159,8 +159,24 @@ describe('purchase journals', () => {
   });
 });
 
-describe('transfer & adjust', () => {
-  it('transfer antar kas', () => {
+describe('opening balance', () => {
+  it('pincang → null; seimbang → jurnal ref opening', async () => {
+    const { buildOpeningJournal } = await import('../journals.js');
+    expect(buildOpeningJournal({ date: '2026-01-01' }, [{ account: '1101', debit: 1000000, credit: 0 }])).toBeNull();
+    const j = buildOpeningJournal({ date: '2026-01-01' }, [
+      { account: '1101', debit: 1000000, credit: 0 },
+      { account: '1510', debit: 5000000, credit: 0 },
+      { account: '3101', debit: 0, credit: 6000000 },
+    ]);
+    const { d, c } = totals(j);
+    expect(d).toBe(6000000);
+    expect(c).toBe(6000000);
+    expect(j.ref).toBe('opening');
+    expect(j.lines.every(l => l.memo === 'Saldo awal')).toBe(true);
+  });
+});
+
+describe('transfer & adjust', () => {  it('transfer antar kas', () => {
     const j = buildTransferJournal({ fromPayment: 'cash', toPayment: 'transfer', amount: 1000000, date: '2026-09-01' });
     expect(j.lines.find(l => l.account === '1102').debit).toBe(1000000);
     expect(j.lines.find(l => l.account === '1101').credit).toBe(1000000);

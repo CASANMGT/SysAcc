@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.16.1] - 2026-09-09
+
+### Iterasi audit 5 — saldo awal (pindah pembukuan → Wynara)
+- **⚖️ Saldo awal per akun** — Pengaturan → Modal Awal → tombol baru: isi debit/kredit tiap akun (draft tersimpan), **live cek seimbang**, selisih otomatis masuk `3101 Modal`
+- Posting **reversible**: posting ulang mengganti jurnal saldo awal lama (hapus ref lama → pasang baru) + audit trail
+- `buildOpeningJournal` (murni, test baru) + draft tersimpan; pindah dari pembukuan lain tak perlu masuk ulang semuanya
+
+---
+
 ## [1.16.0] - 2026-09-09
 
 ### Iterasi audit 4 — pajak bayaran vendor (akuntan)

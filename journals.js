@@ -170,6 +170,15 @@ export function buildPurchasePayJournal({ amount, date, payment, memo, withhold 
   return balanced(lines) ? j : null;
 }
 
+// Saldo awal per akun: kumpulkan baris bebas (harus balance) jadi satu jurnal.
+// lines: [{ account, debit, credit }]; diposting dengan ref 'opening'.
+export function buildOpeningJournal(ops, lines) {
+  const clean = (lines || []).filter(l => l && l.account && ((Number(l.debit) || 0) > 0 || (Number(l.credit) || 0) > 0))
+    .map(l => ({ account: String(l.account), debit: Math.round(Number(l.debit) || 0), credit: Math.round(Number(l.credit) || 0), memo: 'Saldo awal' }));
+  if (!balanced(clean)) return null;
+  return { id: jid('OPEN'), date: ops.date, memo: ops.memo || 'Saldo awal', ref: 'opening', refId: ops.refId || null, lines: clean };
+}
+
 // Penyesuaian stok/opname & selisih kas: Dr/Cr Persediaan atau Kas vs Beban Lainnya.
 export function buildAdjustJournal({ account, amount, date, memo, increase }) {
   const amt = Math.round(Number(amount) || 0);

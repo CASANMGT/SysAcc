@@ -3,22 +3,24 @@
 Baseline: v1.15.0 (audit dibuat atas v1.14.2; sebagian finding sudah terdafikan di v1.15.0).
 Metode: statis + code review; angka `[VERIFY]` butuh uji runtime oleh manusia.
 
-## Current scores (rubric, 0–100; setelah iter 4)
+## Current scores (rubric, 0–100; setelah iter 5)
 
 | Axis | Nilai | Catatan |
 |---|---|---|
-| F1 Core ledger | 80 | lock di pembayaran ✓ (dikonfirmasi); opening balance belum |
-| F2 Tax conformance | 76 | **PPh 23/4(2) withholding** ✓; PPN configurable ✓; PPh21 TER ✓ |
-| F3 Payroll & HR | 70 | lembur/Dec recon/1721-A1 ✗ |
-| F4 Data durability | 50 | indikator cadangan + stamp; tanpa server |
-| F5 Reporting | 84 | 2107 muncul di Neraca/Saldo |
-| F6 Task efficiency | 78 | modal kolaps |
-| F7 Cognitive load | 76 | Kontak seragam |
-| F8 Mobile | 80 | Lainnya menutup 8 tujuan |
-| F9 Accessibility | 60 | focus-visible ✓; emoji icons masih |
-| **Grade** | **~79** | iter 1–4 |
+| F1 Core ledger | 86 | **saldo awal per akun** ✓ (reversible); lock semua jalur |
+| F2 Tax conformance | 76 | PPh 23/4(2) ✓; faktur pajak/Coretax ✗ |
+| F3 Payroll & HR | 70 | lembur/Dec recon/1721-A1 ✗ (Open Questions) |
+| F4 Data durability | 50 | indikator cadangan; tanpa server |
+| F5 Reporting | 86 | Neraca kini konsisten mid-year overlay |
+| F6 Task efficiency | 78 | — |
+| F7 Cognitive load | 76 | — |
+| F8 Mobile | 80 | — |
+| F9 Accessibility | 60 | focus ring ✓ |
+| **Grade** | **~81** | iter 1–5 |
 
 ## Completed (lanjut)
+
+- iter 5 (v1.16.1): **B6** saldo awal per akun (draft + live balance + reversible ref 'opening' + auto-modal ke 3101) → F1 80→86, F5 84→86. Tests 144/144 ✓.
 
 - iter 3 (v1.15.3): F4 stamp cadangan otomatis & dot topbar; F9 focus-visible+aria; U6 Kontak seragam.
 - iter 4 (v1.16.0): **B5** PPh 23/4(2) withholding di pembayaran supplier → akun 2107 + jurnal balance + guard + estimasi live (F2 70→76). Tests 143/143 ✓.

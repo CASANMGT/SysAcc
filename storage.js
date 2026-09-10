@@ -1593,6 +1593,18 @@ export function postJournal(j) {
   return j;
 }
 
+// ===== Saldo awal per akun (draft + posting reversible) =====
+const OPEN_KEY = 'wynara_opening';
+export function getOpeningDraft() {
+  try {
+    const v = JSON.parse(localStorage.getItem(OPEN_KEY) || 'null');
+    return v && typeof v === 'object' ? v : { date: '', rows: {} };
+  } catch { return { date: '', rows: {} }; }
+}
+export function saveOpeningDraft(d) {
+  try { localStorage.setItem(OPEN_KEY, JSON.stringify(d && typeof d === 'object' ? d : { date: '', rows: {} })); } catch {}
+}
+
 export function deleteJournalsByRef(ref, refId) {
   if (!refId) return 0;
   const list = getJournals();

@@ -5,7 +5,7 @@ import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
 import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts } from './coa.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, findUnbalanced, balances } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS } from './payroll.js';
 
 let currentEntries = [];
@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.16.0';
+const APP_VERSION = '1.16.1';
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
@@ -483,6 +483,25 @@ function bindEvents() {
   UI.bindSale(handleSaleSave);
   UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
   document.getElementById('assetOpenBtn')?.addEventListener('click', openAssets);
+  document.getElementById('openingOpenBtn')?.addEventListener('click', openOpening);
+  document.getElementById('openingModalClose')?.addEventListener('click', () => { const m = document.getElementById('openingModal'); if (m && m.open) { try { m.close(); } catch {} } });
+  document.getElementById('openingCancel')?.addEventListener('click', () => { const m = document.getElementById('openingModal'); if (m && m.open) { try { m.close(); } catch {} } });
+  document.getElementById('openingPostBtn')?.addEventListener('click', handleOpeningPost);
+  document.getElementById('openingDate')?.addEventListener('change', () => { try { updateOpeningBalance(); } catch {} });
+  document.getElementById('openingRows')?.addEventListener('input', (e) => {
+    updateOpeningBalance();
+    const draft = { date: document.getElementById('openingDate')?.value || '' };
+    const rows = {};
+    document.querySelectorAll('#openingRows .opening-deb, #openingRows .opening-cred').forEach(inp => {
+      const code = inp.dataset.code;
+      const v = openingNumInput(inp);
+      if (v <= 0) return;
+      rows[code] = rows[code] || { debit: 0, credit: 0 };
+      if (inp.classList.contains('opening-deb')) rows[code].debit = v; else rows[code].credit = v;
+    });
+    draft.rows = rows;
+    try { Storage.saveOpeningDraft(draft); } catch {}
+  });
   document.getElementById('adjustOpenBtn')?.addEventListener('click', openAdjust);
   document.getElementById('adjustModalClose')?.addEventListener('click', () => { const m = document.getElementById('adjustModal'); if (m && m.open) { try { m.close(); } catch {} } });
   document.getElementById('adjustCancel')?.addEventListener('click', () => { const m = document.getElementById('adjustModal'); if (m && m.open) { try { m.close(); } catch {} } });
@@ -3470,6 +3489,82 @@ async function handleBackupShare() {
 }
 function stampShares() {
   try { localStorage.setItem('wynara_last_backup', new Date().toISOString()); } catch {}
+}
+
+/* ===== Saldo awal per akun ===== */
+function openOpening() {
+  const m = document.getElementById('openingModal');
+  if (!m) return;
+  const drafts = Storage.getOpeningDraft();
+  const dateEl = document.getElementById('openingDate');
+  if (dateEl) dateEl.value = drafts.date || `${new Date().getFullYear()}-01-01`;
+  const rows = getAccounts().filter(a => a.type !== 'equity');
+  const body = document.getElementById('openingRows');
+  if (body) {
+    body.innerHTML = rows.map(a => {
+      const v = drafts.rows || {};
+      return `<tr style="border-bottom:1px solid #f8fafc">
+        <td style="padding:6px 8px"><b style="font-size:11px">${a.code}</b> ${escapeHtml(a.name)}</td>
+        <td style="padding:4px 6px"><input type="text" class="opening-deb" data-code="${a.code}" bind="rupiah" placeholder="Rp" inputmode="decimal" value="${v[a.code] && Number(v[a.code].debit) ? String(Number(v[a.code].debit)).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''}" style="width:100%;height:32px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;text-align:right" aria-label="Debit ${escapeHtml(a.name)}"></td>
+        <td style="padding:4px 6px"><input type="text" class="opening-cred" data-code="${a.code}" bind="rupiah" placeholder="Rp" inputmode="decimal" value="${v[a.code] && Number(v[a.code].credit) ? String(Number(v[a.code].credit)).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : ''}" style="width:100%;height:32px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;text-align:right" aria-label="Kredit ${escapeHtml(a.name)}"></td>
+      </tr>`;
+    }).join('');
+  }
+  updateOpeningBalance();
+  if (!m.open) { try { m.showModal(); } catch {} }
+}
+function openingNumInput(sel) {
+  return Math.round(Number(String(sel.value || '').replace(/[^0-9]/g, '')) || 0) || 0;
+}
+function updateOpeningBalance() {
+  const info = document.getElementById('openingBalanceInfo');
+  if (!info) return;
+  let deb = 0, cred = 0;
+  document.querySelectorAll('#openingRows .opening-deb, #openingRows .opening-cred').forEach(inp => {
+    const v = openingNumInput(inp);
+    if (inp.classList.contains('opening-deb')) deb += v; else cred += v;
+  });
+  const diff = deb - cred;
+  if (diff === 0) info.innerHTML = deb > 0 ? '<span style="color:#059669">✓ Seimbang</span>' : '<span style="color:#94a3b8">Isi debit/kredit per akun, atau tempel dari Excel</span>';
+  else info.innerHTML = `<span style="color:#b91c1c">Selisih ${'Rp' + Math.abs(diff).toLocaleString('id-ID')} — dipasang otomatis ke 3101 Modal</span>`;
+}
+function handleOpeningPost() {
+  const date = document.getElementById('openingDate')?.value || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return UI.showError('Tanggal mulai pembukuan belum benar');
+  const rows = {};
+  const lines = [];
+  document.querySelectorAll('#openingRows .opening-deb, #openingRows .opening-cred').forEach(inp => {
+    const code = inp.dataset.code;
+    const v = openingNumInput(inp);
+    if (v <= 0) return;
+    rows[code] = rows[code] || { debit: 0, credit: 0 };
+    if (inp.classList.contains('opening-deb')) { rows[code].debit = v; lines.push({ account: code, debit: v, credit: 0 }); }
+    else { rows[code].credit = v; lines.push({ account: code, credit: 0, debit: 0 }); }
+  });
+  if (!lines.length) return UI.showInfo('Belum ada nilai yang diisi');
+  const deb = lines.reduce((s, l) => s + l.debit, 0);
+  const cred = lines.reduce((s, l) => s + l.credit, 0);
+  let diff = deb - cred;
+  if (diff !== 0) {
+    // Modal/Rugi periode sebelumnya otomatis ke 3101 Modal Awal
+    lines.push(diff > 0 ? { account: '3101', debit: 0, credit: diff } : { account: '3101', debit: Math.abs(diff), credit: 0 });
+  }
+  const m = document.getElementById('openingModal');
+  try {
+    Storage.deleteJournalsByRef('opening');
+    const j = buildOpeningJournal({ date, memo: `Saldo awal pembukuan per ${date}` }, lines);
+    if (!j) throw new Error('Jurnal tidak seimbang');
+    Storage.postJournal(j);
+    Storage.saveOpeningDraft({ date, rows });
+    Storage.logAudit('create', 'opening-balance', j.id, null, { date, total: deb + (diff !== 0 ? Math.abs(diff) : 0) });
+    if (m && m.open) { try { m.close(); } catch {} }
+    UI.showSuccess(`Saldo awal diposting: ${lines.length} akun (seimbang dengan Modal)`);
+    refresh();
+    renderPageReport();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal posting saldo awal');
+  }
 }
 
 /* ===== Jurnal penyesuaian manual ===== */

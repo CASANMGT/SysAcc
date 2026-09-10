@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.16.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.16.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -477,7 +477,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.16.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.16.1</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1526,6 +1526,9 @@
             <label for="equityInput">Modal Awal Usaha (Rp)</label>
             <input type="text" id="equityInput" inputmode="numeric" placeholder="0" autocomplete="off">
             <div style="font-size:11px;color:#64748b;margin-top:4px">Untuk Neraca (Laporan → Neraca). Kosongkan bila tidak tahu.</div>
+            <div style="margin-top:8px">
+              <button type="button" class="btn btn-ghost" id="openingOpenBtn" title="Isi saldo awal tiap akun — untuk pindah dari pembukuan lain ke Wynara">⚖️ Saldo awal per akun</button>
+            </div>
           </div>
         </div>
         <div class="form-group" style="margin-top:16px">
@@ -1703,6 +1706,38 @@
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" id="adjustCancel">Batal</button>
       <button type="button" class="btn btn-primary" id="adjustPostBtn">✓ Posting</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="openingModal" class="modal">
+  <div class="modal-content" style="max-width:600px">
+    <div class="modal-header">
+      <h2>⚖️ Saldo Awal per Akun</h2>
+      <button type="button" class="modal-close" id="openingModalClose" aria-label="Tutup">×</button>
+    </div>
+    <div class="modal-body" style="padding:16px">
+      <div style="display:flex;gap:8px;align-items:end;margin-bottom:10px;flex-wrap:wrap">
+        <label style="font-size:11px;color:#64748b">Tanggal mulai pembukuan*
+          <input type="date" id="openingDate" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px">
+        </label>
+        <div id="openingBalanceInfo" style="flex:1;min-width:180px;font-size:12px"></div>
+      </div>
+      <p style="font-size:11px;color:#64748b;margin-bottom:8px">Isi saldo akhir pembukuan sebelumnya per akun (debit/kredit). Yang tidak diisi = 0. Total debit harus = total kredit. Modal ditutup ke akun 3101 otomatis bila kurang (rilis). Posting bisa dipakai ulang — jurnal lama saldo awal diganti.</p>
+      <div style="max-height:46vh;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="position:sticky;top:0;background:white;font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+            <th style="padding:8px;text-align:left">Akun</th>
+            <th style="padding:8px;text-align:right">Debit</th>
+            <th style="padding:8px;text-align:right">Kredit</th>
+          </tr></thead>
+          <tbody id="openingRows"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="openingCancel">Batal</button>
+      <button type="button" class="btn btn-primary" id="openingPostBtn">✓ Posting saldo awal</button>
     </div>
   </div>
 </dialog>
