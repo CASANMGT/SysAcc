@@ -30,14 +30,14 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 |---|---|---|---|---|---|
 | F1 Core ledger | 15 | 86 | **78** | 11.70 | V17: V2/V4/V5/V6/V9 lulus; V3 4 lubang lock + V7 bunga tak diakui |
 | F2 Tax conformance | 12 | 76 | **76** | 9.12 | Faktur/NITKU open; PPN position open |
-| F3 Payroll & HR | 12 | 73 | **66** | 7.92 | Dec PPh 21 unresolved = correctness risk |
+| F3 Payroll & HR | 12 | 73 | **76** | 9.12 | Dec recon + 1721-A1 ship (lembur/cuti/UMP → iter 20) |
 | F4 Data durability | 15 | 52 | **54** | 8.10 | Pipeline verified + check-prod guard + version-source tooling (kelas regresi skew ditutup) |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
 | F7 Cognitive load | 10 | 80 | **78** | 7.80 | Mode Sederhana helped; U2 Frozen |
 | F8 Mobile | 7 | 82 | **74** | 5.18 | 8 releases of mobile layout defects |
 | F9 Accessibility | 7 | 68 | **68** | 4.76 | U5 emoji icons untouched |
-| **OVERALL** | | ~~90~~ | | **74.10** | Baseline was 59.7 → **+14.4** |
+| **OVERALL** | | ~~90~~ | | **75.30** | Baseline was 59.7 → **+15.6** |
 
 Six of nine axes below 85. Stop condition not met on either clause.
 
@@ -74,7 +74,7 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **B1 (C1)** Server persistence + auth — Supabase; local-first sebagai cache. *Needs OQ3.*
 
 **P0 — correctness**
-- **B4a** December PPh 21 annual progressive reconciliation `[VERIFY]` — highest consequence item in the file. Wrong here = wrong payslips and wrong DJP reporting.
+- **B4a** December PPh 21 annual progressive reconciliation ✅ ship v1.21.0 (tabel UU 36/2008 jo. UU HPP 7/2021 — **tetap butuh konfirmasi konsultan sebelum filing**, OQ terkait dibuka) + 1721-A1 printable
 - **B7 (NEW, dari V7 iter 17)** Bunga pinjaman tak pernah menyentuh P&L — tidak ada akun Pendapatan/Beban Bunga di COA; pelunasan menyerap bunga ke AR/AP. Butuh akun + split jurnal pelunasan. Diusulkan slot setelah iter 21 (sebelum UI unfreeze).
 - **B4b** Lembur (KEP-102/MEN/VI/2004), cuti 12 hari, UMP/UMK floor validation
 - **B4c** Bukti Potong 1721-A1 generation
@@ -112,7 +112,9 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 
 ---
 
-## Completed — iterations 1–18
+## Completed — iterations 1–19
+
+- **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
 - **iter 18 (tooling, tanpa perubahan app → tanpa bump versi): DEPLOY guard + VERSION source tunggal.** `scripts/check-prod.mjs` (`npm run verify:prod`, dogfood PASS index+sw) + `scripts/sync-version.mjs` (`npm run sync:version`, `release:patch|minor|major`; idempoten terbukti zero-diff; fail-loudly terbukti via uji marker-hilang; bug Windows-path tertangkap saat verifikasi lalu diperbaiki). F4 52→54. Tests 152/152 ✓. SHIP GATE N/A (tanpa kode app baru; production tetap v1.20.2 terverifikasi via script baru).
 

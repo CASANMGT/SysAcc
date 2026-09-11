@@ -2529,6 +2529,51 @@ function printPayrollReport(d) {
   w.document.close();
 }
 
+// Bukti Potong 1721-A1 (tahunan per karyawan) — cetak dari hasil rekonsiliasi Des.
+// Data: { year, name, npwp, ptkp, monthly[{month,gross,thr,pph}], annualGross,
+// annualDue, paidJanNov, pkp, ptkpAmt, decAdjust }. Tarif: UU 36/2008 jo. UU HPP 7/2021.
+export function printDecA1(d) {
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const w = window.open('', '_blank');
+  if (!w) return;
+  const ms = (d.monthly || []).slice().sort((a, b) => String(a.month) < String(b.month) ? -1 : 1);
+  w.document.write(`<html lang="id"><head><title>1721-A1 ${escapeHtml(d.year)} — ${escapeHtml(d.name)}</title><style>
+    body{font-family:Arial,sans-serif;max-width:720px;margin:20px auto;padding:0 16px;color:#111}
+    table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+    th,td{border:1px solid #999;padding:5px 8px;text-align:left}
+    th{background:#f3f4f6}.r{text-align:right;white-space:nowrap}
+    h2{font-size:15px;margin:14px 0 4px}h3{font-size:13px;margin:12px 0 4px}
+    .muted{color:#555;font-size:11px}
+  </style></head><body>
+    <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px">
+      <div style="font-size:18px;font-weight:800">BUKTI POTONG PPh 21 — FORMULIR 1721-A1</div>
+      <div style="font-size:12px">Tahun pajak ${escapeHtml(d.year)} • Karyawan tetap</div>
+    </div>
+    <h2>A. Identitas penerima penghasilan</h2>
+    <table>
+      <tr><td>Nama</td><td><b>${escapeHtml(d.name)}</b></td></tr>
+      <tr><td>NPWP ${d.npwp ? '' : '(tidak ada → tarif +20%)'}</td><td>${escapeHtml(d.npwp || '—')}</td></tr>
+      <tr><td>Status PTKP</td><td>${escapeHtml(d.ptkp || '')} (PTKP setahun ${fmt(d.ptkpAmt)})</td></tr>
+    </table>
+    <h2>B. Penghasilan bruto + PPh dipotong per bulan</h2>
+    <table>
+      <thead><tr><th>Bulan</th><th class="r">Bruto+THR</th><th class="r">PPh 21 dipotong</th></tr></thead>
+      <tbody>${ms.map(m => `<tr><td>${escapeHtml(m.month)}</td><td class="r">${fmt((Number(m.gross) || 0) + (Number(m.thr) || 0))}</td><td class="r">${fmt(m.pphPaid)}</td></tr>`).join('')}</tbody>
+    </table>
+    <h2>C. Penghitungan tahunan</h2>
+    <table>
+      <tr><td>Penghasilan bruto setahun</td><td class="r">${fmt(d.annualGross)}</td></tr>
+      <tr><td>Penghasilan Kena Pajak (PKP)</td><td class="r">${fmt(d.pkp)}</td></tr>
+      <tr><td>PPh 21 terutang setahun (progresif 5/15/25/30/35%)</td><td class="r"><b>${fmt(d.annualDue)}</b></td></tr>
+      <tr><td>Sudah dipotong Jan–Nov (TER bulanan)</td><td class="r">(${fmt(d.paidJanNov)})</td></tr>
+      <tr><td><b>Kurang bayar — dipotong di Desember</b></td><td class="r"><b>${fmt(d.decAdjust)}</b></td></tr>
+    </table>
+    <p class="muted">Dihitung TER bulanan PMK 168/2023 + tarif progresif UU PPh 36/2008 jo. UU HPP 7/2021. Minta konsultan pajak konfirmasi sebelum filing.</p>
+    <div style="display:flex;justify-content:space-between;margin-top:26px;font-size:12px"><span>Pemotong,<br><br><br>( ............. )</span><span style="text-align:right">Tanggal cetak: ${new Date().toLocaleDateString('id-ID')}<br><br><br>&nbsp;</span></div>
+  </body></html>`);
+  w.document.close();
+}
+
 // ===== Loans UI =====
 export function openLoans(loans, repayments, summary, allLoans, people) {
   if (!elements.loansSection.open) elements.loansSection.showModal();
@@ -3902,7 +3947,7 @@ export function paySlipDetailHTML(r) {
     row(`Iuran berobat — gajimu dipotong ${pctFmt(s.ded.kesSelf, B.kesWage)}`, `BPJS Kesehatan pekerja ${pct(R.kesSelf)} × ${fmt(B.kesWage)}${cap(B.kesWage, B.gross)}`, s.ded.kesSelf, '−'),
     row(`Tabungan hari tua — gajimu dipotong ${pctFmt(s.ded.jhtSelf, B.gross)}`, `JHT pekerja ${pct(R.jhtSelf)} × ${fmt(B.gross)}`, s.ded.jhtSelf, '−'),
     row(`Tabungan pensiun — gajimu dipotong ${pctFmt(s.ded.jpSelf, B.jpWage)}`, `JP pekerja ${pct(R.jpSelf)} × ${fmt(B.jpWage)}${cap(B.jpWage, B.gross)}`, s.ded.jpSelf, '−'),
-    row('Pajak gaji — dipotong otomatis', `PPh 21 TER ${escapeHtml(e.ptkp || 'TK/0')} × netto ${fmt(s.pphNetto)}${e.npwp ? '' : ' (tanpa NPWP +20%)'}`, s.ded.pph21, '−'),
+    row('Pajak gaji — dipotong otomatis', s.pphOverridden ? `PPh 21 hasil <b>rekonsiliasi Desember</b> (menggantikan TER)` : `PPh 21 TER ${escapeHtml(e.ptkp || 'TK/0')} × netto ${fmt(s.pphNetto)}${e.npwp ? '' : ' (tanpa NPWP +20%)'}`, s.ded.pph21, '−'),
     row('Denda/absensi bulan ini', `Potongan langsung${r.hadir > 0 ? ` • hadir ${r.hadir} hari` : ' (tidak mengurangi dasar BPJS/PPh)'}`, s.deduct, '−'),
   ].join('');
   const company = [
@@ -4175,6 +4220,51 @@ export function renderPayrollProcess(rows, monthLabel, status) {
   }
   const fin = document.getElementById('payrollFinalBtn');
   if (fin) fin.disabled = sel.length === 0;
+}
+// Panel rekonsiliasi PPh 21 Desember — murni (data masuk, HTML keluar).
+// rows: [{ empId, name, ptkp, hasNpwp, months, annualGross, annualDue,
+// paidJanNov, pkp, ptkpAmt, decTer, decAdjust, applied, decFinalized }].
+// Tarif tahunan: UU 36/2008 jo. UU HPP 7/2021 — konfirmasi konsultan sebelum filing.
+export function renderDecRecon(rows, year, locked) {
+  const box = document.getElementById('payrollDecPanel');
+  if (!box) return;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  if (!rows || !rows.length) {
+    box.innerHTML = `<details style="margin:0 16px 8px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#475569">🔄 Rekonsiliasi PPh 21 Desember ${escapeHtml(year)}</summary>
+      <div style="font-size:12px;color:#94a3b8;padding:8px 2px">Belum ada gaji final Jan–Nov ${escapeHtml(year)} untuk direkonsiliasi. Finalisasi bulan-bulan sebelumnya dulu.</div>
+    </details>`;
+    return;
+  }
+  box.innerHTML = `<details style="margin:0 16px 8px" open>
+    <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#475569">🔄 Rekonsiliasi PPh 21 Desember ${escapeHtml(year)} <span style="font-weight:400;color:#94a3b8">(TER = estimasi; Des = hitung tahunan − Jan–Nov)</span></summary>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:8px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px">PMK 168/2023: potongan Jan–Nov memakai TER; Desember memakai tarif progresif tahunan (UU 36/2008 jo. UU HPP 7/2021). Selisihnya dipotongkan di slip Desember. Minta konsultan konfirmasi sebelum filing.</div>
+      <div style="overflow-x:auto"><table style="width:100%;min-width:680px;border-collapse:collapse;font-size:12px">
+        <thead><tr style="font-size:11px;color:#94a3b8;border-bottom:1px solid #e2e8f0">
+          <th style="padding:8px;text-align:left">Karyawan</th>
+          <th style="padding:8px;text-align:right">Bruto setahun</th>
+          <th style="padding:8px;text-align:right">Dipotong Jan–Nov</th>
+          <th style="padding:8px;text-align:right">Terutang setahun</th>
+          <th style="padding:8px;text-align:right">TER Des (draf)</th>
+          <th style="padding:8px;text-align:right">Des rekonsiliasi</th>
+          <th style="padding:8px;text-align:left">Aksi</th>
+        </tr></thead>
+        <tbody>${rows.map(r => `<tr style="border-bottom:1px solid #f1f5f9">
+          <td style="padding:8px"><b>${escapeHtml(r.name)}</b><br><small style="color:#64748b">${escapeHtml(r.ptkp)}${r.hasNpwp ? '' : ' • tanpa NPWP'}</small>${r.applied != null ? '<br><small style="color:#059669">✓ diterapkan</small>' : ''}</td>
+          <td style="padding:8px;text-align:right">${fmt(r.annualGross)}</td>
+          <td style="padding:8px;text-align:right">${fmt(r.paidJanNov)}</td>
+          <td style="padding:8px;text-align:right"><b>${fmt(r.annualDue)}</b></td>
+          <td style="padding:8px;text-align:right">${fmt(r.decTer)}</td>
+          <td style="padding:8px;text-align:right"><b style="color:#b45309">${fmt(r.decAdjust)}</b></td>
+          <td style="padding:8px;white-space:nowrap">
+            <button type="button" onclick="document.dispatchEvent(new CustomEvent('wynara:dec-a1',{detail:'${r.empId}'}))" title="Cetak Bukti Potong 1721-A1" style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer">🧾 A1</button>
+            ${r.decFinalized || locked ? '' : `<button type="button" onclick="document.dispatchEvent(new CustomEvent('wynara:dec-apply',{detail:'${r.empId}'}))" title="Pakai angka rekonsiliasi untuk slip Desember" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Terapkan</button>`}
+          </td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+  </details>`;
 }
 export function setPayrollExpanded(id) {
   payrollExpanded = payrollExpanded === id ? null : id;

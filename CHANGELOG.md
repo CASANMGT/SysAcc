@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.21.0] - 2026-09-11
+
+### Added — Rekonsiliasi PPh 21 Desember + Bukti Potong 1721-A1 (B4a)
+- **Panel rekonsiliasi Desember** di Hitung & Bayar (muncul bila periode Desember + ada gaji final Jan–Nov): bruto setahun, sudah dipotong, terutang progresif, TER draf vs angka rekonsiliasi, tombol **Terapkan** + **🧾 A1** per karyawan
+- **Perhitungan tahunan** (`decRecon`, murni & ter-test): biaya jabatan 5% maks Rp6jt/tahun, PKP setelah PTKP (pembulatan ribuan), progresif 5/15/25/30/35% (UU PPh 36/2008 jo. UU HPP 7/2021 — tabel terisolasi, minta konsultan konfirmasi sebelum filing), NPWP +20%, floor 0
+- **Override transparan**: `pphOverride` di computeSlip + flag `pphOverridden` (slip, snapshot, deskripsi final bertanda "(PPh rekonsiliasi Des)")
+- **Cetak 1721-A1**: identitas + PTKP, tabel bruto/PPh per bulan, penghitungan tahunan, kolom tanda tangan
+- 162/162 tests ✓ (test hitung-tangan menangkap cacat desain Jan–Nov/Des sebelum produksi)
+
+---
+
 ## [1.20.3] - 2026-09-10
 
 ### Fixed — JKK Rp4.050.000 KEMBALI (akar sebenarnya)

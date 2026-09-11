@@ -52,6 +52,64 @@ export const BIAYA_JABATAN_RATE = 0.05; // 5% bruto
 export const BIAYA_JABATAN_MAX = 500000; // maks Rp500rb/bulan
 export const NPWP_SURCHARGE = 0.2; // tanpa NPWP → +20%
 
+// ===== Rekonsiliasi Desember: tarif PROGRESIF TAHUNAN atas penghasilan neto
+// setahun dikurangi PTKP. SUMBER STATUTER: UU PPh 36/2008 jo. UU HPP 7/2021.
+// PERHATIAN: angka di bawah adalah tarif/PTKP per UU tersebut. JANGAN ubah
+// tanpa dasar PER/UU baru. Minta konsultan pajak konfirmasi sebelum filing.
+// Mekanisme Des (PMK 168/2023): TER bulanan = estimasi; Desember = hitung
+// tahunan − yang sudah dipotong Jan–Nov → selisih dipotongkan di Desember.
+export const ANNUAL_BRACKETS = [
+  [60000000, 0.05], [250000000, 0.15], [500000000, 0.25],
+  [5000000000, 0.30], [Infinity, 0.35],
+];
+export const BIAYA_JABATAN_MAX_ANNUAL = 6000000; // 500rb × 12
+export const PTKP_ANNUAL = {
+  'TK/0': 54000000, 'TK/1': 58500000, 'TK/2': 63000000, 'TK/3': 67500000,
+  'K/0': 58500000, 'K/1': 63000000, 'K/2': 67500000, 'K/3': 72000000,
+};
+export function ptkpAnnual(ptkp) {
+  const s = String(ptkp || '').toUpperCase().replace(/[^A-Z0-9/]/g, '');
+  return PTKP_ANNUAL[s] ?? 54000000;
+}
+// PPh tahunan atas PKP (PKP dibulatkan ke bawah ribuan penuh).
+export function annualPPh21(pkp) {
+  let rest = Math.max(Math.floor((Number(pkp) || 0) / 1000) * 1000, 0);
+  let tax = 0, prev = 0;
+  for (const [cap, rate] of ANNUAL_BRACKETS) {
+    if (rest <= 0) break;
+    const portion = Math.min(rest, cap - prev);
+    tax += portion * rate;
+    rest -= portion;
+    prev = cap;
+  }
+  return Math.round(tax);
+}
+// Rekonsiliasi Desember. monthsJanNov: array bulan Jan..Nov berisi
+// { gross, thr, jhtSelf, jpSelf, pphPaid }. decMonth: draf Desember berisi
+// { gross, thr, jhtSelf, jpSelf } (pphPaid Desember BELUM dibayar → tidak
+// dihitung sebagai sudah-bayar, mencegah hitung ganda).
+// Return rincian lengkap + decAdjust (dibulatkan, floor 0).
+export function decRecon(emp, monthsJanNov, decMonth = {}) {
+  const e = emp || {};
+  const ms = Array.isArray(monthsJanNov) ? monthsJanNov : [];
+  const dm = decMonth || {};
+  const all = ms.concat([{ gross: dm.gross, thr: dm.thr, jhtSelf: dm.jhtSelf, jpSelf: dm.jpSelf, pphPaid: 0 }]);
+  const annualGross = all.reduce((s, m) => s + (Number(m.gross) || 0) + (Number(m.thr) || 0), 0);
+  const annualJhtJp = all.reduce((s, m) => s + (Number(m.jhtSelf) || 0) + (Number(m.jpSelf) || 0), 0);
+  const jabatan = Math.min(Math.round(annualGross * BIAYA_JABATAN_RATE), BIAYA_JABATAN_MAX_ANNUAL);
+  const netto = Math.max(annualGross - jabatan - annualJhtJp, 0);
+  const ptkp = ptkpAnnual(e.ptkp);
+  const pkp = Math.max(Math.floor(netto / 1000) * 1000 - ptkp, 0);
+  let annualDue = annualPPh21(pkp);
+  if (!e.npwp && annualDue > 0) annualDue = Math.round(annualDue * (1 + NPWP_SURCHARGE));
+  const paidJanNov = ms.reduce((s, m) => s + (Number(m.pphPaid) || 0), 0);
+  return {
+    months: ms.length, annualGross, annualJhtJp, jabatan, netto,
+    ptkp, pkp, annualDue, paidJanNov,
+    decAdjust: Math.max(annualDue - paidJanNov, 0),
+  };
+}
+
 // TER bulanan PMK 168/2023: [batasAtas, tarif]. Kategori dari status PTKP.
 const TER_A = [
   [5400000, 0], [5650000, 0.0025], [5950000, 0.005], [6300000, 0.0075],
@@ -173,12 +231,20 @@ export function computeSlip(emp, opts = {}) {
     if (!e.npwp && pph > 0) pph = rupiah(pph * (1 + NPWP_SURCHARGE)); // pasal 21 tanpa NPWP
     ded.pph21 = pph;
   }
+  // Override hasil rekonsiliasi Desember (dihitung via decRecon): menggantikan
+  // TER bulan berjalan. Dicatat transparan lewat flag pphOverridden.
+  let pphOverridden = false;
+  if (Number.isFinite(Number(opts.pphOverride)) && Number(opts.pphOverride) >= 0) {
+    ded.pph21 = Math.round(Number(opts.pphOverride));
+    pphOverridden = true;
+  }
   const totalDed = ded.kesSelf + ded.jhtSelf + ded.jpSelf + ded.pph21;
   const totalComp = comp.kesComp + comp.jhtComp + comp.jpComp + comp.jkk + comp.jkm;
   return {
     base, allow, overtime, bonus, deduct, gross, thr,
     ded, comp, totalDed, totalComp,
     rates: R,
+    pphOverridden,
     takeHome: gross + thr - totalDed - deduct,
     employerCost: gross + thr + totalComp,
     tenureMonths: tenureMonths(e.startDate, ref),

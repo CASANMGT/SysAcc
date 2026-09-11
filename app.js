@@ -6,7 +6,7 @@ import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath
 import * as Charts from './charts.js';
 import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
-import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS } from './payroll.js';
+import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon } from './payroll.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -35,7 +35,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.20.3';
+const APP_VERSION = '1.21.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -771,6 +771,8 @@ function bindEvents() {
     renderReport();
     renderPageReport();
   });
+  document.addEventListener('wynara:dec-apply', (ev) => handleDecApply(ev.detail));
+  document.addEventListener('wynara:dec-a1', (ev) => handleDecA1(ev.detail));
   document.getElementById('importJsonBtn')?.addEventListener('click', () => document.getElementById('importJsonFile')?.click());
   document.getElementById('importJsonFile')?.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleImport(f); e.target.value = ''; });
   // Export mengikuti tampilan terfilter (bukan seluruh DB)
@@ -3205,7 +3207,8 @@ function loadPayrollCache() {
       hadir: Number(s.hadir) > 0 ? Number(s.hadir) : 0,
       withThr: !!s.withThr,
       withPph: s.withPph === undefined ? true : !!s.withPph,
-      checked: s.checked === undefined ? true : !!s.checked
+      checked: s.checked === undefined ? true : !!s.checked,
+      pphOverride: Number.isFinite(Number(s.pphOverride)) && Number(s.pphOverride) >= 0 ? Math.round(Number(s.pphOverride)) : null
     };
   });
 }
@@ -3217,7 +3220,7 @@ function payRowsForView() {
     .filter(e => e.active !== false && Storage.empGross(e) > 0)
     .map(emp => {
       const c = payrollCache[emp.id] || { overtime: 0, bonus: 0, deduct: 0, withThr: false, withPph: true, checked: true };
-      const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+      const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
       const thrNote = c.withThr && slip.thr <= 0 ? 'Masa kerja belum 1 bulan — THR Rp0. Jangan centang bila belum waktunya.' : '';
       return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, hadir: c.hadir || 0, withThr: !!c.withThr, withPph: !!c.withPph, thrNote };
     });
@@ -3230,6 +3233,7 @@ function renderPayrollView() {
   } else if (tab === 'process') {
     const draft = Storage.getPayrollDraft(payrollViewMonth);
     UI.renderPayrollProcess(payRowsForView(), payrollMonthLabel(payrollViewMonth), draft ? draft.status : 'new');
+    renderDecPanel(draft ? draft.status : 'new');
   } else {
     const box = document.getElementById('payrollViewReport');
     if (box) {
@@ -3420,7 +3424,7 @@ function patchPayrollRow(empId) {
   const emp = Storage.getAllEmployees().find(x => x.id === empId);
   if (!c || !emp) return;
   const ref = payrollMonthEnd(payrollViewMonth);
-  const s = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+  const s = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   document.querySelectorAll('#payrollTableBody tr').forEach(tr => {
     const chk = tr.querySelector('.pay-check');
@@ -3437,7 +3441,7 @@ function patchPayrollRow(empId) {
     const cc = payrollCache[k];
     const em = Storage.getAllEmployees().find(x => x.id === k);
     if (!em || !cc.checked) return;
-    const ss = computeSlip(em, { overtime: cc.overtime, bonus: cc.bonus, deduct: cc.deduct, thr: cc.withThr ? thrAmount(em, ref) : 0, pph: cc.withPph, refDate: ref, rates: payrollRates });
+    const ss = computeSlip(em, { overtime: cc.overtime, bonus: cc.bonus, deduct: cc.deduct, thr: cc.withThr ? thrAmount(em, ref) : 0, pph: cc.withPph, refDate: ref, rates: payrollRates, pphOverride: cc.pphOverride ?? null });
     total += ss.takeHome;
   });
   const foot = document.getElementById('payrollFootTotal');
@@ -3574,7 +3578,8 @@ function handlePayrollCopyPrev() {
       hadir: Number(s.hadir) > 0 ? Number(s.hadir) : 0,
       withThr: !!s.withThr,
       withPph: s.withPph === undefined ? true : !!s.withPph,
-      checked: s.checked === undefined ? true : !!s.checked
+      checked: s.checked === undefined ? true : !!s.checked,
+      pphOverride: Number.isFinite(Number(s.pphOverride)) && Number(s.pphOverride) >= 0 ? Math.round(Number(s.pphOverride)) : null
     };
   });
   try { Storage.savePayrollDraft(payrollViewMonth, { items: JSON.parse(JSON.stringify(payrollCache)), rates: payrollRates, status: 'draft' }); } catch {}
@@ -3630,7 +3635,7 @@ function handlePayrollFinal() {
     if (!e) return;
     const c = payrollCache[k];
     try {
-      const slip = computeSlip(e, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(e, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+      const slip = computeSlip(e, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(e, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
       const bits = [`pokok ${fmt(slip.base)}`];
       if (slip.allow > 0) bits.push(`tunj ${fmt(slip.allow)}`);
       if (slip.overtime > 0) bits.push(`lembur ${fmt(slip.overtime)}`);
@@ -3644,9 +3649,9 @@ function handlePayrollFinal() {
       if (slip.deduct > 0) deds.push(`denda ${fmt(slip.deduct)}`);
       Storage.createEntry({
         date, type: 'expense', category: 'gaji-out', payment,
-        description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})`,
+        description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})${slip.pphOverridden ? ' (PPh rekonsiliasi Des)' : ''}`,
         amount: slip.takeHome, person: e.name,
-        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp }
+        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp, recon: slip.pphOverridden === true }
       });
       compTotal += slip.totalComp;
       ok++;
@@ -3670,6 +3675,99 @@ function handlePayrollFinal() {
   loadPayrollCache();
   renderPayrollView();
   refresh();
+}
+
+/* ===== Rekonsiliasi PPh 21 Desember (PMK 168/2023: TER = estimasi bulanan,
+   Desember = hitung tahunan − potongan Jan–Nov). Tarif tahunan: UU 36/2008
+   jo. UU HPP 7/2021 — minta konsultan konfirmasi sebelum filing. ===== */
+function buildDecRecon() {
+  const [y, m] = String(payrollViewMonth || '').split('-').map(Number);
+  if (!y || m !== 12) return null;
+  const year = String(y);
+  const byPerson = {};
+  try {
+    Storage.getAllEntries().forEach(e => {
+      if (e.category !== 'gaji-out' || !String(e.date || '').startsWith(year + '-')) return;
+      const key = String(e.person || '').trim().toLowerCase();
+      if (!key) return;
+      const p = e.payroll || {};
+      const d = p.ded || {};
+      (byPerson[key] = byPerson[key] || []).push({
+        month: String(e.date).slice(0, 7),
+        gross: (Number(p.base) || 0) + (Number(p.allow) || 0) + (Number(p.overtime) || 0) + (Number(p.bonus) || 0),
+        thr: Number(p.thr) || 0,
+        jhtSelf: Number(d.jhtSelf) || 0,
+        jpSelf: Number(d.jpSelf) || 0,
+        pphPaid: Number(d.pph21) || 0
+      });
+    });
+  } catch { return null; }
+  const ref = payrollMonthEnd(payrollViewMonth);
+  const paidMap = payrollPaidMap(payrollViewMonth);
+  return Storage.getAllEmployees()
+    .filter(e => e.active !== false)
+    .map(emp => {
+      const key = String(emp.name || '').trim().toLowerCase();
+      const all = (byPerson[key] || []).slice().sort((a, b) => a.month < b.month ? -1 : 1);
+      const jn = all.filter(x => x.month < `${year}-12`);
+      if (!jn.length) return null;
+      const c = payrollCache[emp.id] || {};
+      const ter = computeSlip(emp, { overtime: c.overtime || 0, bonus: c.bonus || 0, deduct: c.deduct || 0, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph !== false, refDate: ref, rates: payrollRates });
+      const r = decRecon(emp, jn, { gross: ter.gross, thr: ter.thr, jhtSelf: ter.ded.jhtSelf, jpSelf: ter.ded.jpSelf });
+      return {
+        empId: emp.id, name: emp.name, ptkp: emp.ptkp || 'TK/0', hasNpwp: !!emp.npwp,
+        months: r.months, annualGross: r.annualGross, annualDue: r.annualDue,
+        paidJanNov: r.paidJanNov, pkp: r.pkp, ptkpAmt: r.ptkp,
+        decTer: c.withPph !== false ? ter.ded.pph21 : 0,
+        decAdjust: r.decAdjust,
+        applied: c.pphOverride != null ? c.pphOverride : null,
+        decFinalized: !!paidMap[emp.id],
+        monthly: all
+      };
+    }).filter(Boolean);
+}
+function renderDecPanel(status) {
+  const box = document.getElementById('payrollDecPanel');
+  if (!box) return;
+  const [y, m] = String(payrollViewMonth || '').split('-').map(Number);
+  if (m !== 12 || !y) { box.innerHTML = ''; return; }
+  UI.renderDecRecon(buildDecRecon() || [], String(y), status === 'final');
+}
+function handleDecApply(empId) {
+  const m = Number(String(payrollViewMonth || '').split('-')[1]);
+  if (m !== 12) return;
+  const draft = Storage.getPayrollDraft(payrollViewMonth);
+  if (draft && draft.status === 'final') return UI.showError('Bulan sudah final — rekonsiliasi tidak bisa diubah');
+  const rows = buildDecRecon() || [];
+  const row = rows.find(r => r.empId === empId);
+  if (!row) return UI.showError('Data setahun karyawan ini belum cukup');
+  if (row.decFinalized) return UI.showInfo('Gaji Desember karyawan ini sudah difinalisasi');
+  if (!payrollCache[empId]) return;
+  if (!confirm(`Terapkan PPh 21 Desember ${row.name} = ${'Rp' + row.decAdjust.toLocaleString('id-ID')} (hasil rekonsiliasi, menggantikan TER ${'Rp' + row.decTer.toLocaleString('id-ID')})?`)) return;
+  payrollCache[empId].pphOverride = row.decAdjust;
+  const items = {};
+  Object.keys(payrollCache).forEach(k => { items[k] = { ...payrollCache[k] }; });
+  syncPayrollInputsFromDOM(items);
+  items[empId].pphOverride = row.decAdjust;
+  try { Storage.savePayrollDraft(payrollViewMonth, { items, rates: payrollRates, status: draft ? draft.status : 'draft' }); } catch {}
+  loadPayrollCache();
+  renderPayrollView();
+  queueMirror();
+  UI.showSuccess(`PPh Desember ${row.name} disetel ke hasil rekonsiliasi`);
+}
+function handleDecA1(empId) {
+  const [y] = String(payrollViewMonth || '').split('-').map(Number);
+  const rows = buildDecRecon() || [];
+  const row = rows.find(r => r.empId === empId);
+  if (!row) return UI.showError('Data setahun karyawan ini belum cukup');
+  const emp = Storage.getAllEmployees().find(x => x.id === empId) || {};
+  UI.printDecA1({
+    year: String(y || new Date().getFullYear()),
+    name: row.name, npwp: emp.npwp || '', ptkp: row.ptkp,
+    monthly: row.monthly, annualGross: row.annualGross,
+    annualDue: row.annualDue, paidJanNov: row.paidJanNov,
+    pkp: row.pkp, ptkpAmt: row.ptkpAmt, decAdjust: row.decAdjust
+  });
 }
 
 function handleLogout() {
