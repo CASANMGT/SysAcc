@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.50.0** · Production **v1.50.0 VERIFIED 2026-09-13** di domain baru `https://wynara-acc.vercel.app` (domain lama `sysacc-three` dihapus). check-prod PASS. Backend Supabase **LIVE**.
+Repo **v1.53.0** · Production **v1.53.0 VERIFIED 2026-09-13** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,7 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes now ≥85; overall 87.52 still <95. ⚠️ Production currently DOWN (Vercel DEPLOYMENT_NOT_FOUND) — needs human redeploy.
+A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 87.79 still <95. Lowest: F2/F8/F9 85.
 ```
 
 ---
@@ -24,21 +24,21 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
-| F1 Core ledger | 15 | 86 | **90** | 13.50 | + halaman stok bergrup, restock + jurnal Dr Persediaan/Cr Kas |
+| F1 Core ledger | 15 | 86 | **91** | 13.65 | Multi-toko (stok per lokasi) + SKU/barcode/satuan/kategori + nilai persediaan |
 | F2 Tax conformance | 12 | 76 | **85** | 10.20 | OQ2 + ambang PPh Final + CSV PPN 1111 / PPh 23/4(2) / PPh 21 + pengingat tenggat |
 | F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
 | F4 Data durability | 15 | 52 | **86** | 12.90 | Supabase + RLS + tautkan email + uji backup + peran + uji koneksi + **Kesehatan Data (integritas)** |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
-| F6 Task efficiency | 12 | 86 | **90** | 10.80 | Halaman stok (cari/filter/restock) + import marketplace/WA |
+| F6 Task efficiency | 12 | 86 | **91** | 10.92 | Multi-toko + scan barcode/SKU + nilai/restock header + riwayat + import |
 | F7 Cognitive load | 10 | 80 | **87** | 8.70 | Harga/modal per ukuran + warna premium; stok per varian; import marketplace/WA |
 | F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
 | F9 Accessibility | 7 | 68 | **85** | 5.95 | Scope/caption/alt/hierarki + aria-current + prefers-contrast + kontras teks redup (var) |
-| **OVERALL** | | ~~90~~ | | **87.52** | F4 84→86; **semua 9 axis ≥85** (arithmetic di bawah) |
+| **OVERALL** | | ~~90~~ | | **87.79** | v1.52 multi-toko + v1.53 fase-1 stok; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 90×15 + 85×12 + 86×12 + 86×15 + 92×10 + 90×12 + 87×10 + 85×7 + 85×7
-= 1350 + 1020 + 1032 + 1290 + 920 + 1080 + 870 + 595 + 595 = **8752 / 100 = 87.52**. Baseline 59.7 → **+27.82**.
+Aritmetika (wajib tampil): 91×15 + 85×12 + 86×12 + 86×15 + 92×10 + 91×12 + 87×10 + 85×7 + 85×7
+= 1365 + 1020 + 1032 + 1290 + 920 + 1092 + 870 + 595 + 595 = **8779 / 100 = 87.79**. Baseline 59.7 → **+28.09**.
 
-ALL nine axes ≥85 now (F2/F8/F9 85, F3/F4 86, F7 87, F6/F1 90, F5 92). A+ still needs **overall ≥95** → 87.52 < 95, so not yet. ⚠️ Ship gate BLOCKED by production outage (Vercel DEPLOYMENT_NOT_FOUND) — code on GitHub is green (255/255).
+All nine axes ≥85 (F2/F8/F9 85, F3/F4 86, F7 87, F1 91, F6 91, F5 92). A+ still needs overall ≥95.
 
 ---
 
@@ -173,6 +173,12 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.49.0 (F8)**: HP kecil — `img max-width`, bulan grafik & legenda donut wrap di ≤480px, judul kartu stok patah kata. **→ F8 84→85.** 253/253 ✓.
 
 - **v1.50.0 (F4)**: **🩺 Kesehatan Data** — uji-diri integritas (jurnal tak seimbang, akun tak dikenal, stok negatif, kesegaran backup, hasil uji backup, status cloud). `dataHealthCheck()` murni + 2 test. **→ F4 84→86. Semua 9 axis kini ≥85.** 255/255 ✓. Domain pindah ke `wynara-acc.vercel.app` — check-prod PASS.
+
+- **v1.51.0**: **Masuk dengan email** (pulihkan data dari cloud saat ganti domain/HP) — `cloudSignIn` + `syncNow`. +1 test.
+
+- **v1.52.0 (F1/F6)**: **Multi-toko** — Pengaturan kelola toko; item menyimpan stok **per toko** (`stocks{}`), total = jumlah; pilih **toko aktif** di halaman Stok; jual/beli/restock/opname pada toko aktif; kartu stok mencatat toko; daftar toko ikut sinkron & backup. **→ (bagian dari kenaikan F1/F6).** +2 test. 258/258 ✓.
+
+- **v1.53.0 (F1/F6 — Fase 1 stok)**: **Satuan/Kategori/Barcode** produk; **SKU & barcode per varian**; **nilai persediaan** + jumlah **perlu restock** per toko; **scan barcode/SKU** (Enter buka produk); tombol **📜 Riwayat** (kartu stok gabungan varian); import memetakan kolom baru. **→ F1 90→91, F6 90→91.** +1 test. 259/259 ✓.
 
 > Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
