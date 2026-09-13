@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%2B%20LocalStorage-lightgrey)
 
-Live: `https://sysacc-three.vercel.app` — login `admin / admin` (pertama kali; ganti di Pengaturan → Keamanan) · Kasir: username `kasir` + PIN
+Live: `https://wynara-acc.vercel.app` — login `admin / admin` (pertama kali; ganti di Pengaturan → Keamanan) · Kasir: username `kasir` + PIN
 
 ---
 

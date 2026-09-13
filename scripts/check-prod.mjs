@@ -3,8 +3,8 @@
 // Keluar 0 bila cocok, 1 bila tidak (gagalkan pipeline/rilis).
 //
 // Pakai: node scripts/check-prod.mjs [baseUrl]
-//   default: https://sysacc-three.vercel.app/  (atau env WYNARA_PROD_URL)
-const base = (process.argv[2] || process.env.WYNARA_PROD_URL || 'https://sysacc-three.vercel.app/').replace(/\/$/, '');
+//   default: https://wynara-acc.vercel.app/  (atau env WYNARA_PROD_URL)
+const base = (process.argv[2] || process.env.WYNARA_PROD_URL || 'https://wynara-acc.vercel.app/').replace(/\/$/, '');
 const bust = Date.now();
 
 const { readFileSync } = await import('node:fs');

@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.50.0** · ⚠️ **PRODUCTION DOWN 2026-09-13** — `sysacc-three.vercel.app` → HTTP 404 **DEPLOYMENT_NOT_FOUND** (proyek/deployment Vercel hilang; bukan bug kode). GitHub `main` = `d6674e0`. Perlu tindakan manusia: cek Vercel (reconnect repo + redeploy). Backend Supabase **LIVE**.
+Repo **v1.50.0** · Production **v1.50.0 VERIFIED 2026-09-13** di domain baru `https://wynara-acc.vercel.app` (domain lama `sysacc-three` dihapus). check-prod PASS. Backend Supabase **LIVE**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -172,7 +172,7 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 
 - **v1.49.0 (F8)**: HP kecil — `img max-width`, bulan grafik & legenda donut wrap di ≤480px, judul kartu stok patah kata. **→ F8 84→85.** 253/253 ✓.
 
-- **v1.50.0 (F4)**: **🩺 Kesehatan Data** — uji-diri integritas (jurnal tak seimbang, akun tak dikenal, stok negatif, kesegaran backup, hasil uji backup, status cloud). `dataHealthCheck()` murni + 2 test. **→ F4 84→86. Semua 9 axis kini ≥85.** 255/255 ✓. ⚠️ Deploy Vercel hilang (DEPLOYMENT_NOT_FOUND) — kode di GitHub hijau, produksi perlu redeploy manual.
+- **v1.50.0 (F4)**: **🩺 Kesehatan Data** — uji-diri integritas (jurnal tak seimbang, akun tak dikenal, stok negatif, kesegaran backup, hasil uji backup, status cloud). `dataHealthCheck()` murni + 2 test. **→ F4 84→86. Semua 9 axis kini ≥85.** 255/255 ✓. Domain pindah ke `wynara-acc.vercel.app` — check-prod PASS.
 
 > Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
