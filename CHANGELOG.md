@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.22.3] - 2026-09-13
+
+### Fixed — Masuk anonim memakai endpoint GoTrue yang benar
+- `cloudSignInAnonymously()` memakai `POST /auth/v1/signup` (bukan `/auth/v1/authorize` yang membalas HTTP 405) — inilah sebab tombol **👻 Masuk tanpa email** tidak pernah memunculkan toast `↑N ↓M`
+- Nama + assertion test anonim disesuaikan (`/auth/v1/signup`); 175/175 tests ✓
+
+---
+
 ## [1.22.2] - 2026-09-11
 
 ### Added — Masuk Supabase tanpa email (anonim)

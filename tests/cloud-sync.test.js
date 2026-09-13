@@ -100,7 +100,7 @@ describe('saveCloudConfig', () => {  it('menolak URL aneh dan key pendek', () =>
 describe('cloudSignInAnonymously (fetch di-stub, tanpa network)', () => {
   const realFetch = globalThis.fetch;
   afterEach(() => { globalThis.fetch = realFetch; try { localStorage.clear(); } catch {} });
-  it('POST /auth/v1/authorize + simpan sesi', async () => {
+  it('POST /auth/v1/signup + simpan sesi', async () => {
     const { saveCloudConfig, cloudSignInAnonymously, getCloudSession } = await import('../supabase.js');
     saveCloudConfig('https://abc.supabase.co', 'x'.repeat(40));
     const calls = [];
@@ -110,7 +110,7 @@ describe('cloudSignInAnonymously (fetch di-stub, tanpa network)', () => {
     };
     const s = await cloudSignInAnonymously();
     expect(s.user_id).toBe('u1');
-    expect(calls[0][0]).toContain('/auth/v1/authorize');
+    expect(calls[0][0]).toContain('/auth/v1/signup');
     expect(getCloudSession().user_id).toBe('u1');
   });
   it('pesan jelas bila anonymous dimatikan di dashboard', async () => {

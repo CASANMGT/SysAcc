@@ -90,7 +90,8 @@ export async function cloudSignIn(email, password) {
 export async function cloudSignInAnonymously() {
   const cfg = getCloudConfig();
   if (!cfg) throw new Error('Isi URL + anon key Supabase dulu');
-  const r = await fetch(cfg.url + '/auth/v1/authorize', {
+  // GoTrue: masuk anonim = signup tanpa email/kata sandi (endpoint /signup).
+  const r = await fetch(cfg.url + '/auth/v1/signup', {
     method: 'POST',
     headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json', 'X-Supabase-Api-Version': '2024-01-01' },
     body: JSON.stringify({ data: { client: 'wynara' } }),
