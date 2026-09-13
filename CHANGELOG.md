@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.46.0] - 2026-09-13
+
+### Added — F4: uji koneksi cloud + status sinkron lebih jelas
+- Tombol **🔌 Uji koneksi** di Sinkron Online: ping REST 1 baris → memverifikasi sesi + RLS benar-benar jalan
+- Status sinkron kini menampilkan **jumlah konflik** (`↑N ↓M • K konflik`)
+- +1 test; 252/252 tests ✓
+
+---
+
 ## [1.45.0] - 2026-09-13
 
 ### Added — F3: Kalkulator Pesangon / PHK (PP 35/2021)
