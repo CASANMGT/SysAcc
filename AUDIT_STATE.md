@@ -45,7 +45,7 @@ Six of nine axes below 85. Stop condition not met on either clause.
 
 ## Blocking decisions — nothing proceeds without these
 
-1. **Backend for B1** — arah: **Supabase** (keputusan tentatif user "maybe use supabase", 2026-09-11). Skema + mesin sync + UI sudah ship (unversioned engine, v1.22.0); **MENUNGGU: Project URL + anon key + first-sync terverifikasi** sebelum F4 bergerak. Tanpa itu OQ3 tetap terbuka.
+1. **Backend for B1** — arah: **Supabase** (keputusan tentatif user "maybe use supabase", 2026-09-11). Skema + mesin sync + UI sudah ship (unversioned engine, v1.22.0). Kredensial diterima 2026-09-11 (URL + publishable key valid; project reachable). **MENUNGGU: (a) Run `supabase/schema.sql` di SQL Editor (tabel belum ada — 404 terkonfirmasi), (b) daftar/masuk akun di aplikasi, (c) first-sync terverifikasi** → F4 baru bergerak saat (c) hijau.
 2. **PPN position** — 11% flat, or 12% with DPP nilai lain (effective 11%)? Needs a current cited source.
 3. **UMP/UMK 2026** per province — effective-dated table?
 4. **Akuntan/HRD permission matrix** — may an accountant post adjusting journals without approval?
