@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.54.0';
+const APP_VERSION = '1.55.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -988,6 +988,17 @@ function bindEvents() {
   document.getElementById('restockClose')?.addEventListener('click', closeRestock);
   document.getElementById('restockCancel')?.addEventListener('click', closeRestock);
   document.getElementById('restockSave')?.addEventListener('click', handleRestockSubmit);
+  document.getElementById('adjustOpenBtn')?.addEventListener('click', openStockAdjust);
+  document.getElementById('stockAdjustClose')?.addEventListener('click', closeStockAdjust);
+  document.getElementById('stockAdjustCancel')?.addEventListener('click', closeStockAdjust);
+  document.getElementById('stockAdjustSave')?.addEventListener('click', handleStockAdjustSubmit);
+  document.getElementById('stkAdjItem')?.addEventListener('change', updateStockAdjInfo);
+  document.getElementById('transferOpenBtn')?.addEventListener('click', openTransfer);
+  document.getElementById('transferClose')?.addEventListener('click', closeTransfer);
+  document.getElementById('transferCancel')?.addEventListener('click', closeTransfer);
+  document.getElementById('transferSave')?.addEventListener('click', handleTransferSubmit);
+  document.getElementById('trfItem')?.addEventListener('change', updateTrfInfo);
+  document.getElementById('trfFrom')?.addEventListener('change', updateTrfInfo);
   document.getElementById('severanceBtn')?.addEventListener('click', openSeverance);
   document.getElementById('severanceClose')?.addEventListener('click', () => { const m = document.getElementById('severanceModal'); if (m && m.open) { try { m.close(); } catch {} } });
   document.getElementById('sevEmp')?.addEventListener('change', sevFillFromEmp);
@@ -3070,6 +3081,74 @@ function handleStockRestockGroup(key) {
   const m = document.getElementById('restockModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
 }
 function closeRestock() { const m = document.getElementById('restockModal'); if (m && m.open) { try { m.close(); } catch {} } }
+/* ===== Dokumen stok: penyesuaian & transfer ===== */
+function openStockAdjust() {
+  const sel = document.getElementById('stkAdjItem');
+  if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${i.stock})</option>`; }).join('');
+  const dEl = document.getElementById('stkAdjDate'); if (dEl) dEl.value = new Date().toISOString().split('T')[0];
+  const q = document.getElementById('stkAdjQty'); if (q) q.value = '';
+  const r = document.getElementById('stkAdjReason'); if (r) r.value = '';
+  const info = document.getElementById('stkAdjInfo'); if (info) info.textContent = '';
+  const m = document.getElementById('stockAdjustModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function updateStockAdjInfo() {
+  const it = Storage.getItemById(document.getElementById('stkAdjItem')?.value || '');
+  const info = document.getElementById('stkAdjInfo');
+  if (!info) return;
+  if (!it) { info.textContent = ''; return; }
+  const shopId = Storage.getActiveShopId();
+  const nm = (Storage.getShops().find(s => s.id === shopId) || {}).name || '';
+  info.textContent = `Stok ${nm}: ${Storage.shopStockOf(it, shopId)} • modal rata-rata Rp${Math.round(it.cost || 0).toLocaleString('id-ID')}`;
+}
+function handleStockAdjustSubmit() {
+  const itemId = document.getElementById('stkAdjItem')?.value || '';
+  const qty = Math.trunc(Number(document.getElementById('stkAdjQty')?.value) || 0);
+  const reason = document.getElementById('stkAdjReason')?.value.trim() || '';
+  const date = document.getElementById('stkAdjDate')?.value || new Date().toISOString().split('T')[0];
+  if (!itemId) return UI.showError('Pilih barang dulu');
+  if (!qty) return UI.showError('Isi jumlah (+/−), tidak boleh 0');
+  try {
+    Storage.adjustStock(itemId, { qty, reason, date });
+    UI.showSuccess(`Penyesuaian stok ${qty > 0 ? '+' : ''}${qty} disimpan`);
+    closeStockAdjust(); refreshStock(); refresh(); queueMirror();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyesuaikan stok'); }
+}
+function closeStockAdjust() { const m = document.getElementById('stockAdjustModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function openTransfer() {
+  const sel = document.getElementById('trfItem');
+  if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''}</option>`; }).join('');
+  const shops = Storage.getShops();
+  const opts = shops.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  const from = document.getElementById('trfFrom'); if (from) from.innerHTML = opts;
+  const to = document.getElementById('trfTo'); if (to) to.innerHTML = opts;
+  if (from) from.value = Storage.getActiveShopId();
+  if (to && shops.length > 1) to.value = shops.find(s => s.id !== Storage.getActiveShopId()).id;
+  const q = document.getElementById('trfQty'); if (q) q.value = '';
+  updateTrfInfo();
+  const m = document.getElementById('transferModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function updateTrfInfo() {
+  const it = Storage.getItemById(document.getElementById('trfItem')?.value || '');
+  const from = document.getElementById('trfFrom')?.value || '';
+  const info = document.getElementById('trfInfo');
+  if (!info) return;
+  if (!it || !from) { info.textContent = ''; return; }
+  const nm = (Storage.getShops().find(s => s.id === from) || {}).name || '';
+  info.textContent = `Stok ${nm}: ${Storage.shopStockOf(it, from)}`;
+}
+function handleTransferSubmit() {
+  const itemId = document.getElementById('trfItem')?.value || '';
+  const fromShop = document.getElementById('trfFrom')?.value || '';
+  const toShop = document.getElementById('trfTo')?.value || '';
+  const qty = Math.floor(Number(document.getElementById('trfQty')?.value) || 0);
+  if (!itemId) return UI.showError('Pilih barang dulu');
+  try {
+    Storage.transferStock(itemId, { fromShop, toShop, qty });
+    UI.showSuccess(`Dipindahkan ${qty} ke ${(Storage.getShops().find(s => s.id === toShop) || {}).name || ''}`);
+    closeTransfer(); refreshStock(); refresh(); queueMirror();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal transfer'); }
+}
+function closeTransfer() { const m = document.getElementById('transferModal'); if (m && m.open) { try { m.close(); } catch {} } }
 function handleRestockSubmit() {
   const itemId = document.getElementById('restockVariant')?.value || '';
   const qty = Math.max(parseInt(document.getElementById('restockQty')?.value || '0', 10) || 0, 0);

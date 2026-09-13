@@ -1,6 +1,6 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, findUnbalanced } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, findUnbalanced } from './journals.js';
 import { getAccounts } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
@@ -2681,6 +2681,47 @@ export function saveLeave(empId, year, obj) {
 export function addLeave(empId, year, { comp = 0, taken = 0 } = {}) {
   const cur = getLeave(empId, year);
   return saveLeave(empId, year, { entitled: cur.entitled, taken: cur.taken + (Number(taken) || 0), comp: cur.comp + (Number(comp) || 0) });
+}
+
+// ===== Dokumen stok: penyesuaian & transfer antar toko =====
+export function adjustStock(itemId, { qty, reason, date, shop } = {}) {
+  requireCap('ledger');
+  const it = getItemById(itemId);
+  if (!it) throw new Error('Barang tidak ditemukan');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  const n = Math.trunc(Number(qty) || 0);
+  if (!n) throw new Error('Jumlah penyesuaian tidak boleh 0');
+  assertUnlocked(d);
+  const shopId = shop || getActiveShopId();
+  const unitCost = Math.max(Number(it.cost) || 0, 0);
+  if (n > 0) applyStockMove(itemId, { qtyIn: n, unitCost, keepCost: true, shop: shopId, note: reason || 'penyesuaian' });
+  else applyStockMove(itemId, { qtyOut: -n, shop: shopId, note: reason || 'penyesuaian' });
+  try {
+    const j = buildAdjustJournal({ account: '1301', amount: Math.abs(n) * unitCost, date: d, memo: `Penyesuaian ${it.name} (${n > 0 ? '+' : ''}${n})${reason ? ': ' + reason : ''}`, increase: n > 0 });
+    if (j) postJournal(j);
+  } catch {}
+  logAudit('create', 'stock-adjust', itemId, null, { qty: n, reason: reason || '', shop: shopId, date: d });
+  return getItemById(itemId);
+}
+
+export function transferStock(itemId, { fromShop, toShop, qty } = {}) {
+  requireCap('ledger');
+  const it = getItemById(itemId);
+  if (!it) throw new Error('Barang tidak ditemukan');
+  const q = Math.floor(Number(qty) || 0);
+  if (q <= 0) throw new Error('Jumlah transfer harus > 0');
+  const shops = getShops();
+  if (!shops.some(s => s.id === fromShop) || !shops.some(s => s.id === toShop)) throw new Error('Toko tidak valid');
+  if (fromShop === toShop) throw new Error('Toko asal dan tujuan harus beda');
+  applyStockMove(itemId, { qtyOut: q, shop: fromShop, note: 'transfer keluar' });
+  try {
+    applyStockMove(itemId, { qtyIn: q, unitCost: 0, keepCost: true, shop: toShop, note: 'transfer masuk' });
+  } catch (e) {
+    try { applyStockMove(itemId, { qtyIn: q, unitCost: 0, keepCost: true, shop: fromShop, note: 'transfer batal' }); } catch {}
+    throw e;
+  }
+  logAudit('create', 'stock-transfer', itemId, null, { qty: q, from: fromShop, to: toShop });
+  return getItemById(itemId);
 }
 
 // ===== Aset tetap & penyusutan =====

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -193,6 +193,28 @@ describe('updateLoan', () => {
     const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
     updateLoan(loan.id, { status: 'paid' });
     expect(getLoanById(loan.id).status).toBe('paid');
+  });
+});
+
+describe('dokumen stok: penyesuaian & transfer', () => {
+  it('adjustStock (+/−) + jurnal Dr/Cr 1301 vs 5199', () => {
+    saveShops([{ id: 'main', name: 'Toko Utama' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'Kopi', price: 10000, cost: 5000, stock: 5 });
+    adjustStock(it.id, { qty: -2, reason: 'rusak', date: '2026-08-01' });
+    expect(getItemById(it.id).stock).toBe(3);
+    const j = getAllJournals().find(x => x.ref === 'adjust');
+    expect(j.lines.find(l => l.account === '5199').debit).toBe(10000);
+    expect(j.lines.find(l => l.account === '1301').credit).toBe(10000);
+  });
+  it('transferStock pindah antar toko tanpa jurnal', () => {
+    saveShops([{ id: 'main', name: 'A' }, { id: 'b', name: 'B' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'Teh', price: 5000, stock: 4 });
+    transferStock(it.id, { fromShop: 'main', toShop: 'b', qty: 3 });
+    const a = getItemById(it.id);
+    expect(shopStockOf(a, 'main')).toBe(1);
+    expect(shopStockOf(a, 'b')).toBe(3);
   });
 });
 

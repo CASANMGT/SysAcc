@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.55.0] - 2026-09-13
+
+### Added — Fase 2: dokumen stok (penyesuaian & transfer)
+- **⚖️ Penyesuaian stok**: qty +/− dengan **alasan**; dinilai modal rata-rata → jurnal **Dr/Cr 1301 Persediaan vs 5199**; kunci periode dihormati
+- **🔁 Transfer antar toko**: pindah stok dari satu toko ke toko lain (perpindahan internal, tanpa jurnal) dengan rollback bila gagal
+- Keduanya di header **halaman Stok**; tercatat di audit
+- +2 test; 261/261 tests ✓
+
+---
+
 ## [1.54.0] - 2026-09-13
 
 ### Added — Fase 2: penjualan gaya POS
