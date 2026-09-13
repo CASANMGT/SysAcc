@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.53.0] - 2026-09-13
+
+### Added — Phase 1 stok: SKU/barcode, satuan, kategori & nilai persediaan
+- Produk: field **📦 Satuan**, **🏷️ Kategori**, **🔖 Barcode**
+- Varian: **SKU & barcode per varian** (berhenti memakai akhiran `-1`)
+- Halaman Stok: **nilai persediaan per toko aktif** + jumlah varian **perlu restock**
+- Pencarian bisa **scan barcode/SKU** (Enter membuka produk)
+- Tombol **📜 Riwayat** per produk (kartu stok gabungan semua varian)
+- Import produk memetakan kolom Satuan / Kategori / Barcode
+- +1 test; 259/259 tests ✓
+
+---
+
 ## [1.52.0] - 2026-09-13
 
 ### Added — Multi-toko (stok per lokasi)

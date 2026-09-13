@@ -1965,6 +1965,9 @@ export function saveItem(item) {
     id: item.id || generateId(),
     name,
     sku: String(item.sku || '').slice(0, 30),
+    barcode: String(item.barcode || '').slice(0, 40),
+    category: String(item.category || '').slice(0, 30),
+    unit: String(item.unit || '').slice(0, 12),
     size: String(item.size || '').slice(0, 20),
     color: String(item.color || '').slice(0, 20),
     discountPct,
@@ -2068,6 +2071,9 @@ export function importItemsBulk(list) {
     if (raw && raw.size !== undefined) rec.size = String(raw.size || '').trim().slice(0, 20);
     if (raw && raw.color !== undefined) rec.color = String(raw.color || '').trim().slice(0, 20);
     if (raw && raw.discountPct !== undefined) rec.discountPct = Math.min(Math.max(Number(raw.discountPct) || 0, 0), 100);
+    if (raw && raw.unit !== undefined) rec.unit = String(raw.unit || '').trim().slice(0, 12);
+    if (raw && raw.category !== undefined) rec.category = String(raw.category || '').trim().slice(0, 30);
+    if (raw && raw.barcode !== undefined) rec.barcode = String(raw.barcode || '').trim().slice(0, 40);
     const idx = items.findIndex(i => (sku && String(i.sku || '').toLowerCase() === sku.toLowerCase())
       || (!sku && String(i.name || '').toLowerCase() === name.toLowerCase()));
     if (idx === -1) { items.push({ id: generateId(), size: '', color: '', discountPct: 0, ...rec }); added++; }

@@ -366,6 +366,12 @@ describe('produk: varian & diskon', () => {
     expect(saveItem({ name: 'X', price: 1000, discountPct: 150 }).discountPct).toBe(100);
     expect(saveItem({ name: 'Y', price: 1000, discountPct: -5 }).discountPct).toBe(0);
   });
+  it('saveItem menyimpan satuan, kategori, barcode', () => {
+    const it = saveItem({ name: 'Susu', price: 20000, stock: 2, unit: 'box', category: 'Minuman', barcode: '899123' });
+    expect(it.unit).toBe('box');
+    expect(it.category).toBe('Minuman');
+    expect(it.barcode).toBe('899123');
+  });
   it('importItemsBulk upsert per SKU + simpan varian', () => {
     const r1 = importItemsBulk([{ name: 'Kaos', sku: 'K-1', price: 100000, size: 'L', color: 'Hitam', discountPct: 10, stock: 3 }]);
     expect(r1.added).toBe(1);

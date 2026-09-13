@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.52.0';
+const APP_VERSION = '1.53.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -970,9 +970,20 @@ function bindEvents() {
     const chip = e.target.closest('.stock-chip');
     const jual = e.target.closest('.stock-page-jual');
     const restock = e.target.closest('.stock-page-restock');
+    const hist = e.target.closest('.stock-page-history');
     if (chip) { const it = Storage.getItemById(chip.dataset.id); if (it) { UI.fillStockForm(it); UI.openStock(); } }
     else if (jual) UI.openSale();
     else if (restock) handleStockRestockGroup(restock.dataset.key);
+    else if (hist) handleStockHistoryGroup(hist.dataset.key);
+  });
+  document.getElementById('stockPageSearch')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const q = String(e.target.value || '').trim().toLowerCase();
+    if (!q) return;
+    const all = Storage.getAllItems();
+    const exact = all.find(i => String(i.barcode || '').toLowerCase() === q || String(i.sku || '').toLowerCase() === q);
+    const near = exact || all.find(i => String(i.barcode || '').toLowerCase().includes(q) || String(i.sku || '').toLowerCase().includes(q));
+    if (near) { UI.fillStockForm(near); UI.openStock(); }
   });
   document.getElementById('restockClose')?.addEventListener('click', closeRestock);
   document.getElementById('restockCancel')?.addEventListener('click', closeRestock);
@@ -3090,7 +3101,8 @@ function handleStockSave() {
         const nm = `${d.name}${v.size ? ' • ' + v.size : ''}${v.color ? ' • ' + v.color : ''}`;
         try {
           Storage.saveItem({
-            id: null, name: nm, sku: d.sku ? `${d.sku}-${i + 1}` : '',
+            id: null, name: nm, sku: v.sku || (d.sku ? `${d.sku}-${i + 1}` : ''), barcode: v.barcode || '',
+            unit: d.unit, category: d.category,
             size: v.size, color: v.color,
             price: v.price || d.price, cost: v.cost != null ? v.cost : d.cost,
             discountPct: d.discountPct, stock: v.stock, minStock: d.minStock,
@@ -3148,6 +3160,27 @@ function handleStockHistory(id) {
        </tbody></table></div>`
     : '<p style="color:#64748b">Belum ada mutasi tercatat untuk barang ini.</p>';
   UI.openInfoModal(`📜 Kartu stok — ${it.name}`, body);
+}
+function handleStockHistoryGroup(key) {
+  const g = Storage.getStockGroups().find(x => x.key === key);
+  if (!g) return;
+  const shopId = Storage.getActiveShopId();
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const dt = (s) => { try { return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
+  const rows = [];
+  g.variants.forEach(v => {
+    const vlabel = [v.size, v.color].filter(Boolean).join('/') || v.name;
+    Storage.getStockMoves(v.id).slice(0, 40).forEach(m => rows.push({ ...m, vlabel }));
+  });
+  rows.sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  const val = g.variants.reduce((s, v) => s + Storage.shopStockOf(v, shopId) * (Number(v.cost) || 0), 0);
+  const body = rows.length
+    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px"><b>${escapeHtml(g.name)}</b> — nilai ${fmt(val)} • ${g.variants.length} varian</div>
+       <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Waktu</th><th>Varian</th><th>Masuk</th><th>Keluar</th><th>Sisa</th></tr></thead><tbody>
+       ${rows.slice(0, 120).map(m => `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${escapeHtml(m.vlabel)}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? '−' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td></tr>`).join('')}
+       </tbody></table></div>`
+    : '<p style="color:#64748b">Belum ada mutasi tercatat.</p>';
+  UI.openInfoModal(`📜 Riwayat — ${g.name}`, body);
 }
 
 /* ===== Import produk & penjualan (marketplace / WhatsApp) ===== */
@@ -3250,6 +3283,8 @@ async function handleImportParse() {
       mapWrap.hidden = false;
       mapWrap.innerHTML = mapSelects(src.headers, autoMapProductColumns(src.headers), [
         { key: 'name', label: 'Nama produk' }, { key: 'sku', label: 'SKU/Kode' },
+        { key: 'barcode', label: 'Barcode' }, { key: 'unit', label: 'Satuan' },
+        { key: 'category', label: 'Kategori' },
         { key: 'size', label: 'Ukuran' }, { key: 'color', label: 'Warna' },
         { key: 'price', label: 'Harga jual' }, { key: 'cost', label: 'Modal/HPP' },
         { key: 'discount', label: 'Diskon (%)' }, { key: 'stock', label: 'Stok' }, { key: 'min', label: 'Min' },

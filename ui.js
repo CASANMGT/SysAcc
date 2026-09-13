@@ -3382,9 +3382,18 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
     return { ...g, variants, shopStock: variants.reduce((s, v) => s + v._shopStock, 0) };
   });
   if (filter === 'low') gs = gs.filter(g => g.variants.some(v => (Number(v.minStock) || 0) > 0 && v._shopStock <= Number(v.minStock)));
-  if (t) gs = gs.filter(g => (`${g.name} ${g.sku} ${g.variants.map(v => `${v.name} ${v.size || ''} ${v.color || ''} ${v.sku || ''}`).join(' ')}`).toLowerCase().includes(t));
+  if (t) gs = gs.filter(g => (`${g.name} ${g.sku} ${g.variants.map(v => `${v.name} ${v.size || ''} ${v.color || ''} ${v.sku || ''} ${v.barcode || ''} ${v.category || ''}`).join(' ')}`).toLowerCase().includes(t));
   const sub = document.getElementById('stockPageSubtitle');
   if (sub) sub.textContent = `${gs0.length} produk • ${gs0.reduce((s, g) => s + g.variants.length, 0)} varian • stok${shopName ? ' ' + shopName : ''}: ${gs0.reduce((s, g) => s + (g.variants ? g.variants.reduce((x, v) => { const q = (shopId && v.stocks && typeof v.stocks === 'object') ? Math.max(Math.floor(Number(v.stocks[shopId]) || 0), 0) : (Number(v.stock) || 0); return x + q; }, 0) : 0), 0)}`;
+  // Ringkasan: nilai persediaan + jumlah varian perlu restock (toko aktif)
+  const sumEl = document.getElementById('stockPageSummary');
+  if (sumEl) {
+    const allV = gs0.reduce((a, g) => a.concat(g.variants || []), []);
+    const qOf = (v) => (shopId && v.stocks && typeof v.stocks === 'object') ? Math.max(Math.floor(Number(v.stocks[shopId]) || 0), 0) : (Number(v.stock) || 0);
+    const val = allV.reduce((s, v) => s + qOf(v) * (Number(v.cost) || 0), 0);
+    const reorder = allV.filter(v => (Number(v.minStock) || 0) > 0 && qOf(v) <= Number(v.minStock)).length;
+    sumEl.innerHTML = `Nilai persediaan${shopName ? ` <b>${escapeHtml(shopName)}</b>` : ''}: <b>Rp${Math.round(val).toLocaleString('id-ID')}</b> • perlu restock: <b>${reorder}</b> varian`;
+  }
   if (!gs.length) { list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:32px">Tidak ada produk yang cocok.</p>'; return; }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const esc = (s) => escapeHtml(String(s == null ? '' : s));
@@ -3402,11 +3411,12 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
       <div class="stock-card-head">
         <div style="flex:1;min-width:0">
           <div class="stock-card-title">${esc(g.name)}</div>
-          <div class="stock-card-sub">${g.sku ? esc(g.sku) + ' • ' : ''}${g.variants.length} varian • stok${shopName ? ' ' + esc(shopName) : ''}: ${g.shopStock} • total ${g.totalStock} • ${priceTxt}${lowV ? ` • <span style="color:#b45309">${lowV} menipis</span>` : ''}</div>
+          <div class="stock-card-sub">${g.sku ? esc(g.sku) + ' • ' : ''}${g.variants[0] && g.variants[0].category ? esc(g.variants[0].category) + ' • ' : ''}${g.variants[0] && g.variants[0].unit ? esc(g.variants[0].unit) + ' • ' : ''}${g.variants.length} varian • stok${shopName ? ' ' + esc(shopName) : ''}: ${g.shopStock} • total ${g.totalStock} • ${priceTxt}${lowV ? ` • <span style="color:#b45309">${lowV} menipis</span>` : ''}</div>
         </div>
         <div class="stock-card-actions">
           <button type="button" class="btn btn-ghost stock-page-jual" data-key="${esc(g.key)}" title="Jual produk ini" style="font-size:11px;padding:4px 10px">🧾 Jual</button>
           <button type="button" class="btn btn-ghost stock-page-restock" data-key="${esc(g.key)}" title="Restock" style="font-size:11px;padding:4px 10px">📥 Restock</button>
+          <button type="button" class="btn btn-ghost stock-page-history" data-key="${esc(g.key)}" title="Kartu stok / riwayat mutasi" style="font-size:11px;padding:4px 10px">📜 Riwayat</button>
         </div>
       </div>
       <div class="stock-variant-row">${variants}</div>
@@ -3420,6 +3430,9 @@ export function getStockFormData() {
     id: document.getElementById('stockFormId')?.value || null,
     name: document.getElementById('stockName')?.value.trim() || '',
     sku: document.getElementById('stockSku')?.value.trim() || '',
+    unit: document.getElementById('stockUnit')?.value.trim() || '',
+    category: document.getElementById('stockCategory')?.value.trim() || '',
+    barcode: document.getElementById('stockBarcode')?.value.trim() || '',
     size: document.getElementById('stockSize')?.value.trim() || '',
     color: document.getElementById('stockColor')?.value.trim() || '',
     discountPct: Math.min(Math.max(Number(document.getElementById('stockDiscount')?.value) || 0, 0), 100),
@@ -3464,12 +3477,14 @@ export function renderVariantGrid() {
   S.forEach((sz, si) => C.forEach((cl, ci) => {
     const prem = premiums.includes(String(cl).toLowerCase());
     stockRows.push(`<tr><td style="font-size:12px">${escapeHtml([sz, cl].filter(Boolean).join(' / ') || '(tanpa varian)')}${prem ? ' <span title="warna premium">⭐</span>' : ''}</td>
-      <td><input type="number" class="vstock" data-s="${si}" data-c="${ci}" min="0" step="1" placeholder="0" style="width:96px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`);
+      <td><input type="number" class="vstock" data-s="${si}" data-c="${ci}" min="0" step="1" placeholder="0" style="width:80px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
+      <td><input type="text" class="vsku" data-s="${si}" data-c="${ci}" maxlength="30" placeholder="SKU" style="width:110px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
+      <td><input type="text" class="vbar" data-s="${si}" data-c="${ci}" maxlength="40" placeholder="barcode" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`);
   }));
   box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#475569;margin:6px 0 4px">Harga &amp; modal per ukuran:</div>
     <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Ukuran</th><th>Harga jual</th><th>Modal</th></tr></thead><tbody>${priceRow}</tbody></table></div>
-    <div style="font-size:11px;font-weight:700;color:#475569;margin:10px 0 4px">Stok tiap varian (ukuran × warna):</div>
-    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian</th><th>Stok</th></tr></thead><tbody>${stockRows.join('')}</tbody></table></div>
+    <div style="font-size:11px;font-weight:700;color:#475569;margin:10px 0 4px">Stok, SKU &amp; barcode tiap varian (ukuran × warna):</div>
+    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian</th><th>Stok</th><th>SKU</th><th>Barcode</th></tr></thead><tbody>${stockRows.join('')}</tbody></table></div>
     <div id="variantTotal" style="font-size:12px;color:#334155;margin-top:6px;font-weight:600"></div>`;
   bindVariantRupiah();
   updateVariantTotal();
@@ -3502,8 +3517,10 @@ function readVariantInputs() {
   S.forEach((sz, si) => C.forEach((cl, ci) => {
     const prem = premiums.includes(String(cl).toLowerCase());
     const stock = Math.max(parseInt(document.querySelector(`#variantGrid .vstock[data-s="${si}"][data-c="${ci}"]`)?.value || '0', 10) || 0, 0);
+    const vsku = String(document.querySelector(`#variantGrid .vsku[data-s="${si}"][data-c="${ci}"]`)?.value || '').trim();
+    const vbar = String(document.querySelector(`#variantGrid .vbar[data-s="${si}"][data-c="${ci}"]`)?.value || '').trim();
     const base = sizePricing[si] || { price: 0, cost: 0 };
-    variants.push({ size: sz, color: cl, stock, premium: prem, price: Math.round(base.price + (prem ? add : 0)), cost: base.cost });
+    variants.push({ size: sz, color: cl, stock, premium: prem, sku: vsku, barcode: vbar, price: Math.round(base.price + (prem ? add : 0)), cost: base.cost });
   }));
   return { variants, sizePricing, premiumAdd: add };
 }
@@ -3511,6 +3528,9 @@ export function fillStockForm(item) {
   document.getElementById('stockFormId').value = item?.id || '';
   document.getElementById('stockName').value = item?.name || '';
   document.getElementById('stockSku').value = item?.sku || '';
+  const uEl = document.getElementById('stockUnit'); if (uEl) uEl.value = item?.unit || '';
+  const cEl = document.getElementById('stockCategory'); if (cEl) cEl.value = item?.category || '';
+  const bEl = document.getElementById('stockBarcode'); if (bEl) bEl.value = item?.barcode || '';
   const szEl = document.getElementById('stockSize'); if (szEl) szEl.value = item?.size || '';
   const clEl = document.getElementById('stockColor'); if (clEl) clEl.value = item?.color || '';
   const dEl = document.getElementById('stockDiscount'); if (dEl) dEl.value = item?.discountPct || '';

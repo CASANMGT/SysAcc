@@ -151,6 +151,9 @@ export function buildProducts(dataRows, mapping, fallbackHeaderMap) {
     out.push({
       name,
       sku: get(row, m.sku),
+      barcode: get(row, m.barcode),
+      unit: get(row, m.unit),
+      category: get(row, m.category),
       size: get(row, m.size),
       color: get(row, m.color),
       discountPct: m.discount >= 0 ? parseNum(get(row, m.discount)) : 0,
@@ -169,6 +172,9 @@ export function autoMapProductColumns(headers) {
   return {
     name: find([/nama produk/, /nama barang/, /nama/, /produk/, /barang/, /item/]),
     sku: find([/sku/, /kode/]),
+    barcode: find([/barcode/, /barkode/]),
+    unit: find([/satuan/, /unit/, /uom/]),
+    category: find([/kategori/, /category/]),
     size: find([/ukuran/, /\bsize\b/]),
     color: find([/warna/, /color/]),
     discount: find([/diskon/, /discount/]),
