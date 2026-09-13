@@ -3821,3 +3821,10 @@ body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
     scroll-behavior: auto !important;
   }
 }
+
+/* F9 a11y: pengguna yang minta kontras lebih tinggi */
+@media (prefers-contrast: more) {
+  :root { --text-muted: #475569; --border: #94a3b8; --border-strong: #64748b; }
+  .stock-chip, .chip { border-color: #64748b; }
+  .stock-card { border-color: #94a3b8; }
+}

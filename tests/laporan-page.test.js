@@ -153,4 +153,10 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(label).toMatch(/Pinjemin/);
     expect(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(label)).toBe(false);
   });
+  it('nav aktif diberi aria-current + chip import ber-aria-pressed', () => {
+    document.getElementById('reportBtnSidebar').click();
+    expect(document.getElementById('reportBtnSidebar').getAttribute('aria-current')).toBe('page');
+    const imp = document.querySelector('#importIntro .chip');
+    expect(['true', 'false']).toContain(imp.getAttribute('aria-pressed'));
+  });
 });

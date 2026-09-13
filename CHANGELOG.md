@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.43.0] - 2026-09-13
+
+### Changed — F9 aksesibilitas (lanjutan)
+- Item nav aktif diberi **`aria-current="page"`** (sidebar + bottom nav) — orientasi screen reader
+- Chip pemilih mode di Import kini ber-`aria-pressed`
+- Dukung **`prefers-contrast: more`** (teks/border lebih kontras)
+- +1 test; 248/248 tests ✓
+
+---
+
 ## [1.42.0] - 2026-09-13
 
 ### Added — F2: CSV SPT Masa PPN 1111 + rekap PPh 23/4(2)

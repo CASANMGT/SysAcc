@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.42.0';
+const APP_VERSION = '1.43.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -792,8 +792,14 @@ function bindEvents() {
     const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar', viewStock: '#stockBtnSidebar', viewLaporan: '#reportBtnSidebar', viewChangelog: '#changelogLink' };
     const sel = map[viewId];
     if (sel) document.querySelector(sel)?.classList.add('active');
+    document.querySelectorAll('.sidebar-item').forEach(b => b.removeAttribute('aria-current'));
+    if (sel) document.querySelector(sel)?.setAttribute('aria-current', 'page');
     const bnView = { viewRingkasan: 'ringkasan', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewStock: 'stock', viewLaporan: 'reports' }[viewId];
-    document.querySelectorAll('#bottomNav .bn-item').forEach(b => b.classList.toggle('active', b.dataset.bnav === bnView));
+    document.querySelectorAll('#bottomNav .bn-item').forEach(b => {
+      const on = b.dataset.bnav === bnView;
+      b.classList.toggle('active', on);
+      if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
     sidebar?.classList.remove('open');
     overlay?.classList.add('hidden');
     if (viewId === 'viewTransaksi') renderFullTransaksi();
