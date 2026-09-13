@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.39.0] - 2026-09-13
+
+### Changed — Harga & modal per ukuran + warna premium
+- Harga jual & modal kini diisi **per ukuran** (bukan satu harga pusat); semua warna memakai harga ukurannya
+- **Warna premium**: daftar warna premium + tambahan harga (Rp) → harga varian = harga ukuran + tambahan ⭐
+- Stok diisi **tiap varian (ukuran × warna)**; total stok semua varian ditampilkan
+- Saat varian aktif, harga/modal/stok pusat **disembunyikan**; produk tanpa varian tetap pakai harga pusat
+- 242/242 tests ✓
+
+---
+
 ## [1.38.0] - 2026-09-13
 
 ### Changed — Isi stok & diskon per varian langsung di tabel

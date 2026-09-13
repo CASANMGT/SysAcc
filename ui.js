@@ -3354,43 +3354,83 @@ export function getStockFormData() {
     minStock: Math.max(parseInt(document.getElementById('stockMin')?.value || '0', 10) || 0, 0),
     sizes: document.getElementById('stockSizes')?.value.trim() || '',
     colors: document.getElementById('stockColors')?.value.trim() || '',
-    variants: readVariantInputs()
+    variantData: readVariantInputs()
   };
 }
-// Matriks varian: isi stok & diskon per kombinasi ukuran × warna.
+// Varian: harga & modal PER UKURAN; warna ikut harga ukuran (premium + surcharge);
+// stok diisi tiap sel ukuran × warna.
+function splitCsv(id) {
+  return String(document.getElementById(id)?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+function variantCombos() {
+  const sizes = splitCsv('stockSizes');
+  const colors = splitCsv('stockColors');
+  const S = sizes.length ? sizes : [''];
+  const C = colors.length ? colors : [''];
+  return { sizes, colors, S, C, active: sizes.length > 0 || colors.length > 0 };
+}
 export function renderVariantGrid() {
   const box = document.getElementById('variantGrid');
   if (!box) return;
-  const sizes = String(document.getElementById('stockSizes')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-  const colors = String(document.getElementById('stockColors')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-  const S = sizes.length ? sizes : [''];
-  const C = colors.length ? colors : [''];
-  const combos = [];
-  S.forEach(sz => C.forEach(cl => combos.push({ size: sz, color: cl })));
-  if (combos.length <= 1) {
-    box.innerHTML = '<div style="font-size:11px;color:#94a3b8">Isi minimal salah satu (ukuran atau warna) untuk membuat varian.</div>';
-    return;
-  }
-  const inp = (cls, i, max) => `<input type="number" class="${cls}" data-i="${i}" min="0" ${max ? 'max="100"' : ''} step="1" placeholder="0" style="width:96px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px">`;
-  box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#475569;margin:6px 0 4px">Isi stok (dan diskon) tiap varian:</div>
-    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian</th><th>Stok</th><th>Diskon %</th></tr></thead><tbody>
-    ${combos.map((c, i) => `<tr><td style="font-size:12px">${escapeHtml([c.size, c.color].filter(Boolean).join(' / ') || '(tanpa varian)')}</td>
-      <td>${inp('vstock', i)}</td><td>${inp('vdisc', i, true)}</td></tr>`).join('')}
-    </tbody></table></div>`;
+  const { S, C, active } = variantCombos();
+  // Sembunyikan harga/stok pusat saat pakai varian
+  ['stockPrice', 'stockCost', 'stockQty'].forEach(id => {
+    const l = document.getElementById(id)?.closest('label');
+    if (l) l.style.display = active ? 'none' : '';
+  });
+  const profitBox = document.getElementById('stockProfit');
+  if (profitBox && active) profitBox.innerHTML = '';
+  if (!active) { box.innerHTML = '<div style="font-size:11px;color:#94a3b8">Kosongkan bila produk tanpa ukuran/warna — pakai Harga jual &amp; Modal di atas.</div>'; return; }
+  const premiums = splitCsv('stockPremium').map(s => s.toLowerCase());
+  const priceRow = S.map((sz, i) => `<tr><td style="font-size:12px">${escapeHtml(sz || '(tanpa ukuran)')}</td>
+    <td><input type="text" class="vprice" data-i="${i}" inputmode="decimal" placeholder="Rp" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
+    <td><input type="text" class="vcost" data-i="${i}" inputmode="decimal" placeholder="Rp" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`).join('');
+  const stockRows = [];
+  S.forEach((sz, si) => C.forEach((cl, ci) => {
+    const prem = premiums.includes(String(cl).toLowerCase());
+    stockRows.push(`<tr><td style="font-size:12px">${escapeHtml([sz, cl].filter(Boolean).join(' / ') || '(tanpa varian)')}${prem ? ' <span title="warna premium">⭐</span>' : ''}</td>
+      <td><input type="number" class="vstock" data-s="${si}" data-c="${ci}" min="0" step="1" placeholder="0" style="width:96px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`);
+  }));
+  box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#475569;margin:6px 0 4px">Harga &amp; modal per ukuran:</div>
+    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Ukuran</th><th>Harga jual</th><th>Modal</th></tr></thead><tbody>${priceRow}</tbody></table></div>
+    <div style="font-size:11px;font-weight:700;color:#475569;margin:10px 0 4px">Stok tiap varian (ukuran × warna):</div>
+    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian</th><th>Stok</th></tr></thead><tbody>${stockRows.join('')}</tbody></table></div>
+    <div id="variantTotal" style="font-size:12px;color:#334155;margin-top:6px;font-weight:600"></div>`;
+  bindVariantRupiah();
+  updateVariantTotal();
+}
+function bindVariantRupiah() {
+  document.querySelectorAll('#variantGrid .vprice, #variantGrid .vcost').forEach(el => {
+    if (el.dataset.bind) return;
+    el.dataset.bind = '1';
+    bindRupiah(el);
+  });
+}
+export function updateVariantTotal() {
+  const el = document.getElementById('variantTotal');
+  if (!el) return;
+  const stocks = [...document.querySelectorAll('#variantGrid .vstock')].map(i => Math.max(parseInt(i.value || '0', 10) || 0, 0));
+  const total = stocks.reduce((s, n) => s + n, 0);
+  el.textContent = stocks.length ? `Total stok semua varian: ${total} pcs` : '';
 }
 function readVariantInputs() {
-  const sizes = String(document.getElementById('stockSizes')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-  const colors = String(document.getElementById('stockColors')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-  const S = sizes.length ? sizes : [''];
-  const C = colors.length ? colors : [''];
-  const combos = [];
-  S.forEach(sz => C.forEach(cl => combos.push({ size: sz, color: cl })));
-  if (combos.length <= 1) return [];
-  return combos.map((c, i) => {
-    const st = document.querySelector(`#variantGrid .vstock[data-i="${i}"]`);
-    const dc = document.querySelector(`#variantGrid .vdisc[data-i="${i}"]`);
-    return { size: c.size, color: c.color, stock: Math.max(parseInt(st?.value || '0', 10) || 0, 0), discountPct: Math.min(Math.max(Number(dc?.value) || 0, 0), 100) };
-  });
+  const { S, C, active } = variantCombos();
+  if (!active) return { variants: [], sizePricing: [] };
+  const premiums = splitCsv('stockPremium').map(s => s.toLowerCase());
+  const add = Math.round(Number(parseIdrInput(document.getElementById('stockPremiumAdd')?.value || '')) || 0);
+  const sizePricing = S.map((sz, i) => ({
+    size: sz,
+    price: Math.round(Number(parseIdrInput(document.querySelector(`#variantGrid .vprice[data-i="${i}"]`)?.value || '')) || 0),
+    cost: Math.round(Number(parseIdrInput(document.querySelector(`#variantGrid .vcost[data-i="${i}"]`)?.value || '')) || 0),
+  }));
+  const variants = [];
+  S.forEach((sz, si) => C.forEach((cl, ci) => {
+    const prem = premiums.includes(String(cl).toLowerCase());
+    const stock = Math.max(parseInt(document.querySelector(`#variantGrid .vstock[data-s="${si}"][data-c="${ci}"]`)?.value || '0', 10) || 0, 0);
+    const base = sizePricing[si] || { price: 0, cost: 0 };
+    variants.push({ size: sz, color: cl, stock, premium: prem, price: Math.round(base.price + (prem ? add : 0)), cost: base.cost });
+  }));
+  return { variants, sizePricing, premiumAdd: add };
 }
 export function fillStockForm(item) {
   document.getElementById('stockFormId').value = item?.id || '';
@@ -3439,10 +3479,11 @@ export function bindStock(onSave, onEdit, onDelete, onHistory) {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updateStockProfit);
   });
-  ['stockSizes', 'stockColors'].forEach(id => {
+  ['stockSizes', 'stockColors', 'stockPremium', 'stockPremiumAdd'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', renderVariantGrid);
   });
+  document.getElementById('variantGrid')?.addEventListener('input', updateVariantTotal);
   document.getElementById('stockSearch')?.addEventListener('input', (e) => {
     stockSearchTerm = e.target.value;
     document.dispatchEvent(new CustomEvent('wynara:stock-search'));

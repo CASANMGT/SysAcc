@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.38.0';
+const APP_VERSION = '1.39.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2937,19 +2937,25 @@ function handleStockSave() {
   const d = UI.getStockFormData();
   if (!d.name) return UI.showError('Nama barang wajib diisi');
   try {
-    // Buat banyak varian (ukuran × warna) untuk barang BARU — pakai stok/diskon per varian
-    const variants = Array.isArray(d.variants) ? d.variants : [];
-    if (!d.id && variants.length > 1) {
-      let created = 0;
+    // Varian: harga & modal per ukuran; warna ikut ukuran (premium + surcharge); stok per sel.
+    const vd = d.variantData || {};
+    const variants = Array.isArray(vd.variants) ? vd.variants : [];
+    if (!d.id && variants.length > 0) {
+      let created = 0, totalStock = 0;
       variants.forEach((v, i) => {
         const nm = `${d.name}${v.size ? ' • ' + v.size : ''}${v.color ? ' • ' + v.color : ''}`;
         try {
-          Storage.saveItem({ ...d, id: null, name: nm, sku: d.sku ? `${d.sku}-${i + 1}` : '', size: v.size, color: v.color, stock: v.stock, discountPct: v.discountPct != null ? v.discountPct : d.discountPct });
-          created++;
+          Storage.saveItem({
+            id: null, name: nm, sku: d.sku ? `${d.sku}-${i + 1}` : '',
+            size: v.size, color: v.color,
+            price: v.price || d.price, cost: v.cost != null ? v.cost : d.cost,
+            discountPct: d.discountPct, stock: v.stock, minStock: d.minStock,
+          });
+          created++; totalStock += v.stock;
         } catch {}
       });
       Storage.logAudit('create', 'item', '', null, { variants: created, base: d.name });
-      UI.showSuccess(`${created} varian “${d.name}” dibuat.`);
+      UI.showSuccess(`${created} varian “${d.name}” dibuat — total stok ${totalStock}.`);
       UI.resetStockForm();
       refreshStock();
       queueMirror();
