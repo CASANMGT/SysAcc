@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, getAllJournals } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, getAllJournals } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -83,6 +83,32 @@ describe('period lock', () => {
   });
   it('bulan invalid ditolak', () => {
     expect(() => lockMonth('ngawur')).toThrow();
+  });
+});
+
+describe('penegakan kunci periode di lapisan storage (V3)', () => {
+  const journalFor = (date) => ({
+    id: 'J-' + Math.random().toString(36).slice(2), date, memo: 'uji kunci',
+    lines: [{ account: '1101', debit: 1000, credit: 0 }, { account: '4101', debit: 0, credit: 1000 }],
+  });
+  it('createEntry + createLoan + postJournal + assertUnlocked ditolak di bulan terkunci', () => {
+    lockMonth('2026-09');
+    expect(() => createEntry({ date: '2026-09-03', type: 'expense', category: 'lainnya', amount: 1000 })).toThrow(/terkunci/);
+    expect(() => createLoan({ direction: 'given', person: 'Budi', amount: 1000, date: '2026-09-03' })).toThrow(/terkunci/);
+    expect(() => postJournal(journalFor('2026-09-05'))).toThrow(/terkunci/);
+    expect(() => assertUnlocked('2026-09-01')).toThrow(/terkunci/);
+  });
+  it('addRepayment di bulan terkunci ditolak, pinjaman lama tetap utuh', () => {
+    const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
+    lockMonth('2026-09');
+    expect(() => addRepayment({ loanId: loan.id, amount: 100000, date: '2026-09-10' })).toThrow(/terkunci/);
+    expect(getLoanById(loan.id).status).toBe('active');
+  });
+  it('bulan tak terkunci tetap bisa; setelah buka kunci normal lagi', () => {
+    lockMonth('2026-09');
+    expect(() => createEntry({ date: '2026-10-01', type: 'expense', category: 'lainnya', amount: 1000 })).not.toThrow();
+    unlockMonth('2026-09');
+    expect(() => createEntry({ date: '2026-09-03', type: 'expense', category: 'lainnya', amount: 1000 })).not.toThrow();
   });
 });
 

@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.22.5] - 2026-09-13
+
+### Fixed — Kunci periode ditegakkan di lapisan storage (V3 4 lubang ditutup)
+- `storage.js`: `assertUnlocked(date)` baru + dipanggil di `createEntry`, `createLoan`, `addRepayment`, `postJournal` — bulan terkunci kini **gagal**, bukan diam-diam lolos
+- `app.js`: `submitFormData` cek **tanggal tujuan** (menutup create-backdated entry/pinjaman/pelunasan); guard di `handleAdjustPost` (jurnal penyesuaian), `handleAssetPost` (penyusutan), `handleStockSave` (opname stok)
+- Recurring auto-post aman: bulan terkunci dilewati, tidak ditandai posted, diposting setelah dibuka
+- +3 test regresi kunci storage; 178/178 tests ✓
+
+---
+
 ## [1.22.4] - 2026-09-13
 
 ### Changed — Sinkron Online kini satu tombol saja

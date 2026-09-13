@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.22.4';
+const APP_VERSION = '1.22.5';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1161,7 +1161,12 @@ function handleFormSubmit() {
 }
 
 function submitFormData(data) {
-  // Kunci periode: transaksi bulan terkunci tak bisa diubah/dipindah
+  // Kunci periode: transaksi bulan terkunci tak bisa ditambah/diubah/dipindah.
+  // Cek tanggal tujuan dulu (menutup celah create-backdated), lalu tanggal lama saat edit.
+  if (data.date && Storage.isMonthLocked(data.date)) {
+    UI.showError(`Bulan ${String(data.date).slice(0, 7)} terkunci — buka di Pengaturan kalau mau ubah`);
+    return false;
+  }
   if (data.id) {
     const prev = Storage.getEntryById(data.id);
     if (prev && Storage.isMonthLocked(prev.date)) {
@@ -2753,6 +2758,10 @@ function handleStockSave() {
   if (!d.name) return UI.showError('Nama barang wajib diisi');
   try {
     const prev = d.id ? Storage.getItemById(d.id) : null;
+    const opnameDate = new Date().toISOString().split('T')[0];
+    if (prev && Number(d.stock) !== Number(prev.stock) && Storage.isMonthLocked(opnameDate)) {
+      return UI.showError(`Bulan ${opnameDate.slice(0, 7)} terkunci — stok tidak bisa disesuaikan`);
+    }
     const saved = Storage.saveItem(d);
     if (prev && saved.stock !== prev.stock) {
       const diff = saved.stock - prev.stock;
@@ -4091,6 +4100,7 @@ function handleAdjustPost() {
   const d = adjustAmount(document.getElementById('adjustDebitAmt'));
   const c = adjustAmount(document.getElementById('adjustCreditAmt'));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return UI.showError('Tanggal belum benar');
+  if (Storage.isMonthLocked(date)) return UI.showError(`Bulan ${date.slice(0, 7)} terkunci — buka di Pengaturan`);
   if (!memo) return UI.showError('Keterangan wajib diisi');
   if (!(d > 0)) return UI.showError('Nominal debit harus lebih dari 0');
   if (d !== c) return UI.showError('Jurnal pincang — debit dan kredit harus sama');
@@ -4176,6 +4186,7 @@ function handleAssetDelete(id) {
 
 function handleAssetPost() {
   const mk = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  if (Storage.isMonthLocked(`${mk}-01`)) return UI.showError(`Bulan ${mk} terkunci — buka di Pengaturan`);
   const id = `DEP-${mk}`;
   if (Storage.getAllJournals().some(j => j.id === id)) return UI.showInfo(`Penyusutan ${mk} sudah pernah diposting`);
   const total = Storage.getFixedAssets().reduce((s, a) => {

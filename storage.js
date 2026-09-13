@@ -54,6 +54,7 @@ export function createEntry(entry) {
   const entries = getEntries();
   const amount = Number(entry.amount);
   if (!isFinite(amount) || amount <= 0) throw new Error('Jumlah tidak valid');
+  assertUnlocked(entry.date);
   const newEntry = {
     id: generateId(),
     date: entry.date,
@@ -1007,6 +1008,7 @@ export function createLoan(loan) {
   const amount = Number(loan.amount);
   if (!isFinite(amount) || amount <= 0) throw new Error('Jumlah pinjaman tidak valid');
   if (!loan.person || !String(loan.person).trim()) throw new Error('Nama kontak wajib');
+  assertUnlocked(loan.date);
   const newLoan = {
     id: generateId(),
     direction: loan.direction === 'taken' ? 'taken' : 'given',
@@ -1113,6 +1115,7 @@ export function addRepayment(repayment) {
   if (!loan) throw new Error('Pinjaman tidak ditemukan');
   const amount = Number(repayment.amount);
   if (!isFinite(amount) || amount <= 0) throw new Error('Jumlah bayar tidak valid');
+  assertUnlocked(repayment.date);
   const repayments = getRepayments();
   const newRep = {
     id: generateId(),
@@ -1586,6 +1589,7 @@ export function getAllJournals() {
 
 export function postJournal(j) {
   if (!j || !Array.isArray(j.lines) || !j.lines.length) throw new Error('Jurnal tidak valid');
+  if (j.date) assertUnlocked(j.date); // kunci periode ditegakkan di sini juga
   const d = j.lines.reduce((s, l) => s + (Number(l.debit) || 0), 0);
   const c = j.lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
   if (!(Math.abs(d - c) < 0.005 && d > 0)) throw new Error('Jurnal tidak balance');
@@ -2050,6 +2054,15 @@ export function isMonthLocked(dateStr) {
   const m = String(dateStr || '').slice(0, 7);
   if (!/^\d{4}-\d{2}$/.test(m)) return false;
   return getLockedMonths().includes(m);
+}
+
+// Penegakan kunci di lapisan storage (bukan hanya UI): money-path apa pun
+// yang menyentuh bulan terkunci harus GAGAL, bukan diam-diam lolos.
+export function assertUnlocked(dateStr) {
+  if (isMonthLocked(dateStr)) {
+    const m = String(dateStr || '').slice(0, 7);
+    throw new Error(`Bulan ${m} terkunci — buka kunci di Pengaturan untuk mengubah`);
+  }
 }
 
 export function lockMonth(mm) {
