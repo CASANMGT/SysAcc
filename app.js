@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.51.0';
+const APP_VERSION = '1.52.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -955,6 +955,11 @@ function bindEvents() {
   document.getElementById('stockAddBtn')?.addEventListener('click', () => { UI.resetStockForm(); UI.openStock(); });
   document.getElementById('stockImportPageBtn')?.addEventListener('click', () => openImport('products'));
   document.getElementById('stockPageSearch')?.addEventListener('input', refreshStockPage);
+  document.getElementById('shopSelect')?.addEventListener('change', (e) => {
+    try { Storage.setActiveShopId(e.target.value); } catch {}
+    refreshStockPage();
+    refreshStock();
+  });
   document.getElementById('stockPageFilter')?.addEventListener('click', (e) => {
     const c = e.target.closest('.chip'); if (!c) return;
     stockPageFilter = c.dataset.f || 'all';
@@ -3027,7 +3032,19 @@ function refreshStock() {
 let stockPageFilter = 'all';
 function refreshStockPage() {
   const term = document.getElementById('stockPageSearch')?.value || '';
-  UI.renderStockPage(Storage.getStockGroups(), { term, filter: stockPageFilter });
+  const shopId = Storage.getActiveShopId();
+  const shopName = (Storage.getShops().find(s => s.id === shopId) || {}).name || '';
+  renderShopSelect();
+  UI.renderStockPage(Storage.getStockGroups(), { term, filter: stockPageFilter, shopId, shopName });
+  const qtyLabel = document.getElementById('stockQtyLabel');
+  if (qtyLabel) qtyLabel.textContent = `Punya berapa? (${shopName})`;
+}
+function renderShopSelect() {
+  const sel = document.getElementById('shopSelect');
+  if (!sel) return;
+  const shops = Storage.getShops();
+  const active = Storage.getActiveShopId();
+  sel.innerHTML = shops.map(s => `<option value="${s.id}" ${s.id === active ? 'selected' : ''}>🏬 ${escapeHtml(s.name)}</option>`).join('');
 }
 function handleStockRestockGroup(key) {
   const g = Storage.getStockGroups().find(x => x.key === key);
@@ -5080,6 +5097,33 @@ function openSettings() {
   };
   wireRolePin('akuntan', 'akuntanPinInput', 'akuntanPinSave', 'akuntanPinOff', 'Akuntan');
   wireRolePin('hrd', 'hrdPinInput', 'hrdPinSave', 'hrdPinOff', 'HRD');
+  // Toko / lokasi (multi-toko)
+  const renderShops = () => {
+    const box = document.getElementById('shopList');
+    if (!box) return;
+    const shops = Storage.getShops();
+    const active = Storage.getActiveShopId();
+    box.innerHTML = shops.map(s => `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px"><span style="flex:1">🏬 ${escapeHtml(s.name)} ${s.id === active ? '<small style="color:#64748b">(aktif)</small>' : ''}</span>${shops.length > 1 ? `<button type="button" data-shopdel="${s.id}" style="background:none;border:none;color:#ef4444;cursor:pointer" title="Hapus toko">✕</button>` : ''}</div>`).join('');
+    box.querySelectorAll('[data-shopdel]').forEach(b => { b.onclick = () => {
+      if (!confirm('Hapus toko ini? Stok di toko ini tidak lagi ditampilkan.')) return;
+      try {
+        Storage.saveShops(Storage.getShops().filter(x => x.id !== b.dataset.shopdel));
+        if (Storage.getActiveShopId() === b.dataset.shopdel) Storage.setActiveShopId(Storage.getShops()[0].id);
+        renderShops(); UI.showSuccess('Toko dihapus');
+      } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menghapus toko'); }
+    }; });
+  };
+  renderShops();
+  const shopAdd = document.getElementById('shopAddBtn');
+  if (shopAdd) shopAdd.onclick = () => {
+    const name = (document.getElementById('shopNameInput')?.value || '').trim();
+    if (!name) return UI.showError('Isi nama toko dulu');
+    try {
+      Storage.saveShops(Storage.getShops().concat([{ id: 'S' + Date.now().toString(36), name }]));
+      const inp = document.getElementById('shopNameInput'); if (inp) inp.value = '';
+      renderShops(); UI.showSuccess('Toko ditambahkan');
+    } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menambah toko'); }
+  };
   // Anggaran per kategori
   const catSel = document.getElementById('catBudgetSelect');
   const catAmt = document.getElementById('catBudgetAmount');

@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.52.0] - 2026-09-13
+
+### Added — Multi-toko (stok per lokasi)
+- **Pengaturan → 🏬 Toko / Lokasi**: tambah/hapus toko
+- **Halaman Stok**: pilih **toko aktif**; stok & peringatan "menipis" dihitung per toko; total semua toko tetap ditampilkan
+- Item menyimpan stok **per toko** (`stocks{}`), `stock` = total; jual/beli/restock/opname berlaku pada toko aktif
+- Kartu stok mencatat toko; sinkron & backup menyertakan daftar toko
+- +2 test; 258/258 tests ✓
+
+---
+
 ## [1.51.0] - 2026-09-13
 
 ### Added — Masuk dengan email (pulihkan data dari cloud)

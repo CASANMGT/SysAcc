@@ -23,7 +23,7 @@ export const RECORD_TABLES = {
 export const KV_KEYS = [
   'wynara_locks', 'wynara_budget', 'wynara_equity', 'wynara_recurring',
   'wynara_catBudget', 'wynara_ppn', 'wynara_opening', 'wynara_coa_custom',
-  'wynara_counters', 'wynara_leave', 'wynara_ump',
+  'wynara_counters', 'wynara_leave', 'wynara_ump', 'wynara_shops',
 ];
 export const DRAFT_KEY = 'wynara_payroll_drafts'; // dipecah per bulan: draft:YYYY-MM
 export const TOMB_PREFIX = 'tomb:';

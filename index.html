@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.51.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.52.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.51.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.52.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -546,6 +546,7 @@
               <p id="stockPageSubtitle">0 produk</p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select id="shopSelect" title="Toko / lokasi aktif" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;background:white"></select>
               <button class="btn btn-primary" id="stockAddBtn">＋ Tambah produk</button>
               <button class="btn btn-ghost" id="stockImportPageBtn">📥 Import produk</button>
             </div>
@@ -1259,7 +1260,7 @@
             <label style="flex:1 1 120px;font-size:11px;color:#64748b">🏷️ Diskon (%) <input type="number" id="stockDiscount" min="0" max="100" step="1" placeholder="0" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
             <label style="flex:1 1 170px;font-size:11px;color:#64748b">💰 Harga jual / pcs <input type="text" id="stockPrice" placeholder="Rp" inputmode="decimal" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
             <label style="flex:1 1 170px;font-size:11px;color:#64748b">🛒 Modal / pcs <input type="text" id="stockCost" placeholder="Rp" inputmode="decimal" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
-            <label style="flex:1 1 140px;font-size:11px;color:#64748b">📚 Punya berapa? <input type="number" id="stockQty" placeholder="0" min="0" step="1" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
+            <label style="flex:1 1 140px;font-size:11px;color:#64748b">📚 <span id="stockQtyLabel">Punya berapa?</span> <input type="number" id="stockQty" placeholder="0" min="0" step="1" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
             <label style="flex:1 1 140px;font-size:11px;color:#64748b" title="Diingatkan kalau sisa segini">🔔 Ingatkan kalau sisa <input type="number" id="stockMin" placeholder="0" min="0" step="1" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
           </div>
           <div id="stockProfit" style="margin-top:10px"></div>
@@ -1748,6 +1749,15 @@
           </div>
           <div id="rolePinHint" style="font-size:11px;color:#64748b;margin-top:4px"></div>
         </div>
+        <div class="form-group" data-owner-only>
+          <label>🏬 Toko / Lokasi (multi-toko)</label>
+          <div id="shopList" style="display:flex;flex-direction:column;gap:6px;margin-top:6px"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <input type="text" id="shopNameInput" placeholder="Nama toko baru" maxlength="40" style="flex:1;min-width:140px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <button type="button" class="btn btn-ghost" id="shopAddBtn">＋ Tambah toko</button>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Stok dicatat per toko. Pilih toko aktif di halaman Stok.</div>
+        </div>
         <div class="form-group">
           <label>🏦 Aset Tetap</label>
           <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
@@ -1991,7 +2001,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.51.0';
+    window.__htmlVersion = '1.52.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

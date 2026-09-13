@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -193,6 +193,29 @@ describe('updateLoan', () => {
     const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
     updateLoan(loan.id, { status: 'paid' });
     expect(getLoanById(loan.id).status).toBe('paid');
+  });
+});
+
+describe('multi-toko (stok per lokasi)', () => {
+  it('stok dicatat per toko + total; jual kurangi toko aktif saja', () => {
+    saveShops([{ id: 'main', name: 'Toko Utama' }, { id: 'b', name: 'Cabang' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'Kopi', price: 10000, stock: 5 });
+    setActiveShopId('b');
+    const it2 = saveItem({ id: it.id, name: 'Kopi', price: 10000, stock: 3 });
+    expect(shopStockOf(it2, 'main')).toBe(5);
+    expect(shopStockOf(it2, 'b')).toBe(3);
+    expect(it2.stock).toBe(8);
+    applyStockMove(it.id, { qtyOut: 2 });
+    const after = getItemById(it.id);
+    expect(shopStockOf(after, 'b')).toBe(1);
+    expect(shopStockOf(after, 'main')).toBe(5);
+  });
+  it('applyStockMove menolak bila stok toko itu kurang', () => {
+    saveShops([{ id: 'main', name: 'Toko Utama' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'Teh', price: 5000, stock: 1 });
+    expect(() => applyStockMove(it.id, { qtyOut: 5 })).toThrow(/kurang/);
   });
 });
 

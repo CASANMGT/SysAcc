@@ -1497,6 +1497,7 @@ export function snapshotAll() {
     locks: getLockedMonths(),
     purchases: getPurchases(),
     drafts: (() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch { return {}; } })(),
+    shops: getShops(),
     exportedAt: new Date().toISOString(),
     version: 3
   };
@@ -1581,6 +1582,7 @@ export function dataHealthCheck() {
 // Return { entries, loans, repayments, people } jumlah yang masuk.
 export function restoreAll(snap) {
   if (!snap || typeof snap !== 'object') throw new Error('Snapshot tidak valid');
+  if (Array.isArray(snap.shops) && snap.shops.length) { try { saveShops(snap.shops); } catch {} }
   let cE = 0, cL = 0, cR = 0, cP = 0;
   if (Array.isArray(snap.entries)) {
     const valid = snap.entries.map(sanitizeEntry).filter(Boolean);
@@ -1904,12 +1906,57 @@ export function itemVariantLabel(item) {
   return [item && item.size, item && item.color].filter(Boolean).join(' / ');
 }
 
+// ===== Toko / lokasi (multi-toko) =====
+const SHOP_KEY = 'wynara_shops';
+const ACTIVE_SHOP_KEY = 'wynara_active_shop';
+export function getShops() {
+  try {
+    const v = JSON.parse(localStorage.getItem(SHOP_KEY) || 'null');
+    if (Array.isArray(v) && v.length) return v.map(s => ({ id: String(s.id), name: String(s.name) }));
+  } catch {}
+  return [{ id: 'main', name: 'Toko Utama' }];
+}
+export function saveShops(list) {
+  requireCap('settings');
+  const clean = (Array.isArray(list) ? list : [])
+    .map(s => ({ id: String(s.id || '').trim().slice(0, 30), name: String(s.name || '').trim().slice(0, 40) }))
+    .filter(s => s.id && s.name);
+  if (!clean.length) throw new Error('Minimal satu toko');
+  try { localStorage.setItem(SHOP_KEY, JSON.stringify(clean)); } catch {}
+  return clean;
+}
+export function getActiveShopId() {
+  try {
+    const id = localStorage.getItem(ACTIVE_SHOP_KEY);
+    const shops = getShops();
+    if (id && shops.some(s => s.id === id)) return id;
+    return shops[0].id;
+  } catch { return 'main'; }
+}
+export function setActiveShopId(id) {
+  const shops = getShops();
+  const found = shops.find(s => s.id === id);
+  if (!found) throw new Error('Toko tidak dikenal');
+  try { localStorage.setItem(ACTIVE_SHOP_KEY, found.id); } catch {}
+  return found.id;
+}
+// Stok sebuah barang DI toko tertentu (fallback ke stok tunggal lama).
+export function shopStockOf(item, shopId) {
+  const s = shopId || getActiveShopId();
+  if (item && item.stocks && typeof item.stocks === 'object') return Math.max(Math.floor(Number(item.stocks[s]) || 0), 0);
+  return Math.max(Math.floor(Number(item && item.stock) || 0), 0);
+}
+
 export function saveItem(item) {
   requireCap('ledger');
   const list = getItems();
   const name = String(item.name || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
   if (!name) throw new Error('Nama barang wajib');
-  const stock = Math.max(Math.floor(Number(item.stock) || 0), 0);
+  const shopId = getActiveShopId();
+  const prevItem = list.find(i => i.id === (item.id || ''));
+  const stocks = (prevItem && prevItem.stocks && typeof prevItem.stocks === 'object') ? { ...prevItem.stocks } : {};
+  stocks[shopId] = Math.max(Math.floor(Number(item.stock) || 0), 0);
+  const stock = Object.values(stocks).reduce((s, n) => s + Math.max(Math.floor(Number(n) || 0), 0), 0);
   const cost = Math.max(Number(item.cost) || 0, 0);
   const price = Math.max(Number(item.price) || 0, 0);
   const minStock = Math.max(Math.floor(Number(item.minStock) || 0), 0);
@@ -1921,7 +1968,7 @@ export function saveItem(item) {
     size: String(item.size || '').slice(0, 20),
     color: String(item.color || '').slice(0, 20),
     discountPct,
-    stock, cost, price, minStock,
+    stocks, stock, cost, price, minStock,
     updatedAt: new Date().toISOString()
   };
   if (item.groupId) rec.groupId = String(item.groupId).slice(0, 40);
@@ -1945,27 +1992,32 @@ export function deleteItem(id) {
 
 // Stok + rata-rata tertimbang. qtyOut untuk jual (cek stok), qtyIn untuk beli.
 // keepCost: tambah stok tanpa ubah rata-rata (untuk reversal).
-export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, keepCost = false, ref = '', note = '' } = {}) {
+export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, keepCost = false, ref = '', note = '', shop } = {}) {
   const list = getItems();
   const idx = list.findIndex(i => i.id === itemId);
   if (idx === -1) throw new Error('Barang tidak ditemukan');
   const it = { ...list[idx] };
+  const shopId = shop || getActiveShopId();
+  if (!it.stocks || typeof it.stocks !== 'object') it.stocks = { [shopId]: Math.max(Math.floor(Number(it.stock) || 0), 0) };
+  const cur = Math.max(Math.floor(Number(it.stocks[shopId]) || 0), 0);
   const qi = Math.max(Math.floor(Number(qtyIn) || 0), 0);
   const qo = Math.max(Math.floor(Number(qtyOut) || 0), 0);
-  if (qo > it.stock) throw new Error(`Stok ${it.name} kurang (sisa ${it.stock})`);
+  if (qo > cur) throw new Error(`Stok ${it.name} di toko ini kurang (sisa ${cur})`);
+  const totalQty = Object.values(it.stocks).reduce((s, n) => s + Math.max(Math.floor(Number(n) || 0), 0), 0);
   if (qi > 0) {
     if (!keepCost) {
       const c = Math.max(Number(unitCost) || 0, 0);
-      it.cost = it.stock + qi > 0 ? Math.round(((it.stock * it.cost) + (qi * c)) / (it.stock + qi)) : c;
+      it.cost = totalQty + qi > 0 ? Math.round(((totalQty * it.cost) + (qi * c)) / (totalQty + qi)) : c;
     }
-    it.stock += qi;
+    it.stocks[shopId] = cur + qi;
   }
-  if (qo > 0) it.stock -= qo;
+  if (qo > 0) it.stocks[shopId] = (it.stocks[shopId] || cur) - qo;
+  it.stock = Object.values(it.stocks).reduce((s, n) => s + Math.max(Math.floor(Number(n) || 0), 0), 0);
   it.updatedAt = new Date().toISOString();
   list[idx] = it;
   localStorage.setItem(ITEM_KEY, JSON.stringify(list));
   if (qi > 0 || qo > 0) {
-    try { recordStockMove({ itemId, qtyIn: qi, qtyOut: qo, unitCost: Math.max(Number(unitCost) || 0, 0), balance: it.stock, ref, note }); } catch {}
+    try { recordStockMove({ itemId, qtyIn: qi, qtyOut: qo, unitCost: Math.max(Number(unitCost) || 0, 0), balance: it.stocks[shopId], ref, note, shop: shopId }); } catch {}
   }
   return it;
 }
@@ -1979,15 +2031,18 @@ function recordStockMove(m) {
     id: generateId(), ts: new Date().toISOString(),
     itemId: m.itemId, qtyIn: m.qtyIn || 0, qtyOut: m.qtyOut || 0,
     unitCost: m.unitCost || 0, balance: m.balance || 0, ref: String(m.ref || ''), note: String(m.note || ''),
+    shop: String(m.shop || ''),
   });
   if (list.length > 2000) list = list.slice(0, 2000);
   localStorage.setItem(MOVE_KEY, JSON.stringify(list));
 }
-export function getStockMoves(itemId) {
+export function getStockMoves(itemId, shopId) {
   try {
     const v = JSON.parse(localStorage.getItem(MOVE_KEY) || '[]');
-    const list = Array.isArray(v) ? v : [];
-    return (itemId ? list.filter(m => m.itemId === itemId) : list);
+    let list = Array.isArray(v) ? v : [];
+    if (itemId) list = list.filter(m => m.itemId === itemId);
+    if (shopId) list = list.filter(m => !m.shop || m.shop === shopId);
+    return list;
   } catch { return []; }
 }
 
