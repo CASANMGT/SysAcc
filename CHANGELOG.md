@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.62.0] - 2026-09-14
+
+### Changed — Satu alur harga & varian (hapus input ganda)
+- Hapus kebingungan **dua set input ukuran/warna**: kini ada **satu toggle** di langkah 3 — **📦 Produk tunggal** vs **🎨 Bervarian (ukuran/warna)**
+- **Tunggal**: Ukuran/Warna tunggal + stok; **Bervarian**: daftar ukuran/warna + matriks stok/SKU/barcode
+- Pemetaan bersih per langkah: **Harga** (tunggal *atau* tabel harga per ukuran) di langkah 2; **Stok & varian** di langkah 3 — tidak ada lagi tabel harga di langkah stok
+- Harga tunggal & harga per-ukuran tidak lagi tampil bersamaan (tergantung mode)
+- +1 test regresi (tidak ada input duplikat, posisi grid benar); 274/274 tests ✓
+
+---
+
 ## [1.61.0] - 2026-09-14
 
 ### Changed — Desain "movement-first" halaman Stok

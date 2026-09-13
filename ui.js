@@ -3341,7 +3341,7 @@ export function openStock() {
   if (title) title.textContent = id ? '✎ Edit produk' : '＋ Tambah produk';
   if (panel && typeof panel.scrollIntoView === 'function') { try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {} }
   setStockStep(1);
-  renderVariantGrid();
+  setStockVariantMode('single');
   updateStockProfit();
   setTimeout(() => document.getElementById('stockName')?.focus(), 40);
 }
@@ -3505,37 +3505,57 @@ export function getStockFormData() {
     minStock: Math.max(parseInt(document.getElementById('stockMin')?.value || '0', 10) || 0, 0),
     sizes: document.getElementById('stockSizes')?.value.trim() || '',
     colors: document.getElementById('stockColors')?.value.trim() || '',
+    variant: stockVariantMode,
     variantData: readVariantInputs()
   };
 }
-// Varian: harga & modal PER UKURAN; warna ikut harga ukuran (premium + surcharge);
-// stok diisi tiap sel ukuran × warna.
+// Varian: SATU alur. Mode "single" = produk tunggal; mode "variant" = matriks ukuran×warna.
+// Harga & modal per ukuran di langkah 2; stok/SKU/barcode per varian di langkah 3.
+let stockVariantMode = 'single';
 function splitCsv(id) {
   return String(document.getElementById(id)?.value || '').split(',').map(s => s.trim()).filter(Boolean);
 }
 function variantCombos() {
   const sizes = splitCsv('stockSizes');
   const colors = splitCsv('stockColors');
-  const S = sizes.length ? sizes : [''];
-  const C = colors.length ? colors : [''];
-  return { sizes, colors, S, C, active: sizes.length > 0 || colors.length > 0 };
+  return { sizes, colors, S: sizes.length ? sizes : [''], C: colors.length ? colors : [''] };
 }
-export function renderVariantGrid() {
-  const box = document.getElementById('variantGrid');
-  if (!box) return;
-  const { S, C, active } = variantCombos();
-  // Sembunyikan harga/stok/ukuran-tunggal pusat saat pakai varian
-  ['stockPrice', 'stockCost', 'stockQty', 'stockSize', 'stockColor'].forEach(id => {
-    const l = document.getElementById(id)?.closest('label');
-    if (l) l.style.display = active ? 'none' : '';
-  });
+export function setStockVariantMode(mode) {
+  stockVariantMode = mode === 'variant' ? 'variant' : 'single';
+  applyVariantMode();
+}
+export function getStockVariantMode() { return stockVariantMode; }
+export function applyVariantMode() {
+  const variant = stockVariantMode === 'variant';
+  const sv = document.getElementById('singleVariantFields'); if (sv) sv.hidden = variant;
+  const mv = document.getElementById('multiVariantFields'); if (mv) mv.hidden = !variant;
+  const sp = document.getElementById('stockSinglePriceWrap'); if (sp) sp.hidden = variant;
+  const sc = document.getElementById('stockSingleCostWrap'); if (sc) sc.hidden = variant;
+  const vp = document.getElementById('stockVariantPricing'); if (vp) vp.hidden = !variant;
+  document.querySelectorAll('#stockVariantMode .chip').forEach(c => c.classList.toggle('selected', (c.dataset.mode === 'variant') === variant));
   const profitBox = document.getElementById('stockProfit');
-  if (profitBox && active) profitBox.innerHTML = '';
-  if (!active) { box.innerHTML = '<div style="font-size:11px;color:#94a3b8">Kosongkan bila produk tanpa ukuran/warna — pakai Harga jual &amp; Modal di atas.</div>'; return; }
-  const premiums = splitCsv('stockPremium').map(s => s.toLowerCase());
+  if (profitBox && variant) profitBox.innerHTML = '';
+  renderVariantPricing();
+  renderVariantStock();
+  if (!variant) updateStockProfit();
+}
+export function renderVariantPricing() {
+  const box = document.getElementById('variantPriceGrid');
+  if (!box) return;
+  if (stockVariantMode !== 'variant') { box.innerHTML = ''; return; }
+  const { S } = variantCombos();
   const priceRow = S.map((sz, i) => `<tr><td style="font-size:12px">${escapeHtml(sz || '(tanpa ukuran)')}</td>
     <td><input type="text" class="vprice" data-i="${i}" inputmode="decimal" placeholder="Rp" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
     <td><input type="text" class="vcost" data-i="${i}" inputmode="decimal" placeholder="Rp" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`).join('');
+  box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Ukuran</th><th>Harga jual</th><th>Modal</th></tr></thead><tbody>${priceRow}</tbody></table></div>`;
+  bindVariantRupiah();
+}
+export function renderVariantStock() {
+  const box = document.getElementById('variantStockGrid');
+  if (!box) return;
+  if (stockVariantMode !== 'variant') { box.innerHTML = ''; return; }
+  const { S, C } = variantCombos();
+  const premiums = splitCsv('stockPremium').map(s => s.toLowerCase());
   const stockRows = [];
   S.forEach((sz, si) => C.forEach((cl, ci) => {
     const prem = premiums.includes(String(cl).toLowerCase());
@@ -3544,16 +3564,12 @@ export function renderVariantGrid() {
       <td><input type="text" class="vsku" data-s="${si}" data-c="${ci}" maxlength="30" placeholder="SKU" style="width:110px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
       <td><input type="text" class="vbar" data-s="${si}" data-c="${ci}" maxlength="40" placeholder="barcode" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`);
   }));
-  box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#475569;margin:6px 0 4px">Harga &amp; modal per ukuran:</div>
-    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Ukuran</th><th>Harga jual</th><th>Modal</th></tr></thead><tbody>${priceRow}</tbody></table></div>
-    <div style="font-size:11px;font-weight:700;color:#475569;margin:10px 0 4px">Stok, SKU &amp; barcode tiap varian (ukuran × warna):</div>
-    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian</th><th>Stok</th><th>SKU</th><th>Barcode</th></tr></thead><tbody>${stockRows.join('')}</tbody></table></div>
+  box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian (ukuran × warna)</th><th>Stok</th><th>SKU</th><th>Barcode</th></tr></thead><tbody>${stockRows.join('')}</tbody></table></div>
     <div id="variantTotal" style="font-size:12px;color:#334155;margin-top:6px;font-weight:600"></div>`;
-  bindVariantRupiah();
   updateVariantTotal();
 }
 function bindVariantRupiah() {
-  document.querySelectorAll('#variantGrid .vprice, #variantGrid .vcost').forEach(el => {
+  document.querySelectorAll('.vprice, .vcost').forEach(el => {
     if (el.dataset.bind) return;
     el.dataset.bind = '1';
     bindRupiah(el);
@@ -3566,35 +3582,33 @@ export function setStockStep(n) {
   const back = document.getElementById('stockStepBack'); if (back) back.hidden = stockWizardStep === 1;
   const next = document.getElementById('stockStepNext'); if (next) next.hidden = stockWizardStep === 3;
   const save = document.getElementById('stockStepSave'); if (save) save.hidden = stockWizardStep !== 3;
-  const note = document.getElementById('stockVariantPriceNote');
-  if (note) note.hidden = !(stockWizardStep === 2 && variantCombos().active);
-  if (stockWizardStep === 3) renderVariantGrid();
-  if (stockWizardStep === 2) updateStockProfit();
+  if (stockWizardStep === 3) renderVariantStock();
+  if (stockWizardStep === 2) { renderVariantPricing(); updateStockProfit(); }
 }
 export function getStockStep() { return stockWizardStep; }
 export function updateVariantTotal() {
   const el = document.getElementById('variantTotal');
   if (!el) return;
-  const stocks = [...document.querySelectorAll('#variantGrid .vstock')].map(i => Math.max(parseInt(i.value || '0', 10) || 0, 0));
+  const stocks = [...document.querySelectorAll('.vstock')].map(i => Math.max(parseInt(i.value || '0', 10) || 0, 0));
   const total = stocks.reduce((s, n) => s + n, 0);
   el.textContent = stocks.length ? `Total stok semua varian: ${total} pcs` : '';
 }
 function readVariantInputs() {
-  const { S, C, active } = variantCombos();
-  if (!active) return { variants: [], sizePricing: [] };
+  if (stockVariantMode !== 'variant') return { variants: [], sizePricing: [] };
+  const { S, C } = variantCombos();
   const premiums = splitCsv('stockPremium').map(s => s.toLowerCase());
   const add = Math.round(Number(parseIdrInput(document.getElementById('stockPremiumAdd')?.value || '')) || 0);
   const sizePricing = S.map((sz, i) => ({
     size: sz,
-    price: Math.round(Number(parseIdrInput(document.querySelector(`#variantGrid .vprice[data-i="${i}"]`)?.value || '')) || 0),
-    cost: Math.round(Number(parseIdrInput(document.querySelector(`#variantGrid .vcost[data-i="${i}"]`)?.value || '')) || 0),
+    price: Math.round(Number(parseIdrInput(document.querySelector(`.vprice[data-i="${i}"]`)?.value || '')) || 0),
+    cost: Math.round(Number(parseIdrInput(document.querySelector(`.vcost[data-i="${i}"]`)?.value || '')) || 0),
   }));
   const variants = [];
   S.forEach((sz, si) => C.forEach((cl, ci) => {
     const prem = premiums.includes(String(cl).toLowerCase());
-    const stock = Math.max(parseInt(document.querySelector(`#variantGrid .vstock[data-s="${si}"][data-c="${ci}"]`)?.value || '0', 10) || 0, 0);
-    const vsku = String(document.querySelector(`#variantGrid .vsku[data-s="${si}"][data-c="${ci}"]`)?.value || '').trim();
-    const vbar = String(document.querySelector(`#variantGrid .vbar[data-s="${si}"][data-c="${ci}"]`)?.value || '').trim();
+    const stock = Math.max(parseInt(document.querySelector(`.vstock[data-s="${si}"][data-c="${ci}"]`)?.value || '0', 10) || 0, 0);
+    const vsku = String(document.querySelector(`.vsku[data-s="${si}"][data-c="${ci}"]`)?.value || '').trim();
+    const vbar = String(document.querySelector(`.vbar[data-s="${si}"][data-c="${ci}"]`)?.value || '').trim();
     const base = sizePricing[si] || { price: 0, cost: 0 };
     variants.push({ size: sz, color: cl, stock, premium: prem, sku: vsku, barcode: vbar, price: Math.round(base.price + (prem ? add : 0)), cost: base.cost });
   }));
@@ -3641,7 +3655,7 @@ export function resetStockForm() {
   document.getElementById('stockForm')?.reset();
   document.getElementById('stockFormId').value = '';
   setStockStep(1);
-  renderVariantGrid();
+  setStockVariantMode('single');
   updateStockProfit();
 }
 export function bindStock(onSave, onEdit, onDelete, onHistory) {
@@ -3664,9 +3678,10 @@ export function bindStock(onSave, onEdit, onDelete, onHistory) {
   });
   ['stockSizes', 'stockColors', 'stockPremium', 'stockPremiumAdd'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', renderVariantGrid);
+    if (el) el.addEventListener('input', applyVariantMode);
   });
-  document.getElementById('variantGrid')?.addEventListener('input', updateVariantTotal);
+  document.querySelectorAll('#stockVariantMode .chip').forEach(c => c.addEventListener('click', () => setStockVariantMode(c.dataset.mode)));
+  document.getElementById('variantStockGrid')?.addEventListener('input', updateVariantTotal);
   document.getElementById('stockSearch')?.addEventListener('input', (e) => {
     stockSearchTerm = e.target.value;
     document.dispatchEvent(new CustomEvent('wynara:stock-search'));

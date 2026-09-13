@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.61.0';
+const APP_VERSION = '1.62.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3402,7 +3402,9 @@ function handleStockSave() {
   try {
     // Varian: harga & modal per ukuran; warna ikut ukuran (premium + surcharge); stok per sel.
     const vd = d.variantData || {};
-    const variants = Array.isArray(vd.variants) ? vd.variants : [];
+    const variants = (d.variant === 'variant' && Array.isArray(vd.variants))
+      ? vd.variants.filter(v => v && (v.size || v.color))
+      : [];
     if (!d.id && variants.length > 0) {
       let created = 0, totalStock = 0;
       const groupId = 'G' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -3432,6 +3434,11 @@ function handleStockSave() {
     const opnameDate = new Date().toISOString().split('T')[0];
     if (prev && Number(d.stock) !== Number(prev.stock) && Storage.isMonthLocked(opnameDate)) {
       return UI.showError(`Bulan ${opnameDate.slice(0, 7)} terkunci — stok tidak bisa disesuaikan`);
+    }
+    // Fallback: mode varian tanpa ukuran/warna terisi → pakai harga per ukuran pertama bila ada.
+    if (!(Number(d.price) > 0) && Array.isArray(vd.sizePricing) && vd.sizePricing[0]) {
+      d.price = Number(vd.sizePricing[0].price) || 0;
+      d.cost = Number(vd.sizePricing[0].cost) || 0;
     }
     const saved = Storage.saveItem(d);
     if (prev && saved.stock !== prev.stock) {

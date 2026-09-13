@@ -135,6 +135,21 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(document.getElementById('stockActionSheet')).toBeTruthy();
     ['saAdd', 'saAdjust', 'saTransfer', 'saHistory', 'saJual', 'saEdit', 'saDelete'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
   });
+  it('form produk satu alur: toggle Tunggal/Bervarian tanpa input ganda', () => {
+    const mode = document.getElementById('stockVariantMode');
+    expect(mode.querySelectorAll('.chip').length).toBe(2);
+    expect(document.getElementById('singleVariantFields')).toBeTruthy();
+    expect(document.getElementById('multiVariantFields')).toBeTruthy();
+    // hanya satu input untuk tiap peran (tidak ada duplikat)
+    expect(document.querySelectorAll('#stockSizes').length).toBe(1);
+    expect(document.querySelectorAll('#stockColors').length).toBe(1);
+    expect(document.querySelectorAll('#stockSize').length).toBe(1);
+    expect(document.querySelectorAll('#stockColor').length).toBe(1);
+    // harga varian di langkah 2, stok varian di langkah 3
+    expect(document.getElementById('variantPriceGrid').closest('.stock-step').dataset.step).toBe('2');
+    expect(document.getElementById('variantStockGrid').closest('.stock-step').dataset.step).toBe('3');
+    expect(document.getElementById('stockVariantPriceNote')).toBe(null);
+  });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
     expect(seg.length).toBeGreaterThan(0);
