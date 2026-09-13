@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.22.0] - 2026-09-11
+
+### Added — Sinkron Online Supabase, local-first (B1 groundwork)
+- `supabase/schema.sql`: 2 tabel generik (`wynara_records`, `wynara_kv`) + RLS per user — tempel di SQL Editor
+- `supabase.js`: REST murni tanpa SDK (aturan no-build terjaga); auth email + refresh token; gabung last-write-wins per baris (seri → lokal), hapus via tombstone 30 hari, throttle 60 dtk menumpang mirror, dot status ☁️ topbar
+- UI minimal: section Sinkron di Pengaturan (URL + anon key + login + status) — tanpa nav baru, kasir tak melihat
+- 11 test merge/sync tanpa network (1 test menangkap bug `Date.parse(0)` pra-produksi)
+- **Belum aktif tanpa kredensial**: butuh Project URL + anon key (JANGAN service_role) → F4 tetap 52 sampai first-sync hijau
+- 173/173 tests ✓
+
+---
+
 ## [1.21.0] - 2026-09-11
 
 ### Added — Rekonsiliasi PPh 21 Desember + Bukti Potong 1721-A1 (B4a)

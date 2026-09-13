@@ -45,7 +45,7 @@ Six of nine axes below 85. Stop condition not met on either clause.
 
 ## Blocking decisions — nothing proceeds without these
 
-1. **Backend for B1** — Supabase vs self-host. *Gates the A+ target outright.*
+1. **Backend for B1** — arah: **Supabase** (keputusan tentatif user "maybe use supabase", 2026-09-11). Skema + mesin sync + UI sudah ship (unversioned engine, v1.22.0); **MENUNGGU: Project URL + anon key + first-sync terverifikasi** sebelum F4 bergerak. Tanpa itu OQ3 tetap terbuka.
 2. **PPN position** — 11% flat, or 12% with DPP nilai lain (effective 11%)? Needs a current cited source.
 3. **UMP/UMK 2026** per province — effective-dated table?
 4. **Akuntan/HRD permission matrix** — may an accountant post adjusting journals without approval?
@@ -71,7 +71,7 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 ## Backlog
 
 **Blocked**
-- **B1 (C1)** Server persistence + auth — Supabase; local-first sebagai cache. *Needs OQ3.*
+- **B1 (C1)** Server persistence + auth — arah Supabase. Ship: `supabase/schema.sql` (2 tabel generik + RLS), `supabase.js` (REST tanpa SDK, LWW + tombstone 30 hari, throttle 60 dtk, dot status), UI Pengaturan minimal, 11 test merge tanpa network. **BELUM VERIFIKASI LIVE** (butuh kredensial) → F4 tetap 52 sampai first-sync hijau.
 
 **P0 — correctness**
 - **B4a** December PPh 21 annual progressive reconciliation ✅ ship v1.21.0 (tabel UU 36/2008 jo. UU HPP 7/2021 — **tetap butuh konfirmasi konsultan sebelum filing**, OQ terkait dibuka) + 1721-A1 printable
@@ -112,7 +112,9 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 
 ---
 
-## Completed — iterations 1–19
+## Completed — iterations 1–19 + supabase engine (unversioned F4 groundwork)
+
+- **supabase engine (v1.22.0)**: direct human order (menyimpang dari urutan tetap — dicatat). Skema 2-tabel + RLS, mesin LWW/tombstone, throttle, dot status, 11 test (1 test menangkap bug `Date.parse(0)` pra-produksi). F4 TETAP 52 — skor hanya bergerak setelah first-sync live terverifikasi. Personas: tak ada perubahan UI yang mereka pakai (section di Pengaturan, kasir tak melihat).
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 

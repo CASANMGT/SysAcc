@@ -93,6 +93,23 @@ Live: `https://sysacc-three.vercel.app` — login `admin / admin` (pertama kali;
 
 ---
 
+## ☁️ Sinkron Online (Supabase, opsional)
+
+> Aplikasi tetap jalan 100% offline dari HP ini. Sinkron online hanya cermin
+> agar data yang sama bisa dibuka di HP/laptop lain.
+
+**1. Siapkan project (sekali saja, ~3 menit)**
+1. Buka [supabase.com](https://supabase.com) → New project → catat **Project URL** (`https://xxx.supabase.co`)
+2. Project Settings → API → salin **`anon` / `publishable` key** (JANGAN `service_role` — tidak pernah dibutuhkan aplikasi ini)
+3. SQL Editor → New query → tempel isi `supabase/schema.sql` → Run (membuat 2 tabel + RLS: user hanya bisa baca/tulis datanya sendiri)
+
+**2. Hubungkan aplikasi**
+Pengaturan → *Sinkron Online* → isi URL + anon key + email + kata sandi → **Hubungkan & Masuk**. Sinkron pertama mengunggah data HP ini; dot ☁️ di topbar menunjukkan status (abu = mati, hijau = aktif, merah = gagal — arahkan kursor untuk detail).
+
+**Aturan main:** local-first — localStorage sumber utama; konflik gabung last-write-wins per baris (seri → lokal menang); hapus dilacak 30 hari agar tak hidup lagi. Auth terpisah dari login kasir lokal (disatukan di iter peran/B3).
+
+---
+
 ## 🚀 Getting Started
 
 ```bash
@@ -129,7 +146,10 @@ accounting-system/
 ├─ coa.js       # Chart of Accounts SAK EMKM + pemetaan bayar/kategori
 ├─ journals.js  # builder jurnal balance + saldo + deteksi pincang
 ├─ idb.js       # mirror IndexedDB fire-and-forget
-├─ sw.js        # service worker (cache-first app shell)
+├─ sw.js        # service worker (cache-first app shell; CACHE ikut VERSION)
+├─ supabase.js  # sinkron online opsional (REST murni, local-first, LWW + tombstone)
+├─ supabase/    # schema.sql (2 tabel generik + RLS per user)
+├─ scripts/     # sync-version.mjs (sumber versi tunggal), check-prod.mjs (ship gate)
 ├─ manifest.json
 ├─ vendor/      # xlsx.full.min.js + inter-*.woff2 (lokal, CDN cuma fallback)
 ├─ icons/       # icon.svg + icon-192/512.png
@@ -174,7 +194,7 @@ See [CHANGELOG.md](./CHANGELOG.md).
 - Dark-mode charts, notifikasi terpadu, ARIA + keyboard, self-heal split-brain cache, test nesting DOM (152 tes)
 
 **Berikutnya (belum — butuh keputusan)**
-- Sync cloud multi-device (butuh backend + kunci API — Supabase/Firebase)
+- ~~Sync cloud multi-device~~ → **berjalan: Supabase local-first** (butuh URL + anon key dari pemilik; RLS per user; lihat § Sinkron Online)
 - Role Akuntan & HRD (matriks izin; audit trail per-aktor)
 - Rekonsiliasi PPh 21 Desember + Bukti Potong 1721-A1 + validasi UMP (butuh konfirmasi tarif resmi)
 - e-Faktur/Coretax export; dashboard proyeksi omzet

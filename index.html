@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.21.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.22.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -210,6 +210,7 @@
             <input type="search" id="searchInputTop" placeholder="Cari transaksi..." aria-label="Cari transaksi">
           </div>
           <span id="backupDot" title="Cadangan otomatis" aria-label="Status cadangan" style="cursor:default">💾</span>
+          <span id="cloudDot" title="Sinkron online: mati" aria-label="Status sinkron online" style="cursor:default;opacity:.35">☁️</span>
           <button class="topbar-icon-btn" id="notifBtn" aria-label="Notifikasi"><span>🔔</span><span class="notif-badge" style="display:none">0</span></button>
           <div class="topbar-avatar-main" role="img" title="Profil pemilik" aria-label="Profil pemilik">AD</div>
           <div class="topbar-actions-hidden" style="display:none">
@@ -477,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.21.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.22.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1589,6 +1590,23 @@
           </div>
           <div style="font-size:11px;color:#64748b;margin-top:4px" id="lastBackupLabel">Belum pernah backup</div>
         </div>
+        <div class="form-group" data-owner-only>
+          <label>☁️ Sinkron Online (Supabase) — multi-HP</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <input type="text" id="cloudUrl" placeholder="https://xxx.supabase.co" autocomplete="off" style="flex:2;min-width:180px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <input type="password" id="cloudKey" placeholder="anon/public key" autocomplete="off" style="flex:2;min-width:160px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <input type="email" id="cloudEmail" placeholder="email akun online" autocomplete="off" style="flex:1;min-width:140px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            <input type="password" id="cloudPass" placeholder="kata sandi" style="flex:1;min-width:120px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button type="button" class="btn btn-ghost" id="cloudConnectBtn">🔌 Hubungkan &amp; Masuk</button>
+            <button type="button" class="btn btn-ghost" id="cloudSyncBtn">🔄 Sinkron sekarang</button>
+            <button type="button" class="btn btn-ghost" id="cloudOffBtn">Putuskan</button>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px" id="cloudStatusLabel">Belum terhubung — data hanya di HP ini. Pakai <b>anon/public key</b>, JANGAN service_role key.</div>
+        </div>
         <div class="form-group">
           <label>Export / Import / Cetak</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1796,7 +1814,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.21.0';
+    window.__htmlVersion = '1.22.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

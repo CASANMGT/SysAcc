@@ -7,6 +7,7 @@ import * as Charts from './charts.js';
 import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon } from './payroll.js';
+import * as Cloud from './supabase.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -35,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.21.0';
+const APP_VERSION = '1.22.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -194,7 +195,14 @@ function showApp() {
   applySimpleMode(safeLocalGet('wynara_mode'));
   try { if (safeLocalGet('wynara_sb') === '1') document.body.classList.add('sb-collapsed'); } catch {}
   updateBackupDot();
+  updateCloudDot();
   nudgeBackupExport();
+  // Sinkron online awal (bila terhubung) — diam-diam di background
+  if (Cloud.isCloudConfigured() && Cloud.getCloudSession()) {
+    setTimeout(() => {
+      Cloud.syncNow().then(() => { try { updateCloudDot(); } catch {} }).catch(() => { try { updateCloudDot(); } catch {} });
+    }, 4000);
+  }
   // version display
   const vs = document.getElementById('appVersionSidebar');
   const vf = document.getElementById('appVersionFooter');
@@ -245,6 +253,7 @@ function loadData() {
 
 // ===== Data safety: IDB mirror + recovery + backup reminder =====
 let mirrorTimer = null;
+let cloudTimer = null;
 function queueMirror() {
   if (mirrorTimer) clearTimeout(mirrorTimer);
   mirrorTimer = setTimeout(() => {
@@ -253,6 +262,43 @@ function queueMirror() {
     try { localStorage.setItem('wynara_lastBackup', new Date().toISOString()); } catch {}
     try { updateBackupDot(); } catch {}
   }, 2000);
+  // Sinkron online menumpang mirror (throttle 60 dtk, manual selalu boleh)
+  if (Cloud.isCloudConfigured()) {
+    if (cloudTimer) clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(() => {
+      try { updateCloudDot(); } catch {}
+      Cloud.syncNow().then((res) => {
+        try {
+          updateCloudDot();
+          const changed = res && !res.error && ((res.pulled || 0) > 0 || (res.conflicts || 0) > 0);
+          if (changed && !document.querySelector('dialog[open]') && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') refresh();
+        } catch {}
+      }).catch(() => { try { updateCloudDot(); } catch {} });
+    }, 60000);
+  }
+}
+function updateCloudDot() {
+  const dot = document.getElementById('cloudDot');
+  if (!dot) return;
+  const st = Cloud.getCloudStatus();
+  const ses = Cloud.getCloudSession();
+  if (!Cloud.isCloudConfigured() || !ses) {
+    dot.textContent = '☁️'; dot.style.opacity = '.35';
+    dot.title = 'Sinkron online: mati';
+    dot.setAttribute('aria-label', 'Sinkron online mati');
+    return;
+  }
+  if (st.state === 'syncing') {
+    dot.textContent = '☁️'; dot.style.opacity = '1';
+    dot.title = 'Sinkron online: sedang sinkron…';
+  } else if (st.state === 'error') {
+    dot.textContent = '☁️'; dot.style.opacity = '1';
+    dot.title = 'Sinkron online gagal: ' + (st.detail || 'periksa koneksi');
+  } else {
+    dot.textContent = '☁️'; dot.style.opacity = '.8';
+    dot.title = 'Sinkron online aktif' + (st.detail ? ' — ' + st.detail : '');
+  }
+  dot.setAttribute('aria-label', dot.title);
 }
 function updateBackupDot() {
   const dot = document.getElementById('backupDot');
@@ -739,6 +785,9 @@ function bindEvents() {
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
   document.getElementById('backupShareBtn')?.addEventListener('click', handleBackupShare);
+  document.getElementById('cloudConnectBtn')?.addEventListener('click', handleCloudConnect);
+  document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
+  document.getElementById('cloudOffBtn')?.addEventListener('click', handleCloudOff);
   document.getElementById('closingBtn')?.addEventListener('click', handleClosing);
   const buildTaxCsv = () => {
     const d = buildTaxReport();
@@ -3869,6 +3918,70 @@ function stampShares() {
   try { localStorage.setItem('wynara_lastBackup', new Date().toISOString()); } catch {}
 }
 
+/* ===== Sinkron online (Supabase) — local-first, opsional ===== */
+function refreshCloudLabel() {
+  const label = document.getElementById('cloudStatusLabel');
+  if (!label) return;
+  const st = Cloud.getCloudStatus();
+  const ses = Cloud.getCloudSession();
+  if (!Cloud.isCloudConfigured()) {
+    label.textContent = 'Belum terhubung — data hanya di HP ini. Pakai anon/public key, JANGAN service_role key.';
+    return;
+  }
+  if (!ses) {
+    label.textContent = 'Server tersimpan, belum masuk — isi email + kata sandi lalu Hubungkan.';
+    return;
+  }
+  label.textContent = 'Terhubung sebagai ' + (ses.user_id || '').slice(0, 8) + '… — ' + (st.detail || st.state);
+}
+async function handleCloudConnect() {
+  const url = document.getElementById('cloudUrl')?.value || '';
+  const key = document.getElementById('cloudKey')?.value || '';
+  const email = document.getElementById('cloudEmail')?.value || '';
+  const pass = document.getElementById('cloudPass')?.value || '';
+  try {
+    if (url || key) Cloud.saveCloudConfig(url, key);
+    if (!Cloud.isCloudConfigured()) return UI.showError('Isi URL + anon key Supabase dulu');
+    if (!email || !pass) return UI.showError('Isi email + kata sandi akun online');
+    await Cloud.cloudSignIn(email, pass);
+    const passEl = document.getElementById('cloudPass');
+    if (passEl) passEl.value = '';
+    UI.showSuccess('Terhubung — sinkronisasi pertama mengunggah data HP ini');
+    refreshCloudLabel();
+    updateCloudDot();
+    const res = await Cloud.syncNow();
+    if (res && res.error) UI.showError(res.error);
+    else UI.showSuccess(`Sinkron awal selesai (↑${res.pushed || 0} ↓${res.pulled || 0})`);
+    refreshCloudLabel();
+    updateCloudDot();
+    refresh();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal terhubung');
+    refreshCloudLabel();
+    updateCloudDot();
+  }
+}
+async function handleCloudSyncNow() {
+  if (!Cloud.isCloudConfigured()) return UI.showError('Hubungkan Supabase dulu (isi URL + key + login)');
+  updateCloudDot();
+  const res = await Cloud.syncNow();
+  if (res && res.error) UI.showError(res.error);
+  else {
+    UI.showSuccess(`Sinkron selesai (↑${res.pushed || 0} ↓${res.pulled || 0}${res.conflicts ? ` • ${res.conflicts} beda versi, ikut terbaru` : ''})`);
+    refresh();
+  }
+  refreshCloudLabel();
+  updateCloudDot();
+}
+function handleCloudOff() {
+  Cloud.clearCloudConfig();
+  const passEl = document.getElementById('cloudPass');
+  if (passEl) passEl.value = '';
+  UI.showInfo('Sinkron online dimatikan — data lokal tetap utuh');
+  refreshCloudLabel();
+  updateCloudDot();
+}
+
 /* ===== Saldo awal per akun ===== */
 function openOpening() {
   const m = document.getElementById('openingModal');
@@ -4122,6 +4235,12 @@ function openSettings() {
   if (ppnInput) ppnInput.value = (Storage.getPpn().rate * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 });
   const modeBox = document.getElementById('settingModeSederhana');
   if (modeBox) modeBox.checked = safeLocalGet('wynara_mode') === 'sederhana';
+  const cloudCfg = Cloud.getCloudConfig();
+  const cloudUrl = document.getElementById('cloudUrl');
+  if (cloudUrl && !cloudUrl.value) cloudUrl.value = cloudCfg ? cloudCfg.url : '';
+  const cloudKey = document.getElementById('cloudKey');
+  if (cloudKey && !cloudKey.value) cloudKey.value = cloudCfg ? cloudCfg.anonKey : '';
+  refreshCloudLabel();
   const lastBackupEl = document.getElementById('lastBackupLabel');
   if (lastBackupEl) {
     const last = Storage.getLastBackup();
