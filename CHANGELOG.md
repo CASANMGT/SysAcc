@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.40.0] - 2026-09-13
+
+### Added — Halaman Stok (kartu produk + varian) & Restock cepat
+- Menu **📦 Stok** kini membuka **halaman** (bukan modal): produk dikelompokkan per SKU, varian tampil sebagai **chip ukuran/warna** dengan stok masing-masing
+- Ringkasan per produk (jumlah varian, total stok, rentang harga, jumlah menipis); filter **⚠️ Stok menipis** + pencarian produk/SKU/varian
+- Aksi per produk: **🧾 Jual** (buka penjualan), **📥 Restock** (pilih varian, qty, modal → tambah stok + jurnal **Dr Persediaan / Cr Kas**), klik chip varian → edit
+- Varian baru menyimpan `groupId`/`baseName` agar pengelompokan rapi
+- +2 test; 244/244 tests ✓
+
+---
+
 ## [1.39.0] - 2026-09-13
 
 ### Changed — Harga & modal per ukuran + warna premium

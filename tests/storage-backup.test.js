@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, itemNetPrice, itemVariantLabel, importItemsBulk, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, itemNetPrice, itemVariantLabel, importItemsBulk, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -254,6 +254,27 @@ describe('cuti & UMP (storage)', () => {
     expect(getUmp().amount).toBe(0);
     saveUmp('3.500.000');
     expect(getUmp().amount).toBe(3500000);
+  });
+});
+
+describe('produk: grup & restock', () => {
+  it('getStockGroups mengelompokkan varian + total/harga', () => {
+    saveItem({ name: 'Kaos • S • Hitam', sku: 'K-1', size: 'S', color: 'Hitam', price: 100000, stock: 3, groupId: 'G1', baseName: 'Kaos' });
+    saveItem({ name: 'Kaos • M • Hitam', sku: 'K-2', size: 'M', color: 'Hitam', price: 110000, stock: 2, groupId: 'G1', baseName: 'Kaos' });
+    const g = getStockGroups().find(x => x.key === 'g1');
+    expect(g).toBeTruthy();
+    expect(g.variants.length).toBe(2);
+    expect(g.totalStock).toBe(5);
+    expect(g.minPrice).toBe(100000);
+    expect(g.maxPrice).toBe(110000);
+  });
+  it('restockItem menambah stok + jurnal Dr Persediaan / Cr Kas', () => {
+    const it = saveItem({ name: 'Kopi', price: 20000, cost: 10000, stock: 0 });
+    restockItem(it.id, 5, 12000, { date: '2026-08-01', payment: 'cash' });
+    expect(getItemById(it.id).stock).toBe(5);
+    const j = getAllJournals().find(x => x.ref === 'restock');
+    expect(j.lines.find(l => l.account === '1301').debit).toBe(60000);
+    expect(j.lines.find(l => l.account === '1101').credit).toBe(60000);
   });
 });
 

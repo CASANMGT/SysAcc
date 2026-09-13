@@ -141,6 +141,20 @@ export function buildPayrollKasbonJournal(loan, amount, date, memo, priorRepayme
   return balanced(lines) ? j : null;
 }
 
+// Restock cepat (beli tunai): Dr Persediaan Cr Kas.
+export function buildRestockJournal({ amount, date, payment, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const cash = accountForPayment(payment || 'cash');
+  const m = memo || 'Restock barang';
+  const lines = [
+    { account: INVENTORY_ACCOUNT, debit: amt, credit: 0, memo: m },
+    { account: cash, debit: 0, credit: amt, memo: m },
+  ];
+  const j = { id: jid('J'), date, memo: m, ref: 'restock', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
+
 // Transfer antar kas: Dr Kas-Tujuan Cr Kas-Asal.
 export function buildTransferJournal({ fromPayment, toPayment, amount, date, memo }) {
   const amt = Math.round(Number(amount) || 0);

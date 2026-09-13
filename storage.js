@@ -1,6 +1,6 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal } from './journals.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -1813,6 +1813,50 @@ export function getAllItems() {
   return getItems().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 }
 
+// Kelompok produk (SKU) — varian berbagi groupId/baseName; fallback nama dasar.
+export function itemGroupKey(item) {
+  const raw = item && (item.groupId || item.baseName || String(item.name || '').split(' • ')[0]);
+  return String(raw || '').trim().toLowerCase();
+}
+export function getStockGroups() {
+  const map = new Map();
+  getAllItems().forEach(it => {
+    const key = itemGroupKey(it) || ('id:' + it.id);
+    if (!map.has(key)) {
+      map.set(key, { key, name: String(it.name || '').split(' • ')[0] || it.name, sku: String(it.sku || '').replace(/-\d+$/, ''), variants: [], totalStock: 0, low: 0, minPrice: Infinity, maxPrice: 0 });
+    }
+    const g = map.get(key);
+    g.variants.push(it);
+    g.totalStock += Number(it.stock) || 0;
+    if ((Number(it.minStock) || 0) > 0 && Number(it.stock) <= Number(it.minStock)) g.low++;
+    const net = itemNetPrice(it);
+    if (net > 0) { g.minPrice = Math.min(g.minPrice, net); g.maxPrice = Math.max(g.maxPrice, net); }
+    if (!g.sku && it.sku) g.sku = String(it.sku).replace(/-\d+$/, '');
+  });
+  return [...map.values()]
+    .map(g => ({ ...g, minPrice: g.minPrice === Infinity ? 0 : g.minPrice }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Restock cepat: tambah stok @modal (rata-rata) + jurnal Dr Persediaan / Cr Kas.
+export function restockItem(itemId, qty, unitCost, { date, payment, note } = {}) {
+  requireOwner();
+  const it = getItemById(itemId);
+  if (!it) throw new Error('Barang tidak ditemukan');
+  const q = Math.max(Math.floor(Number(qty) || 0), 0);
+  if (q <= 0) throw new Error('Jumlah restock harus > 0');
+  const cost = Math.max(Number(unitCost) || 0, 0);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const updated = applyStockMove(itemId, { qtyIn: q, unitCost: cost, ref: 'restock', note: note || 'restock' });
+  try {
+    const j = buildRestockJournal({ amount: q * cost, date: d, payment: payment || 'cash', memo: `Restock ${it.name} ${q} pcs` });
+    if (j) postJournal(j);
+  } catch {}
+  logAudit('create', 'restock', itemId, null, { qty: q, unitCost: cost, date: d });
+  return updated;
+}
+
 export function getItemById(id) {
   return getItems().find(i => i.id === id) || null;
 }
@@ -1847,6 +1891,8 @@ export function saveItem(item) {
     stock, cost, price, minStock,
     updatedAt: new Date().toISOString()
   };
+  if (item.groupId) rec.groupId = String(item.groupId).slice(0, 40);
+  if (item.baseName) rec.baseName = String(item.baseName).slice(0, 60);
   const idx = list.findIndex(i => i.id === rec.id);
   if (idx === -1) list.push(rec);
   else list[idx] = { ...list[idx], ...rec };

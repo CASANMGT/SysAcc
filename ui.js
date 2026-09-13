@@ -3339,6 +3339,44 @@ export function renderStock(items) {
     </div>`;
   }).join('');
 }
+// Halaman Stok: kartu produk dikelompokkan, varian sebagai chip + stok.
+export function renderStockPage(groups, { term = '', filter = 'all' } = {}) {
+  const list = document.getElementById('stockPageList');
+  if (!list) return;
+  const gs0 = Array.isArray(groups) ? groups : [];
+  const t = String(term || '').trim().toLowerCase();
+  let gs = gs0;
+  if (filter === 'low') gs = gs.filter(g => g.low > 0);
+  if (t) gs = gs.filter(g => (`${g.name} ${g.sku} ${g.variants.map(v => `${v.name} ${v.size || ''} ${v.color || ''} ${v.sku || ''}`).join(' ')}`).toLowerCase().includes(t));
+  const sub = document.getElementById('stockPageSubtitle');
+  if (sub) sub.textContent = `${gs0.length} produk • ${gs0.reduce((s, g) => s + g.variants.length, 0)} varian • total stok ${gs0.reduce((s, g) => s + g.totalStock, 0)}`;
+  if (!gs.length) { list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:32px">Tidak ada produk yang cocok.</p>'; return; }
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const esc = (s) => escapeHtml(String(s == null ? '' : s));
+  list.innerHTML = gs.map(g => {
+    const priceTxt = g.minPrice === g.maxPrice ? fmt(g.minPrice) : `${fmt(g.minPrice)}–${fmt(g.maxPrice)}`;
+    const variants = g.variants.map(v => {
+      const low = (Number(v.minStock) || 0) > 0 && Number(v.stock) <= Number(v.minStock);
+      const label = [v.size, v.color].filter(Boolean).join('/') || 'Default';
+      const net = itemNetPrice(v); const disc = Number(v.discountPct) || 0;
+      return `<button type="button" class="stock-chip ${low ? 'low' : ''}" data-id="${v.id}" data-stock="${Number(v.stock) || 0}" title="${esc(label)} • stok ${Number(v.stock) || 0} • ${fmt(net)}${disc ? ` (−${disc}%)` : ''}"><span class="stock-chip-label">${esc(label)}</span><span class="stock-chip-stock ${low ? 'low' : ''}">${low ? '⚠️' : ''}${Number(v.stock) || 0}</span></button>`;
+    }).join('');
+    return `<div class="stock-card" data-key="${esc(g.key)}">
+      <div class="stock-card-head">
+        <div style="flex:1;min-width:0">
+          <div class="stock-card-title">${esc(g.name)}</div>
+          <div class="stock-card-sub">${g.sku ? esc(g.sku) + ' • ' : ''}${g.variants.length} varian • total ${g.totalStock} • ${priceTxt}${g.low ? ` • <span style="color:#b45309">${g.low} menipis</span>` : ''}</div>
+        </div>
+        <div class="stock-card-actions">
+          <button type="button" class="btn btn-ghost stock-page-jual" data-key="${esc(g.key)}" title="Jual produk ini" style="font-size:11px;padding:4px 10px">🧾 Jual</button>
+          <button type="button" class="btn btn-ghost stock-page-restock" data-key="${esc(g.key)}" title="Restock" style="font-size:11px;padding:4px 10px">📥 Restock</button>
+        </div>
+      </div>
+      <div class="stock-variant-row">${variants}</div>
+    </div>`;
+  }).join('');
+}
+
 export function getStockFormData() {
   const num = (id) => parseIdrInput(document.getElementById(id)?.value || '');
   return {

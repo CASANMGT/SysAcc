@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.39.0';
+const APP_VERSION = '1.40.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -682,7 +682,7 @@ function bindEvents() {
   document.getElementById('reportBtnSidebar')?.addEventListener('click', () => showView('viewLaporan'));
   document.getElementById('contactsBtnSidebar')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
   document.getElementById('loanBtnSidebar')?.addEventListener('click', () => UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople()));
-  document.getElementById('stockBtnSidebar')?.addEventListener('click', () => { refreshStock(); UI.openStock(); });
+  document.getElementById('stockBtnSidebar')?.addEventListener('click', () => showView('viewStock'));
   document.getElementById('saleEntryBtn')?.addEventListener('click', () => UI.openSale());
   document.getElementById('saleEntryBtn2')?.addEventListener('click', () => UI.openSale());
   document.getElementById('payrollBtnSidebar')?.addEventListener('click', () => showView('viewPayroll'));
@@ -788,15 +788,16 @@ function bindEvents() {
     const target = document.getElementById(viewId) || document.getElementById('viewRingkasan');
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar', viewLaporan: '#reportBtnSidebar', viewChangelog: '#changelogLink' };
+    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewPayroll: '#payrollBtnSidebar', viewStock: '#stockBtnSidebar', viewLaporan: '#reportBtnSidebar', viewChangelog: '#changelogLink' };
     const sel = map[viewId];
     if (sel) document.querySelector(sel)?.classList.add('active');
-    const bnView = { viewRingkasan: 'ringkasan', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewLaporan: 'reports' }[viewId];
+    const bnView = { viewRingkasan: 'ringkasan', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewStock: 'stock', viewLaporan: 'reports' }[viewId];
     document.querySelectorAll('#bottomNav .bn-item').forEach(b => b.classList.toggle('active', b.dataset.bnav === bnView));
     sidebar?.classList.remove('open');
     overlay?.classList.add('hidden');
     if (viewId === 'viewTransaksi') renderFullTransaksi();
     if (viewId === 'viewPayroll') renderPayrollView();
+    if (viewId === 'viewStock') refreshStockPage();
     if (viewId === 'viewLaporan') { refresh(); renderPageReport(); }
   }
   // default view
@@ -856,7 +857,7 @@ function bindEvents() {
     UI.closeInfoModal();
     const target = btn.dataset.goto;
     if (target === 'loans') UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople());
-    else if (target === 'stock') { refreshStock(); UI.openStock(); }
+    else if (target === 'stock') showView('viewStock');
     else if (target === 'contacts') UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans());
     else if (target === 'kas') { refreshKas(); UI.openKas(); }
     else if (target === 'bank') { refreshKas(); UI.setBankRows([]); UI.openBank(); }
@@ -943,6 +944,26 @@ function bindEvents() {
   document.querySelectorAll('#importIntro .chip').forEach(c => c.addEventListener('click', () => openImport(c.dataset.mode)));
   document.getElementById('importMapWrap')?.addEventListener('change', () => { if (importMode === 'products') renderProductsPreview(); else renderSalesPreview(); });
   document.getElementById('importText')?.addEventListener('input', () => { if (importMode === 'wa') renderWaPreview(); });
+  document.getElementById('stockAddBtn')?.addEventListener('click', () => { UI.resetStockForm(); UI.openStock(); });
+  document.getElementById('stockImportPageBtn')?.addEventListener('click', () => openImport('products'));
+  document.getElementById('stockPageSearch')?.addEventListener('input', refreshStockPage);
+  document.getElementById('stockPageFilter')?.addEventListener('click', (e) => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    stockPageFilter = c.dataset.f || 'all';
+    document.querySelectorAll('#stockPageFilter .chip').forEach(x => x.classList.toggle('selected', x === c));
+    refreshStockPage();
+  });
+  document.getElementById('stockPageList')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('.stock-chip');
+    const jual = e.target.closest('.stock-page-jual');
+    const restock = e.target.closest('.stock-page-restock');
+    if (chip) { const it = Storage.getItemById(chip.dataset.id); if (it) { UI.fillStockForm(it); UI.openStock(); } }
+    else if (jual) UI.openSale();
+    else if (restock) handleStockRestockGroup(restock.dataset.key);
+  });
+  document.getElementById('restockClose')?.addEventListener('click', closeRestock);
+  document.getElementById('restockCancel')?.addEventListener('click', closeRestock);
+  document.getElementById('restockSave')?.addEventListener('click', handleRestockSubmit);
   document.getElementById('cloudAnonBtn')?.addEventListener('click', handleCloudAnon);
   document.getElementById('cloudLinkBtn')?.addEventListener('click', handleCloudLinkEmail);
   document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
@@ -2932,6 +2953,42 @@ function handleCoaDelete(code) {
 function refreshStock() {
   UI.renderStock(Storage.getAllItems());
   refreshSuppliers();
+  refreshStockPage();
+}
+let stockPageFilter = 'all';
+function refreshStockPage() {
+  const term = document.getElementById('stockPageSearch')?.value || '';
+  UI.renderStockPage(Storage.getStockGroups(), { term, filter: stockPageFilter });
+}
+function handleStockRestockGroup(key) {
+  const g = Storage.getStockGroups().find(x => x.key === key);
+  if (!g) return;
+  const sel = document.getElementById('restockVariant');
+  if (sel) sel.innerHTML = g.variants.map(v => { const lab = [v.size, v.color].filter(Boolean).join('/') || 'Default'; return `<option value="${v.id}">${escapeHtml(lab)} — stok ${v.stock}</option>`; }).join('');
+  const info = document.getElementById('restockInfo');
+  if (info) info.innerHTML = `<b>${escapeHtml(g.name)}</b> — modal rata-rata Rp${Math.round(Number(g.variants[0] && g.variants[0].cost) || 0).toLocaleString('id-ID')}/pcs`;
+  const dateEl = document.getElementById('restockDate'); if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+  const q = document.getElementById('restockQty'); if (q) q.value = '';
+  const c = document.getElementById('restockCost'); if (c) c.value = g.variants[0] && g.variants[0].cost ? String(Math.round(g.variants[0].cost)) : '';
+  const m = document.getElementById('restockModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function closeRestock() { const m = document.getElementById('restockModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function handleRestockSubmit() {
+  const itemId = document.getElementById('restockVariant')?.value || '';
+  const qty = Math.max(parseInt(document.getElementById('restockQty')?.value || '0', 10) || 0, 0);
+  const cost = Math.round(Number(UI.parseIdrInput(document.getElementById('restockCost')?.value || '')) || 0);
+  const date = document.getElementById('restockDate')?.value || new Date().toISOString().split('T')[0];
+  const payment = document.getElementById('restockPayment')?.value || 'cash';
+  if (!itemId) return UI.showError('Pilih varian dulu');
+  if (qty <= 0) return UI.showError('Jumlah restock harus > 0');
+  try {
+    const it = Storage.restockItem(itemId, qty, cost, { date, payment });
+    UI.showSuccess(`Stok ${it.name} +${qty} (modal Rp${cost.toLocaleString('id-ID')}/pcs)`);
+    closeRestock();
+    refreshStock();
+    refresh();
+    queueMirror();
+  } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal restock'); }
 }
 function handleStockSave() {
   const d = UI.getStockFormData();
@@ -2942,6 +2999,7 @@ function handleStockSave() {
     const variants = Array.isArray(vd.variants) ? vd.variants : [];
     if (!d.id && variants.length > 0) {
       let created = 0, totalStock = 0;
+      const groupId = 'G' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       variants.forEach((v, i) => {
         const nm = `${d.name}${v.size ? ' • ' + v.size : ''}${v.color ? ' • ' + v.color : ''}`;
         try {
@@ -2950,6 +3008,7 @@ function handleStockSave() {
             size: v.size, color: v.color,
             price: v.price || d.price, cost: v.cost != null ? v.cost : d.cost,
             discountPct: d.discountPct, stock: v.stock, minStock: d.minStock,
+            groupId, baseName: d.name,
           });
           created++; totalStock += v.stock;
         } catch {}

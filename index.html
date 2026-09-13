@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.39.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.40.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.39.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.40.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -537,6 +537,30 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <div id="viewStock" class="view-section hidden">
+          <div class="view-header">
+            <div>
+              <h1>Stok &amp; Produk</h1>
+              <p id="stockPageSubtitle">0 produk</p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="stockAddBtn">＋ Tambah produk</button>
+              <button class="btn btn-ghost" id="stockImportPageBtn">📥 Import produk</button>
+            </div>
+          </div>
+          <div class="transaksi-toolbar">
+            <div class="search-wrap">
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8">🔍</span>
+              <input type="search" id="stockPageSearch" placeholder="Cari produk / SKU / varian..." style="width:100%;height:40px;padding:0 12px 0 36px;border:1px solid #e2e8f0;border-radius:12px;background:white;font-size:13px">
+            </div>
+            <div class="chip-group" id="stockPageFilter" role="group" aria-label="Filter stok">
+              <button type="button" class="chip selected" data-f="all">Semua</button>
+              <button type="button" class="chip" data-f="low">⚠️ Stok menipis</button>
+            </div>
+          </div>
+          <div id="stockPageList"></div>
         </div>
 
         <div id="viewPayroll" class="view-section hidden">
@@ -1842,6 +1866,28 @@
   </div>
 </dialog>
 
+<dialog id="restockModal" class="modal">
+    <div class="modal-content" style="max-width:420px">
+      <header class="modal-header">
+        <h2 id="restockTitle">Restock</h2>
+        <button type="button" class="modal-close" id="restockClose" aria-label="Tutup">×</button>
+      </header>
+      <div class="modal-body">
+        <div id="restockInfo" style="font-size:12px;color:#475569;margin-bottom:8px"></div>
+        <label style="font-size:12px;display:block;margin-bottom:6px">Varian<select id="restockVariant" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></select></label>
+        <label style="font-size:12px;display:block;margin-bottom:6px">Jumlah masuk (pcs)<input type="number" id="restockQty" min="1" step="1" placeholder="0" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <label style="font-size:12px;display:block;margin-bottom:6px">Modal / pcs (Rp)<input type="text" id="restockCost" inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <label style="font-size:12px;display:block;margin-bottom:6px">Tanggal<input type="date" id="restockDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <label style="font-size:12px;display:block">Bayar pakai<select id="restockPayment" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"><option value="cash">Tunai</option><option value="transfer">Transfer</option><option value="qris">QRIS</option><option value="ewallet">E-Wallet</option><option value="debit">Debit</option><option value="other">Lainnya</option></select></label>
+        <p style="font-size:11px;color:#94a3b8;margin-top:8px">Restock = beli tunai (Dr Persediaan / Cr Kas). Untuk hutang supplier, pakai menu Beli.</p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="restockCancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="restockSave">Tambah stok</button>
+      </footer>
+    </div>
+  </dialog>
+
 <dialog id="importModal" class="modal">
     <div class="modal-content" style="max-width:700px">
       <header class="modal-header">
@@ -1892,7 +1938,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.39.0';
+    window.__htmlVersion = '1.40.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

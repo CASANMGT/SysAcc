@@ -3772,6 +3772,20 @@ body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
   .table-pager button, .pager-active { min-width: 40px; min-height: 40px; }
 }
 
+/* ===== Halaman Stok (kartu produk + varian) ===== */
+.stock-card { background: var(--card, #fff); border: 1px solid var(--border, #e2e8f0); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,.04)); }
+.stock-card-head { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.stock-card-title { font-weight: 700; font-size: 14px; color: #0f172a; }
+.stock-card-sub { font-size: 11.5px; color: #64748b; margin-top: 2px; }
+.stock-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.stock-variant-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.stock-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 9999px; padding: 4px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.stock-chip:hover { border-color: #cbd5e1; background: #fff; }
+.stock-chip.low { border-color: #fcd34d; background: #fffbeb; }
+.stock-chip-label { font-weight: 600; color: #334155; }
+.stock-chip-stock { font-variant-numeric: tabular-nums; color: #0f172a; font-weight: 700; }
+.stock-chip-stock.low { color: #b45309; }
+
 /* ===== Mode kasir: sembunyikan akses pemilik ===== */
 #appRoot[data-role="kasir"] #reportBtnSidebar,
 #appRoot[data-role="kasir"] #contactsBtnSidebar,
