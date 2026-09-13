@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.36.0';
+const APP_VERSION = '1.37.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2937,6 +2937,31 @@ function handleStockSave() {
   const d = UI.getStockFormData();
   if (!d.name) return UI.showError('Nama barang wajib diisi');
   try {
+    // Buat banyak varian (ukuran × warna) untuk barang BARU
+    const sizes = String(d.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
+    const colors = String(d.colors || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!d.id && (sizes.length || colors.length)) {
+      const S = sizes.length ? sizes : [''];
+      const C = colors.length ? colors : [''];
+      const combos = [];
+      S.forEach(sz => C.forEach(cl => combos.push({ size: sz, color: cl })));
+      if (combos.length > 1) {
+        let created = 0;
+        combos.forEach((combo, i) => {
+          const nm = `${d.name}${combo.size ? ' • ' + combo.size : ''}${combo.color ? ' • ' + combo.color : ''}`;
+          try {
+            Storage.saveItem({ ...d, id: null, name: nm, sku: d.sku ? `${d.sku}-${i + 1}` : '', size: combo.size, color: combo.color, stock: 0 });
+            created++;
+          } catch {}
+        });
+        Storage.logAudit('create', 'item', '', null, { variants: created, base: d.name });
+        UI.showSuccess(`${created} varian “${d.name}” dibuat — atur stok tiap varian di daftar.`);
+        UI.resetStockForm();
+        refreshStock();
+        queueMirror();
+        return;
+      }
+    }
     const prev = d.id ? Storage.getItemById(d.id) : null;
     const opnameDate = new Date().toISOString().split('T')[0];
     if (prev && Number(d.stock) !== Number(prev.stock) && Storage.isMonthLocked(opnameDate)) {
@@ -3047,15 +3072,16 @@ function renderSalesPreview() {
     <p style="font-size:11px;color:#94a3b8;margin-top:6px">Tanda ⚠ = belum cocok ke barang (nama/SKU beda) → tidak ikut diimpor. Rapikan nama barang di Stok lalu ulangi.</p>`;
 }
 function renderProductsPreview() {
-  const mapping = readMapping(['name', 'sku', 'price', 'cost', 'stock', 'min']);
+  const mapping = readMapping(['name', 'sku', 'size', 'color', 'price', 'cost', 'discount', 'stock', 'min']);
   importProducts = buildProducts(importDataRows, mapping).filter(p => p.name);
   const withSku = importProducts.filter(p => p.sku).length;
   const commit = document.getElementById('importCommitBtn');
   if (commit) commit.disabled = importProducts.length === 0;
+  const variant = (p) => [p.size, p.color].filter(Boolean).join('/') || '—';
   document.getElementById('importPreview').innerHTML = `
     <div style="font-size:12px;color:#334155;margin-bottom:6px"><b>${importProducts.length}</b> produk siap diimpor (${withSku} ber-SKU). Upsert per SKU/nama.</div>
-    <div style="max-height:220px;overflow:auto"><table class="report-table"><thead><tr><th>Nama</th><th>SKU</th><th class="amount-col">Jual</th><th class="amount-col">Modal</th><th class="amount-col">Stok</th></tr></thead><tbody>
-    ${importProducts.slice(0, 50).map(p => `<tr><td style="font-size:11px">${escapeHtml(p.name)}</td><td style="font-size:11px">${escapeHtml(p.sku || '—')}</td><td class="amount-col">${Reports.formatCurrency(p.price)}</td><td class="amount-col">${Reports.formatCurrency(p.cost)}</td><td class="amount-col">${p.stock}</td></tr>`).join('')}
+    <div style="max-height:220px;overflow:auto"><table class="report-table"><thead><tr><th>Nama</th><th>SKU</th><th>Varian</th><th class="amount-col">Jual</th><th class="amount-col">Modal</th><th class="amount-col">Stok</th></tr></thead><tbody>
+    ${importProducts.slice(0, 50).map(p => `<tr><td style="font-size:11px">${escapeHtml(p.name)}</td><td style="font-size:11px">${escapeHtml(p.sku || '—')}</td><td style="font-size:11px">${escapeHtml(variant(p))}</td><td class="amount-col">${Reports.formatCurrency(p.price)}${p.discountPct ? ` <small>(−${p.discountPct}%)</small>` : ''}</td><td class="amount-col">${Reports.formatCurrency(p.cost)}</td><td class="amount-col">${p.stock}</td></tr>`).join('')}
     </tbody></table></div>`;
 }
 function renderWaPreview() {
@@ -3080,8 +3106,9 @@ async function handleImportParse() {
       mapWrap.hidden = false;
       mapWrap.innerHTML = mapSelects(src.headers, autoMapProductColumns(src.headers), [
         { key: 'name', label: 'Nama produk' }, { key: 'sku', label: 'SKU/Kode' },
+        { key: 'size', label: 'Ukuran' }, { key: 'color', label: 'Warna' },
         { key: 'price', label: 'Harga jual' }, { key: 'cost', label: 'Modal/HPP' },
-        { key: 'stock', label: 'Stok' }, { key: 'min', label: 'Min' },
+        { key: 'discount', label: 'Diskon (%)' }, { key: 'stock', label: 'Stok' }, { key: 'min', label: 'Min' },
       ]);
       renderProductsPreview();
     } else {

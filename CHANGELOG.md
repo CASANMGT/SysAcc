@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.37.0] - 2026-09-13
+
+### Added — Varian produk (ukuran/warna) & diskon
+- **Stok**: field **📐 Ukuran**, **🎨 Warna**, **🏷️ Diskon (%)** per produk; panel keuntungan menghitung dari **harga netto** setelah diskon
+- **➕ Buat banyak varian**: isi ukuran (mis. `S,M,L`) & warna (mis. `Hitam,Putih`) → dibuat 1 baris per kombinasi (stok 0, atur tiap varian)
+- **Jual**: pilihan barang menampilkan varian; harga terisi otomatis dari **harga setelah diskon**; total & estimasi untung live
+- **Import produk** marketplace ikut memetakan kolom Ukuran/Warna/Diskon
+- +5 test; 242/242 tests ✓
+
+---
+
 ## [1.36.0] - 2026-09-13
 
 ### Added — Import produk & penjualan (Shopee/TikTok & WhatsApp)

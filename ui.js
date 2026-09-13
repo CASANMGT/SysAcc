@@ -2,7 +2,7 @@ import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCate
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
 import { accountLabel } from './coa.js';
 import { computeSlip, thrAmount, DEFAULT_RATES, RATE_LIMITS } from './payroll.js';
-import { getPpn } from './storage.js';
+import { getPpn, itemNetPrice, itemVariantLabel } from './storage.js';
 
 // Ikon & label tipe kontak (orang / karyawan / perusahaan)
 function contactIcon(type) { return type === 'perusahaan' ? '🏢' : type === 'karyawan' ? '👷' : '👤'; }
@@ -3325,10 +3325,13 @@ export function renderStock(items) {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   list.innerHTML = rows.map(i => {
     const isLow = (i.minStock || 0) > 0 && i.stock <= i.minStock;
+    const variant = [i.size, i.color].filter(Boolean).join(' / ');
+    const disc = Number(i.discountPct) || 0;
+    const net = disc > 0 ? Math.round(i.price * (1 - disc / 100)) : i.price;
     return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px">
       <span style="font-size:18px">${isLow ? '⚠️' : '📦'}</span>
-      <span style="flex:1;min-width:0"><b>${escapeHtml(i.name)}</b>${i.sku ? ` <small style="color:#94a3b8">${escapeHtml(i.sku)}</small>` : ''}<br>
-      <small style="color:#64748b">Stok ${i.stock} • Jual ${fmt(i.price)} • Modal ${fmt(i.cost)} • Nilai ${fmt(i.stock * i.cost)}</small></span>
+      <span style="flex:1;min-width:0"><b>${escapeHtml(i.name)}</b>${variant ? ` <small style="color:#2563eb">${escapeHtml(variant)}</small>` : ''}${i.sku ? ` <small style="color:#94a3b8">${escapeHtml(i.sku)}</small>` : ''}<br>
+      <small style="color:#64748b">Stok ${i.stock} • Jual ${disc > 0 ? `<s>${fmt(i.price)}</s> ${fmt(net)} (−${disc}%)` : fmt(i.price)} • Modal ${fmt(i.cost)} • Nilai ${fmt(i.stock * i.cost)}</small></span>
       <button class="btn btn-ghost stock-hist" data-id="${i.id}" aria-label="Kartu stok ${escapeHtml(i.name)}" title="Kartu stok (riwayat mutasi)" style="font-size:11px;padding:2px 8px">📜</button>
       <button class="btn btn-ghost stock-edit" data-id="${i.id}" aria-label="Edit ${escapeHtml(i.name)}" title="Edit" style="font-size:11px;padding:2px 8px">✎</button>
       <button class="btn btn-ghost stock-del" data-id="${i.id}" aria-label="Hapus ${escapeHtml(i.name)}" title="Hapus" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
@@ -3341,16 +3344,24 @@ export function getStockFormData() {
     id: document.getElementById('stockFormId')?.value || null,
     name: document.getElementById('stockName')?.value.trim() || '',
     sku: document.getElementById('stockSku')?.value.trim() || '',
+    size: document.getElementById('stockSize')?.value.trim() || '',
+    color: document.getElementById('stockColor')?.value.trim() || '',
+    discountPct: Math.min(Math.max(Number(document.getElementById('stockDiscount')?.value) || 0, 0), 100),
     price: Number(num('stockPrice')) || 0,
     cost: Number(num('stockCost')) || 0,
     stock: Math.max(parseInt(document.getElementById('stockQty')?.value || '0', 10) || 0, 0),
-    minStock: Math.max(parseInt(document.getElementById('stockMin')?.value || '0', 10) || 0, 0)
+    minStock: Math.max(parseInt(document.getElementById('stockMin')?.value || '0', 10) || 0, 0),
+    sizes: document.getElementById('stockSizes')?.value.trim() || '',
+    colors: document.getElementById('stockColors')?.value.trim() || ''
   };
 }
 export function fillStockForm(item) {
   document.getElementById('stockFormId').value = item?.id || '';
   document.getElementById('stockName').value = item?.name || '';
   document.getElementById('stockSku').value = item?.sku || '';
+  const szEl = document.getElementById('stockSize'); if (szEl) szEl.value = item?.size || '';
+  const clEl = document.getElementById('stockColor'); if (clEl) clEl.value = item?.color || '';
+  const dEl = document.getElementById('stockDiscount'); if (dEl) dEl.value = item?.discountPct || '';
   document.getElementById('stockPrice').value = item?.price || '';
   document.getElementById('stockCost').value = item?.cost || '';
   document.getElementById('stockQty').value = item?.stock ?? '';
@@ -3363,11 +3374,14 @@ export function updateStockProfit() {
   if (!box) return;
   const price = Number(parseIdrInput(document.getElementById('stockPrice')?.value || '')) || 0;
   const cost = Number(parseIdrInput(document.getElementById('stockCost')?.value || '')) || 0;
+  const disc = Math.min(Math.max(Number(document.getElementById('stockDiscount')?.value) || 0, 0), 100);
   if (price <= 0 && cost <= 0) { box.innerHTML = ''; return; }
-  const profit = price - cost;
-  const margin = price > 0 ? Math.round((profit / price) * 100) : 0;
+  const net = Math.round(price * (1 - disc / 100));
+  const profit = net - cost;
+  const margin = net > 0 ? Math.round((profit / net) * 100) : 0;
   const good = profit >= 0;
   box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;background:${good ? '#f0fdf4' : '#fef2f2'};border:1px solid ${good ? '#bbf7d0' : '#fecaca'};border-radius:10px;padding:8px 12px;color:${good ? '#15803d' : '#b91c1c'}">
+    ${disc > 0 ? `<span style="text-decoration:line-through;opacity:.6">Rp${price.toLocaleString('id-ID')}</span> <span>→ jual <b>Rp${net.toLocaleString('id-ID')}</b> (−${disc}%)</span>` : '<span>Harga jual</span>'}
     <span>${good ? '📈' : '📉'} Untung per pcs</span><b style="font-size:14px">Rp${profit.toLocaleString('id-ID')}</b>
     <span style="opacity:.8">(margin ${margin}%)</span>
     ${good ? '' : '<span style="font-weight:700">— harga jual di bawah modal!</span>'}
@@ -3773,7 +3787,7 @@ export function addSaleRow() {
   row.innerHTML = `
     <select class="sale-item" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
       <option value="">— Pilih barang —</option>
-      ${items.map(i => `<option value="${i.id}">${escapeHtml(i.name)} (stok ${i.stock})</option>`).join('')}
+      ${items.map(i => { const v = itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${i.stock})</option>`; }).join('')}
     </select>
     <input type="number" class="sale-qty" min="1" step="1" value="1" title="Berapa pcs?" style="flex:0 0 64px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
     <input type="text" class="sale-price" placeholder="Rp/pcs" inputmode="decimal" title="Harga per pcs (boleh ubah)" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
@@ -3784,7 +3798,7 @@ export function addSaleRow() {
   const price = row.querySelector('.sale-price');
   const syncPrice = () => {
     const it = items.find(x => x.id === sel.value);
-    if (it && !price.dataset.touched) price.value = it.price ? String(it.price) : '';
+    if (it && !price.dataset.touched) price.value = itemNetPrice(it) ? String(itemNetPrice(it)) : '';
     recalcSale();
   };
   const maybeAutoAdd = () => {
@@ -3834,7 +3848,8 @@ function readSaleRows() {
     const price = Math.round(Number(parseIdrInput(row.querySelector('.sale-price')?.value || '')) || 0);
     if (itemId && qty > 0 && price > 0) {
       const it = getItemList().find(x => x.id === itemId);
-      lines.push({ itemId, qty, price, name: it ? it.name : '' });
+      const v = it ? itemVariantLabel(it) : '';
+      lines.push({ itemId, qty, price, name: it ? (it.name + (v ? ' ' + v : '')) : '' });
     }
   });
   return { lines, total: lines.reduce((s, l) => s + l.qty * l.price, 0) };

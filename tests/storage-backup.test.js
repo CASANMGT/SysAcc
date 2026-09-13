@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, deleteItem, getStockMoves, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, itemNetPrice, itemVariantLabel, importItemsBulk, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -254,6 +254,30 @@ describe('cuti & UMP (storage)', () => {
     expect(getUmp().amount).toBe(0);
     saveUmp('3.500.000');
     expect(getUmp().amount).toBe(3500000);
+  });
+});
+
+describe('produk: varian & diskon', () => {
+  it('saveItem menyimpan ukuran/warna/diskon; itemNetPrice & label', () => {
+    const it = saveItem({ name: 'Kaos', price: 100000, cost: 60000, stock: 10, size: 'L', color: 'Hitam', discountPct: 25 });
+    expect(it.size).toBe('L');
+    expect(it.color).toBe('Hitam');
+    expect(it.discountPct).toBe(25);
+    expect(itemNetPrice(it)).toBe(75000);
+    expect(itemVariantLabel(it)).toBe('L / Hitam');
+  });
+  it('diskon dibatasi 0–100', () => {
+    expect(saveItem({ name: 'X', price: 1000, discountPct: 150 }).discountPct).toBe(100);
+    expect(saveItem({ name: 'Y', price: 1000, discountPct: -5 }).discountPct).toBe(0);
+  });
+  it('importItemsBulk upsert per SKU + simpan varian', () => {
+    const r1 = importItemsBulk([{ name: 'Kaos', sku: 'K-1', price: 100000, size: 'L', color: 'Hitam', discountPct: 10, stock: 3 }]);
+    expect(r1.added).toBe(1);
+    const r2 = importItemsBulk([{ name: 'Kaos', sku: 'K-1', price: 120000 }]);
+    expect(r2.updated).toBe(1);
+    const it = getAllItems().find(x => x.sku === 'K-1');
+    expect(it.price).toBe(120000);
+    expect(it.size).toBe('L');
   });
 });
 

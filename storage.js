@@ -1817,6 +1817,16 @@ export function getItemById(id) {
   return getItems().find(i => i.id === id) || null;
 }
 
+// Harga jual setelah diskon produk. Label varian (ukuran/warna) untuk tampilan.
+export function itemNetPrice(item) {
+  const price = Math.max(Number(item && item.price) || 0, 0);
+  const d = Math.min(Math.max(Number(item && item.discountPct) || 0, 0), 100);
+  return Math.round(price * (1 - d / 100));
+}
+export function itemVariantLabel(item) {
+  return [item && item.size, item && item.color].filter(Boolean).join(' / ');
+}
+
 export function saveItem(item) {
   requireOwner();
   const list = getItems();
@@ -1826,10 +1836,14 @@ export function saveItem(item) {
   const cost = Math.max(Number(item.cost) || 0, 0);
   const price = Math.max(Number(item.price) || 0, 0);
   const minStock = Math.max(Math.floor(Number(item.minStock) || 0), 0);
+  const discountPct = Math.min(Math.max(Number(item.discountPct) || 0, 0), 100);
   const rec = {
     id: item.id || generateId(),
     name,
     sku: String(item.sku || '').slice(0, 30),
+    size: String(item.size || '').slice(0, 20),
+    color: String(item.color || '').slice(0, 20),
+    discountPct,
     stock, cost, price, minStock,
     updatedAt: new Date().toISOString()
   };
@@ -1916,9 +1930,13 @@ export function importItemsBulk(list) {
       minStock: Math.max(Math.floor(Number(raw.minStock) || 0), 0),
       updatedAt: new Date().toISOString(),
     };
+    // Kolom opsional: hanya ubah bila memang disediakan (jangan hapus data lama).
+    if (raw && raw.size !== undefined) rec.size = String(raw.size || '').trim().slice(0, 20);
+    if (raw && raw.color !== undefined) rec.color = String(raw.color || '').trim().slice(0, 20);
+    if (raw && raw.discountPct !== undefined) rec.discountPct = Math.min(Math.max(Number(raw.discountPct) || 0, 0), 100);
     const idx = items.findIndex(i => (sku && String(i.sku || '').toLowerCase() === sku.toLowerCase())
       || (!sku && String(i.name || '').toLowerCase() === name.toLowerCase()));
-    if (idx === -1) { items.push({ id: generateId(), ...rec }); added++; }
+    if (idx === -1) { items.push({ id: generateId(), size: '', color: '', discountPct: 0, ...rec }); added++; }
     else { items[idx] = { ...items[idx], ...rec }; updated++; }
   });
   localStorage.setItem(ITEM_KEY, JSON.stringify(items));

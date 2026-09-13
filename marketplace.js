@@ -151,6 +151,9 @@ export function buildProducts(dataRows, mapping, fallbackHeaderMap) {
     out.push({
       name,
       sku: get(row, m.sku),
+      size: get(row, m.size),
+      color: get(row, m.color),
+      discountPct: m.discount >= 0 ? parseNum(get(row, m.discount)) : 0,
       price: m.price >= 0 ? parseNum(get(row, m.price)) : 0,
       cost: m.cost >= 0 ? parseNum(get(row, m.cost)) : 0,
       stock: m.stock >= 0 ? parseNum(get(row, m.stock)) : 0,
@@ -166,6 +169,9 @@ export function autoMapProductColumns(headers) {
   return {
     name: find([/nama produk/, /nama barang/, /nama/, /produk/, /barang/, /item/]),
     sku: find([/sku/, /kode/]),
+    size: find([/ukuran/, /\bsize\b/]),
+    color: find([/warna/, /color/]),
+    discount: find([/diskon/, /discount/]),
     price: find([/harga jual/, /harga/, /price/, /jual/]),
     cost: find([/modal/, /hpp/, /harga beli/, /cost/]),
     stock: find([/stok/, /stock/, /qty/, /jumlah/]),

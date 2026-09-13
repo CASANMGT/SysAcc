@@ -98,4 +98,10 @@ describe('buildProducts', () => {
     expect(p.length).toBe(1);
     expect(p[0]).toMatchObject({ name: 'Kopi Susu', sku: 'KOPI-1', price: 20000, cost: 12000, stock: 5, minStock: 2 });
   });
+  it('map ukuran, warna, diskon', () => {
+    const headers = ['Nama', 'SKU', 'Ukuran', 'Warna', 'Harga', 'Diskon'];
+    const rows = [['Kaos', 'K-1', 'L', 'Hitam', '100000', '20']];
+    const p = buildProducts(rows, autoMapProductColumns(headers));
+    expect(p[0]).toMatchObject({ name: 'Kaos', sku: 'K-1', size: 'L', color: 'Hitam', discountPct: 20, price: 100000 });
+  });
 });
