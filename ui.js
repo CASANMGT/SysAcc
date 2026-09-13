@@ -2439,9 +2439,15 @@ function renderAuditReport(rows) {
     return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada aktivitas tercatat</p>';
   }
   const icon = { create: '➕', update: '✎', delete: '🗑️' };
+  const actorLabel = (a) => {
+    const ac = a && a.actor;
+    if (!ac || (!ac.role && !ac.user)) return '—';
+    const role = ac.role === 'kasir' ? 'Kasir' : 'Pemilik';
+    return ac.user && ac.user !== ac.role ? `${role} (${ac.user})` : role;
+  };
   return `
     <table class="report-table">
-      <thead><tr><th>Waktu</th><th>Aksi</th><th>Data</th></tr></thead>
+      <thead><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Data</th></tr></thead>
       <tbody>
         ${rows.map(a => {
           let detail = '';
@@ -2452,6 +2458,7 @@ function renderAuditReport(rows) {
             detail = `${escapeHtml(a.entity || '')} ${amt !== undefined ? '• ' + formatCurrency(amt) : ''}`;
           } catch { detail = escapeHtml(a.entity || ''); }
           return `<tr><td style="white-space:nowrap;font-size:11px">${escapeHtml(String(a.ts || '').slice(0, 16).replace('T', ' '))}</td>
+            <td style="font-size:11px">${escapeHtml(actorLabel(a))}</td>
             <td>${icon[a.action] || '•'} ${escapeHtml(a.action || '')}</td><td>${detail}</td></tr>`;
         }).join('')}
       </tbody>

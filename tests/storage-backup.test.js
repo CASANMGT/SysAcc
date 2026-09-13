@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, getAllJournals } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -193,6 +193,40 @@ describe('updateLoan', () => {
     const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
     updateLoan(loan.id, { status: 'paid' });
     expect(getLoanById(loan.id).status).toBe('paid');
+  });
+});
+
+describe('peran & audit actor (B3)', () => {
+  beforeEach(() => { try { sessionStorage.clear(); } catch {} });
+  it('owner default: guard lolos', () => {
+    expect(getRole()).toBe('owner');
+    expect(isKasir()).toBe(false);
+    expect(() => requireOwner()).not.toThrow();
+  });
+  it('kasir: aksi admin/hapus ditolak di lapisan data; mencatat transaksi tetap boleh', () => {
+    const e = createEntry({ date: '2026-08-01', type: 'expense', category: 'lainnya', amount: 1000 });
+    setRole('kasir');
+    expect(isKasir()).toBe(true);
+    expect(() => requireOwner()).toThrow(/Akses ditolak/);
+    expect(() => deleteEntry(e.id)).toThrow(/Akses ditolak/);
+    expect(() => createLoan({ direction: 'given', person: 'Budi', amount: 1000, date: '2026-08-01' })).toThrow(/Akses ditolak/);
+    expect(getAllEntries().some(x => x.id === e.id)).toBe(true);
+    expect(() => createEntry({ date: '2026-08-02', type: 'income', category: 'lainnya', amount: 2000 })).not.toThrow();
+    setRole('owner');
+  });
+  it('role kasir bertahan saat login diingat (persisted)', () => {
+    setRolePersisted('kasir');
+    try { sessionStorage.removeItem('wynara_role'); } catch {}
+    expect(getRole()).toBe('kasir');
+    clearPersistedRole();
+    expect(getRole()).toBe('owner');
+  });
+  it('logAudit mencatat actor', () => {
+    setActor({ role: 'kasir', user: 'kasir' });
+    expect(getActor()).toEqual({ role: 'kasir', user: 'kasir' });
+    logAudit('create', 'entry', 'x', null, { amount: 1 });
+    expect(getAudit()[0].actor).toEqual({ role: 'kasir', user: 'kasir' });
+    setActor(null);
   });
 });
 

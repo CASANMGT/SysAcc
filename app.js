@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.23.0';
+const APP_VERSION = '1.24.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -158,9 +158,9 @@ async function handleLogin(e) {
       const remember = document.getElementById('loginRemember')?.checked !== false;
       try { localStorage.removeItem('wynara_logged_in'); } catch {}
       try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
-      if (remember) safeLocalSet('wynara_logged_in', 'true');
-      else if (!safeSessionSet('wynara_logged_in', 'true')) return;
-      Storage.setRole('kasir');
+      if (remember) { safeLocalSet('wynara_logged_in', 'true'); Storage.setRolePersisted('kasir'); }
+      else { if (!safeSessionSet('wynara_logged_in', 'true')) return; Storage.setRole('kasir'); Storage.clearPersistedRole(); }
+      Storage.setActor({ role: 'kasir', user: 'kasir' });
       showApp();
       return;
     }
@@ -174,9 +174,9 @@ async function handleLogin(e) {
     const remember = document.getElementById('loginRemember')?.checked !== false;
     try { localStorage.removeItem('wynara_logged_in'); } catch {}
     try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
-    if (remember) safeLocalSet('wynara_logged_in', 'true');
-    else if (!safeSessionSet('wynara_logged_in', 'true')) return;
-    Storage.setRole('owner');
+    if (remember) { safeLocalSet('wynara_logged_in', 'true'); Storage.setRolePersisted('owner'); }
+    else { if (!safeSessionSet('wynara_logged_in', 'true')) return; Storage.setRole('owner'); Storage.clearPersistedRole(); }
+    Storage.setActor({ role: 'owner', user: user || 'admin' });
     showApp();
   } finally {
     if (btn) btn.disabled = false;
@@ -192,6 +192,7 @@ function showApp() {
   document.getElementById('appRoot').classList.remove('hidden');
   const role = Storage.getRole();
   document.getElementById('appRoot').setAttribute('data-role', role);
+  if (!Storage.getActor().user) Storage.setActor({ role, user: role === 'kasir' ? 'kasir' : 'admin' });
   applySimpleMode(safeLocalGet('wynara_mode'));
   try { if (safeLocalGet('wynara_sb') === '1') document.body.classList.add('sb-collapsed'); } catch {}
   updateBackupDot();
@@ -3027,6 +3028,7 @@ function refreshKas() {
   UI.renderKas(kasRows());
 }
 function handleTransfer() {
+  if (blockKasir()) return;
   const d = UI.getTransferFormData();
   if (!d.amount || d.amount <= 0) return UI.showError('Nominal transfer harus lebih dari 0');
   if (d.from === d.to) return UI.showError('Kas asal dan tujuan harus beda');
@@ -3048,6 +3050,7 @@ function handleTransfer() {
   }
 }
 function handleRecon() {
+  if (blockKasir()) return;
   const d = UI.getReconFormData();
   const rows = kasRows();
   const row = rows.find(r => r.payment === d.payment);
@@ -3831,8 +3834,20 @@ function handleDecA1(empId) {
 function handleLogout() {
   try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
   try { localStorage.removeItem('wynara_logged_in'); } catch {}
+  Storage.clearPersistedRole();
+  Storage.setActor(null);
   document.getElementById('appRoot').classList.add('hidden');
   showLogin();
+}
+
+// Guard UI untuk aksi admin yang memposting jurnal langsung (lapisan storage
+// tetap menegakkan lewat requireOwner; ini memberi pesan jelas + tak jalan).
+function blockKasir() {
+  if (Storage.isKasir()) {
+    UI.showError('Akses ditolak — mode kasir hanya bisa mencatat transaksi');
+    return true;
+  }
+  return false;
 }
 
 /* ===== Jurnal penutupan (closing entries) ===== */
@@ -3870,6 +3885,7 @@ function buildClosingJournalData(mk) {
   return { id: `CLOSE-${mk}`, date, memo: `Jurnal penutupan ${label}`, ref: 'closing', refId: mk, lines, total, label };
 }
 function handleClosing() {
+  if (blockKasir()) return;
   const now = new Date();
   const months = [];
   for (let i = 1; i <= 6; i++) {
@@ -4021,6 +4037,7 @@ function updateOpeningBalance() {
   else info.innerHTML = `<span style="color:#b91c1c">Selisih ${'Rp' + Math.abs(diff).toLocaleString('id-ID')} — dipasang otomatis ke 3101 Modal</span>`;
 }
 function handleOpeningPost() {
+  if (blockKasir()) return;
   const date = document.getElementById('openingDate')?.value || '';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return UI.showError('Tanggal mulai pembukuan belum benar');
   const rows = {};
@@ -4093,6 +4110,7 @@ function updateAdjustPreview() {
   box.innerHTML = `✓ Balance: <b>${label(dAcc)}</b> ⇄ <b>${label(cAcc)}</b> — ${'Rp' + d.toLocaleString('id-ID')}`;
 }
 function handleAdjustPost() {
+  if (blockKasir()) return;
   const date = document.getElementById('adjustDate')?.value || '';
   const memo = (document.getElementById('adjustMemo')?.value || '').trim();
   const dAcc = document.getElementById('adjustDebitAcc')?.value;
@@ -4185,6 +4203,7 @@ function handleAssetDelete(id) {
 }
 
 function handleAssetPost() {
+  if (blockKasir()) return;
   const mk = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   if (Storage.isMonthLocked(`${mk}-01`)) return UI.showError(`Bulan ${mk} terkunci — buka di Pengaturan`);
   const id = `DEP-${mk}`;

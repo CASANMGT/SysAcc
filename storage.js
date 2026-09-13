@@ -194,6 +194,7 @@ export function updateEntry(id, updates) {
 }
 
 export function deleteEntry(id) {
+  requireOwner();
   const entries = getEntries();
   const target = entries.find(e => e.id === id);
   const filtered = entries.filter(e => e.id !== id);
@@ -1004,6 +1005,7 @@ export function getLoanById(id) {
 }
 
 export function createLoan(loan) {
+  requireOwner();
   const loans = getLoans();
   const amount = Number(loan.amount);
   if (!isFinite(amount) || amount <= 0) throw new Error('Jumlah pinjaman tidak valid');
@@ -1048,6 +1050,7 @@ export function createLoan(loan) {
 }
 
 export function updateLoan(id, updates) {
+  requireOwner();
   const loans = getLoans();
   const index = loans.findIndex(l => l.id === id);
   if (index === -1) return null;
@@ -1095,6 +1098,7 @@ export function updateLoan(id, updates) {
 }
 
 export function deleteLoan(id) {
+  requireOwner();
   const loan = getLoanById(id);
   if (loan && loan.entryId) try { deleteEntry(loan.entryId); } catch {}
   const reps = getRepayments().filter(r => r.loanId === id);
@@ -1111,6 +1115,7 @@ export function getAllRepayments() {
 }
 
 export function addRepayment(repayment) {
+  requireOwner();
   const loan = getLoanById(repayment.loanId);
   if (!loan) throw new Error('Pinjaman tidak ditemukan');
   const amount = Number(repayment.amount);
@@ -1147,6 +1152,7 @@ export function addRepayment(repayment) {
 }
 
 export function deleteRepayment(id) {
+  requireOwner();
   const rep = getRepayments().find(r => r.id === id);
   if (rep && rep.entryId) try { deleteEntry(rep.entryId); } catch {}
   const repayments = getRepayments().filter(r => r.id !== id);
@@ -1667,6 +1673,7 @@ export function logAudit(action, entity, entityId, before, after) {
     list.unshift({
       id: generateId(),
       ts: new Date().toISOString(),
+      actor: getActor(),
       action: String(action || '').slice(0, 20),
       entity: String(entity || '').slice(0, 20),
       entityId: String(entityId || '').slice(0, 60),
@@ -1705,6 +1712,7 @@ export function getItemById(id) {
 }
 
 export function saveItem(item) {
+  requireOwner();
   const list = getItems();
   const name = String(item.name || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
   if (!name) throw new Error('Nama barang wajib');
@@ -1770,6 +1778,7 @@ function cleanEmpStr(v, max) {
 }
 
 export function saveEmployee(emp) {
+  requireOwner();
   const list = getAllEmployees();
   const name = cleanEmpStr(emp.name, 60);
   if (!name) throw new Error('Nama karyawan wajib');
@@ -1814,6 +1823,7 @@ export function empGross(emp) {
 }
 
 export function deleteEmployee(id) {
+  requireOwner();
   localStorage.setItem(EMP_KEY, JSON.stringify(getAllEmployees().filter(e => e.id !== id)));
 }
 
@@ -1868,6 +1878,7 @@ export function getCustomAccounts() {
 }
 
 export function saveCustomAccount(acc) {
+  requireOwner();
   const code = String(acc.code || '').trim();
   if (!/^\d{4}$/.test(code)) throw new Error('Kode akun harus 4 digit (mis. 5120)');
   const type = COA_TYPES.includes(acc.type) ? acc.type : 'expense';
@@ -1897,6 +1908,7 @@ export function renameCustomAccount(code, name) {
 }
 
 export function deleteCustomAccount(code, journalBalances) {
+  requireOwner();
   const bal = journalBalances && journalBalances[code];
   if (bal && ((bal.debit || 0) - (bal.credit || 0)) !== 0) {
     throw new Error('Akun sudah ada mutasi — tidak bisa dihapus');
@@ -1951,6 +1963,7 @@ function sanitizePurchaseLine(l) {
 }
 
 export function createPurchase({ supplier, date, dueDate, lines, note }) {
+  requireOwner();
   const cleanLines = (Array.isArray(lines) ? lines : []).map(sanitizePurchaseLine).filter(Boolean);
   if (!cleanLines.length) throw new Error('Isi dulu barang + qty + harga modal');
   if (!isValidDateStr(String(date || '').slice(0, 10))) throw new Error('Tanggal tidak valid');
@@ -1993,6 +2006,7 @@ export function createPurchase({ supplier, date, dueDate, lines, note }) {
 }
 
 export function addPurchasePayment(purchaseId, { amount, date, payment, paymentDetail, note, withhold: whRaw }) {
+  requireOwner();
   const list = getPurchases();
   const idx = list.findIndex(p => p.id === purchaseId);
   if (idx === -1) throw new Error('Pembelian tidak ditemukan');
@@ -2030,6 +2044,7 @@ export function addPurchasePayment(purchaseId, { amount, date, payment, paymentD
 }
 
 export function deletePurchase(id) {
+  requireOwner();
   const list = getPurchases();
   const p = list.find(x => x.id === id);
   if (!p) return false;
@@ -2070,6 +2085,7 @@ export function assertUnlocked(dateStr) {
 }
 
 export function lockMonth(mm) {
+  requireOwner();
   if (!/^\d{4}-\d{2}$/.test(mm)) throw new Error('Bulan tidak valid');
   const list = getLockedMonths();
   if (!list.includes(mm)) {
@@ -2080,6 +2096,7 @@ export function lockMonth(mm) {
 }
 
 export function unlockMonth(mm) {
+  requireOwner();
   localStorage.setItem(LOCK_KEY, JSON.stringify(getLockedMonths().filter(m => m !== mm)));
 }
 
@@ -2144,6 +2161,7 @@ export function resetAuth() {
 // ===== Mode kasir (akun kedua terbatas, PIN lokal) =====
 const KASIR_KEY = 'wynara_kasir_pin';
 const ROLE_KEY = 'wynara_role';
+const ACTOR_KEY = 'wynara_actor';
 
 export async function verifyKasirPin(pin) {
   let rec = null;
@@ -2178,8 +2196,49 @@ export function setRole(role) {
   try { if (role === 'kasir') sessionStorage.setItem(ROLE_KEY, 'kasir'); else sessionStorage.removeItem(ROLE_KEY); } catch {}
 }
 
+// Role "ingat saya": dipersist agar sesi kasir yang diingat tetap kasir
+// setelah browser ditutup (sebelumnya jatuh ke owner — lubang V10).
+const ROLE_SAVED_KEY = 'wynara_role_saved';
+export function setRolePersisted(role) {
+  setRole(role);
+  try { if (role === 'kasir') localStorage.setItem(ROLE_SAVED_KEY, 'kasir'); else localStorage.removeItem(ROLE_SAVED_KEY); } catch {}
+}
+export function clearPersistedRole() {
+  try { localStorage.removeItem(ROLE_SAVED_KEY); } catch {}
+}
+
 export function getRole() {
-  try { return sessionStorage.getItem(ROLE_KEY) === 'kasir' ? 'kasir' : 'owner'; } catch { return 'owner'; }
+  try {
+    if (sessionStorage.getItem(ROLE_KEY) === 'kasir') return 'kasir';
+    if (localStorage.getItem(ROLE_SAVED_KEY) === 'kasir') return 'kasir';
+    return 'owner';
+  } catch { return 'owner'; }
+}
+
+// Identitas pelaku (actor) untuk audit trail. Sesi-scoped — bukan dari data
+// yang bisa diubah tanpa login.
+export function setActor(actor) {
+  try {
+    if (actor && (actor.role || actor.user)) {
+      sessionStorage.setItem(ACTOR_KEY, JSON.stringify({ role: String(actor.role || ''), user: String(actor.user || '') }));
+    } else sessionStorage.removeItem(ACTOR_KEY);
+  } catch {}
+}
+export function getActor() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(ACTOR_KEY) || 'null');
+    if (v && (v.role || v.user)) return { role: v.role || 'owner', user: v.user || '' };
+  } catch {}
+  return { role: getRole(), user: '' };
+}
+
+// Penegakan peran di lapisan data (bukan sekadar CSS): aksi admin/hapus
+// ditolak saat sesi kasir. Kasir hanya boleh mencatat/mengoreksi transaksi.
+export function isKasir() {
+  return getRole() === 'kasir';
+}
+export function requireOwner() {
+  if (isKasir()) throw new Error('Akses ditolak — mode kasir hanya bisa mencatat transaksi');
 }
 
 // ===== Tarif PPN configurable (default 11%) =====
@@ -2195,6 +2254,7 @@ export function getPpn() {
   return { rate: 0.11 };
 }
 export function savePpn(rate) {
+  requireOwner();
   const r = Number(String(rate ?? '').replace(',', '.'));
   if (!Number.isFinite(r) || r < 0 || r > 0.3) throw new Error('Tarif PPN harus 0–30%');
   try { localStorage.setItem(PPN_KEY, JSON.stringify({ rate: r })); } catch {}
@@ -2212,6 +2272,7 @@ export function getFixedAssets() {
 }
 
 export function saveFixedAssets(list) {
+  requireOwner();
   try { localStorage.setItem(ASSET_KEY, JSON.stringify(Array.isArray(list) ? list : [])); } catch {}
 }
 

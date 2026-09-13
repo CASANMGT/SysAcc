@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.24.0] - 2026-09-13
+
+### Added — B3 (subset): penegakan peran di lapisan data + actor audit
+- Audit trail kini mencatat **pelaku** (`actor {role,user}`) — sebelumnya kosong; laporan Audit menampilkan kolom **Aktor**
+- `requireOwner()` ditegakkan di lapisan storage untuk aksi admin/hapus (hapus entri/pinjaman/pembayaran/pembelian/barang/karyawan, buat pinjaman/pembelian, HR, akun custom, aset, kunci periode, PPN) — kasir tetap bisa mencatat/mengoreksi transaksi
+- `blockKasir()` di handler jurnal langsung (penyesuaian, transfer, rekonsiliasi, penutupan, saldo awal, penyusutan)
+- **Tutup lubang V10**: sesi kasir "ingat saya" kini dipersist sebagai kasir (sebelumnya jatuh ke owner setelah browser ditutup)
+- **Catatan**: peran Akuntan/HRD + matriks izin penuh masih menunggu keputusan OQ4
+- +4 test (peran, guard, persisted role, actor audit); 188/188 tests ✓
+
+---
+
 ## [1.23.0] - 2026-09-13
 
 ### Added — Bunga pinjaman kini masuk Laba/Rugi (B7)
