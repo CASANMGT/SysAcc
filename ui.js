@@ -4139,8 +4139,15 @@ export function paySlipDetailHTML(r) {
   return `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-bottom:8px">
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
-        <div style="font-size:11px;color:#64748b">Lembur bulan ini</div>
-        <input type="text" class="pay-lembur" data-id="${e.id}" value="${r.overtime > 0 ? r.overtime : ''}" placeholder="Rp" inputmode="decimal" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+        <div style="font-size:11px;color:#64748b">Lembur (jam)</div>
+        <input type="number" class="pay-lembur-jam" data-id="${e.id}" min="0" step="0.5" value="${r.lemburJam > 0 ? r.lemburJam : ''}" placeholder="mis. 4" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+        <label class="login-check" style="font-size:11px;display:block;margin-top:4px"><input type="checkbox" class="pay-ganti-cuti" data-id="${e.id}" ${r.gantiCuti ? 'checked' : ''} ${dis}> Ganti cuti (bukan dibayar)</label>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">Upah lembur KEP-102: <b>${fmt(s.overtime)}</b>${r.gantiCuti && r.lemburJam > 0 ? ` • +${s.gantiCutiDays} hari cuti` : ''}</div>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+        <div style="font-size:11px;color:#64748b">Cuti diambil (hari)</div>
+        <input type="number" class="pay-cuti" data-id="${e.id}" min="0" step="0.5" value="${r.cutiDiambil > 0 ? r.cutiDiambil : ''}" placeholder="0" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">Sisa cuti tahun ini: <b>${r.cutiBalance ?? 0}</b> hari</div>
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
         <div style="font-size:11px;color:#64748b">Bonus bulan ini</div>
@@ -4170,6 +4177,7 @@ export function paySlipDetailHTML(r) {
         <label class="login-check" style="font-size:11px;display:block;margin-top:4px"><input type="checkbox" class="pay-pph" data-id="${e.id}" ${r.withPph ? 'checked' : ''} ${dis}> Hitung PPh</label>
       </div>
     </div>
+    ${r.ump && !r.ump.ok ? `<div style="font-size:11px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:8px;margin-bottom:8px">⚠️ Upah di bawah UMP — kurang ${fmt(r.ump.shortfall)}/bulan. Sesuaikan gaji pokok + tunjangan (isi UMP di Pengaturan bila belum).</div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
         <div style="font-size:12px;font-weight:700;margin-bottom:4px">Masuk kantong karyawan = <b>${fmt(s.takeHome)}</b></div>
@@ -4507,7 +4515,7 @@ export function bindPayrollView(handlers) {
       if (wa && handlers.onSlipWa) { handlers.onSlipWa(wa.dataset.id); return; }
     });
     document.getElementById('payrollTableBody')?.addEventListener('change', (e) => {
-      if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph') || e.target.closest('.pay-kasbon-skip')) handlers.onDetailChange();
+      if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph') || e.target.closest('.pay-kasbon-skip') || e.target.closest('.pay-ganti-cuti')) handlers.onDetailChange();
       const hd = e.target.closest('.pay-hadir');
       if (hd && handlers.onHadir) handlers.onHadir(hd);
     });
@@ -4532,7 +4540,7 @@ export function bindPayrollView(handlers) {
     });
     document.getElementById('payrollTableBody')?.addEventListener('input', (e) => {
       if (e.target.closest('.pay-lembur')) handlers.onLembur(e.target.closest('.pay-lembur'));
-      else if (e.target.closest('.pay-bonus') || e.target.closest('.pay-denda') || e.target.closest('.pay-kasbon')) handlers.onLembur(e.target);
+      else if (e.target.closest('.pay-bonus') || e.target.closest('.pay-denda') || e.target.closest('.pay-kasbon') || e.target.closest('.pay-lembur-jam') || e.target.closest('.pay-cuti')) handlers.onLembur(e.target);
     });
     document.getElementById('payrollDraftBtn')?.addEventListener('click', handlers.onDraft);
     document.getElementById('payrollCopyBtn')?.addEventListener('click', handlers.onCopy);

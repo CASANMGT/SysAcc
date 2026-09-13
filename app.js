@@ -6,7 +6,7 @@ import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath
 import * as Charts from './charts.js';
 import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
-import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon } from './payroll.js';
+import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck } from './payroll.js';
 import * as Cloud from './supabase.js';
 
 let currentEntries = [];
@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.33.0';
+const APP_VERSION = '1.34.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3450,9 +3450,30 @@ function loadPayrollCache() {
       checked: s.checked === undefined ? true : !!s.checked,
       kasbonSkip: !!s.kasbonSkip,
       kasbonAmount: Number.isFinite(Number(s.kasbonAmount)) ? Math.max(Number(s.kasbonAmount), 0) : null,
+      lemburJam: Math.max(Number(s.lemburJam) || 0, 0),
+      gantiCuti: !!s.gantiCuti,
+      cutiDiambil: Math.max(Number(s.cutiDiambil) || 0, 0),
       pphOverride: Number.isFinite(Number(s.pphOverride)) && Number(s.pphOverride) >= 0 ? Math.round(Number(s.pphOverride)) : null
     };
   });
+}
+// Upah lembur bulan ini: dari JAM (KEP-102) bila ada; kalau tidak, pakai rupiah lama.
+function rowOvertime(emp, c) {
+  const hours = Math.max(Number(c.lemburJam) || 0, 0);
+  if (hours > 0) {
+    if (c.gantiCuti) return 0;
+    return overtimePay((Number(emp.baseSalary) || 0) + (Number(emp.allowance) || 0), hours);
+  }
+  return Math.max(Number(c.overtime) || 0, 0);
+}
+function rowCuti(emp, c) {
+  const year = Number(String(payrollViewMonth || '').slice(0, 4)) || new Date().getFullYear();
+  const lv = Storage.getLeave(emp.id, year);
+  return { balance: leaveBalance(lv.entitled, lv.taken, lv.comp), ...lv };
+}
+function rowUmp(emp) {
+  const u = Storage.getUmp().amount;
+  return umpCheck((Number(emp.baseSalary) || 0) + (Number(emp.allowance) || 0), u);
 }
 // Potongan kasbon bulan ini untuk seorang karyawan (dari pinjaman aktif).
 // c.kasbonSkip = jeda; c.kasbonAmount = override manual (null = otomatis).
@@ -3486,9 +3507,11 @@ function payRowsForView() {
     .map(emp => {
       const c = payrollCache[emp.id] || { overtime: 0, bonus: 0, deduct: 0, withThr: false, withPph: true, checked: true };
       const kb = employeeKasbonDue(emp, c);
-      const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
+      const cuti = rowCuti(emp, c);
+      const ump = rowUmp(emp);
+      const slip = computeSlip(emp, { overtime: rowOvertime(emp, c), overtimeHours: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
       const thrNote = c.withThr && slip.thr <= 0 ? 'Masa kerja belum 1 bulan — THR Rp0. Jangan centang bila belum waktunya.' : '';
-      return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, hadir: c.hadir || 0, withThr: !!c.withThr, withPph: !!c.withPph, thrNote, kasbon: kb.due, kasbonDetail: kb.detail, kasbonSkip: !!c.kasbonSkip, kasbonAmount: c.kasbonAmount };
+      return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, hadir: c.hadir || 0, withThr: !!c.withThr, withPph: !!c.withPph, thrNote, kasbon: kb.due, kasbonDetail: kb.detail, kasbonSkip: !!c.kasbonSkip, kasbonAmount: c.kasbonAmount, lemburJam: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, cutiBalance: cuti.balance, ump };
     });
 }
 function renderPayrollView() {
@@ -3661,6 +3684,10 @@ function handlePayrollDetailChange() {
     const id = el.dataset.id;
     if (payrollCache[id]) payrollCache[id].kasbonSkip = el.checked;
   });
+  document.querySelectorAll('#payrollTableBody .pay-ganti-cuti').forEach(el => {
+    const id = el.dataset.id;
+    if (payrollCache[id]) payrollCache[id].gantiCuti = el.checked;
+  });
   renderPayrollView();
 }
 function handlePayrollLembur(input) {
@@ -3671,6 +3698,10 @@ function handlePayrollLembur(input) {
     else if (input.classList.contains('pay-denda')) payrollCache[empId].deduct = v;
     else if (input.classList.contains('pay-kasbon')) {
       payrollCache[empId].kasbonAmount = String(input.value || '').trim() === '' ? null : v;
+    } else if (input.classList.contains('pay-lembur-jam')) {
+      payrollCache[empId].lemburJam = Math.max(Number(input.value) || 0, 0);
+    } else if (input.classList.contains('pay-cuti')) {
+      payrollCache[empId].cutiDiambil = Math.max(Number(input.value) || 0, 0);
     } else payrollCache[empId].overtime = v;
   }
   // Patch sel tanpa render ulang (jaga fokus ketik)
@@ -3697,7 +3728,7 @@ function patchPayrollRow(empId) {
   if (!c || !emp) return;
   const ref = payrollMonthEnd(payrollViewMonth);
   const kb = employeeKasbonDue(emp, c);
-  const s = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
+  const s = computeSlip(emp, { overtime: rowOvertime(emp, c), overtimeHours: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   document.querySelectorAll('#payrollTableBody tr').forEach(tr => {
     const chk = tr.querySelector('.pay-check');
@@ -3715,7 +3746,7 @@ function patchPayrollRow(empId) {
     const em = Storage.getAllEmployees().find(x => x.id === k);
     if (!em || !cc.checked) return;
     const kb2 = employeeKasbonDue(em, cc);
-    const ss = computeSlip(em, { overtime: cc.overtime, bonus: cc.bonus, deduct: cc.deduct, kasbon: kb2.due, thr: cc.withThr ? thrAmount(em, ref) : 0, pph: cc.withPph, refDate: ref, rates: payrollRates, pphOverride: cc.pphOverride ?? null });
+    const ss = computeSlip(em, { overtime: rowOvertime(em, cc), overtimeHours: cc.lemburJam || 0, gantiCuti: !!cc.gantiCuti, cutiDiambil: cc.cutiDiambil || 0, bonus: cc.bonus, deduct: cc.deduct, kasbon: kb2.due, thr: cc.withThr ? thrAmount(em, ref) : 0, pph: cc.withPph, refDate: ref, rates: payrollRates, pphOverride: cc.pphOverride ?? null });
     total += ss.takeHome;
   });
   const foot = document.getElementById('payrollFootTotal');
@@ -3882,6 +3913,16 @@ function syncPayrollInputsFromDOM(target) {
     const raw = String(el.value || '').trim();
     store[id].kasbonAmount = raw === '' ? null : Math.max(Number(UI.parseIdrInput(raw)) || 0, 0);
   });
+  document.querySelectorAll('#payrollTableBody .pay-lembur-jam').forEach(el => {
+    const id = el.dataset.id;
+    if (!store[id]) return;
+    store[id].lemburJam = Math.max(Number(el.value) || 0, 0);
+  });
+  document.querySelectorAll('#payrollTableBody .pay-cuti').forEach(el => {
+    const id = el.dataset.id;
+    if (!store[id]) return;
+    store[id].cutiDiambil = Math.max(Number(el.value) || 0, 0);
+  });
 }
 function handlePayrollDraft() {
   ensurePayrollMonth();
@@ -3920,7 +3961,7 @@ function handlePayrollFinal() {
     const c = payrollCache[k];
     try {
       const kb = employeeKasbonDue(e, c);
-      const slip = computeSlip(e, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(e, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
+      const slip = computeSlip(e, { overtime: rowOvertime(e, c), overtimeHours: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(e, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
       const bits = [`pokok ${fmt(slip.base)}`];
       if (slip.allow > 0) bits.push(`tunj ${fmt(slip.allow)}`);
       if (slip.overtime > 0) bits.push(`lembur ${fmt(slip.overtime)}`);
@@ -3937,7 +3978,7 @@ function handlePayrollFinal() {
         date, type: 'expense', category: 'gaji-out', payment,
         description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})${slip.pphOverridden ? ' (PPh rekonsiliasi Des)' : ''}`,
         amount: slip.takeHome, person: e.name,
-        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, kasbon: slip.kasbon, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp, recon: slip.pphOverridden === true }
+        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, kasbon: slip.kasbon, overtimeHours: slip.overtimeHours, gantiCuti: slip.gantiCuti, gantiCutiDays: slip.gantiCutiDays, cutiDiambil: slip.cutiDiambil, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp, recon: slip.pphOverridden === true }
       });
       if (slip.kasbon > 0 && kb.detail.length) {
         let rem = slip.kasbon;
@@ -3946,6 +3987,11 @@ function handlePayrollFinal() {
           const a = Math.min(rem, d.outstanding);
           if (a > 0) { try { Storage.applyPayrollKasbon(d.loan.id, a, date, payrollViewMonth); } catch {} rem -= a; }
         });
+      }
+      // Ganti cuti & cuti terpakai → saldo cuti tahun ini
+      if ((c.gantiCuti && c.lemburJam > 0) || c.cutiDiambil > 0) {
+        const yr = Number(String(payrollViewMonth).slice(0, 4)) || new Date().getFullYear();
+        try { Storage.addLeave(e.id, yr, { comp: c.gantiCuti ? gantiCutiDays(c.lemburJam) : 0, taken: c.cutiDiambil || 0 }); } catch {}
       }
       compTotal += slip.totalComp;
       ok++;
@@ -4514,6 +4560,8 @@ function openSettings() {
   if (themeBox) themeBox.checked = document.body.classList.contains('dark-mode');
   const ppnInput = document.getElementById('ppnRateInput');
   if (ppnInput) ppnInput.value = (Storage.getPpn().rate * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+  const umpInput = document.getElementById('umpInput');
+  if (umpInput) umpInput.value = Storage.getUmp().amount ? Storage.getUmp().amount.toLocaleString('id-ID') : '';
   const modeBox = document.getElementById('settingModeSederhana');
   if (modeBox) modeBox.checked = safeLocalGet('wynara_mode') === 'sederhana';
   const cloudCfg = Cloud.getCloudConfig();
@@ -4743,6 +4791,11 @@ function saveSettings() {
     } catch (err) {
       UI.showError(err && err.message ? err.message : 'Tarif PPN tidak valid');
     }
+  }
+  // UMP (upah minimum) — validasi gaji
+  const umpInput = document.getElementById('umpInput');
+  if (umpInput) {
+    try { Storage.saveUmp(umpInput.value); } catch (err) { UI.showError(err && err.message ? err.message : 'UMP tidak valid'); }
   }
   closeSettings();
   UI.showSuccess('Pengaturan disimpan');

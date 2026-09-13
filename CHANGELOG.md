@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.34.0] - 2026-09-13
+
+### Added — Iter 20: lembur, cuti, ganti-cuti & validasi UMP
+- **Lembur KEP-102/MEN/VI/2004**: input **jam** → upah = upah sebulan ÷ 173 × (1,5 jam pertama + 2 jam berikutnya); ditampilkan otomatis di Gaji → Proses
+- **Ganti cuti**: centang → lembur dibayar sebagai cuti (8 jam = 1 hari, bisa dibulatkan 0,5) — upah lembur 0, saldo cuti bertambah
+- **Cuti (UU 13/2003 Ps.79)**: catat cuti terpakai per bulan; saldo = jatah 12 + ganti − terpakai; disimpan per karyawan/tahun & ikut sinkron
+- **UMP configurable**: isi UMP daerah di Pengaturan → karyawan berupah di bawah UMP diberi peringatan (tanpa mengarang angka provinsi)
+- +8 test; 225/225 tests ✓
+
+---
+
 ## [1.33.0] - 2026-09-13
 
 ### Changed — F8 mobile (lanjutan) + F9 final

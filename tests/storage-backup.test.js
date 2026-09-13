@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -240,6 +240,20 @@ describe('backup self-test', () => {
     expect(r.counts.entries).toBe(2);
     expect(r.counts.loans).toBe(1);
     expect(getLastSelfTest().ok).toBe(true);
+  });
+});
+
+describe('cuti & UMP (storage)', () => {
+  it('saldo cuti default 12 hari; addLeave menambah comp & taken', () => {
+    const emp = saveEmployee({ name: 'Cuti Satu', baseSalary: 4000000 });
+    expect(getLeave(emp.id, 2026)).toEqual({ entitled: 12, taken: 0, comp: 0 });
+    addLeave(emp.id, 2026, { comp: 1, taken: 2 });
+    expect(getLeave(emp.id, 2026)).toEqual({ entitled: 12, taken: 2, comp: 1 });
+  });
+  it('UMP disimpan sebagai angka', () => {
+    expect(getUmp().amount).toBe(0);
+    saveUmp('3.500.000');
+    expect(getUmp().amount).toBe(3500000);
   });
 });
 

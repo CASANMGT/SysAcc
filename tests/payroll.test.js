@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { terCategory, terRate, tenureMonths, thrAmount, computeSlip, KES_CAP, JP_CAP, annualPPh21, ptkpAnnual, decRecon } from '../payroll.js';
+import { terCategory, terRate, tenureMonths, thrAmount, computeSlip, KES_CAP, JP_CAP, annualPPh21, ptkpAnnual, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, OVERTIME_DIVISOR } from '../payroll.js';
 
 describe('terCategory', () => {
   it('TK/0, TK/1, K/0 → A', () => {
@@ -202,6 +202,39 @@ describe('PPh 21 tahunan — SUMBER: UU PPh 36/2008 jo. UU HPP 7/2021 (wajib kon
     expect(s.pphOverridden).toBe(true);
     const s2 = computeSlip({ baseSalary: 4000000, allowance: 1000000, ptkp: 'TK/0', npwp: '1' }, { pph: true });
     expect(s2.pphOverridden).toBe(false);
+  });
+});
+
+describe('lembur & cuti (KEP-102 / UU 13-2003)', () => {
+  it('lembur: jam-1 1,5x, jam-2+ 2x dari upah/173', () => {
+    const wage = 5000000;
+    expect(overtimePay(wage, 1)).toBe(Math.round((wage / OVERTIME_DIVISOR) * 1.5));
+    expect(overtimePay(wage, 3)).toBe(Math.round((wage / OVERTIME_DIVISOR) * (1.5 + 2 + 2)));
+    expect(overtimePay(0, 5)).toBe(0);
+    expect(overtimePay(wage, 0)).toBe(0);
+  });
+  it('ganti cuti: 8 jam = 1 hari, dibulatkan 0,5', () => {
+    expect(gantiCutiDays(8)).toBe(1);
+    expect(gantiCutiDays(4)).toBe(0.5);
+    expect(gantiCutiDays(12)).toBe(1.5);
+  });
+  it('saldo cuti = jatah + ganti − terpakai (tak negatif)', () => {
+    expect(leaveBalance(12, 3, 1)).toBe(10);
+    expect(leaveBalance(12, 20, 0)).toBe(0);
+  });
+  it('umpCheck: di bawah UMP → shortfall', () => {
+    expect(umpCheck(3500000, 0)).toEqual({ ok: true, shortfall: 0 });
+    expect(umpCheck(3000000, 3500000)).toEqual({ ok: false, shortfall: 500000 });
+    expect(umpCheck(4000000, 3500000).ok).toBe(true);
+  });
+  it('computeSlip: jam lembur → upah KEP-102; ganti cuti → 0 upah', () => {
+    const emp = { baseSalary: 5000000, allowance: 0, ptkp: 'TK/0', npwp: '1', bpjsKes: false, bpjsTk: false };
+    const paid = computeSlip(emp, { overtimeHours: 2, refDate: new Date('2026-08-31') });
+    expect(paid.overtime).toBe(overtimePay(5000000, 2));
+    expect(paid.overtimeHours).toBe(2);
+    const comp = computeSlip(emp, { overtimeHours: 8, gantiCuti: true, refDate: new Date('2026-08-31') });
+    expect(comp.overtime).toBe(0);
+    expect(comp.gantiCutiDays).toBe(1);
   });
 });
 

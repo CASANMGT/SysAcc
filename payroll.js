@@ -158,6 +158,43 @@ export function terRate(grossMonthly, category) {
   return 0;
 }
 
+// ===== Lembur & cuti (KEP-102/MEN/VI/2004, UU 13/2003) =====
+// Upah/jam = upah sebulan ÷ 173; jam ke-1 = 1,5×; jam ke-2 dst = 2×.
+// Angka ini statuter tetapi bisa dioverride lewat opts (mis. SK khusus).
+export const OVERTIME_DIVISOR = 173;
+export const OVERTIME_MULT_1 = 1.5;
+export const OVERTIME_MULT_N = 2;
+export function overtimePay(monthlyWage, hours, opts = {}) {
+  const wage = Math.max(Number(monthlyWage) || 0, 0);
+  const h = Math.max(Number(hours) || 0, 0);
+  if (wage <= 0 || h <= 0) return 0;
+  const divisor = Number(opts.divisor) > 0 ? Number(opts.divisor) : OVERTIME_DIVISOR;
+  const m1 = Number(opts.m1) > 0 ? Number(opts.m1) : OVERTIME_MULT_1;
+  const mn = Number(opts.mn) > 0 ? Number(opts.mn) : OVERTIME_MULT_N;
+  const rate = wage / divisor;
+  const first = Math.min(h, 1);
+  const rest = Math.max(h - 1, 0);
+  return Math.round(rate * (first * m1 + rest * mn));
+}
+export const CUTI_ANNUAL = 12; // UU 13/2003 Pasal 79 — cuti tahunan ≥12 hari kerja
+// Ganti cuti: lembur dibayar sebagai cuti (bukan uang). Konversi berbasis
+// kesepakatan (bukan statuter) — default 8 jam = 1 hari, dibulatkan 0,5 hari.
+export function gantiCutiDays(hours, hoursPerDay = 8) {
+  const h = Math.max(Number(hours) || 0, 0);
+  const d = Number(hoursPerDay) > 0 ? Number(hoursPerDay) : 8;
+  return Math.round((h / d) * 2) / 2;
+}
+export function leaveBalance(entitled, taken, comp) {
+  return Math.max((Number(entitled) || 0) + (Number(comp) || 0) - (Number(taken) || 0), 0);
+}
+// UMP (upah minimum): validasi upah pokok+tunjangan tetap ≥ UMP. 0 = tidak dicek.
+export function umpCheck(wage, ump) {
+  const w = Math.max(Number(wage) || 0, 0);
+  const u = Math.max(Number(ump) || 0, 0);
+  if (u <= 0) return { ok: true, shortfall: 0 };
+  return { ok: w >= u, shortfall: Math.max(u - w, 0) };
+}
+
 function rupiah(n) {
   return Math.round(Number(n) || 0);
 }
@@ -198,7 +235,13 @@ export function computeSlip(emp, opts = {}) {
   const R = sanitizeRates(opts.rates);
   const base = rupiah(e.baseSalary);
   const allow = rupiah(e.allowance);
-  const overtime = rupiah(opts.overtime);
+  let overtime = rupiah(opts.overtime);
+  const overtimeHours = Math.max(Number(opts.overtimeHours) || 0, 0);
+  const gantiCuti = !!opts.gantiCuti;
+  const gantiDays = overtimeHours > 0 ? gantiCutiDays(overtimeHours) : 0;
+  if (overtimeHours > 0) {
+    overtime = gantiCuti ? 0 : overtimePay(rupiah(e.baseSalary) + rupiah(e.allowance), overtimeHours);
+  }
   const bonus = rupiah(opts.bonus);
   const deduct = rupiah(opts.deduct);
   const kasbonWanted = rupiah(opts.kasbon);
@@ -249,6 +292,7 @@ export function computeSlip(emp, opts = {}) {
     ded, comp, totalDed, totalComp,
     rates: R,
     pphOverridden,
+    overtimeHours, gantiCuti, gantiCutiDays: gantiDays, cutiDiambil: Math.max(Number(opts.cutiDiambil) || 0, 0),
     takeHome: gross + thr - totalDed - deduct - kasbon,
     employerCost: gross + thr + totalComp,
     tenureMonths: tenureMonths(e.startDate, ref),

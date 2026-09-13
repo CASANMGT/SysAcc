@@ -2358,9 +2358,55 @@ export function savePpn(rate) {
   return r;
 }
 
+// ===== UMP (upah minimum) configurable =====
+// JANGAN mengarang angka per provinsi — pemilik mengisi UMP daerahnya.
+const UMP_KEY = 'wynara_ump';
+export function getUmp() {
+  try {
+    const v = JSON.parse(localStorage.getItem(UMP_KEY) || 'null');
+    const n = Number(v && v.amount);
+    if (Number.isFinite(n) && n > 0) return { amount: n };
+  } catch {}
+  return { amount: 0 };
+}
+export function saveUmp(amount) {
+  requireOwner();
+  const n = Math.max(Number(String(amount ?? '').replace(/[^0-9]/g, '')) || 0, 0);
+  try { localStorage.setItem(UMP_KEY, JSON.stringify({ amount: n })); } catch {}
+  return n;
+}
+
+// ===== Cuti karyawan (UU 13/2003 Ps.79): saldo per karyawan per tahun =====
+const LEAVE_KEY = 'wynara_leave';
+export function getLeaveAll() {
+  try { const v = JSON.parse(localStorage.getItem(LEAVE_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+}
+export function getLeave(empId, year) {
+  const all = getLeaveAll();
+  const y = String(year || new Date().getFullYear());
+  const rec = all[empId] && all[empId][y];
+  return rec ? { entitled: Number(rec.entitled) || 12, taken: Number(rec.taken) || 0, comp: Number(rec.comp) || 0 } : { entitled: 12, taken: 0, comp: 0 };
+}
+export function saveLeave(empId, year, obj) {
+  const all = getLeaveAll();
+  const y = String(year || new Date().getFullYear());
+  all[empId] = all[empId] || {};
+  all[empId][y] = {
+    entitled: Math.max(Number(obj && obj.entitled) || 12, 0),
+    taken: Math.max(Number(obj && obj.taken) || 0, 0),
+    comp: Math.max(Number(obj && obj.comp) || 0, 0),
+  };
+  try { localStorage.setItem(LEAVE_KEY, JSON.stringify(all)); } catch {}
+  return all[empId][y];
+}
+// Tambah jatah ganti-cuti (comp) dan/atau cuti terpakai (taken) untuk tahun ini.
+export function addLeave(empId, year, { comp = 0, taken = 0 } = {}) {
+  const cur = getLeave(empId, year);
+  return saveLeave(empId, year, { entitled: cur.entitled, taken: cur.taken + (Number(taken) || 0), comp: cur.comp + (Number(comp) || 0) });
+}
+
 // ===== Aset tetap & penyusutan =====
 const ASSET_KEY = 'wynara_assets';
-
 export function getFixedAssets() {
   try {
     const list = JSON.parse(localStorage.getItem(ASSET_KEY) || '[]');
