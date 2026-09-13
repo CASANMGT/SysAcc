@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.60.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.61.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.60.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.61.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -619,10 +619,11 @@
             </div>
             <div class="chip-group" id="stockPageFilter" role="group" aria-label="Filter stok">
               <button type="button" class="chip selected" data-f="all">Semua</button>
-              <button type="button" class="chip" data-f="low">⚠️ Stok menipis</button>
+              <button type="button" class="chip" data-f="low">⚠️ Menipis</button>
+              <button type="button" class="chip" data-f="out">🚫 Habis</button>
             </div>
           </div>
-          <div id="stockPageSummary" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
+          <div id="stockPageSummary" class="stock-kpi" aria-label="Ringkasan persediaan"></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
             <div class="chip-group" id="stockViewToggle" role="group" aria-label="Tampilan stok">
               <button type="button" class="chip selected" data-v="cards">🃏 Kartu</button>
@@ -2019,6 +2020,27 @@
     </div>
   </dialog>
 
+<dialog id="stockActionSheet" class="modal action-sheet">
+    <div class="modal-content" style="max-width:420px">
+      <header class="modal-header">
+        <h2 id="stockActionTitle">Produk</h2>
+        <button type="button" class="modal-close" id="stockActionClose" aria-label="Tutup">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div id="stockActionInfo" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
+        <div class="stock-action-grid">
+          <button type="button" class="btn btn-primary" id="saAdd">＋ Tambah stok</button>
+          <button type="button" class="btn btn-ghost" id="saAdjust">⚖️ Koreksi</button>
+          <button type="button" class="btn btn-ghost" id="saTransfer">🔁 Pindah</button>
+          <button type="button" class="btn btn-ghost" id="saHistory">📜 Kartu stok</button>
+          <button type="button" class="btn btn-ghost" id="saJual">🧾 Jual</button>
+          <button type="button" class="btn btn-ghost" id="saEdit">✎ Edit</button>
+        </div>
+        <button type="button" class="btn btn-ghost" id="saDelete" style="margin-top:8px;color:#ef4444;width:100%">🗑 Hapus produk</button>
+      </div>
+    </div>
+  </dialog>
+
 <dialog id="stockAdjustModal" class="modal">
     <div class="modal-content" style="max-width:440px">
       <header class="modal-header">
@@ -2137,7 +2159,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.60.0';
+    window.__htmlVersion = '1.61.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

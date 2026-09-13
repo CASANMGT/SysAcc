@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.60.0';
+const APP_VERSION = '1.61.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -979,11 +979,26 @@ function bindEvents() {
     const jual = e.target.closest('.stock-page-jual');
     const restock = e.target.closest('.stock-page-restock');
     const hist = e.target.closest('.stock-page-history');
-    if (chip) { const it = Storage.getItemById(chip.dataset.id); if (it) { UI.fillStockForm(it); UI.openStock(); } }
+    if (chip) openStockActionSheet(chip.dataset.id);
     else if (jual) UI.openSale();
     else if (restock) handleStockRestockGroup(restock.dataset.key);
     else if (hist) handleStockHistoryGroup(hist.dataset.key);
   });
+  document.getElementById('stockPageSummary')?.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-f]');
+    if (!b) return;
+    if (b.dataset.f === 'moves') { openStockMovementsToday(); return; }
+    stockPageFilter = b.dataset.f || 'all';
+    refreshStockPage();
+  });
+  document.getElementById('stockActionClose')?.addEventListener('click', closeStockActionSheet);
+  document.getElementById('saAdd')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); openRestockForItem(id); });
+  document.getElementById('saAdjust')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); openStockAdjust(id); });
+  document.getElementById('saTransfer')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); openTransfer(id); });
+  document.getElementById('saHistory')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); handleStockHistory(id); });
+  document.getElementById('saJual')?.addEventListener('click', () => { closeStockActionSheet(); UI.openSale(); });
+  document.getElementById('saEdit')?.addEventListener('click', () => { const id = stockActionId; const it = Storage.getItemById(id); closeStockActionSheet(); if (it) { UI.fillStockForm(it); UI.openStock(); } });
+  document.getElementById('saDelete')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); handleStockDelete(id); });
   document.getElementById('stockPageList')?.addEventListener('change', (e) => {
     if (e.target.id === 'stockSelectAll') {
       document.querySelectorAll('#stockPageList .stock-row-check').forEach(c => { c.checked = e.target.checked; });
@@ -3159,13 +3174,35 @@ function refreshStockPage() {
   renderShopSelect();
   const viewToggle = document.getElementById('stockViewToggle');
   if (viewToggle) viewToggle.querySelectorAll('.chip').forEach(c => c.classList.toggle('selected', c.dataset.v === stockView));
-  UI.renderStockPage(Storage.getStockGroups(), { term, filter: stockPageFilter, shopId, shopName, view: stockView, sort: stockSort, showInactive: stockShowInactive });
+  const pf = document.getElementById('stockPageFilter');
+  if (pf) pf.querySelectorAll('.chip').forEach(c => c.classList.toggle('selected', c.dataset.f === stockPageFilter));
+  UI.renderStockPage(Storage.getStockGroups(), { term, filter: stockPageFilter, shopId, shopName, view: stockView, sort: stockSort, showInactive: stockShowInactive, movesToday: stockMovesTodayCount(shopId) });
   const qtyLabel = document.getElementById('stockQtyLabel');
   if (qtyLabel) qtyLabel.textContent = `Punya berapa? (${shopName})`;
   renderBulkBar();
 }
 function selectedStockIds() {
   return [...document.querySelectorAll('#stockPageList .stock-row-check:checked')].map(c => c.dataset.id);
+}
+function stockMovesTodayCount(shopId) {
+  const today = new Date().toISOString().slice(0, 10);
+  return Storage.getStockMoves().filter(m => String(m.ts || '').slice(0, 10) === today && (!m.shop || m.shop === shopId)).length;
+}
+const STOCK_MOVE_LABELS = { sale: 'Jual', purchase: 'Beli', restock: 'Restock', adjust: 'Koreksi', transfer: 'Transfer', return: 'Retur', opening: 'Stok awal', opname: 'Opname', reversal: 'Pembatalan' };
+function openStockMovementsToday() {
+  const shopId = Storage.getActiveShopId();
+  const nm = (Storage.getShops().find(s => s.id === shopId) || {}).name || '';
+  const today = new Date().toISOString().slice(0, 10);
+  const moves = Storage.getStockMoves().filter(m => String(m.ts || '').slice(0, 10) === today && (!m.shop || m.shop === shopId));
+  const dt = (s) => { try { return new Date(s).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
+  const th = (m) => STOCK_MOVE_LABELS[m.type] || (m.qtyIn ? 'Masuk' : 'Keluar');
+  const body = moves.length
+    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">Mutasi <b>${escapeHtml(nm)}</b> hari ini — ${moves.length} gerakan</div>
+       <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Jam</th><th>Jenis</th><th>Produk</th><th class="amount-col">Masuk</th><th class="amount-col">Keluar</th><th class="amount-col">Sisa</th></tr></thead><tbody>
+       ${moves.slice(0, 120).map(m => { const it = Storage.getItemById(m.itemId) || {}; return `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${th(m)}</td><td style="font-size:12px">${escapeHtml(it.name || '—')}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? '−' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td></tr>`; }).join('')}
+       </tbody></table></div>`
+    : '<p style="color:#64748b">Belum ada mutasi stok hari ini.</p>';
+  UI.openInfoModal('🔄 Mutasi stok hari ini', body);
 }
 function renderBulkBar() {
   const bar = document.getElementById('stockBulkBar');
@@ -3273,13 +3310,14 @@ function handleStockRestockGroup(key) {
 }
 function closeRestock() { const m = document.getElementById('restockModal'); if (m && m.open) { try { m.close(); } catch {} } }
 /* ===== Dokumen stok: penyesuaian & transfer ===== */
-function openStockAdjust() {
+function openStockAdjust(preselectId) {
   const sel = document.getElementById('stkAdjItem');
   if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${i.stock})</option>`; }).join('');
   const dEl = document.getElementById('stkAdjDate'); if (dEl) dEl.value = new Date().toISOString().split('T')[0];
   const q = document.getElementById('stkAdjQty'); if (q) q.value = '';
   const r = document.getElementById('stkAdjReason'); if (r) r.value = '';
-  const info = document.getElementById('stkAdjInfo'); if (info) info.textContent = '';
+  if (preselectId && sel && Storage.getItemById(preselectId)) sel.value = preselectId;
+  updateStockAdjInfo();
   const m = document.getElementById('stockAdjustModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
 }
 function updateStockAdjInfo() {
@@ -3305,7 +3343,7 @@ function handleStockAdjustSubmit() {
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyesuaikan stok'); }
 }
 function closeStockAdjust() { const m = document.getElementById('stockAdjustModal'); if (m && m.open) { try { m.close(); } catch {} } }
-function openTransfer() {
+function openTransfer(preselectId) {
   const sel = document.getElementById('trfItem');
   if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''}</option>`; }).join('');
   const shops = Storage.getShops();
@@ -3314,6 +3352,7 @@ function openTransfer() {
   const to = document.getElementById('trfTo'); if (to) to.innerHTML = opts;
   if (from) from.value = Storage.getActiveShopId();
   if (to && shops.length > 1) to.value = shops.find(s => s.id !== Storage.getActiveShopId()).id;
+  if (preselectId && sel && Storage.getItemById(preselectId)) sel.value = preselectId;
   const q = document.getElementById('trfQty'); if (q) q.value = '';
   updateTrfInfo();
   const m = document.getElementById('transferModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
@@ -3427,8 +3466,8 @@ function handleStockHistory(id) {
   const dt = (s) => { try { return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
   const body = moves.length
     ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">${escapeHtml(it.name)} — stok kini <b>${it.stock}</b> • modal rata-rata ${fmt(it.cost)}</div>
-       <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Waktu</th><th>Masuk</th><th>Keluar</th><th>Sisa</th><th>Modal/unit</th></tr></thead><tbody>
-       ${moves.slice(0, 100).map(m => `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? '−' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td><td class="amount-col">${fmt(m.unitCost)}</td></tr>`).join('')}
+       <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Waktu</th><th>Jenis</th><th>Masuk</th><th>Keluar</th><th>Sisa</th><th>Modal/unit</th></tr></thead><tbody>
+       ${moves.slice(0, 100).map(m => `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${STOCK_MOVE_LABELS[m.type] || (m.qtyIn ? 'Masuk' : 'Keluar')}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? '−' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td><td class="amount-col">${fmt(m.unitCost)}</td></tr>`).join('')}
        </tbody></table></div>`
     : '<p style="color:#64748b">Belum ada mutasi tercatat untuk barang ini.</p>';
   UI.openInfoModal(`📜 Kartu stok — ${it.name}`, body);
@@ -3453,6 +3492,43 @@ function handleStockHistoryGroup(key) {
        </tbody></table></div>`
     : '<p style="color:#64748b">Belum ada mutasi tercatat.</p>';
   UI.openInfoModal(`📜 Riwayat — ${g.name}`, body);
+}
+
+/* ===== Lembar aksi cepat produk (movement-first) ===== */
+let stockActionId = '';
+function openStockActionSheet(itemId) {
+  const it = Storage.getItemById(itemId);
+  if (!it) return;
+  stockActionId = itemId;
+  const shopId = Storage.getActiveShopId();
+  const shopName = (Storage.getShops().find(s => s.id === shopId) || {}).name || '';
+  const q = Storage.shopStockOf(it, shopId);
+  const v = Storage.itemVariantLabel(it);
+  const title = document.getElementById('stockActionTitle');
+  if (title) title.textContent = it.name + (v ? ' • ' + v : '');
+  const info = document.getElementById('stockActionInfo');
+  if (info) info.innerHTML = `Stok <b>${q}</b> ${escapeHtml(shopName)} • total ${it.stock} • modal Rp${Math.round(Number(it.cost) || 0).toLocaleString('id-ID')}`;
+  const m = document.getElementById('stockActionSheet');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function closeStockActionSheet() { const m = document.getElementById('stockActionSheet'); if (m && m.open) { try { m.close(); } catch {} } }
+function openRestockForItem(itemId) {
+  const it = Storage.getItemById(itemId);
+  if (!it) return;
+  const g = Storage.getStockGroups().find(x => x.key === Storage.itemGroupKey(it));
+  const shopId = Storage.getActiveShopId();
+  const sel = document.getElementById('restockVariant');
+  if (sel) {
+    const list = g ? g.variants : [it];
+    sel.innerHTML = list.map(x => { const lab = [x.size, x.color].filter(Boolean).join('/') || 'Default'; return `<option value="${x.id}">${escapeHtml(lab)} — stok ${Storage.shopStockOf(x, shopId)}</option>`; }).join('');
+    sel.value = itemId;
+  }
+  const info = document.getElementById('restockInfo');
+  if (info) info.innerHTML = `<b>${escapeHtml(g ? g.name : it.name)}</b> — modal rata-rata Rp${Math.round(Number(it.cost) || 0).toLocaleString('id-ID')}/pcs`;
+  const dateEl = document.getElementById('restockDate'); if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+  const q = document.getElementById('restockQty'); if (q) q.value = '';
+  const c = document.getElementById('restockCost'); if (c) c.value = it.cost ? String(Math.round(it.cost)) : '';
+  const m = document.getElementById('restockModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
 }
 
 /* ===== Import produk & penjualan (marketplace / WhatsApp) ===== */

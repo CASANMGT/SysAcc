@@ -3805,6 +3805,13 @@ img { max-width: 100%; height: auto; }
 .stock-chip-stock.low { color: #b45309; }
 .stock-step-title { font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px; }
 .stock-form-panel { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+.stock-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.stock-kpi button { text-align: left; background: var(--card, #fff); border: 1px solid var(--border, #e2e8f0); border-radius: 12px; padding: 8px 10px; font-size: 11px; color: #64748b; cursor: pointer; font-family: inherit; line-height: 1.35; }
+.stock-kpi button:hover { border-color: #cbd5e1; }
+.stock-kpi button.active { border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb inset; }
+.stock-kpi b { display: block; font-size: 15px; color: #0f172a; font-variant-numeric: tabular-nums; }
+.stock-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 480px) { .stock-kpi { grid-template-columns: 1fr 1fr; } }
 .stock-step-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
 
 /* ===== Mode kasir: sembunyikan akses pemilik ===== */

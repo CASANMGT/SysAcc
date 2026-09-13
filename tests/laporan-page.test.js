@@ -129,6 +129,12 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(panel.closest('#stockModal')).toBe(null);
     expect(panel.hidden).toBe(true);
   });
+  it('halaman stok: KPI + filter Habis + lembar aksi cepat', () => {
+    expect(document.querySelectorAll('#stockPageFilter .chip[data-f="out"]').length).toBe(1);
+    expect(document.getElementById('stockPageSummary').classList.contains('stock-kpi')).toBe(true);
+    expect(document.getElementById('stockActionSheet')).toBeTruthy();
+    ['saAdd', 'saAdjust', 'saTransfer', 'saHistory', 'saJual', 'saEdit', 'saDelete'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
+  });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
     expect(seg.length).toBeGreaterThan(0);

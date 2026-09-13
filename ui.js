@@ -3389,7 +3389,7 @@ export function renderStock(items) {
   }).join('');
 }
 // Halaman Stok: kartu produk dikelompokkan, varian sebagai chip + stok.
-export function renderStockPage(groups, { term = '', filter = 'all', shopId = '', shopName = '', view = 'cards', sort = null, showInactive = false } = {}) {
+export function renderStockPage(groups, { term = '', filter = 'all', shopId = '', shopName = '', view = 'cards', sort = null, showInactive = false, movesToday = 0 } = {}) {
   const list = document.getElementById('stockPageList');
   if (!list) return;
   const gs0 = Array.isArray(groups) ? groups : [];
@@ -3400,17 +3400,24 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
     return { ...g, variants, shopStock: variants.reduce((s, v) => s + v._shopStock, 0) };
   }).filter(g => g.variants.length);
   if (filter === 'low') gs = gs.filter(g => g.variants.some(v => (Number(v.minStock) || 0) > 0 && v._shopStock <= Number(v.minStock)));
+  if (filter === 'out') gs = gs.filter(g => g.variants.some(v => v._shopStock <= 0));
   if (t) gs = gs.filter(g => (`${g.name} ${g.sku} ${g.variants.map(v => `${v.name} ${v.size || ''} ${v.color || ''} ${v.sku || ''} ${v.barcode || ''} ${v.category || ''}`).join(' ')}`).toLowerCase().includes(t));
   const sub = document.getElementById('stockPageSubtitle');
   if (sub) sub.textContent = `${gs0.length} produk • ${gs0.reduce((s, g) => s + g.variants.length, 0)} varian • stok${shopName ? ' ' + shopName : ''}: ${gs0.reduce((s, g) => s + (g.variants ? g.variants.reduce((x, v) => { const q = (shopId && v.stocks && typeof v.stocks === 'object') ? Math.max(Math.floor(Number(v.stocks[shopId]) || 0), 0) : (Number(v.stock) || 0); return x + q; }, 0) : 0), 0)}`;
-  // Ringkasan: nilai persediaan + jumlah varian perlu restock (toko aktif)
+  // KPI: nilai persediaan, menipis, habis, mutasi hari ini (toko aktif) — bisa diklik untuk filter
   const sumEl = document.getElementById('stockPageSummary');
   if (sumEl) {
     const allV = gs0.reduce((a, g) => a.concat(g.variants || []), []);
     const qOf = (v) => (shopId && v.stocks && typeof v.stocks === 'object') ? Math.max(Math.floor(Number(v.stocks[shopId]) || 0), 0) : (Number(v.stock) || 0);
     const val = allV.reduce((s, v) => s + qOf(v) * (Number(v.cost) || 0), 0);
-    const reorder = allV.filter(v => (Number(v.minStock) || 0) > 0 && qOf(v) <= Number(v.minStock)).length;
-    sumEl.innerHTML = `Nilai persediaan${shopName ? ` <b>${escapeHtml(shopName)}</b>` : ''}: <b>Rp${Math.round(val).toLocaleString('id-ID')}</b> • perlu restock: <b>${reorder}</b> varian`;
+    const lowN = allV.filter(v => (Number(v.minStock) || 0) > 0 && qOf(v) <= Number(v.minStock)).length;
+    const outN = allV.filter(v => qOf(v) <= 0).length;
+    const kpi = (f, label, value, active) => `<button type="button" data-f="${f}" class="${active ? 'active' : ''}" aria-pressed="${active}">${label}<b>${value}</b></button>`;
+    sumEl.innerHTML =
+      kpi('all', 'Nilai persediaan', 'Rp' + Math.round(val).toLocaleString('id-ID'), filter === 'all')
+      + kpi('low', '⚠️ Menipis', lowN, filter === 'low')
+      + kpi('out', '🚫 Habis', outN, filter === 'out')
+      + `<button type="button" data-f="moves">🔄 Mutasi hari ini<b>${Number(movesToday) || 0}</b></button>`;
   }
   if (!gs.length) { list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:32px">Tidak ada produk yang cocok.</p>'; return; }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');

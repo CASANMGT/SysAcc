@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.61.0] - 2026-09-14
+
+### Changed — Desain "movement-first" halaman Stok
+- **KPI tiles** di atas: **Nilai persediaan · Menipis · Habis · Mutasi hari ini** — klik untuk memfilter (mutasi → daftar gerakan hari ini)
+- Filter cepat: **Semua / Menipis / Habis** (chip), sinkron dengan KPI
+- Klik varian kini membuka **lembar aksi cepat** (bukan langsung form): **＋ Tambah stok · ⚖️ Koreksi · 🔁 Pindah · 📜 Kartu stok · 🧾 Jual · ✎ Edit · 🗑 Hapus** — reuse alur restock/adjust/transfer yang ada, dengan varian terpilih otomatis
+- **Kartu stok** menampilkan kolom **Jenis** (Jual/Beli/Restock/Koreksi/Transfer/Retur/Stok awal/Opname/Pembatalan)
+- KPI & lembar aksi responsif (2 kolom di HP ≤480px); +1 test; 273/273 tests ✓
+
+---
+
 ## [1.60.0] - 2026-09-14
 
 ### Fixed — "Stok benar" (sprint kebenaran persediaan)
