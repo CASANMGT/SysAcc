@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.31.0** · Production **v1.31.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.31.0, sw=wynara-v1-31-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.32.0** · Production **v1.32.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.32.0, sw=wynara-v1-32-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,8 +13,8 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ still requires every axis ≥85. Lowest: F4 74, F2 76, F9 80
-— three axes below 85 (F3 81, F8 81, F7 83). Keep working correctness; do not chase cosmetics.
+A+ still requires every axis ≥85. Lowest: F4 74, F2 80, F9 80, F3 81, F8 81
+— five axes below 85 (F7 83; F1/F5/F6 ≥85). Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -26,7 +26,7 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
 | F1 Core ledger | 15 | 86 | **86** | 12.90 | V3 4 lubang lock ditutup (ditegakkan di storage) + B7 bunga pinjaman kini masuk Laba/Rugi |
-| F2 Tax conformance | 12 | 76 | **76** | 9.12 | Faktur/NITKU open; PPN position open |
+| F2 Tax conformance | 12 | 76 | **80** | 9.60 | OQ2 selesai (PPN 11% configurable, non-PKP); PPh Final PP23/2018 ambang Rp4,8M + peringatan |
 | F3 Payroll & HR | 12 | 73 | **81** | 9.72 | Dec recon + 1721-A1 + **kasbon karyawan** (potong gaji otomatis + jeda). Lembur/cuti/UMP → iter 20 |
 | F4 Data durability | 15 | 52 | **74** | 11.10 | Supabase LIVE + RLS; peran+actor; **tautkan sesi anonim→email + uji-diri backup**. Gap: OQ4 matriks Akuntan/HRD |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
@@ -34,19 +34,19 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F7 Cognitive load | 10 | 80 | **83** | 8.30 | Form Pinjaman disederhanakan + kontak **Karyawan** eksplisit (picker kasbon) |
 | F8 Mobile | 7 | 82 | **81** | 5.67 | Audit mobile: hapus hide-kolom global (data hilang di HP), safe-area, drawer di atas nav, target sentuh, modal scroll |
 | F9 Accessibility | 7 | 68 | **80** | 5.60 | Label/dialog/focus/contrast + **scope/caption tabel, alt grafik, hierarki heading** |
-| **OVERALL** | | ~~90~~ | | **81.93** | F4 71→74, F9 75→80; arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **82.41** | F2 76→80 (OQ2); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 86×15 + 76×12 + 81×12 + 74×15 + 92×10 + 86×12 + 83×10 + 81×7 + 80×7
-= 1290 + 912 + 972 + 1110 + 920 + 1032 + 830 + 567 + 560 = **8193 / 100 = 81.93**. Baseline 59.7 → **+22.23**.
+Aritmetika (wajib tampil): 86×15 + 80×12 + 81×12 + 74×15 + 92×10 + 86×12 + 83×10 + 81×7 + 80×7
+= 1290 + 960 + 972 + 1110 + 920 + 1032 + 830 + 567 + 560 = **8241 / 100 = 82.41**. Baseline 59.7 → **+22.71**.
 
-Three of nine axes below 85. Stop condition not met on either clause.
+Five of nine axes below 85. Stop condition not met on either clause.
 
 ---
 
 ## Blocking decisions — nothing proceeds without these
 
 1. ~~Backend for B1~~ **RESOLVED 2026-09-13** — Supabase live. URL + publishable key valid; `supabase/schema.sql` sudah di-Run; anonymous sign-in ON; first-sync hijau (klien ↑3 ↓0) dan diverifikasi server-side via akun probe terpisah (INSERT 201 / READ-own 200 / READ-other [] RLS / DELETE 204). Endpoint anonim diperbaiki ke `/auth/v1/signup` (v1.22.3). → F4 52→68. Sisa celah: sesi anonim terikat browser, belum ada tautkan-email (backlog).
-2. **PPN position** — 11% flat, or 12% with DPP nilai lain (effective 11%)? Needs a current cited source.
+2. ~~PPN position~~ **RESOLVED 2026-09-13** (keputusan manusia): **tetap 11% flat & configurable**, pengguna **non-PKP** (tidak menerbitkan faktur pajak). Faktur/NITKU tidak diperlukan. → F2 76→80.
 3. **UMP/UMK 2026** per province — effective-dated table?
 4. **Akuntan/HRD permission matrix** — may an accountant post adjusting journals without approval? (B3 subset sudah ship tanpa ini; peran Akuntan/HRD menunggu jawaban.)
 
@@ -136,6 +136,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.30.0 (F4 — durability)**: **tautkan sesi anonim ke email** (`PUT /auth/v1/user`, user_id tetap) → data bisa diakses dari HP lain; **uji-diri backup** (snapshot→JSON→parse→validasi skema) via tombol 🧪 + audit. **→ F4 71→74.** +4 test. 212/212 ✓.
 
 - **v1.31.0 (F9 lanjutan)**: `scope="col"` + `<caption>` tersembunyi otomatis untuk semua tabel (termasuk dinamis); grafik arus kas & donut `role="img"` + `aria-label`; h3/h4 dashboard diberi `aria-level` (h1→h2→h3). **→ F9 75→80.** +3 test. 215/215 ✓.
+
+- **v1.32.0 (F2 — pajak)**: **OQ2 selesai** (PPN 11% flat configurable, non-PKP — didokumentasikan); `pphFinalForYear()` (PP 23/2018): 0,5% hanya bila omzet ≤ Rp4,8M, di atas → 0 + banner peringatan di laporan pajak. **→ F2 76→80.** +2 test. 217/217 ✓.
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
