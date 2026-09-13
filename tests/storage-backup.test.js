@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -227,6 +227,19 @@ describe('peran & audit actor (B3)', () => {
     logAudit('create', 'entry', 'x', null, { amount: 1 });
     expect(getAudit()[0].actor).toEqual({ role: 'kasir', user: 'kasir' });
     setActor(null);
+  });
+});
+
+describe('backup self-test', () => {
+  it('snapshot lolos round-trip + validasi skema', () => {
+    createEntry({ date: '2026-08-01', type: 'income', category: 'lainnya', amount: 1000 });
+    createLoan({ direction: 'given', person: 'Budi', amount: 100000, date: '2026-08-02' });
+    const r = backupSelfTest();
+    expect(r.ok).toBe(true);
+    expect(r.bytes).toBeGreaterThan(0);
+    expect(r.counts.entries).toBe(2);
+    expect(r.counts.loans).toBe(1);
+    expect(getLastSelfTest().ok).toBe(true);
   });
 });
 

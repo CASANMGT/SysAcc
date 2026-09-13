@@ -1496,6 +1496,44 @@ export function snapshotSize(snap) {
   return (s.entries?.length || 0) + (s.loans?.length || 0) + (s.repayments?.length || 0) + (s.people?.length || 0);
 }
 
+// Uji-diri backup: snapshot → JSON → parse ulang → validasi skema.
+// Membuktikan file backup benar-benar bisa dipulihkan, bukan sekadar terunduh.
+export function backupSelfTest() {
+  const snap = snapshotAll();
+  let json = '';
+  let parseOk = false;
+  let valid = { ok: false, errors: [] };
+  let err = '';
+  try {
+    json = JSON.stringify(snap);
+    const parsed = JSON.parse(json);
+    parseOk = JSON.stringify(parsed) === json;
+    valid = validateBackupJSON(json);
+  } catch (e) { err = e && e.message ? e.message : String(e); }
+  const counts = {
+    entries: snap.entries?.length || 0,
+    loans: snap.loans?.length || 0,
+    repayments: snap.repayments?.length || 0,
+    journals: snap.journals?.length || 0,
+    items: snap.items?.length || 0,
+    employees: snap.employees?.length || 0,
+    purchases: snap.purchases?.length || 0,
+  };
+  const result = {
+    ok: parseOk && valid.ok && !err,
+    err: err || (valid.errors && valid.errors[0]) || '',
+    bytes: json.length,
+    counts,
+    at: new Date().toISOString(),
+  };
+  try { localStorage.setItem('wynara_lastSelfTest', JSON.stringify({ at: result.at, ok: result.ok, bytes: result.bytes })); } catch {}
+  logAudit('update', 'backup-selftest', '', null, { ok: result.ok, bytes: result.bytes });
+  return result;
+}
+export function getLastSelfTest() {
+  try { return JSON.parse(localStorage.getItem('wynara_lastSelfTest') || 'null'); } catch { return null; }
+}
+
 // Kembalikan snapshot (dari file backup / IDB). Semua baris disanitasi.
 // Return { entries, loans, repayments, people } jumlah yang masuk.
 export function restoreAll(snap) {

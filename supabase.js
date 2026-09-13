@@ -104,19 +104,48 @@ export async function cloudSignInAnonymously() {
     }
     throw new Error(msg || ('Masuk anonim gagal (' + r.status + ')'));
   }
-  return storeSession(j.session || j);
+  return storeSession(j.session || j, { anon: true });
 }
-function storeSession(j) {
+function storeSession(j, meta) {
   if (!j.access_token) throw new Error('Respons auth tanpa token');
   const s = {
     access_token: j.access_token,
     refresh_token: j.refresh_token || '',
     user_id: (j.user && j.user.id) || '',
+    anon: !!(meta && meta.anon),
+    email: String((j.user && j.user.email) || ''),
     expires_at: Date.now() + (Number(j.expires_in) || 3600) * 1000,
   };
   writeSession(s);
   setCloudStatus('ready', 'terhubung — sinkron aktif');
   return s;
+}
+// Tautkan sesi anonim ke email + kata sandi (user_id tetap → data & RLS aman).
+// Bila konfirmasi email aktif, pengguna perlu klik tautan di email.
+export async function cloudLinkEmail(email, password) {
+  const cfg = getCloudConfig();
+  if (!cfg) throw new Error('Supabase belum dikonfigurasi');
+  const s = readSession();
+  if (!s || !s.access_token) throw new Error('Masuk dulu (anonim) sebelum menautkan email');
+  const mail = String(email || '').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) throw new Error('Email tidak valid');
+  if (String(password || '').length < 6) throw new Error('Kata sandi minimal 6 karakter');
+  const r = await fetch(cfg.url + '/auth/v1/user', {
+    method: 'PUT',
+    headers: { apikey: cfg.anonKey, Authorization: 'Bearer ' + s.access_token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: mail, password: String(password) }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.msg || j.message || j.error_description || ('Gagal menautkan email (' + r.status + ')'));
+  // Simpan email; tandai bukan anonim lagi (sesi tetap sama bila konfirmasi nonaktif).
+  const next = { ...readSession(), email: String((j && j.email) || mail), anon: false };
+  writeSession(next);
+  setCloudStatus('ready', 'terhubung — email tertaut');
+  return { email: next.email };
+}
+export function isAnonymousSession() {
+  const s = readSession();
+  return !!(s && s.access_token && s.anon && !s.email);
 }
 async function ensureToken() {
   let s = readSession();
@@ -127,6 +156,8 @@ async function ensureToken() {
     access_token: j.access_token,
     refresh_token: j.refresh_token || s.refresh_token,
     user_id: (j.user && j.user.id) || s.user_id,
+    anon: s.anon,
+    email: String((j.user && j.user.email) || s.email || ''),
     expires_at: Date.now() + (Number(j.expires_in) || 3600) * 1000,
   };
   writeSession(s);

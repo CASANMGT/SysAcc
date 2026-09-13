@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.29.0';
+const APP_VERSION = '1.30.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -891,7 +891,9 @@ function bindEvents() {
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
   document.getElementById('backupShareBtn')?.addEventListener('click', handleBackupShare);
+  document.getElementById('backupSelfTestBtn')?.addEventListener('click', handleBackupSelfTest);
   document.getElementById('cloudAnonBtn')?.addEventListener('click', handleCloudAnon);
+  document.getElementById('cloudLinkBtn')?.addEventListener('click', handleCloudLinkEmail);
   document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
   document.getElementById('cloudOffBtn')?.addEventListener('click', handleCloudOff);
   document.getElementById('closingBtn')?.addEventListener('click', handleClosing);
@@ -4134,6 +4136,8 @@ function stampShares() {
 
 /* ===== Sinkron online (Supabase) — local-first, opsional ===== */
 function refreshCloudLabel() {
+  const linkWrap = document.getElementById('cloudLinkEmailWrap');
+  try { if (linkWrap) linkWrap.hidden = !Cloud.isAnonymousSession(); } catch {}
   const label = document.getElementById('cloudStatusLabel');
   if (!label) return;
   const st = Cloud.getCloudStatus();
@@ -4147,6 +4151,30 @@ function refreshCloudLabel() {
     return;
   }
   label.textContent = 'Terhubung sebagai ' + (ses.user_id || '').slice(0, 8) + '… — ' + (st.detail || st.state);
+}
+async function handleBackupSelfTest() {
+  try {
+    const r = Storage.backupSelfTest();
+    if (r.ok) UI.showSuccess(`Backup OK — ${r.bytes.toLocaleString('id-ID')} byte • ${r.counts.entries} transaksi • ${r.counts.journals} jurnal. File bisa dipulihkan.`);
+    else UI.showError(`Backup bermasalah: ${r.err || 'tidak valid'}`);
+  } catch (e) {
+    UI.showError(e && e.message ? e.message : 'Gagal menguji backup');
+  }
+}
+async function handleCloudLinkEmail() {
+  try {
+    if (!Cloud.isCloudConfigured()) return UI.showError('Hubungkan Supabase dulu (isi URL + key)');
+    const email = document.getElementById('cloudLinkEmail')?.value || '';
+    const pass = document.getElementById('cloudLinkPass')?.value || '';
+    await Cloud.cloudLinkEmail(email, pass);
+    const p = document.getElementById('cloudLinkPass');
+    if (p) p.value = '';
+    UI.showSuccess('Email tertaut — sekarang bisa masuk dari HP lain (cek email bila diminta konfirmasi)');
+    refreshCloudLabel();
+    updateCloudDot();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menautkan email');
+  }
 }
 async function handleCloudAnon() {
   const url = document.getElementById('cloudUrl')?.value || '';

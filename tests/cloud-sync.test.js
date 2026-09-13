@@ -120,3 +120,30 @@ describe('cloudSignInAnonymously (fetch di-stub, tanpa network)', () => {
     await expect(cloudSignInAnonymously()).rejects.toThrow(/Allow anonymous/);
   });
 });
+
+describe('tautkan email sesi anonim (durability)', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => { globalThis.fetch = realFetch; try { localStorage.clear(); } catch {} });
+  it('PUT /auth/v1/user + simpan email & lepas status anonim', async () => {
+    const { saveCloudConfig, cloudSignInAnonymously, cloudLinkEmail, getCloudSession, isAnonymousSession } = await import('../supabase.js');
+    saveCloudConfig('https://abc.supabase.co', 'x'.repeat(40));
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ access_token: 'a', refresh_token: 'r', expires_in: 3600, user: { id: 'u1' } }) });
+    await cloudSignInAnonymously();
+    expect(isAnonymousSession()).toBe(true);
+    const calls = [];
+    globalThis.fetch = async (url, opts) => { calls.push([url, opts]); return { ok: true, json: async () => ({ id: 'u1', email: 'me@x.com' }) }; };
+    const r = await cloudLinkEmail('me@x.com', 'secret1');
+    expect(calls[0][0]).toContain('/auth/v1/user');
+    expect(calls[0][1].method).toBe('PUT');
+    expect(r.email).toBe('me@x.com');
+    expect(isAnonymousSession()).toBe(false);
+    expect(getCloudSession().email).toBe('me@x.com');
+  });
+  it('kata sandi < 6 ditolak lokal (tanpa network)', async () => {
+    const { saveCloudConfig, cloudSignInAnonymously, cloudLinkEmail } = await import('../supabase.js');
+    saveCloudConfig('https://abc.supabase.co', 'x'.repeat(40));
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ access_token: 'a', refresh_token: 'r', expires_in: 3600, user: { id: 'u1' } }) });
+    await cloudSignInAnonymously();
+    await expect(cloudLinkEmail('a@b.com', '123')).rejects.toThrow(/minimal 6/);
+  });
+});

@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.30.0] - 2026-09-13
+
+### Added — F4 durability: tautkan sesi anonim ke email + uji backup
+- **Tautkan ke email**: saat sesi Supabase anonim, Pengaturan → Sinkron menampilkan blok email + kata sandi → `PUT /auth/v1/user` (user_id tetap, data & RLS aman) sehingga data bisa diakses dari HP lain; pesan jelas bila butuh konfirmasi email
+- **🧪 Uji backup**: tombol snapshot → JSON → parse ulang → validasi skema; lapor ukuran byte + jumlah (transaksi/jurnal/dll) → membuktikan backup bisa dipulihkan; hasil terakhir disimpan + audit
+- +4 test (link email + self-test); 212/212 tests ✓
+
+---
+
 ## [1.29.0] - 2026-09-13
 
 ### Fixed — F8 mobile (layout & tap targets di HP)
