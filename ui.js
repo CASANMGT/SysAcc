@@ -4076,6 +4076,7 @@ export function paySlipDetailHTML(r) {
     row(`Tabungan pensiun — gajimu dipotong ${pctFmt(s.ded.jpSelf, B.jpWage)}`, `JP pekerja ${pct(R.jpSelf)} × ${fmt(B.jpWage)}${cap(B.jpWage, B.gross)}`, s.ded.jpSelf, '−'),
     row('Pajak gaji — dipotong otomatis', s.pphOverridden ? `PPh 21 hasil <b>rekonsiliasi Desember</b> (menggantikan TER)` : `PPh 21 TER ${escapeHtml(e.ptkp || 'TK/0')} × netto ${fmt(s.pphNetto)}${e.npwp ? '' : ' (tanpa NPWP +20%)'}`, s.ded.pph21, '−'),
     row('Denda/absensi bulan ini', `Potongan langsung${r.hadir > 0 ? ` • hadir ${r.hadir} hari` : ' (tidak mengurangi dasar BPJS/PPh)'}`, s.deduct, '−'),
+    row('Potong kasbon dari gaji', `Pelunasan pinjaman karyawan${r.kasbonSkip ? ' • <b>dijeda bulan ini</b>' : ''}`, s.kasbon, '−'),
   ].join('');
   const company = [
     row('Iuran berobat — perusahaan yang bayar', `BPJS Kesehatan perusahaan ${pct(R.kesComp)} × ${fmt(B.kesWage)}${cap(B.kesWage, B.gross)}`, s.comp.kesComp, '+'),
@@ -4103,6 +4104,12 @@ export function paySlipDetailHTML(r) {
         <input type="number" class="pay-hadir" data-id="${e.id}" min="0" max="31" value="${r.hadir > 0 ? r.hadir : ''}" placeholder="mis. 22" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
         <div style="font-size:10px;color:#94a3b8;margin-top:2px">standar 22 • <22 → sarankan denda</div>
       </div>
+      ${(r.kasbonDetail && r.kasbonDetail.length) ? `<div style="background:#fff;border:1px solid #fcd34d;border-radius:8px;padding:8px">
+        <div style="font-size:11px;color:#64748b">Potong kasbon bulan ini${(r.kasbonDetail.length > 1) ? ` (${r.kasbonDetail.length} pinjaman)` : ''}</div>
+        <input type="text" class="pay-kasbon" data-id="${e.id}" value="${r.kasbonAmount != null ? r.kasbonAmount : (r.kasbon > 0 ? r.kasbon : '')}" placeholder="Rp (otomatis)" inputmode="decimal" ${dis} style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:4px">
+        <label class="login-check" style="font-size:11px;display:block;margin-top:4px"><input type="checkbox" class="pay-kasbon-skip" data-id="${e.id}" ${r.kasbonSkip ? 'checked' : ''} ${dis}> Jeda potong bulan ini</label>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">Otomatis dari cicilan pinjaman. Kosongkan untuk otomatis.</div>
+      </div>` : ''}
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
         <div style="font-size:11px;color:#64748b">THR: <b>${fmt(s.thr)}</b></div>
         <label class="login-check" style="font-size:11px;display:block;margin-top:4px"><input type="checkbox" class="pay-thr" data-id="${e.id}" ${r.withThr ? 'checked' : ''} ${dis}> Sertakan THR</label>
@@ -4305,7 +4312,7 @@ export function renderPayrollProcess(rows, monthLabel, status) {
     const e = r.emp;
     const initial = (e.name || '?')[0]?.toUpperCase() || '?';
     const tambahan = r.slip.allow + r.slip.overtime + (r.slip.bonus || 0) + r.slip.thr;
-    const potongan = r.slip.totalDed + (r.slip.deduct || 0);
+    const potongan = r.slip.totalDed + (r.slip.deduct || 0) + (r.slip.kasbon || 0);
     const stTxt = r.paid ? 'Sudah' : status === 'final' ? 'Final' : 'Draft';
     const open = payrollExpanded === e.id;
     return `<tr style="border-bottom:1px solid #f8fafc;${r.paid ? 'opacity:0.6' : ''}">
@@ -4449,7 +4456,7 @@ export function bindPayrollView(handlers) {
       if (wa && handlers.onSlipWa) { handlers.onSlipWa(wa.dataset.id); return; }
     });
     document.getElementById('payrollTableBody')?.addEventListener('change', (e) => {
-      if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph')) handlers.onDetailChange();
+      if (e.target.closest('.pay-thr') || e.target.closest('.pay-pph') || e.target.closest('.pay-kasbon-skip')) handlers.onDetailChange();
       const hd = e.target.closest('.pay-hadir');
       if (hd && handlers.onHadir) handlers.onHadir(hd);
     });
@@ -4474,7 +4481,7 @@ export function bindPayrollView(handlers) {
     });
     document.getElementById('payrollTableBody')?.addEventListener('input', (e) => {
       if (e.target.closest('.pay-lembur')) handlers.onLembur(e.target.closest('.pay-lembur'));
-      else if (e.target.closest('.pay-bonus') || e.target.closest('.pay-denda')) handlers.onLembur(e.target);
+      else if (e.target.closest('.pay-bonus') || e.target.closest('.pay-denda') || e.target.closest('.pay-kasbon')) handlers.onLembur(e.target);
     });
     document.getElementById('payrollDraftBtn')?.addEventListener('click', handlers.onDraft);
     document.getElementById('payrollCopyBtn')?.addEventListener('click', handlers.onCopy);

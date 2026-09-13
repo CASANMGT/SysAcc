@@ -5,7 +5,7 @@ import {
 } from '../coa.js';
 import {
   buildEntryJournal, buildLoanJournal, buildRepaymentJournal,
-  buildTransferJournal, buildAdjustJournal, balances, findUnbalanced
+  buildTransferJournal, buildAdjustJournal, buildPayrollKasbonJournal, balances, findUnbalanced
 } from '../journals.js';
 
 // isLiabilityPayment tidak diekspor — cek via akun credit/paylater
@@ -229,5 +229,19 @@ describe('balances & findUnbalanced', () => {
   it('deteksi jurnal pincang', () => {
     expect(findUnbalanced(js)).toEqual([]);
     expect(findUnbalanced([{ id: 'x', lines: [{ account: '1101', debit: 1, credit: 0 }] }])).toEqual(['x']);
+  });
+});
+
+describe('buildPayrollKasbonJournal (kasbon potong gaji)', () => {
+  it('Dr Beban Gaji 5110 / Cr Piutang 1201 (bukan kas masuk)', () => {
+    const j = buildPayrollKasbonJournal({ person: 'Budi' }, 500000, '2026-08-31', 'Kasbon Budi');
+    const { d, c } = totals(j);
+    expect(d).toBe(c);
+    expect(j.lines.find(l => l.account === '5110').debit).toBe(500000);
+    expect(j.lines.find(l => l.account === AR_ACCOUNT).credit).toBe(500000);
+    expect(j.lines.some(l => l.account === '1101' || l.account === '1102')).toBe(false);
+  });
+  it('nominal 0 → null', () => {
+    expect(buildPayrollKasbonJournal({ person: 'Budi' }, 0, '2026-08-31')).toBe(null);
   });
 });

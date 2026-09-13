@@ -5,7 +5,7 @@
 import {
   accountForPayment, expenseAccountFor, REVENUE_ACCOUNT,
   AR_ACCOUNT, AP_ACCOUNT, INVENTORY_ACCOUNT, COGS_ACCOUNT,
-  PPN_OUT, PPN_IN, PPN_RATE, INTEREST_INCOME, INTEREST_EXPENSE
+  PPN_OUT, PPN_IN, PPN_RATE, INTEREST_INCOME, INTEREST_EXPENSE, SALARY_EXPENSE
 } from './coa.js';
 import { splitRepaymentPortions } from './loanmath.js';
 
@@ -123,6 +123,21 @@ export function buildRepaymentJournal(loan, repayment, priorRepayments) {
     lines.push({ account: cash, debit: 0, credit: amt, memo });
   }
   const j = { id: jid('J'), date: repayment.date, memo, ref: 'repayment', refId: repayment.id || null, lines };
+  return balanced(lines) ? j : null;
+}
+
+// Kasbon karyawan dipotong dari gaji: Dr Beban Gaji / Cr Piutang (1201),
+// porsi bunga (bila ada) → Cr Pendapatan Bunga 4102 (konsisten dgn B7).
+// Bukan kas masuk — THP gaji sudah dikurangi, jadi piutang lunas tanpa kas.
+export function buildPayrollKasbonJournal(loan, amount, date, memo, priorRepayments) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const m = (memo || `Kasbon ${(loan && loan.person) || ''}`).trim();
+  const { principalPortion, interestPortion } = splitRepaymentPortions(loan, amt, priorRepayments);
+  const lines = [{ account: SALARY_EXPENSE, debit: amt, credit: 0, memo: m }];
+  if (principalPortion > 0) lines.push({ account: AR_ACCOUNT, debit: 0, credit: principalPortion, memo: m });
+  if (interestPortion > 0) lines.push({ account: INTEREST_INCOME, debit: 0, credit: interestPortion, memo: `Bunga ${(loan && loan.person) || ''}`.trim() });
+  const j = { id: jid('J'), date, memo: m, ref: 'repayment', refId: null, lines };
   return balanced(lines) ? j : null;
 }
 

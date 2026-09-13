@@ -191,6 +191,7 @@ export function thrAmount(emp, refDate) {
 // rates ({kesComp,jhtComp,jpComp,jkk,jkm,kesSelf,jhtSelf,jpSelf} — pecahan, opsional) }
 // bonus: tambahan bulan ini (masuk bruto BPJS & PPh). deduct: potongan langsung
 // (denda/absensi) — memotong take-home, TIDAK mengurangi dasar BPJS/PPh.
+// kasbon: potongan pinjaman karyawan — after tax/BPJS, dibatasi agar THP ≥ 0.
 export function computeSlip(emp, opts = {}) {
   const e = emp || {};
   const ref = opts.refDate instanceof Date ? opts.refDate : new Date();
@@ -200,6 +201,7 @@ export function computeSlip(emp, opts = {}) {
   const overtime = rupiah(opts.overtime);
   const bonus = rupiah(opts.bonus);
   const deduct = rupiah(opts.deduct);
+  const kasbonWanted = rupiah(opts.kasbon);
   const gross = base + allow + overtime + bonus;
   const thr = opts.thr === 'auto' ? thrAmount(e, ref) : rupiah(opts.thr);
   const useKes = e.bpjsKes !== false;
@@ -240,12 +242,14 @@ export function computeSlip(emp, opts = {}) {
   }
   const totalDed = ded.kesSelf + ded.jhtSelf + ded.jpSelf + ded.pph21;
   const totalComp = comp.kesComp + comp.jhtComp + comp.jpComp + comp.jkk + comp.jkm;
+  // Kasbon dipotong setelah pajak/BPJS, tak boleh membuat THP negatif.
+  const kasbon = Math.min(kasbonWanted, Math.max(gross + thr - totalDed - deduct, 0));
   return {
-    base, allow, overtime, bonus, deduct, gross, thr,
+    base, allow, overtime, bonus, deduct, kasbon, gross, thr,
     ded, comp, totalDed, totalComp,
     rates: R,
     pphOverridden,
-    takeHome: gross + thr - totalDed - deduct,
+    takeHome: gross + thr - totalDed - deduct - kasbon,
     employerCost: gross + thr + totalComp,
     tenureMonths: tenureMonths(e.startDate, ref),
     bases: { gross, kesWage: wage, jpWage: wageJp },

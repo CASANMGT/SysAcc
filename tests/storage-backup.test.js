@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -227,6 +227,32 @@ describe('peran & audit actor (B3)', () => {
     logAudit('create', 'entry', 'x', null, { amount: 1 });
     expect(getAudit()[0].actor).toEqual({ role: 'kasir', user: 'kasir' });
     setActor(null);
+  });
+});
+
+describe('kasbon karyawan (storage)', () => {
+  it('createLoan ke nama karyawan otomatis ter-link (employeeId) + terdeteksi getKasbonLoans', () => {
+    const emp = saveEmployee({ name: 'Budi Santoso', baseSalary: 5000000 });
+    const loan = createLoan({ direction: 'given', person: 'Budi Santoso', amount: 1000000, date: '2026-08-01', installmentAmount: 200000 });
+    expect(loan.employeeId).toBe(emp.id);
+    expect(getKasbonLoans(emp.id, 'Budi Santoso').some(l => l.id === loan.id)).toBe(true);
+  });
+  it('applyPayrollKasbon mengurangi sisa + jurnal Dr Beban Gaji Cr Piutang', () => {
+    const emp = saveEmployee({ name: 'Ani Kasbon', baseSalary: 4000000 });
+    const loan = createLoan({ direction: 'given', person: 'Ani Kasbon', amount: 1000000, date: '2026-08-01' });
+    const rep = applyPayrollKasbon(loan.id, 300000, '2026-08-31', '2026-08');
+    expect(rep.source).toBe('payroll');
+    expect(getAllRepayments().filter(r => r.loanId === loan.id).reduce((s, r) => s + r.amount, 0)).toBe(300000);
+    const j = getAllJournals().find(x => x.ref === 'repayment' && x.refId === rep.id);
+    expect(j.lines.find(l => l.account === '5110').debit).toBe(300000);
+    expect(j.lines.find(l => l.account === '1201').credit).toBe(300000);
+  });
+  it('applyPayrollKasbon dibatasi sisa; lunas → status paid', () => {
+    const emp = saveEmployee({ name: 'Clamp Kasbon', baseSalary: 4000000 });
+    const loan = createLoan({ direction: 'given', person: 'Clamp Kasbon', amount: 500000, date: '2026-08-01' });
+    const rep = applyPayrollKasbon(loan.id, 9999999, '2026-08-31', '2026-08');
+    expect(rep.amount).toBe(500000);
+    expect(getLoanById(loan.id).status).toBe('paid');
   });
 });
 

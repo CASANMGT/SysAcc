@@ -1,6 +1,6 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal } from './journals.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -1004,6 +1004,24 @@ export function getLoanById(id) {
   return getLoans().find(l => l.id === id);
 }
 
+// Cocokkan nama kontak ke karyawan aktif (untuk kasbon otomatis dari gaji).
+function matchEmployeeId(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return '';
+  try {
+    const e = getAllEmployees().find(x => String(x.name || '').trim().toLowerCase() === n);
+    return e ? e.id : '';
+  } catch { return ''; }
+}
+
+// Pinjaman (piutang) milik seorang karyawan — untuk potong gaji otomatis.
+export function getKasbonLoans(employeeId, employeeName) {
+  const name = String(employeeName || '').trim().toLowerCase();
+  return getLoans().filter(l => l.direction === 'given' && l.status !== 'paid' &&
+    ((employeeId && l.employeeId === employeeId) ||
+      (!l.employeeId && name && String(l.person || '').trim().toLowerCase() === name)));
+}
+
 export function createLoan(loan) {
   requireOwner();
   const loans = getLoans();
@@ -1026,6 +1044,7 @@ export function createLoan(loan) {
     paymentDetail: String(loan.paymentDetail || '').slice(0, 60),
     interestRate: clampInterestRate(loan.interestRate),
     invoiceNo: String(loan.invoiceNo || '').slice(0, 30),
+    employeeId: loan.employeeId || matchEmployeeId(loan.person),
     status: 'active',
     createdAt: new Date().toISOString()
   };
@@ -1067,6 +1086,9 @@ export function updateLoan(id, updates) {
   }
   loans[index] = { ...loans[index], ...sanitized };
   const loan = loans[index];
+  if (sanitized.person !== undefined && sanitized.employeeId === undefined) {
+    loan.employeeId = matchEmployeeId(loan.person);
+  }
   // Status ikut kebenaran: lunas kalau terbayar >= total (kecuali status diset eksplisit)
   if (sanitized.status === undefined) {
     try {
@@ -1148,6 +1170,41 @@ export function addRepayment(repayment) {
   if (totalRepaid >= totalOwed(loan)) {
     updateLoan(loan.id, { status: 'paid' });
   }
+  return newRep;
+}
+
+// Potong kasbon dari gaji: catat pelunasan + Dr Beban Gaji Cr Piutang.
+// Menghindari "kas masuk palsu" karena THP gaji sudah dikurangi potongan ini.
+export function applyPayrollKasbon(loanId, amount, date, monthKey) {
+  requireOwner();
+  const loan = getLoanById(loanId);
+  if (!loan) throw new Error('Pinjaman tidak ditemukan');
+  const reps = getRepayments();
+  const loanReps = reps.filter(r => r.loanId === loan.id);
+  const paid = loanReps.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const outstanding = Math.max(totalOwed(loan) - paid, 0);
+  const amt = Math.min(Math.round(Number(amount) || 0), Math.round(outstanding));
+  if (amt <= 0) return null;
+  const prior = loanReps.slice();
+  const newRep = {
+    id: generateId(),
+    loanId,
+    amount: amt,
+    date,
+    description: `Kasbon ${loan.person || ''} (gaji ${monthKey})`.trim(),
+    payment: 'payroll',
+    source: 'payroll',
+    payrollMonth: String(monthKey || ''),
+    createdAt: new Date().toISOString()
+  };
+  reps.push(newRep);
+  saveRepayments(reps);
+  try {
+    const j = buildPayrollKasbonJournal(loan, amt, date, newRep.description, prior);
+    if (j) { j.refId = newRep.id; postJournal(j); }
+  } catch {}
+  logAudit('create', 'repayment', newRep.id, null, { loanId, amount: amt, source: 'payroll', month: monthKey });
+  if (paid + amt >= totalOwed(loan)) updateLoan(loan.id, { status: 'paid' });
   return newRep;
 }
 

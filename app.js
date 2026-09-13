@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.26.0';
+const APP_VERSION = '1.27.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3035,7 +3035,8 @@ function handlePayrollRun() {
     const e = emps.find(x => x.id === s.id);
     if (!e) return;
     try {
-      const slip = computeSlip(e, { overtime: s.overtime, thr: s.withThr ? thrAmount(e, now) : 0, pph: s.withPph, refDate: now });
+      const kb = employeeKasbonDue(e, payrollCache[e.id] || {});
+      const slip = computeSlip(e, { overtime: s.overtime, kasbon: kb.due, thr: s.withThr ? thrAmount(e, now) : 0, pph: s.withPph, refDate: now });
       const bits = [`pokok ${fmt(slip.base)}`];
       if (slip.allow > 0) bits.push(`tunj ${fmt(slip.allow)}`);
       if (slip.overtime > 0) bits.push(`lembur ${fmt(slip.overtime)}`);
@@ -3045,12 +3046,21 @@ function handlePayrollRun() {
       if (slip.ded.jhtSelf > 0) deds.push(`JHT ${fmt(slip.ded.jhtSelf)}`);
       if (slip.ded.jpSelf > 0) deds.push(`JP ${fmt(slip.ded.jpSelf)}`);
       if (slip.ded.pph21 > 0) deds.push(`PPh ${fmt(slip.ded.pph21)}`);
+      if (slip.kasbon > 0) deds.push(`kasbon ${fmt(slip.kasbon)}`);
       Storage.createEntry({
         date, type: 'expense', category: 'gaji-out', payment,
         description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})`,
         amount: slip.takeHome, person: e.name,
-        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, thr: slip.thr, ded: slip.ded, comp: slip.comp, takeHome: slip.takeHome, employerCost: slip.employerCost }
+        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, thr: slip.thr, ded: slip.ded, comp: slip.comp, kasbon: slip.kasbon, takeHome: slip.takeHome, employerCost: slip.employerCost }
       });
+      if (slip.kasbon > 0 && kb.detail.length) {
+        let rem = slip.kasbon;
+        kb.detail.forEach(d => {
+          if (rem <= 0) return;
+          const a = Math.min(rem, d.outstanding);
+          if (a > 0) { try { Storage.applyPayrollKasbon(d.loan.id, a, date, key); } catch {} rem -= a; }
+        });
+      }
       compTotal += slip.totalComp;
       ok++;
     } catch {}
@@ -3374,9 +3384,34 @@ function loadPayrollCache() {
       withThr: !!s.withThr,
       withPph: s.withPph === undefined ? true : !!s.withPph,
       checked: s.checked === undefined ? true : !!s.checked,
+      kasbonSkip: !!s.kasbonSkip,
+      kasbonAmount: Number.isFinite(Number(s.kasbonAmount)) ? Math.max(Number(s.kasbonAmount), 0) : null,
       pphOverride: Number.isFinite(Number(s.pphOverride)) && Number(s.pphOverride) >= 0 ? Math.round(Number(s.pphOverride)) : null
     };
   });
+}
+// Potongan kasbon bulan ini untuk seorang karyawan (dari pinjaman aktif).
+// c.kasbonSkip = jeda; c.kasbonAmount = override manual (null = otomatis).
+function employeeKasbonDue(emp, c) {
+  if (!emp || !c || c.kasbonSkip) return { due: 0, detail: [] };
+  const loans = Storage.getKasbonLoans(emp.id, emp.name);
+  const reps = Storage.getAllRepayments();
+  let cap = 0, autoDue = 0;
+  const detail = [];
+  loans.forEach(l => {
+    const paid = reps.filter(r => r.loanId === l.id).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const out = Math.max(totalOwed(l) - paid, 0);
+    if (out <= 0) return;
+    cap += out;
+    const inst = Number(l.installmentAmount) || 0;
+    const amt = Math.min(inst > 0 ? inst : out, out);
+    autoDue += amt;
+    detail.push({ loan: l, amount: amt, outstanding: Math.round(out) });
+  });
+  const due = (c.kasbonAmount != null && Number.isFinite(Number(c.kasbonAmount)))
+    ? Math.min(Number(c.kasbonAmount), cap)
+    : autoDue;
+  return { due: Math.max(Math.round(due), 0), detail };
 }
 function payRowsForView() {
   ensurePayrollMonth();
@@ -3386,9 +3421,10 @@ function payRowsForView() {
     .filter(e => e.active !== false && Storage.empGross(e) > 0)
     .map(emp => {
       const c = payrollCache[emp.id] || { overtime: 0, bonus: 0, deduct: 0, withThr: false, withPph: true, checked: true };
-      const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
+      const kb = employeeKasbonDue(emp, c);
+      const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
       const thrNote = c.withThr && slip.thr <= 0 ? 'Masa kerja belum 1 bulan — THR Rp0. Jangan centang bila belum waktunya.' : '';
-      return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, hadir: c.hadir || 0, withThr: !!c.withThr, withPph: !!c.withPph, thrNote };
+      return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, hadir: c.hadir || 0, withThr: !!c.withThr, withPph: !!c.withPph, thrNote, kasbon: kb.due, kasbonDetail: kb.detail, kasbonSkip: !!c.kasbonSkip, kasbonAmount: c.kasbonAmount };
     });
 }
 function renderPayrollView() {
@@ -3557,6 +3593,10 @@ function handlePayrollDetailChange() {
     const id = el.dataset.id;
     if (payrollCache[id]) payrollCache[id].withPph = el.checked;
   });
+  document.querySelectorAll('#payrollTableBody .pay-kasbon-skip').forEach(el => {
+    const id = el.dataset.id;
+    if (payrollCache[id]) payrollCache[id].kasbonSkip = el.checked;
+  });
   renderPayrollView();
 }
 function handlePayrollLembur(input) {
@@ -3565,7 +3605,9 @@ function handlePayrollLembur(input) {
     const v = Math.max(Number(UI.parseIdrInput(input.value)) || 0, 0);
     if (input.classList.contains('pay-bonus')) payrollCache[empId].bonus = v;
     else if (input.classList.contains('pay-denda')) payrollCache[empId].deduct = v;
-    else payrollCache[empId].overtime = v;
+    else if (input.classList.contains('pay-kasbon')) {
+      payrollCache[empId].kasbonAmount = String(input.value || '').trim() === '' ? null : v;
+    } else payrollCache[empId].overtime = v;
   }
   // Patch sel tanpa render ulang (jaga fokus ketik)
   patchPayrollRow(empId);
@@ -3590,14 +3632,15 @@ function patchPayrollRow(empId) {
   const emp = Storage.getAllEmployees().find(x => x.id === empId);
   if (!c || !emp) return;
   const ref = payrollMonthEnd(payrollViewMonth);
-  const s = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
+  const kb = employeeKasbonDue(emp, c);
+  const s = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   document.querySelectorAll('#payrollTableBody tr').forEach(tr => {
     const chk = tr.querySelector('.pay-check');
     if (chk && chk.dataset.id === empId) {
       const tds = tr.querySelectorAll('td');
       if (tds[3]) tds[3].textContent = fmt(s.allow + s.overtime + s.bonus + s.thr);
-      if (tds[4]) tds[4].textContent = fmt(s.totalDed + s.deduct);
+      if (tds[4]) tds[4].textContent = fmt(s.totalDed + s.deduct + s.kasbon);
       if (tds[5]) tds[5].innerHTML = `<b>${fmt(s.takeHome)}</b>`;
     }
   });
@@ -3607,7 +3650,8 @@ function patchPayrollRow(empId) {
     const cc = payrollCache[k];
     const em = Storage.getAllEmployees().find(x => x.id === k);
     if (!em || !cc.checked) return;
-    const ss = computeSlip(em, { overtime: cc.overtime, bonus: cc.bonus, deduct: cc.deduct, thr: cc.withThr ? thrAmount(em, ref) : 0, pph: cc.withPph, refDate: ref, rates: payrollRates, pphOverride: cc.pphOverride ?? null });
+    const kb2 = employeeKasbonDue(em, cc);
+    const ss = computeSlip(em, { overtime: cc.overtime, bonus: cc.bonus, deduct: cc.deduct, kasbon: kb2.due, thr: cc.withThr ? thrAmount(em, ref) : 0, pph: cc.withPph, refDate: ref, rates: payrollRates, pphOverride: cc.pphOverride ?? null });
     total += ss.takeHome;
   });
   const foot = document.getElementById('payrollFootTotal');
@@ -3647,7 +3691,8 @@ function handlePayrollPrintSlip(empId) {
   const c = payrollCache[empId];
   if (!emp || !c) return;
   const ref = payrollMonthEnd(payrollViewMonth);
-  const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+  const kb = employeeKasbonDue(emp, c);
+  const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
   const label = payrollMonthLabel(payrollViewMonth);
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID', { minimumFractionDigits: 2 });
   const R = slip.rates || {};
@@ -3684,7 +3729,8 @@ function handlePayrollPrintSlip(empId) {
       ${trow(`JP pekerja (${pct(R.jpSelf)})`, slip.ded.jpSelf, 'neg')}
       ${trow(`PPh 21 TER × netto ${fmt(slip.pphNetto)}`, slip.ded.pph21, 'neg')}
       ${trow('Denda/absensi', slip.deduct, 'neg')}
-      <tr class="sum"><td>Total potongan</td><td class="r neg">${fmt(slip.totalDed + slip.deduct)}</td></tr>
+      ${slip.kasbon > 0 ? trow('Potong kasbon', slip.kasbon, 'neg') : ''}
+      <tr class="sum"><td>Total potongan</td><td class="r neg">${fmt(slip.totalDed + slip.deduct + slip.kasbon)}</td></tr>
     </table></div>
     <div class="box" style="text-align:center">Diterima karyawan (take-home pay)<br><span class="big">${fmt(slip.takeHome)}</span></div>
     <div class="box"><h2>Ditanggung perusahaan (tidak dikurangkan)</h2><div class="muted" style="margin-bottom:6px">Total ${fmt(slip.totalComp)}</div><table>
@@ -3707,7 +3753,8 @@ function handlePayrollSlipWa(empId) {
   if (!phone || phone.length < 8) return UI.showError(`No. HP ${emp.name} kosong/tidak valid — isi di Data Karyawan agar slip bisa dikirim`);
   if (phone.startsWith('0')) phone = '62' + phone.slice(1);
   const ref = payrollMonthEnd(payrollViewMonth);
-  const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+  const kb = employeeKasbonDue(emp, c);
+  const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
   const label = payrollMonthLabel(payrollViewMonth);
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const lines = [
@@ -3718,6 +3765,7 @@ function handlePayrollSlipWa(empId) {
     slip.ded.kesSelf > 0 ? `BPJS Anda: −${fmt(slip.ded.kesSelf + slip.ded.jhtSelf + slip.ded.jpSelf)}` : '',
     slip.ded.pph21 > 0 ? `PPh 21: −${fmt(slip.ded.pph21)}` : '',
     slip.deduct > 0 ? `Denda: −${fmt(slip.deduct)}` : '',
+    slip.kasbon > 0 ? `Kasbon: −${fmt(slip.kasbon)}` : '',
     '',
     `*Diterima: ${fmt(slip.takeHome)}*`,
     '',
@@ -3764,6 +3812,12 @@ function syncPayrollInputsFromDOM(target) {
     else if (el.classList.contains('pay-hadir')) store[id].hadir = Math.max(0, Math.min(Number(el.value) || 0, 31));
     else store[id].overtime = Math.max(Number(UI.parseIdrInput(el.value)) || 0, 0);
   });
+  document.querySelectorAll('#payrollTableBody .pay-kasbon').forEach(el => {
+    const id = el.dataset.id;
+    if (!store[id]) return;
+    const raw = String(el.value || '').trim();
+    store[id].kasbonAmount = raw === '' ? null : Math.max(Number(UI.parseIdrInput(raw)) || 0, 0);
+  });
 }
 function handlePayrollDraft() {
   ensurePayrollMonth();
@@ -3801,7 +3855,8 @@ function handlePayrollFinal() {
     if (!e) return;
     const c = payrollCache[k];
     try {
-      const slip = computeSlip(e, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, thr: c.withThr ? thrAmount(e, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
+      const kb = employeeKasbonDue(e, c);
+      const slip = computeSlip(e, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(e, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
       const bits = [`pokok ${fmt(slip.base)}`];
       if (slip.allow > 0) bits.push(`tunj ${fmt(slip.allow)}`);
       if (slip.overtime > 0) bits.push(`lembur ${fmt(slip.overtime)}`);
@@ -3813,12 +3868,21 @@ function handlePayrollFinal() {
       if (slip.ded.jpSelf > 0) deds.push(`JP ${fmt(slip.ded.jpSelf)}`);
       if (slip.ded.pph21 > 0) deds.push(`PPh ${fmt(slip.ded.pph21)}`);
       if (slip.deduct > 0) deds.push(`denda ${fmt(slip.deduct)}`);
+      if (slip.kasbon > 0) deds.push(`kasbon ${fmt(slip.kasbon)}`);
       Storage.createEntry({
         date, type: 'expense', category: 'gaji-out', payment,
         description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})${slip.pphOverridden ? ' (PPh rekonsiliasi Des)' : ''}`,
         amount: slip.takeHome, person: e.name,
-        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp, recon: slip.pphOverridden === true }
+        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, kasbon: slip.kasbon, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp, recon: slip.pphOverridden === true }
       });
+      if (slip.kasbon > 0 && kb.detail.length) {
+        let rem = slip.kasbon;
+        kb.detail.forEach(d => {
+          if (rem <= 0) return;
+          const a = Math.min(rem, d.outstanding);
+          if (a > 0) { try { Storage.applyPayrollKasbon(d.loan.id, a, date, payrollViewMonth); } catch {} rem -= a; }
+        });
+      }
       compTotal += slip.totalComp;
       ok++;
     } catch {}

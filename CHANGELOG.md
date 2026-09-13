@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.27.0] - 2026-09-13
+
+### Added — Kasbon karyawan: potong otomatis dari gaji + jeda
+- Pinjaman ke nama karyawan otomatis ter-link (`employeeId`) → dikenali sebagai **kasbon** (getKasbonLoans juga cocok berdasarkan nama untuk data lama)
+- Di **Gaji → Proses** tiap karyawan ber-kasbon dapat baris **"Potong kasbon bulan ini"** = cicilan bulanan (atau sisa) — dipotong dari THP **setelah** BPJS/PPh, dibatasi agar THP ≥ 0; bisa diedit manual
+- **Jeda**: centang "Jeda potong bulan ini" untuk melewati sebulan (saldo pinjaman tetap, lanjut bulan berikutnya)
+- **Buku tetap balance**: entri gaji memakai THP berkurang + satu entri **Dr Beban Gaji / Cr Piutang (1201)** (porsi bunga → Cr Pendapatan Bunga 4102, konsisten B7); pelunasan tercatat (source `payroll`) & status → Lunas saat habis
+- Slip (cetak & WA) menampilkan potongan kasbon
+- +6 test (cap setelah pajak, jurnal, auto-link, clamp); 205/205 tests ✓
+
+---
+
 ## [1.26.0] - 2026-09-13
 
 ### Changed — Form Pinjaman disederhanakan (gampang dipakai siapa saja)

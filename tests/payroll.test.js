@@ -204,3 +204,23 @@ describe('PPh 21 tahunan — SUMBER: UU PPh 36/2008 jo. UU HPP 7/2021 (wajib kon
     expect(s2.pphOverridden).toBe(false);
   });
 });
+
+describe('kasbon karyawan (potong gaji)', () => {
+  const emp = { name: 'Budi', baseSalary: 5000000, allowance: 0, ptkp: 'TK/0', npwp: '', bpjsKes: true, bpjsTk: true, startDate: '2026-01-01', jkkRate: 0.0054 };
+  const ref = new Date('2026-08-31');
+  it('mengurangi THP setelah pajak/BPJS tanpa mengubah PPh', () => {
+    const noK = computeSlip(emp, { refDate: ref });
+    const withK = computeSlip(emp, { kasbon: 500000, refDate: ref });
+    expect(withK.kasbon).toBe(500000);
+    expect(withK.takeHome).toBe(noK.takeHome - 500000);
+    expect(withK.ded.pph21).toBe(noK.ded.pph21);
+  });
+  it('dibatasi agar THP tidak negatif', () => {
+    const s = computeSlip(emp, { kasbon: 999999999, refDate: ref });
+    expect(s.takeHome).toBe(0);
+    expect(s.kasbon).toBe(s.gross - s.totalDed);
+  });
+  it('tanpa kasbon → 0', () => {
+    expect(computeSlip(emp, { refDate: ref }).kasbon).toBe(0);
+  });
+});
