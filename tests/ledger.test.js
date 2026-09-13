@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   accountForPayment, expenseAccountFor, getAccounts, setCustomAccounts,
-  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT
+  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD
 } from '../coa.js';
 import {
   buildEntryJournal, buildLoanJournal, buildRepaymentJournal,
@@ -229,6 +229,19 @@ describe('balances & findUnbalanced', () => {
   it('deteksi jurnal pincang', () => {
     expect(findUnbalanced(js)).toEqual([]);
     expect(findUnbalanced([{ id: 'x', lines: [{ account: '1101', debit: 1, credit: 0 }] }])).toEqual(['x']);
+  });
+});
+
+describe('pphFinalForYear (PP 23/2018)', () => {
+  it('omzet ≤ Rp4,8 M → berhak, 0,5%', () => {
+    const r = pphFinalForYear(1000000000);
+    expect(r.eligible).toBe(true);
+    expect(r.pph).toBe(5000000);
+  });
+  it('omzet > Rp4,8 M → tidak berhak, PPh 0', () => {
+    const r = pphFinalForYear(PPH_THRESHOLD + 1);
+    expect(r.eligible).toBe(false);
+    expect(r.pph).toBe(0);
   });
 });
 

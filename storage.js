@@ -2338,8 +2338,9 @@ export function requireOwner() {
 }
 
 // ===== Tarif PPN configurable (default 11%) =====
-// BUKA PERTANYAAN: posisi tarif resmi (11% vs 12% dengan DPP nilai lain) —
-// ubah lewat Pengaturan bila tarif berubah. Jangan hardcode di pemanggil.
+// OQ2 SELESAI (keputusan manusia 2026-09-13): pakai 11% flat & tetap bisa
+// diubah lewat Pengaturan; pengguna non-PKP (tak menerbitkan faktur pajak).
+// Jangan hardcode di pemanggil — selalu baca getPpn().rate.
 const PPN_KEY = 'wynara_ppn';
 export function getPpn() {
   try {

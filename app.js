@@ -4,7 +4,7 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon } from './payroll.js';
 import * as Cloud from './supabase.js';
@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.31.0';
+const APP_VERSION = '1.32.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2578,10 +2578,11 @@ function buildTaxReport() {
   }));
   const year = new Date().getFullYear();
   const omzetYear = months.filter(m => m.month.startsWith(String(year))).reduce((s, m) => s + m.omzet, 0);
+  const pf = pphFinalForYear(omzetYear);
   const bal = balances(journals);
   const ppnOut = (bal['2105']?.credit || 0) - (bal['2105']?.debit || 0);
   const ppnIn = (bal['1401']?.debit || 0) - (bal['1401']?.credit || 0);
-  return { months: months.slice(-12), omzetYear, pphYear: Math.round(omzetYear * 0.005), ppnOut, ppnIn, ppnNet: ppnOut - ppnIn, year };
+  return { months: months.slice(-12), omzetYear, pphYear: pf.pph, pphEligible: pf.eligible, ppnOut, ppnIn, ppnNet: ppnOut - ppnIn, year };
 }
 
 function buildPayrollReport() {

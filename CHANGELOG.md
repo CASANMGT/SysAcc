@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.32.0] - 2026-09-13
+
+### Changed — F2 pajak: keputusan OQ2 + kelayakan PPh Final
+- **OQ2 selesai** (keputusan manusia): PPN tetap **11% flat & configurable**, pengguna **non-PKP** (tidak menerbitkan faktur pajak) — didokumentasikan di kode
+- `pphFinalForYear()` (coa): PPh Final 0,5% (PP 23/2018) hanya bila omzet setahun **≤ Rp4,8 M**; di atas plafon → PPh 0 + **banner peringatan** di laporan pajak (gunakan tarif umum / pertimbangkan PKP)
+- +2 test (ambang kelayakan); 217/217 tests ✓
+
+---
+
 ## [1.31.0] - 2026-09-13
 
 ### Added — F9 lanjutan: semantik tabel, teks alternatif grafik, hierarki heading

@@ -107,3 +107,11 @@ export const INTEREST_EXPENSE = '5113';
 export const PPN_RATE = 0.11;
 export const PPH_FINAL_RATE = 0.005;
 export const PPH_THRESHOLD = 4800000000;
+
+// PPh Final UMKM (PP 23/2018): 0,5% dari omzet bruto bila omzet setahun ≤ Rp4,8 M.
+// Di atas plafon → tidak berhak; wajib tarif umum (konsultasi konsultan pajak).
+export function pphFinalForYear(omzet) {
+  const o = Math.max(Number(omzet) || 0, 0);
+  const eligible = o <= PPH_THRESHOLD;
+  return { eligible, rate: PPH_FINAL_RATE, pph: eligible ? Math.round(o * PPH_FINAL_RATE) : 0 };
+}
