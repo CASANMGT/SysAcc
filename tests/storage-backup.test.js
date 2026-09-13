@@ -309,6 +309,48 @@ describe('multi-toko (stok per lokasi)', () => {
   });
 });
 
+describe('perbaikan stok v1.60 (kebenaran)', () => {
+  it('importItemsBulk menulis stok per toko aktif + total konsisten', () => {
+    saveShops([{ id: 'main', name: 'A' }, { id: 'b', name: 'B' }]);
+    setActiveShopId('main');
+    importItemsBulk([{ name: 'X', sku: 'X1', price: 1000, stock: 5 }]);
+    let it = getAllItems().find(x => x.sku === 'X1');
+    expect(shopStockOf(it, 'main')).toBe(5);
+    setActiveShopId('b');
+    importItemsBulk([{ name: 'X', sku: 'X1', price: 1000, stock: 2 }]);
+    it = getAllItems().find(x => x.sku === 'X1');
+    expect(shopStockOf(it, 'main')).toBe(5);
+    expect(shopStockOf(it, 'b')).toBe(2);
+    expect(it.stock).toBe(7);
+  });
+  it('saveItem menolak SKU/barcode duplikat', () => {
+    saveItem({ name: 'P1', sku: 'SKU-9', barcode: '999', stock: 0 });
+    expect(() => saveItem({ name: 'P2', sku: 'SKU-9', stock: 0 })).toThrow(/sudah dipakai/);
+    expect(() => saveItem({ name: 'P3', barcode: '999', stock: 0 })).toThrow(/sudah dipakai/);
+  });
+  it('saveItem mencatat gerakan stok opening/opname (kartu stok)', () => {
+    const it = saveItem({ name: 'Mov', stock: 4, cost: 1000, price: 2000 });
+    expect(getStockMoves(it.id).some(m => m.type === 'opening' && m.qtyIn === 4)).toBe(true);
+    saveItem({ id: it.id, name: 'Mov', stock: 6, cost: 1000, price: 2000 });
+    expect(getStockMoves(it.id).some(m => m.type === 'opname' && m.qtyIn === 2)).toBe(true);
+  });
+  it('transferStock ditolak di bulan terkunci', () => {
+    saveShops([{ id: 'main', name: 'A' }, { id: 'b', name: 'B' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'T', stock: 3, price: 1000 });
+    lockMonth('2026-08');
+    expect(() => transferStock(it.id, { fromShop: 'main', toShop: 'b', qty: 1, date: '2026-08-05' })).toThrow(/terkunci/);
+  });
+  it('HPP dibekukan saat penjualan; retur pakai HPP asli', () => {
+    const it = saveItem({ name: 'Frz', stock: 10, cost: 1000, price: 5000 });
+    const e = createEntry({ date: '2026-09-01', type: 'income', category: 'jualan', amount: 5000, sale: { lines: [{ itemId: it.id, qty: 1, price: 5000 }] } });
+    expect(e.sale.lines[0].avgCost).toBe(1000);
+    saveItem({ id: it.id, name: 'Frz', stock: 10, cost: 9000, price: 5000 });
+    const r = returnSale(e.id, [{ itemId: it.id, qty: 1 }], { date: '2026-09-02', payment: 'cash' });
+    expect(r.costBack).toBe(1000);
+  });
+});
+
 describe('kesehatan data (F4)', () => {
   it('data bersih (backup baru) → ok tanpa isu', () => {
     localStorage.setItem('wynara_lastBackup', new Date().toISOString());

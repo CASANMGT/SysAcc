@@ -6,6 +6,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.60.0] - 2026-09-14
+
+### Fixed — "Stok benar" (sprint kebenaran persediaan)
+- **Import produk** kini menulis stok ke **peta per-toko toko aktif** + menghitung ulang total (sebelumnya `stock` mentah → stok salah di multi-toko)
+- **Ubah stok lewat form** kini tercatat sebagai **gerakan stok** (`opening` stok awal / `opname` koreksi) di kartu stok, bukan hanya menimpa angka
+- **HPP dibekukan** per baris saat penjualan dibuat (`avgCost`) — ubah modal setelahnya tidak menggeser COGS; **retur memakai HPP asli**
+- **Duplikat Kode/Barcode ditolak** saat simpan barang (cegah scan salah barang)
+- **Penjualan**: dropdown & ringkasan kasir memakai **stok toko aktif** + peringatan "Stok kurang" saat qty melebihi sisa
+- **Transfer antar toko** kini menghormati **bulan terkunci** (`assertUnlocked`)
+- Semua gerakan stok diberi **`type`** (sale/purchase/restock/adjust/transfer/return/opening/opname/reversal) untuk kartu stok
+- +5 test; 272/272 tests ✓
+
+---
+
 ## [1.59.0] - 2026-09-14
 
 ### Changed — Form tambah/edit produk pindah ke halaman (bukan modal)

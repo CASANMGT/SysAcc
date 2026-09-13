@@ -79,6 +79,15 @@ export function createEntry(entry) {
   if (entry.loanType) newEntry.loanType = entry.loanType;
   if (entry.installmentAmount) newEntry.installmentAmount = Number(entry.installmentAmount) || 0;
   if (entry.contactType) newEntry.contactType = entry.contactType;
+  // Bekukan HPP per baris saat penjualan dibuat (agar COGS tidak bergeser bila modal berubah).
+  if (newEntry.sale && Array.isArray(newEntry.sale.lines)) {
+    newEntry.sale.lines = newEntry.sale.lines.map(l => {
+      if (!l || !l.itemId) return l;
+      if (l.avgCost != null) return { ...l, avgCost: Number(l.avgCost) || 0 };
+      const it = getItemById(l.itemId);
+      return { ...l, avgCost: it ? Number(it.cost) || 0 : 0 };
+    });
+  }
   entries.push(newEntry);
   saveEntries(entries);
   // Stok: jual kurangi (item tunggal ATAU baris penjualan), beli tambah.
@@ -136,7 +145,7 @@ function journalOptsFor(entry) {
     const lines = [];
     entry.sale.lines.forEach(l => {
       const item = l && l.itemId ? getItemById(l.itemId) : null;
-      if (item && l.qty > 0) lines.push({ qty: l.qty, avgCost: item.cost, name: item.name });
+      if (item && l.qty > 0) lines.push({ qty: l.qty, avgCost: (l.avgCost != null ? Number(l.avgCost) || 0 : item.cost), name: item.name });
     });
     if (lines.length) opts.saleLines = lines;
   }
@@ -145,16 +154,16 @@ function journalOptsFor(entry) {
 
 function applyStockMoveForEntry(entry) {
   stockMovesFor(entry).forEach(m => {
-    if (m.dir === 'out') applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id });
-    else applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: m.unitCost || 0, ref: entry.id });
+    if (m.dir === 'out') applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id, type: 'sale' });
+    else applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: m.unitCost || 0, ref: entry.id, type: 'purchase' });
   });
 }
 
 function reverseStockMoveForEntry(entry) {
   // JANGAN telan error: kegagalan balik stok harus terlihat (cek stok kurang).
   stockMovesFor(entry).forEach(m => {
-    if (m.dir === 'out') applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: 0, keepCost: true, ref: entry.id, note: 'reversal' });
-    else applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id, note: 'reversal' });
+    if (m.dir === 'out') applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: 0, keepCost: true, ref: entry.id, note: 'reversal', type: 'reversal' });
+    else applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id, note: 'reversal', type: 'reversal' });
   });
 }
 
@@ -173,6 +182,12 @@ export function updateEntry(id, updates) {
     safe.amount = n;
   }
   entries[index] = { ...entries[index], ...safe };
+  if (entries[index].sale && Array.isArray(entries[index].sale.lines)) {
+    entries[index].sale = {
+      ...entries[index].sale,
+      lines: entries[index].sale.lines.map(l => (l && l.itemId && l.avgCost == null) ? { ...l, avgCost: (getItemById(l.itemId) || {}).cost || 0 } : l),
+    };
+  }
   saveEntries(entries);
   if (!entries[index].loanId) {
     if (before.itemId || entries[index].itemId || (before.sale && before.sale.lines) || (entries[index].sale && entries[index].sale.lines)) {
@@ -1885,7 +1900,7 @@ export function restockItem(itemId, qty, unitCost, { date, payment, note } = {})
   const cost = Math.max(Number(unitCost) || 0, 0);
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
-  const updated = applyStockMove(itemId, { qtyIn: q, unitCost: cost, ref: 'restock', note: note || 'restock' });
+  const updated = applyStockMove(itemId, { qtyIn: q, unitCost: cost, ref: 'restock', note: note || 'restock', type: 'restock' });
   try {
     const j = buildRestockJournal({ amount: q * cost, date: d, payment: payment || 'cash', memo: `Restock ${it.name} ${q} pcs` });
     if (j) postJournal(j);
@@ -1954,6 +1969,17 @@ export function saveItem(item) {
   const list = getItems();
   const name = String(item.name || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
   if (!name) throw new Error('Nama barang wajib');
+  const skuV = String(item.sku || '').trim().slice(0, 30);
+  const barV = String(item.barcode || '').trim().slice(0, 40);
+  const selfId = item.id || '';
+  if (skuV) {
+    const d = list.find(i => i.id !== selfId && String(i.sku || '').trim().toLowerCase() === skuV.toLowerCase());
+    if (d) throw new Error(`Kode "${skuV}" sudah dipakai "${d.name}"`);
+  }
+  if (barV) {
+    const d = list.find(i => i.id !== selfId && String(i.barcode || '').trim() === barV);
+    if (d) throw new Error(`Barcode "${barV}" sudah dipakai "${d.name}"`);
+  }
   const shopId = getActiveShopId();
   const prevItem = list.find(i => i.id === (item.id || ''));
   const stocks = (prevItem && prevItem.stocks && typeof prevItem.stocks === 'object') ? { ...prevItem.stocks } : {};
@@ -1966,8 +1992,8 @@ export function saveItem(item) {
   const rec = {
     id: item.id || generateId(),
     name,
-    sku: String(item.sku || '').slice(0, 30),
-    barcode: String(item.barcode || '').slice(0, 40),
+    sku: skuV,
+    barcode: barV,
     category: String(item.category || '').slice(0, 30),
     unit: String(item.unit || '').slice(0, 12),
     size: String(item.size || '').slice(0, 20),
@@ -1983,6 +2009,23 @@ export function saveItem(item) {
   if (idx === -1) list.push(rec);
   else list[idx] = { ...list[idx], ...rec };
   localStorage.setItem(ITEM_KEY, JSON.stringify(list));
+  // Catat perubahan qty sebagai gerakan stok (kartu stok) — jangan ubah rata-rata modal.
+  const prevShopQty = prevItem ? Math.max(Math.floor(Number((prevItem.stocks || {})[shopId]) || 0), 0) : 0;
+  const newShopQty = Math.max(Math.floor(Number(stocks[shopId]) || 0), 0);
+  if (newShopQty !== prevShopQty) {
+    try {
+      recordStockMove({
+        itemId: rec.id,
+        qtyIn: Math.max(newShopQty - prevShopQty, 0),
+        qtyOut: Math.max(prevShopQty - newShopQty, 0),
+        unitCost: cost, balance: newShopQty,
+        ref: prevItem ? 'opname' : 'opening',
+        note: prevItem ? 'opname (edit barang)' : 'stok awal',
+        shop: shopId,
+        type: prevItem ? 'opname' : 'opening',
+      });
+    } catch {}
+  }
   return rec;
 }
 
@@ -1998,7 +2041,7 @@ export function deleteItem(id) {
 
 // Stok + rata-rata tertimbang. qtyOut untuk jual (cek stok), qtyIn untuk beli.
 // keepCost: tambah stok tanpa ubah rata-rata (untuk reversal).
-export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, keepCost = false, ref = '', note = '', shop } = {}) {
+export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, keepCost = false, ref = '', note = '', shop, type = '' } = {}) {
   const list = getItems();
   const idx = list.findIndex(i => i.id === itemId);
   if (idx === -1) throw new Error('Barang tidak ditemukan');
@@ -2023,7 +2066,7 @@ export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, ke
   list[idx] = it;
   localStorage.setItem(ITEM_KEY, JSON.stringify(list));
   if (qi > 0 || qo > 0) {
-    try { recordStockMove({ itemId, qtyIn: qi, qtyOut: qo, unitCost: Math.max(Number(unitCost) || 0, 0), balance: it.stocks[shopId], ref, note, shop: shopId }); } catch {}
+    try { recordStockMove({ itemId, qtyIn: qi, qtyOut: qo, unitCost: Math.max(Number(unitCost) || 0, 0), balance: it.stocks[shopId], ref, note, shop: shopId, type }); } catch {}
   }
   return it;
 }
@@ -2037,7 +2080,7 @@ function recordStockMove(m) {
     id: generateId(), ts: new Date().toISOString(),
     itemId: m.itemId, qtyIn: m.qtyIn || 0, qtyOut: m.qtyOut || 0,
     unitCost: m.unitCost || 0, balance: m.balance || 0, ref: String(m.ref || ''), note: String(m.note || ''),
-    shop: String(m.shop || ''),
+    shop: String(m.shop || ''), type: String(m.type || ''),
   });
   if (list.length > 2000) list = list.slice(0, 2000);
   localStorage.setItem(MOVE_KEY, JSON.stringify(list));
@@ -2057,6 +2100,7 @@ export function getStockMoves(itemId, shopId) {
 export function importItemsBulk(list) {
   requireCap('ledger');
   const items = getItems();
+  const shopId = getActiveShopId();
   let added = 0, updated = 0, skipped = 0;
   (Array.isArray(list) ? list : []).forEach(raw => {
     const name = String((raw && raw.name) || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
@@ -2066,7 +2110,6 @@ export function importItemsBulk(list) {
       name, sku,
       price: Math.max(Number(raw.price) || 0, 0),
       cost: Math.max(Number(raw.cost) || 0, 0),
-      stock: Math.max(Math.floor(Number(raw.stock) || 0), 0),
       minStock: Math.max(Math.floor(Number(raw.minStock) || 0), 0),
       updatedAt: new Date().toISOString(),
     };
@@ -2079,6 +2122,14 @@ export function importItemsBulk(list) {
     if (raw && raw.barcode !== undefined) rec.barcode = String(raw.barcode || '').trim().slice(0, 40);
     const idx = items.findIndex(i => (sku && String(i.sku || '').toLowerCase() === sku.toLowerCase())
       || (!sku && String(i.name || '').toLowerCase() === name.toLowerCase()));
+    const prev = idx === -1 ? null : items[idx];
+    // Stok: tulis ke peta per-toko toko aktif + hitung ulang total (jangan set `stock` mentah).
+    if (raw && raw.stock !== undefined) {
+      const stocks = (prev && prev.stocks && typeof prev.stocks === 'object') ? { ...prev.stocks } : {};
+      stocks[shopId] = Math.max(Math.floor(Number(raw.stock) || 0), 0);
+      rec.stocks = stocks;
+      rec.stock = Object.values(stocks).reduce((s, n) => s + Math.max(Math.floor(Number(n) || 0), 0), 0);
+    }
     if (idx === -1) { items.push({ id: generateId(), size: '', color: '', discountPct: 0, ...rec }); added++; }
     else { items[idx] = { ...items[idx], ...rec }; updated++; }
   });
@@ -2334,11 +2385,11 @@ export function createPurchase({ supplier, date, dueDate, lines, note }) {
   const applied = [];
   try {
     cleanLines.forEach(l => {
-      applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost, ref: rec.id });
+      applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost, ref: rec.id, type: 'purchase' });
       applied.push(l);
     });
   } catch (err) {
-    applied.forEach(l => { try { applyStockMove(l.itemId, { qtyOut: l.qty }); } catch {} });
+    applied.forEach(l => { try { applyStockMove(l.itemId, { qtyOut: l.qty, type: 'purchase' }); } catch {} });
     throw err;
   }
   const list = getPurchases();
@@ -2400,7 +2451,7 @@ export function deletePurchase(id) {
   assertUnlocked(p.date);
   if ((p.payments || []).length) throw new Error('Sudah ada pembayaran — hapus pembayaran dulu via riwayat? (belum didukung, hubungi admin data)');
   // Kembalikan stok (gagal bila sudah terjual → tolak hapus)
-  p.lines.forEach(l => applyStockMove(l.itemId, { qtyOut: l.qty, ref: id, note: 'hapus beli' }));
+  p.lines.forEach(l => applyStockMove(l.itemId, { qtyOut: l.qty, ref: id, note: 'hapus beli', type: 'purchase' }));
   savePurchases(list.filter(x => x.id !== id));
   deleteJournalsByRef('purchase', id);
   deleteJournalsByRef('purchase-pay', id);
@@ -2718,7 +2769,7 @@ export function returnSale(saleId, items, { date, payment } = {}) {
     if (q > remaining) throw new Error(`Melebihi jumlah jual (sisa bisa diretur ${Math.max(remaining, 0)})`);
     const price = Number(orig.price) || 0;
     const item = getItemById(it.itemId);
-    const cost = item ? Number(item.cost) || 0 : 0;
+    const cost = (orig.avgCost != null) ? Number(orig.avgCost) || 0 : (item ? Number(item.cost) || 0 : 0);
     refund += price * q; costBack += cost * q;
     lines.push({ itemId: it.itemId, qty: q, price, cost });
   });
@@ -2729,7 +2780,7 @@ export function returnSale(saleId, items, { date, payment } = {}) {
   const rate = getPpn().rate;
   const dpp = sale.ppn ? Math.round(refund / (1 + rate)) : refund;
   const ppn = sale.ppn ? refund - dpp : 0;
-  lines.forEach(l => applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.cost, keepCost: true, shop: shopId, ref: saleId, note: 'retur jual' }));
+  lines.forEach(l => applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.cost, keepCost: true, shop: shopId, ref: saleId, note: 'retur jual', type: 'return' }));
   try {
     const j = buildSaleReturnJournal({
       amount: refund, dpp, ppn, cost: costBack, date: d, payment: payment || sale.payment,
@@ -2754,8 +2805,8 @@ export function adjustStock(itemId, { qty, reason, date, shop } = {}) {
   assertUnlocked(d);
   const shopId = shop || getActiveShopId();
   const unitCost = Math.max(Number(it.cost) || 0, 0);
-  if (n > 0) applyStockMove(itemId, { qtyIn: n, unitCost, keepCost: true, shop: shopId, note: reason || 'penyesuaian' });
-  else applyStockMove(itemId, { qtyOut: -n, shop: shopId, note: reason || 'penyesuaian' });
+  if (n > 0) applyStockMove(itemId, { qtyIn: n, unitCost, keepCost: true, shop: shopId, note: reason || 'penyesuaian', type: 'adjust' });
+  else applyStockMove(itemId, { qtyOut: -n, shop: shopId, note: reason || 'penyesuaian', type: 'adjust' });
   try {
     const j = buildAdjustJournal({ account: '1301', amount: Math.abs(n) * unitCost, date: d, memo: `Penyesuaian ${it.name} (${n > 0 ? '+' : ''}${n})${reason ? ': ' + reason : ''}`, increase: n > 0 });
     if (j) postJournal(j);
@@ -2764,20 +2815,22 @@ export function adjustStock(itemId, { qty, reason, date, shop } = {}) {
   return getItemById(itemId);
 }
 
-export function transferStock(itemId, { fromShop, toShop, qty } = {}) {
+export function transferStock(itemId, { fromShop, toShop, qty, date } = {}) {
   requireCap('ledger');
   const it = getItemById(itemId);
   if (!it) throw new Error('Barang tidak ditemukan');
   const q = Math.floor(Number(qty) || 0);
   if (q <= 0) throw new Error('Jumlah transfer harus > 0');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
   const shops = getShops();
   if (!shops.some(s => s.id === fromShop) || !shops.some(s => s.id === toShop)) throw new Error('Toko tidak valid');
   if (fromShop === toShop) throw new Error('Toko asal dan tujuan harus beda');
-  applyStockMove(itemId, { qtyOut: q, shop: fromShop, note: 'transfer keluar' });
+  applyStockMove(itemId, { qtyOut: q, shop: fromShop, note: 'transfer keluar', type: 'transfer' });
   try {
-    applyStockMove(itemId, { qtyIn: q, unitCost: 0, keepCost: true, shop: toShop, note: 'transfer masuk' });
+    applyStockMove(itemId, { qtyIn: q, unitCost: 0, keepCost: true, shop: toShop, note: 'transfer masuk', type: 'transfer' });
   } catch (e) {
-    try { applyStockMove(itemId, { qtyIn: q, unitCost: 0, keepCost: true, shop: fromShop, note: 'transfer batal' }); } catch {}
+    try { applyStockMove(itemId, { qtyIn: q, unitCost: 0, keepCost: true, shop: fromShop, note: 'transfer batal', type: 'transfer' }); } catch {}
     throw e;
   }
   logAudit('create', 'stock-transfer', itemId, null, { qty: q, from: fromShop, to: toShop });

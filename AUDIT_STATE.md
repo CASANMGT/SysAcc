@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.59.0** · Production **v1.59.0 VERIFIED 2026-09-14** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE**.
+Repo **v1.60.0** · Production **v1.60.0** di `https://wynara-acc.vercel.app`. Backend Supabase **LIVE**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,7 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 89.04 still <95. Lowest: F8/F9 85.
+A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 89.49 still <95. Lowest: F8/F9 85.
 ```
 
 ---
@@ -24,19 +24,19 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
-| F1 Core ledger | 15 | 86 | **94** | 14.10 | + retur penjualan parsial (stok balik, pendapatan & HPP dibalik) |
+| F1 Core ledger | 15 | 86 | **95** | 14.25 | + HPP dibekukan per baris, opname via gerakan stok, retur pakai HPP asli, transfer terkunci |
 | F2 Tax conformance | 12 | 76 | **86** | 10.32 | + PPN Keluaran dibalik pada retur |
 | F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
-| F4 Data durability | 15 | 52 | **86** | 12.90 | Supabase + RLS + tautkan email + uji backup + peran + uji koneksi + **Kesehatan Data (integritas)** |
+| F4 Data durability | 15 | 52 | **88** | 13.20 | + integritas import multi-toko, gerakan stok (kartu), duplikat SKU/barcode ditolak |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **95** | 11.40 | Form produk inline di halaman + tabel sortable + aksi massal + edit/hapus massal + laporan restock + POS + dokumen stok |
 | F7 Cognitive load | 10 | 80 | **89** | 8.90 | Wizard 3 langkah; form di halaman (tanpa modal); harga/modal per ukuran; stok per varian; import marketplace/WA |
 | F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
 | F9 Accessibility | 7 | 68 | **85** | 5.95 | Scope/caption/alt/hierarki + aria-current + prefers-contrast + kontras teks redup (var) |
-| **OVERALL** | | ~~90~~ | | **89.04** | v1.59 form produk pindah ke halaman; arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **89.49** | v1.60 sprint kebenaran stok; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 94×15 + 86×12 + 86×12 + 86×15 + 92×10 + 95×12 + 89×10 + 85×7 + 85×7
-= 1410 + 1032 + 1032 + 1290 + 920 + 1140 + 890 + 595 + 595 = **8904 / 100 = 89.04**. Baseline 59.7 → **+29.34**.
+Aritmetika (wajib tampil): 95×15 + 86×12 + 86×12 + 88×15 + 92×10 + 95×12 + 89×10 + 85×7 + 85×7
+= 1425 + 1032 + 1032 + 1320 + 920 + 1140 + 890 + 595 + 595 = **8949 / 100 = 89.49**. Baseline 59.7 → **+29.79**.
 
 All nine axes ≥85 (F8/F9 85, F2/F3/F4 86, F7 87, F5 92, F6 93, F1 94). A+ needs overall ≥95.
 

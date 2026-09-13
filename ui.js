@@ -4049,7 +4049,7 @@ export function addSaleRow(preselectId) {
   row.innerHTML = `
     <select class="sale-item" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
       <option value="">— Pilih barang —</option>
-      ${items.map(i => { const v = itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${i.stock})</option>`; }).join('')}
+      ${items.map(i => { const v = itemVariantLabel(i); const q = shopStockOf(i, getActiveShopId()); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${q})</option>`; }).join('')}
     </select>
     <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px">
       <button type="button" class="btn btn-ghost sale-minus" aria-label="Kurangi" style="font-size:14px;padding:2px 8px">−</button>
@@ -4100,12 +4100,19 @@ export function recalcSale() {
   const dpp = ppn ? data.total / (1 + P_RATE) : data.total;
   const ppnAmt = ppn ? data.total - dpp : 0;
   const items = getItemList();
+  const shopId = getActiveShopId();
   const untung = data.lines.reduce((s, l) => { const it = items.find(x => x.id === l.itemId); const c = it ? Number(it.cost) || 0 : 0; return s + l.qty * (l.price - c); }, 0);
+  const short = data.lines.map(l => {
+    const it = items.find(x => x.id === l.itemId);
+    const avail = it ? shopStockOf(it, shopId) : 0;
+    return l.qty > avail ? { name: l.name, avail, qty: l.qty } : null;
+  }).filter(Boolean);
   const good = untung >= 0;
   sum.innerHTML = `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#475569"><span>Subtotal <b>${formatCurrency(data.subtotal)}</b></span>${data.discount > 0 ? `<span style="color:#b45309">Diskon −<b>${formatCurrency(data.discount)}</b></span>` : ''}${ppn ? `<span>PPN ${(P_RATE * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}% <b>${formatCurrency(Math.round(ppnAmt))}</b> (DPP ${formatCurrency(Math.round(dpp))})</span>` : ''}</div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px"><span>Masuk kas</span><b style="font-size:14px">${formatCurrency(data.total)}</b></div>
     <div style="font-size:11px;color:${good ? '#059669' : '#dc2626'};font-weight:600;margin-top:2px">${good ? '📈' : '📉'} Estimasi untung ${formatCurrency(Math.round(untung))}</div>
+    ${short.length ? `<div style="font-size:11px;color:#dc2626;font-weight:600;margin-top:4px">⚠️ Stok kurang di toko ini: ${short.map(s => `${escapeHtml(s.name)} (sisa ${s.avail}, minta ${s.qty})`).join(', ')}</div>` : ''}
   </div>`;
 }
 function readSaleRows() {
