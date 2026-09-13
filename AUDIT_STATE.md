@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.53.0** · Production **v1.53.0 VERIFIED 2026-09-13** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE**.
+Repo **v1.55.0** · Production **v1.55.0 VERIFIED 2026-09-13** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,7 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 87.79 still <95. Lowest: F2/F8/F9 85.
+A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 88.06 still <95. Lowest: F2/F8/F9 85.
 ```
 
 ---
@@ -24,21 +24,21 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
-| F1 Core ledger | 15 | 86 | **91** | 13.65 | Multi-toko (stok per lokasi) + SKU/barcode/satuan/kategori + nilai persediaan |
+| F1 Core ledger | 15 | 86 | **92** | 13.80 | + POS sale (scan/keranjang, diskon nota) + penyesuaian stok & transfer antar toko |
 | F2 Tax conformance | 12 | 76 | **85** | 10.20 | OQ2 + ambang PPh Final + CSV PPN 1111 / PPh 23/4(2) / PPh 21 + pengingat tenggat |
 | F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
 | F4 Data durability | 15 | 52 | **86** | 12.90 | Supabase + RLS + tautkan email + uji backup + peran + uji koneksi + **Kesehatan Data (integritas)** |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
-| F6 Task efficiency | 12 | 86 | **91** | 10.92 | Multi-toko + scan barcode/SKU + nilai/restock header + riwayat + import |
+| F6 Task efficiency | 12 | 86 | **92** | 11.04 | POS scan/keranjang + dokumen stok (penyesuaian/transfer) + multi-toko |
 | F7 Cognitive load | 10 | 80 | **87** | 8.70 | Harga/modal per ukuran + warna premium; stok per varian; import marketplace/WA |
 | F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
 | F9 Accessibility | 7 | 68 | **85** | 5.95 | Scope/caption/alt/hierarki + aria-current + prefers-contrast + kontras teks redup (var) |
-| **OVERALL** | | ~~90~~ | | **87.79** | v1.52 multi-toko + v1.53 fase-1 stok; arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **88.06** | v1.54 POS sale + v1.55 dokumen stok; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 91×15 + 85×12 + 86×12 + 86×15 + 92×10 + 91×12 + 87×10 + 85×7 + 85×7
-= 1365 + 1020 + 1032 + 1290 + 920 + 1092 + 870 + 595 + 595 = **8779 / 100 = 87.79**. Baseline 59.7 → **+28.09**.
+Aritmetika (wajib tampil): 92×15 + 85×12 + 86×12 + 86×15 + 92×10 + 92×12 + 87×10 + 85×7 + 85×7
+= 1380 + 1020 + 1032 + 1290 + 920 + 1104 + 870 + 595 + 595 = **8806 / 100 = 88.06**. Baseline 59.7 → **+28.36**.
 
-All nine axes ≥85 (F2/F8/F9 85, F3/F4 86, F7 87, F1 91, F6 91, F5 92). A+ still needs overall ≥95.
+All nine axes ≥85 (F2/F8/F9 85, F3/F4 86, F7 87, F1/F5/F6 92). A+ needs overall ≥95.
 
 ---
 
@@ -179,6 +179,10 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.52.0 (F1/F6)**: **Multi-toko** — Pengaturan kelola toko; item menyimpan stok **per toko** (`stocks{}`), total = jumlah; pilih **toko aktif** di halaman Stok; jual/beli/restock/opname pada toko aktif; kartu stok mencatat toko; daftar toko ikut sinkron & backup. **→ (bagian dari kenaikan F1/F6).** +2 test. 258/258 ✓.
 
 - **v1.53.0 (F1/F6 — Fase 1 stok)**: **Satuan/Kategori/Barcode** produk; **SKU & barcode per varian**; **nilai persediaan** + jumlah **perlu restock** per toko; **scan barcode/SKU** (Enter buka produk); tombol **📜 Riwayat** (kartu stok gabungan varian); import memetakan kolom baru. **→ F1 90→91, F6 90→91.** +1 test. 259/259 ✓.
+
+- **v1.54.0 (F1/F6 — Fase 2a POS sale)**: kotak **scan/cari** (barcode/SKU/nama + Enter → keranjang, qty bertambah bila sudah ada), tombol **qty −/＋**, **diskon nota (Rp)** dengan ringkasan Subtotal→Diskon→PPN→Total + estimasi untung; cek stok per **toko aktif**. 259/259 ✓.
+
+- **v1.55.0 (F1/F6 — Fase 2b dokumen stok)**: **⚖️ Penyesuaian stok** (+/− dengan alasan → jurnal Dr/Cr 1301 vs 5199, hormati kunci periode) & **🔁 Transfer antar toko** (internal, rollback aman). **→ F1 91→92, F6 91→92.** +2 test. 261/261 ✓.
 
 > Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
