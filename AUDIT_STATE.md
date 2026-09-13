@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.24.0** · Production **v1.24.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.24.0, sw=wynara-v1-24-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.25.0** · Production **v1.25.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.25.0, sw=wynara-v1-25-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,8 +13,8 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ still requires every axis ≥85. Lowest: F9 68, F8 74, F2 76, F3 76, F7 78
-— five axes below 85 (F1 now 86). Keep working correctness; do not chase cosmetics.
+A+ still requires every axis ≥85. Lowest: F4 71, F8 74, F9 75, F2 76, F3 76,
+F7 78 — six axes below 85. Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -33,13 +33,13 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
 | F7 Cognitive load | 10 | 80 | **78** | 7.80 | Mode Sederhana helped; U2 Frozen |
 | F8 Mobile | 7 | 82 | **74** | 5.18 | 8 releases of mobile layout defects |
-| F9 Accessibility | 7 | 68 | **68** | 4.76 | U5 emoji icons untouched |
-| **OVERALL** | | ~~90~~ | | **79.05** | F4 68→71 (B3 subset); arithmetic di bawah |
+| F9 Accessibility | 7 | 68 | **75** | 5.25 | Label/dialog/focus/contrast/reduced-motion pass (WCAG audit). Sisa: caption/scope tabel, alt chart, hierarki heading |
+| **OVERALL** | | ~~90~~ | | **79.54** | F9 68→75 (a11y pass); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 86×15 + 76×12 + 76×12 + 71×15 + 92×10 + 86×12 + 78×10 + 74×7 + 68×7
-= 1290 + 912 + 912 + 1065 + 920 + 1032 + 780 + 518 + 476 = **7905 / 100 = 79.05**. Baseline 59.7 → **+19.35**.
+Aritmetika (wajib tampil): 86×15 + 76×12 + 76×12 + 71×15 + 92×10 + 86×12 + 78×10 + 74×7 + 75×7
+= 1290 + 912 + 912 + 1065 + 920 + 1032 + 780 + 518 + 525 = **7954 / 100 = 79.54**. Baseline 59.7 → **+19.84**.
 
-Five of nine axes below 85. Stop condition not met on either clause.
+Six of nine axes below 85. Stop condition not met on either clause.
 
 ---
 
@@ -122,6 +122,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.23.0 (B7 — bunga pinjaman)**: akun **4102 Pendapatan Bunga** / **5113 Beban Bunga**; `splitRepaymentPortions()` (proporsional, kumulatif, dibatasi); `buildRepaymentJournal` pisah pokok vs bunga (given → Cr Piutang + Cr 4102; taken → Dr Hutang + Dr 5113); Laba Rugi & Neraca ikut otomatis. Catatan: pelunasan lama tidak dihitung ulang. **→ F1 78→86.** +6 test. 184/184 ✓.
 
 - **v1.24.0 (B3 subset — peran & audit actor)**: audit kini mencatat pelaku (`actor {role,user}`) + kolom Aktor di laporan; `requireOwner()` di ~18 mutasi admin/hapus (storage); `blockKasir()` di handler jurnal langsung; **tutup lubang V10**: sesi kasir "ingat saya" dipersist (sebelumnya jatuh ke owner setelah restart). Peran Akuntan/HRD + matriks izin penuh **menunggu OQ4**. **→ F4 68→71.** +4 test. 188/188 ✓.
+
+- **v1.25.0 (F9 aksesibilitas — audit WCAG 2.1 AA)**: label aksesibel (nominal `aria-labelledby`; auto-label input dinamis via MutationObserver); semua dialog dinamai + `aria-modal`; fokus kembali ke pemicu + trap dilepas semua jalur tutup; `aria-pressed`/`aria-selected` chip & tab; kontras `--text-muted`→#64748b; focus ring nominal; `prefers-reduced-motion`; `role="alert"` login; hapus `role="main"` ganda; pager berlabel. Sisa: caption/scope tabel, alt chart, hierarki heading. **→ F9 68→75.** +5 test. 193/193 ✓.
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
