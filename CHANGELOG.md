@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.41.0] - 2026-09-13
+
+### Added — F4 peran Akuntan & HRD (PIN per peran + matriks izin)
+- Login username **akuntan** / **hrd** + PIN (seperti kasir); PIN diatur pemilik di **Pengaturan → Akses Akuntan & HRD**
+- Matriks izin (OQ4): **Akuntan** = semua akuntansi (ledger+payroll+data+settings); **HRD** = gaji + penggantian kas kecil (buat entri); **Kasir** = catat transaksi
+- Penegakan di lapisan storage via `requireCap()` — ~24 aksi admin/hapus dipetakan ke cap ledger/payroll/settings; **owner-only** untuk keamanan/PIN
+- UI: HRD hanya melihat Ringkasan/Transaksi/Gaji; panel khusus pemilik disembunyikan untuk akuntan/hrd
+- +3 test; 247/247 tests ✓
+
+---
+
 ## [1.40.0] - 2026-09-13
 
 ### Added — Halaman Stok (kartu produk + varian) & Restock cepat

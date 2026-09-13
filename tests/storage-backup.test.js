@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, itemNetPrice, itemVariantLabel, importItemsBulk, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, itemNetPrice, itemVariantLabel, importItemsBulk, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -193,6 +193,44 @@ describe('updateLoan', () => {
     const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
     updateLoan(loan.id, { status: 'paid' });
     expect(getLoanById(loan.id).status).toBe('paid');
+  });
+});
+
+describe('peran akuntan/hrd (OQ4)', () => {
+  beforeEach(() => { try { sessionStorage.clear(); } catch {} });
+  it('matriks cap: akuntan ledger+payroll, hrd hanya payroll/petty', () => {
+    setRole('akuntan');
+    expect(can('ledger')).toBe(true);
+    expect(can('payroll')).toBe(true);
+    expect(can('settings')).toBe(true);
+    setRole('hrd');
+    expect(can('payroll')).toBe(true);
+    expect(can('petty')).toBe(true);
+    expect(can('ledger')).toBe(false);
+    setRole('kasir');
+    expect(can('ledger')).toBe(false);
+    expect(can('transact')).toBe(true);
+    setRole('owner');
+    expect(can('whatever')).toBe(true);
+    expect(() => requireCap('ledger')).not.toThrow();
+    setRole('hrd');
+    expect(() => requireCap('ledger')).toThrow(/Akses ditolak/);
+    setRole('owner');
+  });
+  it('PIN peran akuntan: set, verify, matikan', async () => {
+    setRole('owner');
+    await setRolePin('akuntan', '2468', true);
+    expect(rolePinEnabled('akuntan')).toBe(true);
+    expect(await verifyRolePin('akuntan', '2468')).toBe(true);
+    expect(await verifyRolePin('akuntan', '0000')).toBe(false);
+    await setRolePin('akuntan', '', false);
+    expect(rolePinEnabled('akuntan')).toBe(false);
+  });
+  it('HRD hanya boleh gaji/petty: createLoan ditolak, saveEmployee boleh', () => {
+    setRole('hrd');
+    expect(() => createLoan({ direction: 'given', person: 'X', amount: 1000, date: '2026-08-01' })).toThrow(/Akses ditolak/);
+    expect(() => saveEmployee({ name: 'Budi', baseSalary: 3000000 })).not.toThrow();
+    setRole('owner');
   });
 });
 

@@ -204,7 +204,7 @@ export function updateEntry(id, updates) {
 }
 
 export function deleteEntry(id) {
-  requireOwner();
+  requireCap('ledger');
   const entries = getEntries();
   const target = entries.find(e => e.id === id);
   if (!target) return false;
@@ -1034,7 +1034,7 @@ export function getKasbonLoans(employeeId, employeeName) {
 }
 
 export function createLoan(loan) {
-  requireOwner();
+  requireCap('ledger');
   const loans = getLoans();
   const amount = Number(loan.amount);
   if (!isFinite(amount) || amount <= 0) throw new Error('Jumlah pinjaman tidak valid');
@@ -1080,7 +1080,7 @@ export function createLoan(loan) {
 }
 
 export function updateLoan(id, updates) {
-  requireOwner();
+  requireCap('ledger');
   const loans = getLoans();
   const index = loans.findIndex(l => l.id === id);
   if (index === -1) return null;
@@ -1131,7 +1131,7 @@ export function updateLoan(id, updates) {
 }
 
 export function deleteLoan(id) {
-  requireOwner();
+  requireCap('ledger');
   const loan = getLoanById(id);
   if (loan && loan.entryId) try { deleteEntry(loan.entryId); } catch {}
   const reps = getRepayments().filter(r => r.loanId === id);
@@ -1148,7 +1148,7 @@ export function getAllRepayments() {
 }
 
 export function addRepayment(repayment) {
-  requireOwner();
+  requireCap('ledger');
   const loan = getLoanById(repayment.loanId);
   if (!loan) throw new Error('Pinjaman tidak ditemukan');
   const amount = Number(repayment.amount);
@@ -1187,7 +1187,7 @@ export function addRepayment(repayment) {
 // Potong kasbon dari gaji: catat pelunasan + Dr Beban Gaji Cr Piutang.
 // Menghindari "kas masuk palsu" karena THP gaji sudah dikurangi potongan ini.
 export function applyPayrollKasbon(loanId, amount, date, monthKey) {
-  requireOwner();
+  requireCap('payroll');
   const loan = getLoanById(loanId);
   if (!loan) throw new Error('Pinjaman tidak ditemukan');
   const reps = getRepayments();
@@ -1220,7 +1220,7 @@ export function applyPayrollKasbon(loanId, amount, date, monthKey) {
 }
 
 export function deleteRepayment(id) {
-  requireOwner();
+  requireCap('ledger');
   const rep = getRepayments().find(r => r.id === id);
   if (rep && rep.entryId) try { deleteEntry(rep.entryId); } catch {}
   const repayments = getRepayments().filter(r => r.id !== id);
@@ -1840,7 +1840,7 @@ export function getStockGroups() {
 
 // Restock cepat: tambah stok @modal (rata-rata) + jurnal Dr Persediaan / Cr Kas.
 export function restockItem(itemId, qty, unitCost, { date, payment, note } = {}) {
-  requireOwner();
+  requireCap('ledger');
   const it = getItemById(itemId);
   if (!it) throw new Error('Barang tidak ditemukan');
   const q = Math.max(Math.floor(Number(qty) || 0), 0);
@@ -1872,7 +1872,7 @@ export function itemVariantLabel(item) {
 }
 
 export function saveItem(item) {
-  requireOwner();
+  requireCap('ledger');
   const list = getItems();
   const name = String(item.name || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
   if (!name) throw new Error('Nama barang wajib');
@@ -1901,7 +1901,7 @@ export function saveItem(item) {
 }
 
 export function deleteItem(id) {
-  requireOwner();
+  requireCap('ledger');
   // Jangan hapus barang yang sudah dipakai pembelian/penjualan (bikin data menggantung).
   const usedByPurchase = getPurchases().some(p => (p.lines || []).some(l => l && l.itemId === id));
   if (usedByPurchase) throw new Error('Barang dipakai di pembelian — tidak bisa dihapus. Kosongkan stoknya saja bila sudah tidak dijual.');
@@ -1961,7 +1961,7 @@ export function getStockMoves(itemId) {
 // ===== Import produk massal (Shopee/marketplace/offline) =====
 // Upsert per SKU (bila ada) atau nama. Return jumlah added/updated/skipped.
 export function importItemsBulk(list) {
-  requireOwner();
+  requireCap('ledger');
   const items = getItems();
   let added = 0, updated = 0, skipped = 0;
   (Array.isArray(list) ? list : []).forEach(raw => {
@@ -1992,7 +1992,7 @@ export function importItemsBulk(list) {
 // ===== Buat penjualan dari pesanan hasil impor =====
 // orders: hasil resolveOrders() (lines punya itemId). Melewati baris tanpa item.
 export function createSalesFromOrders(orders, { date, payment, channel } = {}) {
-  requireOwner();
+  requireCap('ledger');
   const created = [];
   (Array.isArray(orders) ? orders : []).forEach(o => {
     const lines = (o.lines || []).filter(l => l && l.itemId && Number(l.qty) > 0);
@@ -2028,7 +2028,7 @@ function cleanEmpStr(v, max) {
 }
 
 export function saveEmployee(emp) {
-  requireOwner();
+  requireCap('payroll');
   const list = getAllEmployees();
   const name = cleanEmpStr(emp.name, 60);
   if (!name) throw new Error('Nama karyawan wajib');
@@ -2073,7 +2073,7 @@ export function empGross(emp) {
 }
 
 export function deleteEmployee(id) {
-  requireOwner();
+  requireCap('payroll');
   localStorage.setItem(EMP_KEY, JSON.stringify(getAllEmployees().filter(e => e.id !== id)));
 }
 
@@ -2128,7 +2128,7 @@ export function getCustomAccounts() {
 }
 
 export function saveCustomAccount(acc) {
-  requireOwner();
+  requireCap('ledger');
   const code = String(acc.code || '').trim();
   if (!/^\d{4}$/.test(code)) throw new Error('Kode akun harus 4 digit (mis. 5120)');
   const type = COA_TYPES.includes(acc.type) ? acc.type : 'expense';
@@ -2158,7 +2158,7 @@ export function renameCustomAccount(code, name) {
 }
 
 export function deleteCustomAccount(code, journalBalances) {
-  requireOwner();
+  requireCap('ledger');
   const bal = journalBalances && journalBalances[code];
   if (bal && ((bal.debit || 0) - (bal.credit || 0)) !== 0) {
     throw new Error('Akun sudah ada mutasi — tidak bisa dihapus');
@@ -2213,7 +2213,7 @@ function sanitizePurchaseLine(l) {
 }
 
 export function createPurchase({ supplier, date, dueDate, lines, note }) {
-  requireOwner();
+  requireCap('ledger');
   assertUnlocked(String(date || '').slice(0, 10));
   const cleanLines = (Array.isArray(lines) ? lines : []).map(sanitizePurchaseLine).filter(Boolean);
   if (!cleanLines.length) throw new Error('Isi dulu barang + qty + harga modal');
@@ -2257,7 +2257,7 @@ export function createPurchase({ supplier, date, dueDate, lines, note }) {
 }
 
 export function addPurchasePayment(purchaseId, { amount, date, payment, paymentDetail, note, withhold: whRaw }) {
-  requireOwner();
+  requireCap('ledger');
   assertUnlocked(String(date || '').slice(0, 10));
   const list = getPurchases();
   const idx = list.findIndex(p => p.id === purchaseId);
@@ -2296,7 +2296,7 @@ export function addPurchasePayment(purchaseId, { amount, date, payment, paymentD
 }
 
 export function deletePurchase(id) {
-  requireOwner();
+  requireCap('ledger');
   const list = getPurchases();
   const p = list.find(x => x.id === id);
   if (!p) return false;
@@ -2338,7 +2338,7 @@ export function assertUnlocked(dateStr) {
 }
 
 export function lockMonth(mm) {
-  requireOwner();
+  requireCap('settings');
   if (!/^\d{4}-\d{2}$/.test(mm)) throw new Error('Bulan tidak valid');
   const list = getLockedMonths();
   if (!list.includes(mm)) {
@@ -2349,7 +2349,7 @@ export function lockMonth(mm) {
 }
 
 export function unlockMonth(mm) {
-  requireOwner();
+  requireCap('settings');
   localStorage.setItem(LOCK_KEY, JSON.stringify(getLockedMonths().filter(m => m !== mm)));
 }
 
@@ -2411,18 +2411,42 @@ export function resetAuth() {
   try { localStorage.removeItem(AUTH_KEY); } catch {}
 }
 
-// ===== Mode kasir (akun kedua terbatas, PIN lokal) =====
+// ===== Peran & PIN (owner / akuntan / hrd / kasir) =====
 const KASIR_KEY = 'wynara_kasir_pin';
+const PIN_KEYS = { kasir: KASIR_KEY, akuntan: 'wynara_akuntan_pin', hrd: 'wynara_hrd_pin' };
+const ROLES = ['owner', 'akuntan', 'hrd', 'kasir'];
 const ROLE_KEY = 'wynara_role';
+const ROLE_SAVED_KEY = 'wynara_role_saved';
 const ACTOR_KEY = 'wynara_actor';
 
-export async function verifyKasirPin(pin) {
+// Matriks izin (OQ4, keputusan manusia 2026-09-13):
+// owner = semua (termasuk keamanan/PIN); akuntan = semua akuntansi (ledger+payroll+data+settings);
+// hrd = gaji + penggantian kas kecil (petty = catat entri pengeluaran); kasir = catat transaksi.
+const ROLE_CAPS = {
+  owner: ['*'],
+  akuntan: ['ledger', 'payroll', 'data', 'settings'],
+  hrd: ['payroll', 'petty'],
+  kasir: ['transact'],
+};
+export function can(cap) {
+  const caps = ROLE_CAPS[getRole()] || ROLE_CAPS.owner;
+  return caps.includes('*') || caps.includes(cap);
+}
+export function requireCap(cap) {
+  if (!can(cap)) throw new Error('Akses ditolak — peran ini tidak diizinkan melakukan aksi tersebut');
+}
+
+function normRole(r) { return ROLES.includes(r) ? r : 'owner'; }
+
+export async function verifyRolePin(role, pin) {
+  const key = PIN_KEYS[role];
+  if (!key) return false;
   let rec = null;
-  try { rec = JSON.parse(localStorage.getItem(KASIR_KEY) || 'null'); } catch {}
+  try { rec = JSON.parse(localStorage.getItem(key) || 'null'); } catch {}
   if (!rec || !rec.hash) {
-    // default PIN 1234 (hashing saat pertama berhasil masuk)
-    if (String(pin || '') === '1234') {
-      try { localStorage.setItem(KASIR_KEY, JSON.stringify({ alg: 'hash', hash: await hashPassword('1234') })); } catch {}
+    // Hanya kasir punya PIN default 1234 (dipaksa ganti oleh pemilik kapan saja).
+    if (role === 'kasir' && String(pin || '') === '1234') {
+      try { localStorage.setItem(key, JSON.stringify({ alg: 'hash', hash: await hashPassword('1234') })); } catch {}
       return true;
     }
     return false;
@@ -2430,31 +2454,33 @@ export async function verifyKasirPin(pin) {
   return (await hashPassword(pin)) === rec.hash;
 }
 
-export async function setKasirPin(pin, enabled = true) {
-  if (!enabled) {
-    try { localStorage.removeItem(KASIR_KEY); } catch {}
-    return true;
-  }
+export async function setRolePin(role, pin, enabled = true) {
+  requireOwner();
+  const key = PIN_KEYS[role];
+  if (!key) throw new Error('Peran tidak dikenal');
+  if (!enabled) { try { localStorage.removeItem(key); } catch {} return true; }
   const p = String(pin || '').trim();
   if (!/^\d{4,8}$/.test(p)) throw new Error('PIN harus 4–8 angka');
-  try { localStorage.setItem(KASIR_KEY, JSON.stringify({ alg: 'hash', hash: await hashPassword(p) })); } catch {}
+  try { localStorage.setItem(key, JSON.stringify({ alg: 'hash', hash: await hashPassword(p) })); } catch {}
   return true;
 }
-
-export function kasirEnabled() {
-  try { return !!localStorage.getItem(KASIR_KEY); } catch { return false; }
+export function rolePinEnabled(role) {
+  const key = PIN_KEYS[role];
+  try { return !!key && !!localStorage.getItem(key); } catch { return false; }
 }
+// Kompat lama
+export function verifyKasirPin(pin) { return verifyRolePin('kasir', pin); }
+export function setKasirPin(pin, enabled = true) { return setRolePin('kasir', pin, enabled); }
+export function kasirEnabled() { return rolePinEnabled('kasir'); }
 
 export function setRole(role) {
-  try { if (role === 'kasir') sessionStorage.setItem(ROLE_KEY, 'kasir'); else sessionStorage.removeItem(ROLE_KEY); } catch {}
+  const r = normRole(role);
+  try { if (r !== 'owner') sessionStorage.setItem(ROLE_KEY, r); else sessionStorage.removeItem(ROLE_KEY); } catch {}
 }
-
-// Role "ingat saya": dipersist agar sesi kasir yang diingat tetap kasir
-// setelah browser ditutup (sebelumnya jatuh ke owner — lubang V10).
-const ROLE_SAVED_KEY = 'wynara_role_saved';
 export function setRolePersisted(role) {
-  setRole(role);
-  try { if (role === 'kasir') localStorage.setItem(ROLE_SAVED_KEY, 'kasir'); else localStorage.removeItem(ROLE_SAVED_KEY); } catch {}
+  const r = normRole(role);
+  setRole(r);
+  try { if (r !== 'owner') localStorage.setItem(ROLE_SAVED_KEY, r); else localStorage.removeItem(ROLE_SAVED_KEY); } catch {}
 }
 export function clearPersistedRole() {
   try { localStorage.removeItem(ROLE_SAVED_KEY); } catch {}
@@ -2462,8 +2488,10 @@ export function clearPersistedRole() {
 
 export function getRole() {
   try {
-    if (sessionStorage.getItem(ROLE_KEY) === 'kasir') return 'kasir';
-    if (localStorage.getItem(ROLE_SAVED_KEY) === 'kasir') return 'kasir';
+    const s = sessionStorage.getItem(ROLE_KEY);
+    if (ROLES.includes(s)) return s;
+    const p = localStorage.getItem(ROLE_SAVED_KEY);
+    if (ROLES.includes(p)) return p;
     return 'owner';
   } catch { return 'owner'; }
 }
@@ -2485,13 +2513,12 @@ export function getActor() {
   return { role: getRole(), user: '' };
 }
 
-// Penegakan peran di lapisan data (bukan sekadar CSS): aksi admin/hapus
-// ditolak saat sesi kasir. Kasir hanya boleh mencatat/mengoreksi transaksi.
 export function isKasir() {
   return getRole() === 'kasir';
 }
+// Owner-only: aksi keamanan/peran (PIN, kredensial).
 export function requireOwner() {
-  if (isKasir()) throw new Error('Akses ditolak — mode kasir hanya bisa mencatat transaksi');
+  if (getRole() !== 'owner') throw new Error('Akses ditolak — hanya pemilik yang bisa melakukan ini');
 }
 
 // ===== Tarif PPN configurable (default 11%) =====
@@ -2508,7 +2535,7 @@ export function getPpn() {
   return { rate: 0.11 };
 }
 export function savePpn(rate) {
-  requireOwner();
+  requireCap('settings');
   const r = Number(String(rate ?? '').replace(',', '.'));
   if (!Number.isFinite(r) || r < 0 || r > 0.3) throw new Error('Tarif PPN harus 0–30%');
   try { localStorage.setItem(PPN_KEY, JSON.stringify({ rate: r })); } catch {}
@@ -2527,7 +2554,7 @@ export function getUmp() {
   return { amount: 0 };
 }
 export function saveUmp(amount) {
-  requireOwner();
+  requireCap('settings');
   const n = Math.max(Number(String(amount ?? '').replace(/[^0-9]/g, '')) || 0, 0);
   try { localStorage.setItem(UMP_KEY, JSON.stringify({ amount: n })); } catch {}
   return n;
@@ -2572,7 +2599,7 @@ export function getFixedAssets() {
 }
 
 export function saveFixedAssets(list) {
-  requireOwner();
+  requireCap('ledger');
   try { localStorage.setItem(ASSET_KEY, JSON.stringify(Array.isArray(list) ? list : [])); } catch {}
 }
 

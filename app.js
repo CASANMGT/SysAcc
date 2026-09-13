@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.40.0';
+const APP_VERSION = '1.41.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -294,8 +294,9 @@ async function handleLogin(e) {
   const btn = document.querySelector('.login-btn-new');
   if (btn) btn.disabled = true;
   try {
-    if (user.toLowerCase() === 'kasir') {
-      const ok = await Storage.verifyKasirPin(pass);
+    const roleUser = ['kasir', 'akuntan', 'hrd'].includes(user.toLowerCase()) ? user.toLowerCase() : '';
+    if (roleUser) {
+      const ok = await Storage.verifyRolePin(roleUser, pass);
       if (!ok) {
         document.getElementById('loginError').classList.remove('hidden');
         document.getElementById('loginPass')?.select();
@@ -305,9 +306,9 @@ async function handleLogin(e) {
       const remember = document.getElementById('loginRemember')?.checked !== false;
       try { localStorage.removeItem('wynara_logged_in'); } catch {}
       try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
-      if (remember) { safeLocalSet('wynara_logged_in', 'true'); Storage.setRolePersisted('kasir'); }
-      else { if (!safeSessionSet('wynara_logged_in', 'true')) return; Storage.setRole('kasir'); Storage.clearPersistedRole(); }
-      Storage.setActor({ role: 'kasir', user: 'kasir' });
+      if (remember) { safeLocalSet('wynara_logged_in', 'true'); Storage.setRolePersisted(roleUser); }
+      else { if (!safeSessionSet('wynara_logged_in', 'true')) return; Storage.setRole(roleUser); Storage.clearPersistedRole(); }
+      Storage.setActor({ role: roleUser, user: roleUser });
       showApp();
       return;
     }
@@ -4369,8 +4370,8 @@ function handleLogout() {
 // Guard UI untuk aksi admin yang memposting jurnal langsung (lapisan storage
 // tetap menegakkan lewat requireOwner; ini memberi pesan jelas + tak jalan).
 function blockKasir() {
-  if (Storage.isKasir()) {
-    UI.showError('Akses ditolak — mode kasir hanya bisa mencatat transaksi');
+  if (!Storage.can('ledger')) {
+    UI.showError('Akses ditolak — aksi ini hanya untuk pemilik/akuntan');
     return true;
   }
   return false;
@@ -4883,6 +4884,34 @@ function openSettings() {
     if (!confirm('Matikan mode kasir? Login "kasir" jadi tidak bisa dipakai.')) return;
     try { Storage.setKasirPin('', false); renderKasirHint(); UI.showSuccess('Mode kasir dimatikan'); } catch {}
   };
+  // Akuntan & HRD: PIN per peran (OQ4)
+  const renderRolePins = () => {
+    const h = document.getElementById('rolePinHint');
+    if (h) h.textContent = `Akuntan: ${Storage.rolePinEnabled('akuntan') ? 'aktif' : 'belum'} • HRD: ${Storage.rolePinEnabled('hrd') ? 'aktif' : 'belum'}. Login pakai username akuntan / hrd + PIN. Akuntan = semua akuntansi; HRD = gaji & penggantian kas kecil.`;
+  };
+  renderRolePins();
+  const wireRolePin = (role, inputId, saveId, offId, label) => {
+    const input = document.getElementById(inputId);
+    const save = document.getElementById(saveId);
+    if (save) save.onclick = async () => {
+      const v = (input && input.value || '').trim();
+      if (!v) return UI.showError('Isi PIN dulu (4–8 angka)');
+      try {
+        await Storage.setRolePin(role, v, true);
+        if (input) input.value = '';
+        renderRolePins();
+        UI.showSuccess(`PIN ${label} disimpan — login "${role}" + PIN`);
+      } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal menyimpan PIN'); }
+    };
+    const off = document.getElementById(offId);
+    if (off) off.onclick = () => {
+      if (!Storage.rolePinEnabled(role)) return UI.showInfo(`PIN ${label} memang belum aktif`);
+      if (!confirm(`Matikan akses ${label}? Login "${role}" tak bisa dipakai.`)) return;
+      try { Storage.setRolePin(role, '', false); renderRolePins(); UI.showSuccess(`Akses ${label} dimatikan`); } catch {}
+    };
+  };
+  wireRolePin('akuntan', 'akuntanPinInput', 'akuntanPinSave', 'akuntanPinOff', 'Akuntan');
+  wireRolePin('hrd', 'hrdPinInput', 'hrdPinSave', 'hrdPinOff', 'HRD');
   // Anggaran per kategori
   const catSel = document.getElementById('catBudgetSelect');
   const catAmt = document.getElementById('catBudgetAmount');

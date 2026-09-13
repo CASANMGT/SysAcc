@@ -3801,6 +3801,16 @@ body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
 #appRoot[data-role="kasir"] .dash-card .btn-danger {
   display: none !important;
 }
+/* Akuntan: sembunyikan panel khusus pemilik (keamanan/kasir/cloud). */
+#appRoot[data-role="akuntan"] [data-owner-only] { display: none !important; }
+/* HRD: hanya Gaji + Transaksi (kas kecil) — sembunyikan laporan/stok/pinjaman/kontak. */
+#appRoot[data-role="hrd"] [data-owner-only],
+#appRoot[data-role="hrd"] #reportBtnSidebar,
+#appRoot[data-role="hrd"] #stockBtnSidebar,
+#appRoot[data-role="hrd"] #loanBtnSidebar,
+#appRoot[data-role="hrd"] #contactsBtnSidebar,
+#appRoot[data-role="hrd"] [data-bnav="reports"],
+#appRoot[data-role="hrd"] [data-bnav="stock"] { display: none !important; }
 
 /* F9 a11y: hormati preferensi minim gerak */
 @media (prefers-reduced-motion: reduce) {
