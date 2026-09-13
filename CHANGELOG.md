@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.26.0] - 2026-09-13
+
+### Changed — Form Pinjaman disederhanakan (gampang dipakai siapa saja)
+- **Bunga jadi pilihan**: chip `Tanpa bunga · 2% · 5% · 10% · Lainnya…` (kotak angka hanya muncul untuk "Lainnya") — tak perlu ngetik sendiri
+- **Cicilan satu penggerak**: cukup jawab **"Dibayar berapa bulan?"** (chip `3 · 6 · 12 · 24 · Lainnya…`); cicilan/bulan dihitung otomatis & hanya ditampilkan (read-only). Menghapus dua field lama yang saling menimpa (ambigu)
+- **Jatuh tempo jadi pilihan cepat**: chip `1 minggu · 2 minggu · 1 bulan · 3 bulan · Pilih tanggal…`, otomatis dari tanggal transaksi
+- **Bahasa lebih simpel**: "Sekali Bayar 1x"→"Dibayar langsung", "Cicilan"→"Dicicil tiap bulan"; label jatuh tempo→"Mulai bayar kapan?" saat dicicil
+- **Validasi**: pinjaman cicilan baru wajib pilih "berapa bulan" (pesan ramah)
+- +4 test (validasi + struktur preset); 197/197 tests ✓
+
+---
+
 ## [1.25.0] - 2026-09-13
 
 ### Added — F9 aksesibilitas (WCAG 2.1 AA pass)

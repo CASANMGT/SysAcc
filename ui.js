@@ -490,58 +490,144 @@ function updateBungaHint() {
     : `Bunga ${rate}% dari pokok — isi nominal dulu biar kelihatan totalnya`;
 }
 
-let tenorSyncing = false;
+// Preset chips (bunga / tenor / jatuh tempo) — bikin input gampang, tanpa ngetik bebas.
+function chipGroupById(id) { return document.getElementById(id); }
+function setChipActive(group, active) {
+  if (!group) return;
+  group.querySelectorAll('.chip').forEach(b => {
+    const on = b === active;
+    b.classList.toggle('selected', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+function revealCustom(wrap, on) { if (wrap) wrap.hidden = !on; }
+function addDaysStr(baseStr, days) {
+  const d = new Date(baseStr || new Date().toISOString().split('T')[0]);
+  if (isNaN(d)) return new Date().toISOString().split('T')[0];
+  d.setDate(d.getDate() + Number(days || 0));
+  return d.toISOString().split('T')[0];
+}
+function selectBungaPreset(value) {
+  const group = chipGroupById('loanBungaChips');
+  const el = document.getElementById('entryInterestRate');
+  if (!group || !el) return;
+  const known = [...group.querySelectorAll('.chip[data-rate]')].find(b => Number(b.dataset.rate) === Number(value));
+  if (known) {
+    setChipActive(group, known);
+    revealCustom(document.getElementById('bungaCustomWrap'), false);
+    el.value = Number(value) > 0 ? String(value) : '';
+  } else {
+    setChipActive(group, group.querySelector('.chip[data-custom]'));
+    revealCustom(document.getElementById('bungaCustomWrap'), true);
+  }
+  updateBungaHint(); updateTxTenorInfo(); updateTxMetaBar();
+}
+function selectTenorPreset(value) {
+  const group = chipGroupById('loanTenorChips');
+  const el = document.getElementById('entryTenor');
+  if (!group || !el) return;
+  const known = [...group.querySelectorAll('.chip[data-tenor]')].find(b => Number(b.dataset.tenor) === Number(value));
+  if (known) {
+    setChipActive(group, known);
+    revealCustom(document.getElementById('tenorCustomWrap'), false);
+    el.value = String(value);
+  } else {
+    setChipActive(group, group.querySelector('.chip[data-custom]'));
+    revealCustom(document.getElementById('tenorCustomWrap'), true);
+    try { el.focus(); } catch {}
+  }
+  updateTxTenorInfo(); updateTxMetaBar();
+}
+function selectDuePreset(days) {
+  const group = chipGroupById('loanDueChips');
+  const el = document.getElementById('entryLoanDueDate');
+  const hidden = document.getElementById('entryLoanDue');
+  if (!group) return;
+  const known = [...group.querySelectorAll('.chip[data-days]')].find(b => Number(b.dataset.days) === Number(days));
+  const hint = document.getElementById('loanDueHint');
+  if (known) {
+    setChipActive(group, known);
+    if (el) el.hidden = true;
+    const base = (elements.entryDate && elements.entryDate.value) || new Date().toISOString().split('T')[0];
+    const due = addDaysStr(base, days);
+    if (el) el.value = due;
+    if (hidden) hidden.value = due;
+    if (hint) hint.textContent = `Dibalikin sekitar ${new Date(due + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}.`;
+  } else {
+    setChipActive(group, group.querySelector('.chip[data-custom]'));
+    if (el) { el.hidden = false; try { el.showPicker && el.showPicker(); } catch {} try { el.focus(); } catch {} }
+    if (hint) hint.textContent = 'Pilih tanggalnya sendiri.';
+  }
+}
+function updateLoanDueLabel(type) {
+  const label = document.getElementById('loanDueLabel');
+  if (!label) return;
+  label.innerHTML = (type === 'cicilan' ? 'Mulai bayar kapan?' : 'Kapan dibalikin?') + ' <span class="tx-opsional">Opsional</span>';
+}
+function syncLoanPresets() {
+  const rate = Number(document.getElementById('entryInterestRate')?.value) || 0;
+  const bgroup = chipGroupById('loanBungaChips');
+  if (bgroup) {
+    const known = [0, 2, 5, 10].includes(rate);
+    setChipActive(bgroup, bgroup.querySelector(known ? `.chip[data-rate="${rate}"]` : '.chip[data-custom]'));
+    revealCustom(document.getElementById('bungaCustomWrap'), !known);
+  }
+  const tenor = parseInt(document.getElementById('entryTenor')?.value, 10) || 0;
+  const tgroup = chipGroupById('loanTenorChips');
+  if (tgroup) {
+    if ([3, 6, 12, 24].includes(tenor)) {
+      setChipActive(tgroup, tgroup.querySelector(`.chip[data-tenor="${tenor}"]`));
+      revealCustom(document.getElementById('tenorCustomWrap'), false);
+    } else if (tenor > 0) {
+      setChipActive(tgroup, tgroup.querySelector('.chip[data-custom]'));
+      revealCustom(document.getElementById('tenorCustomWrap'), true);
+    }
+  }
+  const due = document.getElementById('entryLoanDue')?.value;
+  const del = document.getElementById('entryLoanDueDate');
+  const dgroup = chipGroupById('loanDueChips');
+  if (del && due) del.value = due;
+  if (dgroup && due) { setChipActive(dgroup, dgroup.querySelector('.chip[data-custom]')); if (del) del.hidden = false; }
+}
+
+// SATU penggerak saja: "dibayar berapa bulan". Cicilan/bulan dihitung otomatis
+// dan cuma ditampilkan (read-only) — tak ada lagi dua field yang saling menimpa.
 function updateTxTenorInfo() {
   const info = document.getElementById('txTenorInfo');
   if (!info) return;
   const amt = parseFormattedNumber(elements.entryAmount?.value || '');
-  const cicilanInput = elements.entryInstallment;
   const tenorInput = document.getElementById('entryTenor');
-  const cicilan = parseFormattedNumber(cicilanInput?.value || '');
-  const tenorVal = tenorInput ? parseInt(String(tenorInput.value).replace(/[^0-9]/g,''), 10) || 0 : 0;
+  const tenorVal = tenorInput ? parseInt(String(tenorInput.value).replace(/[^0-9]/g, ''), 10) || 0 : 0;
   const isCicilan = elements.entryLoanType?.value === 'cicilan';
   const loanVisible = elements.loanFieldsGroup && !elements.loanFieldsGroup.hidden;
   const mode = (elements.entryLoanMode && elements.entryLoanMode.value) || 'new';
-  if (!loanVisible || !isCicilan || mode !== 'new') { info.classList.remove('show'); info.innerHTML=''; return; }
-  if (!amt) {
-    info.classList.add('show');
-    info.innerHTML = 'Masukkan nominal transaksi di atas untuk menghitung cicilan/tenor';
+  if (!loanVisible || !isCicilan || mode !== 'new') {
+    info.classList.remove('show');
+    info.innerHTML = '';
+    if (elements.entryInstallment && !isCicilan) elements.entryInstallment.value = '';
     return;
   }
-  // Cicilan melunasi TOTAL (pokok + bunga), bukan cuma pokok
   const rate = readBungaRate();
   const base = amt + Math.round(amt * rate / 100);
-  if ((!cicilan || cicilan <= 0) && (!tenorVal || tenorVal <= 0)) {
+  if (!amt) {
     info.classList.add('show');
-    info.innerHTML = `Pinjaman <strong>${formatCurrency(amt)}</strong>${rate ? ` + bunga ${formatCurrency(base - amt)}` : ''} • Isi <strong>cicilan/bulan</strong> atau <strong>tenor</strong>, sistem hitung otomatis`;
+    info.innerHTML = 'Isi nominalnya dulu di atas ya';
+    if (elements.entryInstallment) elements.entryInstallment.value = '';
     return;
   }
-  // auto-sync the empty field
-  if (!tenorSyncing) {
-    tenorSyncing = true;
-    if (cicilan && cicilan > 0 && (!tenorVal || tenorVal <= 0 || document.activeElement === cicilanInput)) {
-      const tenorCalc = Math.ceil(base / cicilan);
-      if (tenorInput && tenorCalc > 0 && tenorCalc <= 360) tenorInput.value = String(tenorCalc);
-    } else if (tenorVal && tenorVal > 0 && (!cicilan || cicilan <= 0 || document.activeElement === tenorInput)) {
-      const cicilanCalc = Math.ceil(base / tenorVal);
-      if (cicilanInput && cicilanCalc > 0) cicilanInput.value = formatIdrInput(cicilanCalc);
-    }
-    setTimeout(() => { tenorSyncing = false; }, 50);
-  }
-  const finalCicilan = parseFormattedNumber(cicilanInput?.value || '');
-  const finalTenor = tenorInput ? parseInt(String(tenorInput.value).replace(/[^0-9]/g,''), 10) || 0 : 0;
-  if (finalCicilan && finalCicilan > 0) {
-    const tenor = Math.ceil(base / finalCicilan);
-    const last = base - finalCicilan * (tenor - 1);
+  if (!tenorVal || tenorVal <= 0) {
     info.classList.add('show');
-    if (tenor === 1) info.innerHTML = `Tenor <strong>1 bulan</strong> • Lunas ${formatCurrency(base)}`;
-    else if (last <= 0 || last === finalCicilan) info.innerHTML = `Tenor <strong>${tenor} bulan</strong> • ${formatCurrency(finalCicilan)} × ${tenor} • Total ${formatCurrency(base)}`;
-    else info.innerHTML = `Tenor <strong>${tenor} bulan</strong> • ${formatCurrency(finalCicilan)} × ${tenor-1} + ${formatCurrency(last)} • Total ${formatCurrency(base)}`;
-  } else if (finalTenor && finalTenor > 0) {
-    const cicilanCalc = Math.ceil(base / finalTenor);
-    info.classList.add('show');
-    info.innerHTML = `Cicilan <strong>${formatCurrency(cicilanCalc)}/bulan</strong> • Tenor ${finalTenor} bulan • Total ${formatCurrency(base)}`;
+    info.innerHTML = `Total pinjaman <strong>${formatCurrency(base)}</strong> • pilih dibayar berapa bulan`;
+    if (elements.entryInstallment) elements.entryInstallment.value = '';
+    return;
   }
+  const monthly = Math.ceil(base / tenorVal);
+  const last = base - monthly * (tenorVal - 1);
+  if (elements.entryInstallment) elements.entryInstallment.value = formatIdrInput(monthly);
+  info.classList.add('show');
+  if (tenorVal === 1) info.innerHTML = `Dibayar <strong>1 bulan</strong> • ${formatCurrency(base)}`;
+  else if (last <= 0 || last === monthly) info.innerHTML = `≈ <strong>${formatCurrency(monthly)}/bulan</strong> × ${tenorVal} bulan • Total ${formatCurrency(base)}`;
+  else info.innerHTML = `≈ <strong>${formatCurrency(monthly)}/bulan</strong> (bulan terakhir ${formatCurrency(last)}) • ${tenorVal} bulan • Total ${formatCurrency(base)}`;
 }
 
 function bindTxOnce() {
@@ -565,7 +651,11 @@ function bindTxOnce() {
   }
   const dueEl = document.getElementById('entryLoanDueDate');
   if (dueEl && elements.entryLoanDue) {
-    dueEl.addEventListener('change', () => { elements.entryLoanDue.value = dueEl.value; });
+    dueEl.addEventListener('change', () => {
+      elements.entryLoanDue.value = dueEl.value;
+      const hint = document.getElementById('loanDueHint');
+      if (hint && dueEl.value) hint.textContent = `Dibalikin sekitar ${new Date(dueEl.value + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}.`;
+    });
   }
   if (elements.entryDescription) {
     elements.entryDescription.addEventListener('input', () => { updateTxDescCount(); });
@@ -587,17 +677,32 @@ function bindTxOnce() {
       populateTxContactDropdown();
     });
   }
-  if (elements.entryInstallment) {
-    elements.entryInstallment.addEventListener('input', () => { updateTxMetaBar(); updateTxTenorInfo(); });
-  }
   const entryTenorEl = document.getElementById('entryTenor');
   if (entryTenorEl) {
     entryTenorEl.addEventListener('input', () => { updateTxMetaBar(); updateTxTenorInfo(); });
   }
-  if (elements.entryAmount) {
-    const loanToggles = elements.loanTypeGroup?.querySelectorAll('.select-btn');
-    loanToggles?.forEach(btn => btn.addEventListener('click', () => setTimeout(updateTxTenorInfo, 50)));
-  }
+  const bungaChips = document.getElementById('loanBungaChips');
+  if (bungaChips) bungaChips.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => {
+    selectBungaPreset(btn.dataset.custom ? NaN : Number(btn.dataset.rate));
+  }));
+  const tenorChips = document.getElementById('loanTenorChips');
+  if (tenorChips) tenorChips.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => {
+    selectTenorPreset(btn.dataset.custom ? NaN : Number(btn.dataset.tenor));
+  }));
+  const dueChips = document.getElementById('loanDueChips');
+  if (dueChips) dueChips.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => {
+    selectDuePreset(btn.dataset.custom ? NaN : Number(btn.dataset.days));
+  }));
+  const loanToggles = elements.loanTypeGroup?.querySelectorAll('.select-btn');
+  loanToggles?.forEach(btn => btn.addEventListener('click', () => {
+    const t = btn.dataset.value;
+    updateLoanDueLabel(t);
+    if (t === 'cicilan') {
+      const tv = parseInt(document.getElementById('entryTenor')?.value, 10) || 0;
+      if (!tv) selectTenorPreset(12);
+    }
+    setTimeout(updateTxTenorInfo, 20);
+  }));
   const modeGroup = document.getElementById('loanModeGroup');
   if (modeGroup) {
     modeGroup.querySelectorAll('.select-btn').forEach(btn => {
@@ -723,6 +828,8 @@ export function openModal(entry = null) {
       // Pastikan field bunga kelihatan saat edit pinjaman (mode lama bisa settle)
       const bungaFieldEdit = document.getElementById('loanBungaField');
       if (bungaFieldEdit) bungaFieldEdit.hidden = false;
+      syncLoanPresets();
+      updateLoanDueLabel(lt);
       updateBungaHint();
     } else {
       elements.loanFieldsGroup.hidden = true;
@@ -776,6 +883,8 @@ export function openModal(entry = null) {
     const tenorElNew = document.getElementById('entryTenor');
     if (tenorElNew) tenorElNew.value = '';
     if (elements.entryInterestRate) elements.entryInterestRate.value = '';
+    syncLoanPresets();
+    updateLoanDueLabel('lunas');
     updateBungaHint();
     elements.entryContactType.value = 'person';
     setSelected(elements.contactTypeGroup, 'person');
@@ -1087,6 +1196,12 @@ function applyLoanMode(category) {
   if (bungaField) bungaField.hidden = mode !== 'new';
   const dueField = document.getElementById('loanDueField');
   if (dueField) dueField.hidden = mode !== 'new';
+  const ltNow = elements.entryLoanType.value || 'lunas';
+  updateLoanDueLabel(ltNow);
+  if (mode === 'new') {
+    if (ltNow === 'cicilan' && !(parseInt(document.getElementById('entryTenor')?.value, 10) || 0)) selectTenorPreset(12);
+    if (!elements.entryId.value && !elements.entryLoanDue.value) selectDuePreset(30);
+  }
   updateBungaHint();
   updateTxTenorInfo();
   updateTxMetaBar();
@@ -1426,6 +1541,11 @@ export function validateForm(data) {
       if (data.amount > found.outstanding + 0.01) return `Kebanyakan! Sisa cuma ${formatCurrency(found.outstanding)}`;
     } else {
       if (!data.person) return 'Ketik dulu nama temanmu';
+    }
+  }
+  if (data.category === 'Piutang' || data.category === 'Hutang') {
+    if (mode === 'new' && data.loanType === 'cicilan' && (!data.installmentAmount || data.installmentAmount <= 0)) {
+      return 'Pilih dulu dibayar berapa bulan';
     }
   }
   return null;
@@ -3015,7 +3135,7 @@ let idrInitDone = false;
 export function initIdrInputs() {
   if (idrInitDone) return;
   idrInitDone = true;
-  const ids = ['entryAmount', 'repayAmount', 'entryInstallment', 'stockPrice', 'stockCost', 'entryItemCost', 'empBase', 'empAllowance', 'transferAmount', 'reconActual', 'catBudgetAmount', 'budgetInput', 'equityInput', 'assetCost', 'adjustDebitAmt', 'adjustCreditAmt'];
+  const ids = ['entryAmount', 'repayAmount', 'stockPrice', 'stockCost', 'entryItemCost', 'empBase', 'empAllowance', 'transferAmount', 'reconActual', 'catBudgetAmount', 'budgetInput', 'equityInput', 'assetCost', 'adjustDebitAmt', 'adjustCreditAmt'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) {

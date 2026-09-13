@@ -83,6 +83,19 @@ describe('halaman Laporan', () => {
   });
 });
 
+describe('form pinjaman disederhanakan (preset chips)', () => {
+  it('chip bunga/tenor/jatuh tempo ada + default terpilih', () => {
+    expect(document.querySelectorAll('#loanBungaChips .chip').length).toBe(5);
+    expect(document.querySelectorAll('#loanTenorChips .chip').length).toBe(5);
+    expect(document.querySelectorAll('#loanDueChips .chip').length).toBe(5);
+    expect(document.querySelector('#loanBungaChips .chip.selected').textContent).toMatch(/Tanpa bunga/);
+    expect(document.querySelector('#loanTenorChips .chip.selected').textContent).toBe('12');
+    expect(document.querySelector('#loanDueChips .chip.selected').textContent).toMatch(/1 bulan/);
+    expect(document.getElementById('entryInstallment').type).toBe('hidden');
+    expect(document.getElementById('bungaCustomWrap').hidden).toBe(true);
+  });
+});
+
 describe('aksesibilitas F9 (boot enhancements)', () => {
   const named = (el) => !!(el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')
     || (el.id && document.querySelector(`label[for="${el.id}"]`)) || el.closest('label'));

@@ -129,3 +129,19 @@ describe('toast', () => {
     expect(undone).toBe(true);
   });
 });
+
+describe('validasi cicilan (form pinjaman disederhanakan)', () => {
+  const base = {
+    date: '2026-08-10', type: 'expense', category: 'Piutang', amount: 100000,
+    loanMode: 'new', person: 'Budi', loanType: 'cicilan'
+  };
+  it('cicilan tanpa "berapa bulan" ditolak dengan pesan ramah', () => {
+    expect(UI.validateForm({ ...base, installmentAmount: 0 })).toMatch(/berapa bulan/i);
+  });
+  it('cicilan dengan cicilan/bulan lolos', () => {
+    expect(UI.validateForm({ ...base, installmentAmount: 50000 })).toBe(null);
+  });
+  it('lunas tanpa cicilan tetap lolos', () => {
+    expect(UI.validateForm({ ...base, loanType: 'lunas', installmentAmount: 0 })).toBe(null);
+  });
+});

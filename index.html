@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.25.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.26.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.25.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.26.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -825,25 +825,40 @@
                   <label class="tx-piutang-label">Bayarnya gimana?</label>
                   <div id="loanTypeGroup" class="tx-loan-type-grid">
                     <button type="button" class="select-btn tx-loan-card selected" data-value="lunas">
-                      <span class="tx-loan-card-title">Sekali Bayar 1x</span>
-                      <span class="tx-loan-card-desc">Lunas dalam satu kali pembayaran</span>
+                      <span class="tx-loan-card-title">Dibayar langsung</span>
+                      <span class="tx-loan-card-desc">Balik sekali, lunas</span>
                       <span class="tx-loan-radio"></span>
                     </button>
                     <button type="button" class="select-btn tx-loan-card" data-value="cicilan">
-                      <span class="tx-loan-card-title">Cicilan</span>
-                      <span class="tx-loan-card-desc">Dibagi per bulan dengan jatuh tempo</span>
+                      <span class="tx-loan-card-title">Dicicil tiap bulan</span>
+                      <span class="tx-loan-card-desc">Dibayar sedikit-sedikit</span>
                       <span class="tx-loan-radio"></span>
                     </button>
                   </div>
                 </div>
                 <div class="tx-piutang-field" id="loanDueField">
-                  <label for="entryLoanDueDate" class="tx-piutang-label">Kapan dibalikin? <span class="tx-opsional">Opsional</span></label>
-                  <input type="date" id="entryLoanDueDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;background:white">
-                  <p class="tx-field-hint">Buat pengingat jatuh tempo. Kosongkan kalau belum pasti.</p>
+                  <label for="entryLoanDueDate" class="tx-piutang-label" id="loanDueLabel">Kapan dibalikin? <span class="tx-opsional">Opsional</span></label>
+                  <div id="loanDueChips" class="chip-group" role="group" aria-label="Pilihan jatuh tempo">
+                    <button type="button" class="chip" data-days="7">1 minggu</button>
+                    <button type="button" class="chip" data-days="14">2 minggu</button>
+                    <button type="button" class="chip selected" data-days="30">1 bulan</button>
+                    <button type="button" class="chip" data-days="90">3 bulan</button>
+                    <button type="button" class="chip" data-custom="1">Pilih tanggal…</button>
+                  </div>
+                  <input type="date" id="entryLoanDueDate" hidden style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;background:white;margin-top:8px">
+                  <input type="hidden" id="entryLoanDue">
+                  <p class="tx-field-hint" id="loanDueHint">Otomatis diingatkan saat jatuh tempo.</p>
                 </div>
                 <div class="tx-piutang-field" id="loanBungaField">
-                  <label for="entryInterestRate" class="tx-piutang-label">Bunga? <span class="tx-opsional">Opsional</span></label>
-                  <div class="tx-input-prefix-wrap">
+                  <label class="tx-piutang-label">Ada bunga? <span class="tx-opsional">Opsional</span></label>
+                  <div id="loanBungaChips" class="chip-group" role="group" aria-label="Pilihan bunga">
+                    <button type="button" class="chip selected" data-rate="0">Tanpa bunga</button>
+                    <button type="button" class="chip" data-rate="2">2%</button>
+                    <button type="button" class="chip" data-rate="5">5%</button>
+                    <button type="button" class="chip" data-rate="10">10%</button>
+                    <button type="button" class="chip" data-custom="1">Lainnya…</button>
+                  </div>
+                  <div class="tx-input-prefix-wrap" id="bungaCustomWrap" hidden style="margin-top:8px">
                     <input type="number" id="entryInterestRate" min="0" max="100" step="0.5" placeholder="0" inputmode="decimal" style="padding-right:40px">
                     <span style="position:absolute;right:14px;left:auto;color:#64748b;font-size:12px;pointer-events:none">%</span>
                   </div>
@@ -851,22 +866,22 @@
                 </div>
                 <div class="tx-cicilan-row" id="installmentGroup" hidden>
                   <div class="form-group">
-                    <label for="entryInstallment">Bayar berapa tiap bulan? <span class="tx-opsional">Opsional</span></label>
-                    <div class="tx-input-prefix-wrap">
-                      <span>Rp</span><input type="text" id="entryInstallment" placeholder="0" inputmode="numeric" autocomplete="off">
+                    <label class="tx-piutang-label" for="entryTenor">Dibayar berapa bulan?</label>
+                    <div id="loanTenorChips" class="chip-group" role="group" aria-label="Pilihan lama cicilan">
+                      <button type="button" class="chip" data-tenor="3">3</button>
+                      <button type="button" class="chip" data-tenor="6">6</button>
+                      <button type="button" class="chip selected" data-tenor="12">12</button>
+                      <button type="button" class="chip" data-tenor="24">24</button>
+                      <button type="button" class="chip" data-custom="1">Lainnya…</button>
                     </div>
-                    <p class="tx-field-hint">Kosongkan untuk hitung otomatis</p>
-                    <div id="txTenorInfo" class="tx-tenor-info"></div>
-                  </div>
-                  <div class="form-group">
-                    <label for="entryTenor">Berapa bulan?</label>
-                    <div class="tx-input-prefix-wrap">
+                    <div class="tx-input-prefix-wrap" id="tenorCustomWrap" hidden style="margin-top:8px">
                       <input type="number" id="entryTenor" min="1" max="360" placeholder="12" inputmode="numeric">
                       <span style="position:absolute;right:14px;left:auto;color:#64748b;font-size:12px;pointer-events:none">bulan</span>
                     </div>
-                    <p class="tx-field-hint">Isi tenor atau cicilan, otomatis hitung yang lain</p>
+                    <div id="txTenorInfo" class="tx-tenor-info"></div>
+                    <p class="tx-field-hint">Isi "Lainnya…" kalau mau atur sendiri jumlah bulannya.</p>
                   </div>
-                  <input type="hidden" id="entryLoanDue">
+                  <input type="hidden" id="entryInstallment">
                 </div>
               </div>
             </div>
@@ -1810,7 +1825,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.25.0';
+    window.__htmlVersion = '1.26.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
