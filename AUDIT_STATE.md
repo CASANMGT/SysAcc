@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.23.0** · Production **v1.23.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.23.0, sw=wynara-v1-23-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.24.0** · Production **v1.24.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.24.0, sw=wynara-v1-24-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -28,16 +28,16 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F1 Core ledger | 15 | 86 | **86** | 12.90 | V3 4 lubang lock ditutup (ditegakkan di storage) + B7 bunga pinjaman kini masuk Laba/Rugi |
 | F2 Tax conformance | 12 | 76 | **76** | 9.12 | Faktur/NITKU open; PPN position open |
 | F3 Payroll & HR | 12 | 73 | **76** | 9.12 | Dec recon + 1721-A1 ship (lembur/cuti/UMP → iter 20) |
-| F4 Data durability | 15 | 52 | **68** | 10.20 | Supabase LIVE: first-sync push + RLS read/write/delete verified server-side. Gap: sesi anonim masih terikat browser |
+| F4 Data durability | 15 | 52 | **71** | 10.65 | Supabase LIVE + RLS verified; peran ditegakkan di storage + actor audit (B3 subset). Gap: OQ4 matriks Akuntan/HRD, sesi anonim terikat browser |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
 | F7 Cognitive load | 10 | 80 | **78** | 7.80 | Mode Sederhana helped; U2 Frozen |
 | F8 Mobile | 7 | 82 | **74** | 5.18 | 8 releases of mobile layout defects |
 | F9 Accessibility | 7 | 68 | **68** | 4.76 | U5 emoji icons untouched |
-| **OVERALL** | | ~~90~~ | | **78.60** | F1 78→86 (V3+B7); arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **79.05** | F4 68→71 (B3 subset); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 86×15 + 76×12 + 76×12 + 68×15 + 92×10 + 86×12 + 78×10 + 74×7 + 68×7
-= 1290 + 912 + 912 + 1020 + 920 + 1032 + 780 + 518 + 476 = **7860 / 100 = 78.60**. Baseline 59.7 → **+18.9**.
+Aritmetika (wajib tampil): 86×15 + 76×12 + 76×12 + 71×15 + 92×10 + 86×12 + 78×10 + 74×7 + 68×7
+= 1290 + 912 + 912 + 1065 + 920 + 1032 + 780 + 518 + 476 = **7905 / 100 = 79.05**. Baseline 59.7 → **+19.35**.
 
 Five of nine axes below 85. Stop condition not met on either clause.
 
@@ -48,7 +48,7 @@ Five of nine axes below 85. Stop condition not met on either clause.
 1. ~~Backend for B1~~ **RESOLVED 2026-09-13** — Supabase live. URL + publishable key valid; `supabase/schema.sql` sudah di-Run; anonymous sign-in ON; first-sync hijau (klien ↑3 ↓0) dan diverifikasi server-side via akun probe terpisah (INSERT 201 / READ-own 200 / READ-other [] RLS / DELETE 204). Endpoint anonim diperbaiki ke `/auth/v1/signup` (v1.22.3). → F4 52→68. Sisa celah: sesi anonim terikat browser, belum ada tautkan-email (backlog).
 2. **PPN position** — 11% flat, or 12% with DPP nilai lain (effective 11%)? Needs a current cited source.
 3. **UMP/UMK 2026** per province — effective-dated table?
-4. **Akuntan/HRD permission matrix** — may an accountant post adjusting journals without approval?
+4. **Akuntan/HRD permission matrix** — may an accountant post adjusting journals without approval? (B3 subset sudah ship tanpa ini; peran Akuntan/HRD menunggu jawaban.)
 
 ---
 
@@ -120,6 +120,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.22.5 (V3 — kunci periode)**: lubang lock ditutup di **lapisan storage** (bukan hanya UI): `assertUnlocked()` dipanggil di `createEntry`/`createLoan`/`addRepayment`/`postJournal`; `submitFormData` cek tanggal tujuan (create-backdated), guard `handleAdjustPost`/`handleAssetPost`/`handleStockSave`. Recurring auto-post aman (bulan terkunci dilewati, tak ditandai posted). +3 test. 178/178 ✓.
 
 - **v1.23.0 (B7 — bunga pinjaman)**: akun **4102 Pendapatan Bunga** / **5113 Beban Bunga**; `splitRepaymentPortions()` (proporsional, kumulatif, dibatasi); `buildRepaymentJournal` pisah pokok vs bunga (given → Cr Piutang + Cr 4102; taken → Dr Hutang + Dr 5113); Laba Rugi & Neraca ikut otomatis. Catatan: pelunasan lama tidak dihitung ulang. **→ F1 78→86.** +6 test. 184/184 ✓.
+
+- **v1.24.0 (B3 subset — peran & audit actor)**: audit kini mencatat pelaku (`actor {role,user}`) + kolom Aktor di laporan; `requireOwner()` di ~18 mutasi admin/hapus (storage); `blockKasir()` di handler jurnal langsung; **tutup lubang V10**: sesi kasir "ingat saya" dipersist (sebelumnya jatuh ke owner setelah restart). Peran Akuntan/HRD + matriks izin penuh **menunggu OQ4**. **→ F4 68→71.** +4 test. 188/188 ✓.
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
