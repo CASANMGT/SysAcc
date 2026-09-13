@@ -38,7 +38,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.64.0';
+const APP_VERSION = '1.65.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -980,11 +980,13 @@ function bindEvents() {
     const jual = e.target.closest('.stock-page-jual');
     const restock = e.target.closest('.stock-page-restock');
     const hist = e.target.closest('.stock-page-history');
+    const bc = e.target.closest('.stock-page-barcode');
     const rowEdit = e.target.closest('.stock-row-edit');
     const rowQr = e.target.closest('.stock-row-qr');
     if (chip) openStockActionSheet(chip.dataset.id);
     else if (rowEdit) { const it = Storage.getItemById(rowEdit.dataset.id); if (it) { UI.fillStockForm(it); UI.openStock(); } }
     else if (rowQr) openBarcode(rowQr.dataset.id);
+    else if (bc && bc.dataset.id) openBarcode(bc.dataset.id);
     else if (jual) UI.openSale();
     else if (restock) handleStockRestockGroup(restock.dataset.key);
     else if (hist) handleStockHistoryGroup(hist.dataset.key);
@@ -2623,26 +2625,33 @@ function buildExpenseReport() {
 }
 function buildProductsReport() {
   const byItem = {};
+  const itemById = {};
+  try { Storage.getAllItems().forEach(i => { itemById[i.id] = i; }); } catch {}
   try {
     Reports.filterEntries(Storage.getAllEntries(), currentFilters).forEach(e => {
       if (e.category !== 'jualan' || !e.sale || !Array.isArray(e.sale.lines)) return;
       e.sale.lines.forEach(l => {
-        if (!byItem[l.itemId]) byItem[l.itemId] = { name: l.name || '', qty: 0, omzet: 0 };
-        byItem[l.itemId].qty += Number(l.qty) || 0;
-        byItem[l.itemId].omzet += (Number(l.price) || 0) * (Number(l.qty) || 0);
+        const qty = Number(l.qty) || 0;
+        if (!qty) return;
+        const it = itemById[l.itemId] || {};
+        // HPP pakai modal yang dibekukan saat penjualan (fallback ke modal rata-rata sekarang).
+        const cost = (l.avgCost != null) ? Number(l.avgCost) || 0 : Number(it.cost) || 0;
+        if (!byItem[l.itemId]) byItem[l.itemId] = { name: l.name || it.name || '(barang terhapus)', qty: 0, omzet: 0, hpp: 0 };
+        byItem[l.itemId].qty += qty;
+        byItem[l.itemId].omzet += (Number(l.price) || 0) * qty;
+        byItem[l.itemId].hpp += cost * qty;
       });
     });
   } catch {}
-  const items = Storage.getAllItems();
   const total = Object.values(byItem).reduce((s, x) => s + x.omzet, 0);
+  const totalQty = Object.values(byItem).reduce((s, x) => s + x.qty, 0);
+  const totalHpp = Object.values(byItem).reduce((s, x) => s + x.hpp, 0);
   const rows = Object.keys(byItem).map(id => {
-    const it = items.find(x => x.id === id) || {};
     const x = byItem[id];
-    const cost = Number(it.cost) || 0;
-    const hpp = cost * x.qty;
-    return { name: x.name || it.name || '(barang terhapus)', qty: x.qty, omzet: x.omzet, hpp, margin: x.omzet - hpp, share: total > 0 ? (x.omzet / total) * 100 : 0 };
+    const margin = x.omzet - x.hpp;
+    return { name: x.name, qty: x.qty, omzet: x.omzet, hpp: x.hpp, margin, marginPct: x.omzet > 0 ? (margin / x.omzet) * 100 : 0, share: total > 0 ? (x.omzet / total) * 100 : 0 };
   }).sort((a, b) => b.omzet - a.omzet);
-  return { rows, total };
+  return { rows, total, totalQty, totalHpp };
 }
 
 function renderReport() {

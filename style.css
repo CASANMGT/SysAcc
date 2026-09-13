@@ -1239,6 +1239,13 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
   color: var(--danger);
 }
 
+/* Tabel stok: beri ruang antar kolom + sekat agar tidak berdesakan */
+#stockTable th, #stockTable td { padding: 9px 14px; }
+#stockTable .amount-col { padding-left: 20px; padding-right: 14px; }
+#stockTable th.stock-status, #stockTable td.stock-status,
+#stockTable th.stock-actions, #stockTable td.stock-actions { border-left: 1px solid var(--border); padding-left: 14px; }
+#stockTable td.stock-actions { white-space: nowrap; }
+
 /* Cashflow chart */
 .cashflow-chart {
   display: flex;

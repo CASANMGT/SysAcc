@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.65.0] - 2026-09-14
+
+### Fixed / Improved — Tabel stok rapi, barcode lebih mudah, laporan penjualan produk
+- **Tabel stok**: spasi antar kolom diperlebar + sekat kolom **Status/Aksi** → angka & status tidak lagi berdempetan
+- **Barcode lebih mudah ditemukan**: tombol **🏷️ Barcode** di **baris tabel**, **kartu produk**, dan lembar aksi cepat (sebelumnya hanya ikon 🏷️ kecil)
+- **Laporan → tab 🛒 Penjualan Produk** (dulu "Produk"): sekarang menampilkan per produk/varian — **Terjual (pcs) · Omzet · HPP · Laba kotor · Margin % · Bagian %** + ringkasan total qty, HPP, laba
+- HPP laporan memakai **modal yang dibekukan saat penjualan** (`avgCost`) → laba akurat
+- +1 test; 284/284 tests ✓
+
+---
+
 ## [1.64.0] - 2026-09-14
 
 ### Added — SKU & barcode otomatis, label cetak, foto di tabel, edit per baris

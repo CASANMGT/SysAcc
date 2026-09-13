@@ -2409,25 +2409,30 @@ function renderBSReport(d) {
 
 function renderProductsReport(d) {
   if (!d || !d.rows.length) {
-    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada penjualan barang — catat lewat 🧾 Jual di dashboard</p>';
+    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada penjualan barang — catat lewat 🧾 Jual di halaman Stok</p>';
   }
   const fmt = (v) => formatCurrency(Math.round(v));
+  const margin = d.rows.reduce((s, x) => s + x.margin, 0);
   return `
     <div class="report-summary">
       <div class="report-summary-item"><span class="label">Total penjualan barang</span><span class="value">${fmt(d.total)}</span></div>
-      <div class="report-summary-item"><span class="label">Jenis produk terjual</span><span class="value">${d.rows.length}</span></div>
-      <div class="report-summary-item"><span class="label">Utung (perkiraan, modal rata-rata sekarang)</span><span class="value income">${fmt(d.rows.reduce((s, x) => s + x.margin, 0))}</span></div>
+      <div class="report-summary-item"><span class="label">Total barang terjual</span><span class="value">${d.totalQty || d.rows.reduce((s, x) => s + x.qty, 0)} pcs</span></div>
+      <div class="report-summary-item"><span class="label">Jenis produk</span><span class="value">${d.rows.length}</span></div>
+      <div class="report-summary-item"><span class="label">HPP</span><span class="value">${fmt(d.totalHpp || 0)}</span></div>
+      <div class="report-summary-item"><span class="label">Laba kotor</span><span class="value income">${fmt(margin)}</span></div>
     </div>
-    <p style="font-size:11px;color:#64748b">Margin memakai modal rata-rata stok saat ini — kalau harga beli sering naik-turun, angka hanyalah perkiraan.</p>
+    <p style="font-size:11px;color:#64748b">HPP memakai modal yang dibekukan saat penjualan (baris lama memakai modal rata-rata terakhir). Urut dari omzet terbesar. Ikut filter periode di atas.</p>
     <table class="report-table">
-      <thead><tr><th>Produk</th><th class="amount-col">Qty</th><th class="amount-col">Omzet</th><th class="amount-col">Bagian</th><th class="amount-col">Utung (perkiraan)</th></tr></thead>
+      <thead><tr><th>Produk / varian</th><th class="amount-col">Terjual</th><th class="amount-col">Omzet</th><th class="amount-col">HPP</th><th class="amount-col">Laba kotor</th><th class="amount-col">Margin</th><th class="amount-col">Bagian</th></tr></thead>
       <tbody>
         ${d.rows.map(r => `<tr>
           <td>${escapeHtml(r.name)}</td>
-          <td class="amount-col">${r.qty}</td>
+          <td class="amount-col"><b>${r.qty}</b></td>
           <td class="amount-col income">${fmt(r.omzet)}</td>
-          <td class="amount-col">${r.share.toFixed(1)}%</td>
+          <td class="amount-col">${fmt(r.hpp)}</td>
           <td class="amount-col ${r.margin >= 0 ? 'income' : 'expense'}">${fmt(r.margin)}</td>
+          <td class="amount-col">${(r.marginPct || 0).toFixed(1)}%</td>
+          <td class="amount-col">${r.share.toFixed(1)}%</td>
         </tr>`).join('')}
       </tbody>
     </table>`;
@@ -3446,7 +3451,7 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
       <th data-sort="price" style="cursor:pointer;text-align:right">Harga${arrow('price')}</th>
       <th data-sort="cost" style="cursor:pointer;text-align:right">Modal${arrow('cost')}</th>
       <th data-sort="value" style="cursor:pointer;text-align:right">Nilai${arrow('value')}</th>
-      <th>Status</th><th>Aksi</th></tr></thead><tbody>
+      <th class="stock-status">Status</th><th class="stock-actions">Aksi</th></tr></thead><tbody>
       ${rows.map(r => `<tr data-id="${r.v.id}">
         <td><input type="checkbox" class="stock-row-check" data-id="${r.v.id}" aria-label="Pilih ${esc(r.g.name)}"></td>
         <td>${r.v.image ? `<img src="${r.v.image}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0">` : '<span style="color:#cbd5e1">—</span>'}</td>
@@ -3458,8 +3463,8 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
         <td class="amount-col">${fmt(r.net)}</td>
         <td class="amount-col">${fmt(Number(r.v.cost) || 0)}</td>
         <td class="amount-col">${fmt(r.value)}</td>
-        <td>${r.v.active === false ? '<span class="chip" style="font-size:10px">Arsip</span>' : 'Aktif'}</td>
-        <td style="white-space:nowrap"><button type="button" class="btn btn-ghost stock-row-edit" data-id="${r.v.id}" aria-label="Edit ${esc(r.g.name)}" title="Edit" style="font-size:11px;padding:2px 8px">✎</button> <button type="button" class="btn btn-ghost stock-row-qr" data-id="${r.v.id}" aria-label="Barcode ${esc(r.g.name)}" title="Barcode" style="font-size:11px;padding:2px 8px">🏷️</button></td></tr>`).join('')}
+        <td class="stock-status">${r.v.active === false ? '<span class="chip" style="font-size:10px">Arsip</span>' : 'Aktif'}</td>
+        <td class="stock-actions"><button type="button" class="btn btn-ghost stock-row-edit" data-id="${r.v.id}" aria-label="Edit ${esc(r.g.name)}" title="Edit" style="font-size:11px;padding:4px 10px">✎ Edit</button> <button type="button" class="btn btn-ghost stock-row-qr" data-id="${r.v.id}" aria-label="Barcode ${esc(r.g.name)}" title="Cetak barcode produk" style="font-size:11px;padding:4px 10px">🏷️ Barcode</button></td></tr>`).join('')}
       </tbody></table></div>`;
     return;
   }
@@ -3484,6 +3489,7 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
           <button type="button" class="btn btn-ghost stock-page-jual" data-key="${esc(g.key)}" title="Jual produk ini" style="font-size:11px;padding:4px 10px">🧾 Jual</button>
           <button type="button" class="btn btn-ghost stock-page-restock" data-key="${esc(g.key)}" title="Restock" style="font-size:11px;padding:4px 10px">📥 Restock</button>
           <button type="button" class="btn btn-ghost stock-page-history" data-key="${esc(g.key)}" title="Kartu stok / riwayat mutasi" style="font-size:11px;padding:4px 10px">📜 Riwayat</button>
+          <button type="button" class="btn btn-ghost stock-page-barcode" data-id="${g.variants[0] ? g.variants[0].id : ''}" title="Cetak barcode produk" style="font-size:11px;padding:4px 10px">🏷️ Barcode</button>
         </div>
       </div>
       <div class="stock-variant-row">${variants}</div>

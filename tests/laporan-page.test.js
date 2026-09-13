@@ -158,6 +158,11 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(document.getElementById('barcodeSvg')).toBeTruthy();
     expect(document.getElementById('saBarcode')).toBeTruthy();
   });
+  it('ada tab laporan Penjualan Produk (qty terjual per produk)', () => {
+    const tab = document.querySelector('.page-report-tab[data-report="products"]');
+    expect(tab).toBeTruthy();
+    expect(tab.textContent).toMatch(/Penjualan Produk/);
+  });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
     expect(seg.length).toBeGreaterThan(0);
