@@ -58,6 +58,8 @@ export function renderArusKasChart(entries, opts) {
   if (!hasAny) {
     svg.innerHTML = '<text x="300" y="80" text-anchor="middle" style="fill:var(--chart-axis,#94a3b8)" font-size="12">Belum ada data</text><text x="300" y="100" text-anchor="middle" style="fill:var(--chart-dot-idle,#cbd5e1)" font-size="11">Tambah transaksi untuk melihat tren</text>';
     if (growthEl) { growthEl.textContent = '—'; growthEl.style.color = ''; }
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Grafik arus kas: belum ada data');
     return;
   }
   const W = 600, H = 180, pad = { l: 44, r: 8, t: 10, b: 20 };
@@ -100,6 +102,8 @@ export function renderArusKasChart(entries, opts) {
       growthEl.style.color = pct >= 0 ? 'var(--chart-income,#10b981)' : 'var(--chart-expense,#fb7185)';
     }
   }
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', `Grafik arus kas ${labels[0] || ''}–${labels[lastIdx] || ''}: total pemasukan ${fmtCompactRp(total)}`);
 }
 
 export function renderDonut(categories) {
@@ -114,6 +118,8 @@ export function renderDonut(categories) {
     if (arc) { arc.setAttribute('stroke-dasharray', '2 8'); arc.setAttribute('stroke', '#e2e8f0'); }
     if (legend) legend.innerHTML = '';
     if (empty) empty.style.display = 'flex';
+    const ds = document.querySelector('.donut-svg');
+    if (ds) { ds.setAttribute('role', 'img'); ds.setAttribute('aria-label', 'Pengeluaran per kategori: belum ada data'); }
     return;
   }
   if (empty) empty.style.display = 'none';
@@ -132,5 +138,11 @@ export function renderDonut(categories) {
     arc.setAttribute('stroke', colors[0]);
     arc.setAttribute('stroke-dasharray', `${dash} ${circ - dash}`);
     arc.setAttribute('opacity', '1');
+  }
+  const donutSvg = document.querySelector('.donut-svg');
+  if (donutSvg) {
+    donutSvg.setAttribute('role', 'img');
+    const top = expenseCats[0];
+    donutSvg.setAttribute('aria-label', `Pengeluaran per kategori, total ${new Intl.NumberFormat('id-ID').format(total)}; terbesar ${getCategoryLabel(top.category)}`);
   }
 }

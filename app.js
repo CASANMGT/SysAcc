@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.30.0';
+const APP_VERSION = '1.31.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -123,11 +123,44 @@ function syncTabStates(root) {
     t.setAttribute('aria-selected', on ? 'true' : 'false');
   });
 }
+// Tabel: beri caption (tersembunyi) + scope kolom agar bisa dibaca screen reader.
+function enhanceTables(root) {
+  (root || document).querySelectorAll('table').forEach(t => {
+    if (t.dataset.a11y) return;
+    t.dataset.a11y = '1';
+    const head = t.querySelector('thead');
+    if (head) head.querySelectorAll('th').forEach(th => { if (!th.getAttribute('scope')) th.setAttribute('scope', 'col'); });
+    if (!t.querySelector('caption')) {
+      let label = (t.getAttribute('aria-label') || '').trim();
+      if (!label) {
+        const host = t.closest('dialog, section, .dash-panel, .report-section');
+        const h = host && host.querySelector('h1, h2, h3, h4');
+        if (h) label = (h.textContent || '').replace(/\s+/g, ' ').trim();
+      }
+      if (label) {
+        const cap = document.createElement('caption');
+        cap.className = 'sr-only';
+        cap.textContent = label.slice(0, 80);
+        t.insertBefore(cap, t.firstChild);
+      }
+    }
+  });
+}
+// Hierarki heading: h3/h4 panel Ringkasan diberi level eksplisit (h1 → h2 → h3).
+function enhanceHeadings(root) {
+  (root || document).querySelectorAll('#viewRingkasan .dash-panel-head h3, #viewRingkasan .budget-head h4, #viewRingkasan .dash-panel-head h4').forEach(h => {
+    if (h.getAttribute('role') === 'heading') return;
+    h.setAttribute('role', 'heading');
+    h.setAttribute('aria-level', h.tagName === 'H4' ? '3' : '2');
+  });
+}
 function setupA11y() {
   document.querySelectorAll('dialog').forEach(dialogTitle);
   document.querySelectorAll('input, select, textarea').forEach(labelField);
   syncChipStates(document);
   syncTabStates(document);
+  enhanceHeadings();
+  enhanceTables(document);
 
   // Kembalikan fokus ke pemicu + lepas trap saat dialog tertutup (semua jalur)
   let lastOutside = null;
@@ -168,6 +201,8 @@ function setupA11y() {
             n.querySelectorAll('input, select, textarea').forEach(labelField);
             if (n.querySelectorAll('.chip-group, .tx-segmented, .filter-pills').length) syncChipStates(n);
             if (n.querySelectorAll('[role="tab"]').length) syncTabStates(n);
+            if (n.querySelectorAll('table').length) enhanceTables(n);
+            enhanceHeadings(n);
           }
         }
       }

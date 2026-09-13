@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.31.0] - 2026-09-13
+
+### Added — F9 lanjutan: semantik tabel, teks alternatif grafik, hierarki heading
+- Tabel: `scope="col"` pada header + `<caption>` tersembunyi (dari judul panel) otomatis — termasuk tabel yang dirender dinamis
+- Grafik: `role="img"` + `aria-label` dinamis untuk arus kas & donut (ringkasan total/terbesar)
+- Heading dashboard: h3/h4 diberi `role="heading" aria-level` (h1 → h2 → h3) tanpa mengubah tampilan
+- +3 test boot (12 file); 215/215 tests ✓
+
+---
+
 ## [1.30.0] - 2026-09-13
 
 ### Added — F4 durability: tautkan sesi anonim ke email + uji backup

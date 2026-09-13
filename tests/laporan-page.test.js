@@ -128,4 +128,23 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     const tabs = document.querySelectorAll('[role="tab"]');
     tabs.forEach(t => expect(['true', 'false']).toContain(t.getAttribute('aria-selected')));
   });
+  it('tabel punya scope kolom + caption tersembunyi (bisa dibaca screen reader)', () => {
+    const ths = document.querySelectorAll('#entriesTable thead th');
+    expect(ths.length).toBeGreaterThan(0);
+    ths.forEach(th => expect(th.getAttribute('scope')).toBe('col'));
+    expect(document.querySelector('table > caption.sr-only')).toBeTruthy();
+  });
+  it('grafik punya teks alternatif (role img + aria-label)', () => {
+    const arus = document.getElementById('arusKasChart');
+    expect(arus.getAttribute('role')).toBe('img');
+    expect((arus.getAttribute('aria-label') || '').length).toBeGreaterThan(0);
+    const donut = document.querySelector('.donut-svg');
+    expect(donut.getAttribute('role')).toBe('img');
+    expect((donut.getAttribute('aria-label') || '').length).toBeGreaterThan(0);
+  });
+  it('hierarki heading dashboard diberi level eksplisit', () => {
+    const h = document.querySelector('#viewRingkasan .dash-panel-head h3');
+    expect(h.getAttribute('role')).toBe('heading');
+    expect(h.getAttribute('aria-level')).toBe('2');
+  });
 });
