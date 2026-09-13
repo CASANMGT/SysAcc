@@ -2498,7 +2498,7 @@ function renderPPh21Report(d) {
       <div class="report-summary-item"><span class="label">Priode</span><span class="value">${d.rows[0] ? `${d.rows[d.rows.length - 1].month} — ${d.rows[0].month}` : '—'}</span></div>
       <div class="report-summary-item"><span class="label">Karyawan dibayar</span><span class="value">${d.rows.reduce((s, x) => s + x.count, 0)} kali</span></div>
     </div>
-    <p style="font-size:11px;color:#64748b">Rekap untuk <b>SPT Masa PPh 21 / e-SPT</b>: jumlah PPh 21 yang dipotong dari gaji tiap bulan. Data diambil dari payroll yang sudah difinalisasi.</p>
+    <p style="font-size:11px;color:#64748b">Rekap untuk <b>SPT Masa PPh 21 / e-SPT</b>: jumlah PPh 21 yang dipotong dari gaji tiap bulan. Data diambil dari payroll yang sudah difinalisasi. <button type="button" onclick="document.dispatchEvent(new CustomEvent('wynara:pph21-csv'))" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer">⬇️ Unduh CSV rekap PPh 21</button></p>
     <table class="report-table">
       <thead><tr><th>Bulan</th><th class="amount-col">Gaji bersih (THP)</th><th class="amount-col">PPh 21 terpotong</th><th class="amount-col">Karyawan</th></tr></thead>
       <tbody>${d.rows.length ? d.rows.map(m => `<tr><td>${m.month}</td><td class="amount-col">${fmt(m.thp)}</td><td class="amount-col expense">${fmt(m.pph)}</td><td class="amount-col">${m.count}</td></tr>`).join('') : '<tr><td colspan="4">Belum ada data gaji</td></tr>'}</tbody>
@@ -2617,6 +2617,16 @@ function renderTaxReport(d) {
       ${mgmt(`Semester 1 (${d.year}: Jan–Jun)`, sem1, `${d.year}-07-15`)}
       ${mgmt(`Semester 2 (${d.year}: Jul–Des)`, sem2, `${Number(d.year) + 1}-01-15`)}
     </div>
+    ${(() => {
+      const dfmt = (dd) => dd.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      const y = today.getFullYear(), m = today.getMonth();
+      const pph21 = new Date(y, m + 1, 10);
+      const pphFinal = new Date(y, m + 1, 15);
+      const ppn = new Date(y, m + 2, 0);
+      return `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 10px;font-size:11.5px;color:#1e3a8a;margin-bottom:12px">
+        ⏰ <b>Tenggat terdekat (masa bulan lalu):</b> PPh 21 ≤ ${dfmt(pph21)} • PPh Final 0,5% ≤ ${dfmt(pphFinal)} • PPN ≤ ${dfmt(ppn)}. Angka pasti ikuti ketentuan DJP.
+      </div>`;
+    })()}
     <p style="font-size:11px;color:#64748b">Bulanan (PP 55/2022): bayar tiap bulan paling lambat tgl 15 bulan berikutnya. PPN = Keluaran − Masukan.</p>
     <table class="report-table">
       <thead><tr><th>Bulan</th><th class="amount-col">Omzet</th><th class="amount-col">PPh 0.5%</th></tr></thead>

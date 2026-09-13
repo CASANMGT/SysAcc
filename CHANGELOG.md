@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.47.0] - 2026-09-13
+
+### Added — F2: CSV rekap PPh 21 + pengingat tenggat pajak
+- Laporan **PPh 21** kini punya tombol **⬇️ Unduh CSV rekap PPh 21** (e-SPT 21)
+- Laporan **Pajak**: banner **⏰ Tenggat terdekat** (PPh 21 tgl 10, PPh Final tgl 15, PPN akhir bulan berikutnya)
+- 252/252 tests ✓
+
+---
+
 ## [1.46.0] - 2026-09-13
 
 ### Added — F4: uji koneksi cloud + status sinkron lebih jelas

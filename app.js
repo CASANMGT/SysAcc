@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.46.0';
+const APP_VERSION = '1.47.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1023,6 +1023,14 @@ function bindEvents() {
     rows.push(['TOTAL', d.totalDipotong, d.totalDisetor, d.outstanding]);
     dlCsv(`wynara-pph23-4-2-${d.year}.csv`, rows);
     UI.showSuccess('CSV rekap PPh 23/4(2) diunduh');
+  });
+  document.addEventListener('wynara:pph21-csv', () => {
+    const d = buildPPh21Report();
+    const rows = [['Bulan', 'Gaji bersih (THP)', 'PPh 21 terpotong', 'Karyawan']];
+    (d.rows || []).forEach(m => rows.push([m.month, m.thp, m.pph, m.count]));
+    rows.push(['TOTAL', d.totalThp, d.totalPph, '']);
+    dlCsv(`wynara-pph21-${d.year}.csv`, rows);
+    UI.showSuccess('CSV rekap PPh 21 diunduh (e-SPT 21)');
   });
   document.addEventListener('wynara:expense-filter', (ev) => {
     const det = ev.detail || {};
