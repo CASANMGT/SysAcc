@@ -8,6 +8,7 @@ import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYe
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck } from './payroll.js';
 import * as Cloud from './supabase.js';
+import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -36,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.35.0';
+const APP_VERSION = '1.36.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -933,6 +934,15 @@ function bindEvents() {
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
   document.getElementById('backupShareBtn')?.addEventListener('click', handleBackupShare);
   document.getElementById('backupSelfTestBtn')?.addEventListener('click', handleBackupSelfTest);
+  document.getElementById('importSalesBtn')?.addEventListener('click', () => openImport('sales'));
+  document.getElementById('importProductsBtn')?.addEventListener('click', () => openImport('products'));
+  document.getElementById('importClose')?.addEventListener('click', closeImport);
+  document.getElementById('importCancel')?.addEventListener('click', closeImport);
+  document.getElementById('importParseBtn')?.addEventListener('click', handleImportParse);
+  document.getElementById('importCommitBtn')?.addEventListener('click', handleImportCommit);
+  document.querySelectorAll('#importIntro .chip').forEach(c => c.addEventListener('click', () => openImport(c.dataset.mode)));
+  document.getElementById('importMapWrap')?.addEventListener('change', () => { if (importMode === 'products') renderProductsPreview(); else renderSalesPreview(); });
+  document.getElementById('importText')?.addEventListener('input', () => { if (importMode === 'wa') renderWaPreview(); });
   document.getElementById('cloudAnonBtn')?.addEventListener('click', handleCloudAnon);
   document.getElementById('cloudLinkBtn')?.addEventListener('click', handleCloudLinkEmail);
   document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
@@ -2970,6 +2980,140 @@ function handleStockHistory(id) {
     : '<p style="color:#64748b">Belum ada mutasi tercatat untuk barang ini.</p>';
   UI.openInfoModal(`📜 Kartu stok — ${it.name}`, body);
 }
+
+/* ===== Import produk & penjualan (marketplace / WhatsApp) ===== */
+let importMode = 'sales';
+let importOrders = [];
+let importProducts = [];
+let importDataRows = [];
+function openImport(mode) {
+  importMode = mode || 'sales';
+  importOrders = []; importProducts = []; importDataRows = [];
+  const m = document.getElementById('importModal');
+  if (!m) return;
+  const titles = { sales: '📥 Import penjualan (marketplace)', wa: '📥 Import penjualan (WhatsApp/offline)', products: '📥 Import daftar produk' };
+  const t = document.getElementById('importTitle'); if (t) t.textContent = titles[importMode] || 'Import';
+  document.querySelectorAll('#importIntro .chip').forEach(c => c.classList.toggle('selected', c.dataset.mode === importMode));
+  const ta = document.getElementById('importText');
+  if (ta) { ta.value = ''; ta.placeholder = importMode === 'wa' ? 'Contoh:\n2x Kopi 15000\n1 Teh @8000\nKopi Susu 3x 20000' : 'Tempel data CSV/Excel di sini…'; }
+  const f = document.getElementById('importFile'); if (f) f.value = '';
+  const mapWrap = document.getElementById('importMapWrap'); if (mapWrap) { mapWrap.hidden = true; mapWrap.innerHTML = ''; }
+  const prev = document.getElementById('importPreview'); if (prev) prev.innerHTML = '';
+  const commit = document.getElementById('importCommitBtn'); if (commit) { commit.disabled = true; commit.textContent = 'Import'; }
+  if (!m.open) { try { m.showModal(); } catch {} }
+}
+function closeImport() { const m = document.getElementById('importModal'); if (m && m.open) { try { m.close(); } catch {} } }
+async function readImportSource() {
+  const fileEl = document.getElementById('importFile');
+  const file = fileEl && fileEl.files && fileEl.files[0];
+  if (file) {
+    if (/\.(xlsx|xls)$/i.test(file.name) && window.XLSX) {
+      const buf = await file.arrayBuffer();
+      const wb = window.XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }).filter(r => r.some(x => String(x).trim() !== ''));
+      return { headers: rows[0] || [], dataRows: rows.slice(1) };
+    }
+    const rows = parseDelimited(await file.text());
+    return { headers: rows[0] || [], dataRows: rows.slice(1) };
+  }
+  const rows = parseDelimited(document.getElementById('importText')?.value || '');
+  return { headers: rows[0] || [], dataRows: rows.slice(1) };
+}
+function mapSelects(headers, mapping, fields) {
+  const opts = (sel) => ['<option value="-1">—</option>'].concat((headers || []).map((h, i) => `<option value="${i}" ${i === sel ? 'selected' : ''}>${escapeHtml(String(h || '').trim().slice(0, 28) || ('Kolom ' + (i + 1)))}</option>`)).join('');
+  return `<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Pasangkan kolom (ditebak otomatis — ubah bila perlu):</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+    ${(fields || []).map(f => `<label style="font-size:11px;color:#64748b">${f.label}<select data-map="${f.key}" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;margin-top:2px">${opts(mapping[f.key])}</select></label>`).join('')}
+    </div>`;
+}
+function readMapping(keys) {
+  const out = {};
+  keys.forEach(k => { const el = document.querySelector(`#importMapWrap select[data-map="${k}"]`); out[k] = el ? Number(el.value) : -1; });
+  return out;
+}
+function renderSalesPreview() {
+  const mapping = readMapping(['order', 'sku', 'name', 'qty', 'price', 'date', 'buyer', 'status']);
+  const res = resolveOrders(buildOrders(importDataRows, mapping), Storage.getAllItems());
+  importOrders = res.orders;
+  const total = importOrders.reduce((s, o) => s + (o.total || 0), 0);
+  const commit = document.getElementById('importCommitBtn');
+  if (commit) commit.disabled = !importOrders.some(o => o.lines.some(l => l.itemId));
+  document.getElementById('importPreview').innerHTML = `
+    <div style="font-size:12px;color:#334155;margin-bottom:6px"><b>${importOrders.length}</b> pesanan • <b>${res.matched}</b> baris cocok${res.unmatched ? ` • <span style="color:#b45309">${res.unmatched} belum cocok</span>` : ' • semua cocok'} • total <b>${Reports.formatCurrency(total)}</b></div>
+    <div style="max-height:220px;overflow:auto"><table class="report-table"><thead><tr><th>Pesanan</th><th>Tanggal</th><th>Pembeli</th><th>Item</th><th class="amount-col">Total</th></tr></thead><tbody>
+    ${importOrders.slice(0, 50).map(o => `<tr><td style="font-size:11px">${escapeHtml(o.orderId)}</td><td style="font-size:11px">${escapeHtml(o.date)}</td><td style="font-size:11px">${escapeHtml(o.buyer || '—')}</td><td style="font-size:11px">${o.lines.map(l => `${l.qty}× ${escapeHtml(l.name || '(?)')}${l.itemId ? '' : ' ⚠'}`).join(', ')}</td><td class="amount-col">${Reports.formatCurrency(o.total)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p style="font-size:11px;color:#94a3b8;margin-top:6px">Tanda ⚠ = belum cocok ke barang (nama/SKU beda) → tidak ikut diimpor. Rapikan nama barang di Stok lalu ulangi.</p>`;
+}
+function renderProductsPreview() {
+  const mapping = readMapping(['name', 'sku', 'price', 'cost', 'stock', 'min']);
+  importProducts = buildProducts(importDataRows, mapping).filter(p => p.name);
+  const withSku = importProducts.filter(p => p.sku).length;
+  const commit = document.getElementById('importCommitBtn');
+  if (commit) commit.disabled = importProducts.length === 0;
+  document.getElementById('importPreview').innerHTML = `
+    <div style="font-size:12px;color:#334155;margin-bottom:6px"><b>${importProducts.length}</b> produk siap diimpor (${withSku} ber-SKU). Upsert per SKU/nama.</div>
+    <div style="max-height:220px;overflow:auto"><table class="report-table"><thead><tr><th>Nama</th><th>SKU</th><th class="amount-col">Jual</th><th class="amount-col">Modal</th><th class="amount-col">Stok</th></tr></thead><tbody>
+    ${importProducts.slice(0, 50).map(p => `<tr><td style="font-size:11px">${escapeHtml(p.name)}</td><td style="font-size:11px">${escapeHtml(p.sku || '—')}</td><td class="amount-col">${Reports.formatCurrency(p.price)}</td><td class="amount-col">${Reports.formatCurrency(p.cost)}</td><td class="amount-col">${p.stock}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+function renderWaPreview() {
+  const order = parseWaOrder(document.getElementById('importText')?.value || '', Storage.getAllItems());
+  importOrders = order.lines.length ? [order] : [];
+  const commit = document.getElementById('importCommitBtn');
+  if (commit) commit.disabled = !order.lines.some(l => l.itemId);
+  document.getElementById('importPreview').innerHTML = `
+    <div style="font-size:12px;color:#334155;margin-bottom:6px">${order.lines.length} baris • total <b>${Reports.formatCurrency(order.total)}</b>${order.unmatched.length ? ` • <span style="color:#b45309">${order.unmatched.length} belum cocok</span>` : ''}</div>
+    <div style="max-height:220px;overflow:auto"><table class="report-table"><thead><tr><th>Barang</th><th class="amount-col">Qty</th><th class="amount-col">Harga</th><th></th></tr></thead><tbody>
+    ${order.lines.map(l => `<tr><td style="font-size:11px">${escapeHtml(l.name)}</td><td class="amount-col">${l.qty}</td><td class="amount-col">${Reports.formatCurrency(l.price)}</td><td>${l.itemId ? '✓' : '⚠ belum cocok'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+async function handleImportParse() {
+  try {
+    if (importMode === 'wa') { renderWaPreview(); return; }
+    const src = await readImportSource();
+    importDataRows = src.dataRows;
+    if (!importDataRows.length) return UI.showError('Tidak ada baris data terbaca');
+    const mapWrap = document.getElementById('importMapWrap');
+    if (importMode === 'products') {
+      mapWrap.hidden = false;
+      mapWrap.innerHTML = mapSelects(src.headers, autoMapProductColumns(src.headers), [
+        { key: 'name', label: 'Nama produk' }, { key: 'sku', label: 'SKU/Kode' },
+        { key: 'price', label: 'Harga jual' }, { key: 'cost', label: 'Modal/HPP' },
+        { key: 'stock', label: 'Stok' }, { key: 'min', label: 'Min' },
+      ]);
+      renderProductsPreview();
+    } else {
+      mapWrap.hidden = false;
+      mapWrap.innerHTML = mapSelects(src.headers, autoMapColumns(src.headers), [
+        { key: 'order', label: 'Order/Pesanan' }, { key: 'sku', label: 'SKU' },
+        { key: 'name', label: 'Nama produk' }, { key: 'qty', label: 'Qty' },
+        { key: 'price', label: 'Harga' }, { key: 'date', label: 'Tanggal' },
+        { key: 'buyer', label: 'Pembeli' }, { key: 'status', label: 'Status' },
+      ]);
+      renderSalesPreview();
+    }
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal membaca data'); }
+}
+function handleImportCommit() {
+  try {
+    if (importMode === 'products') {
+      const r = Storage.importItemsBulk(importProducts);
+      UI.showSuccess(`Produk diimpor: ${r.added} baru, ${r.updated} diperbarui${r.skipped ? `, ${r.skipped} dilewati` : ''}`);
+      refreshStock();
+    } else {
+      const channel = importMode === 'wa' ? 'whatsapp' : 'marketplace';
+      const created = Storage.createSalesFromOrders(importOrders, { channel });
+      if (!created.length) return UI.showError('Tidak ada baris yang cocok untuk disimpan');
+      UI.showSuccess(`${created.length} penjualan diimpor (${channel}) — stok & jurnal diperbarui`);
+      refresh();
+    }
+    closeImport();
+    queueMirror();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal mengimpor'); }
+}
+
 function handleStockDelete(id) {
   const it = Storage.getItemById(id);
   if (!it) return;

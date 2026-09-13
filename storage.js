@@ -1898,6 +1898,56 @@ export function getStockMoves(itemId) {
   } catch { return []; }
 }
 
+// ===== Import produk massal (Shopee/marketplace/offline) =====
+// Upsert per SKU (bila ada) atau nama. Return jumlah added/updated/skipped.
+export function importItemsBulk(list) {
+  requireOwner();
+  const items = getItems();
+  let added = 0, updated = 0, skipped = 0;
+  (Array.isArray(list) ? list : []).forEach(raw => {
+    const name = String((raw && raw.name) || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
+    if (!name) { skipped++; return; }
+    const sku = String((raw && raw.sku) || '').trim().slice(0, 30);
+    const rec = {
+      name, sku,
+      price: Math.max(Number(raw.price) || 0, 0),
+      cost: Math.max(Number(raw.cost) || 0, 0),
+      stock: Math.max(Math.floor(Number(raw.stock) || 0), 0),
+      minStock: Math.max(Math.floor(Number(raw.minStock) || 0), 0),
+      updatedAt: new Date().toISOString(),
+    };
+    const idx = items.findIndex(i => (sku && String(i.sku || '').toLowerCase() === sku.toLowerCase())
+      || (!sku && String(i.name || '').toLowerCase() === name.toLowerCase()));
+    if (idx === -1) { items.push({ id: generateId(), ...rec }); added++; }
+    else { items[idx] = { ...items[idx], ...rec }; updated++; }
+  });
+  localStorage.setItem(ITEM_KEY, JSON.stringify(items));
+  return { added, updated, skipped };
+}
+
+// ===== Buat penjualan dari pesanan hasil impor =====
+// orders: hasil resolveOrders() (lines punya itemId). Melewati baris tanpa item.
+export function createSalesFromOrders(orders, { date, payment, channel } = {}) {
+  requireOwner();
+  const created = [];
+  (Array.isArray(orders) ? orders : []).forEach(o => {
+    const lines = (o.lines || []).filter(l => l && l.itemId && Number(l.qty) > 0);
+    if (!lines.length) return;
+    const total = lines.reduce((s, l) => s + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
+    if (total <= 0) return;
+    const desc = `Jual ${channel || 'pesanan'}${o.buyer ? ' — ' + o.buyer : ''}${o.orderId ? ' • ' + o.orderId : ''}: ${lines.map(l => `${l.qty}× ${l.name || ''}`).join(', ')}`;
+    const entry = createEntry({
+      date: o.date || date || new Date().toISOString().split('T')[0],
+      type: 'income', category: 'jualan', payment: payment || 'transfer',
+      description: desc.slice(0, 120), amount: total, person: o.buyer || '',
+      sale: { lines: lines.map(l => ({ itemId: l.itemId, qty: Number(l.qty) || 1, price: Number(l.price) || 0 })), total },
+    });
+    logAudit('create', 'entry', entry.id, null, { amount: total, channel: channel || '', order: o.orderId || '' });
+    created.push(entry);
+  });
+  return created;
+}
+
 // ===== Karyawan =====
 const EMP_KEY = 'wynara_employees';
 

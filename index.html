@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.35.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.36.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.35.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.36.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -490,6 +490,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-primary" id="addEntryBtn2">＋ Tambah transaksi</button>
               <button class="btn btn-ghost" id="saleEntryBtn2" title="Jual barang dari stok">🧾 Jual</button>
+              <button class="btn btn-ghost" id="importSalesBtn" title="Import pesanan Shopee/TikTok atau tempel order WhatsApp">📥 Import penjualan</button>
             </div>
           </div>
           <div class="transaksi-toolbar">
@@ -1238,6 +1239,7 @@
         </form>
         <div class="contacts-toolbar">
           <input type="search" id="stockSearch" class="loan-search" placeholder="🔍 Cari barang...">
+          <button type="button" class="btn btn-ghost" id="importProductsBtn" style="font-size:12px;padding:6px 12px" title="Import daftar produk dari CSV/Excel (Shopee/TikTok)">📥 Import produk</button>
         </div>
         <div id="stockList"></div>
         <div style="display:flex;align-items:center;gap:8px;margin:16px 0 8px">
@@ -1826,6 +1828,37 @@
   </div>
 </dialog>
 
+<dialog id="importModal" class="modal">
+    <div class="modal-content" style="max-width:700px">
+      <header class="modal-header">
+        <h2 id="importTitle">Import</h2>
+        <button type="button" class="modal-close" id="importClose" aria-label="Tutup">×</button>
+      </header>
+      <div class="modal-body">
+        <div id="importIntro">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <button type="button" class="chip selected" id="importModeSales" data-mode="sales">🛍️ Pesanan marketplace (CSV)</button>
+            <button type="button" class="chip" id="importModeWa" data-mode="wa">💬 WhatsApp / offline</button>
+            <button type="button" class="chip" id="importModeProducts" data-mode="products">📦 Daftar produk</button>
+          </div>
+          <label style="font-size:12px;color:#475569">Tempel data (untuk pesanan/produk) atau pilih file CSV/Excel:</label>
+          <textarea id="importText" rows="5" placeholder="Tempel di sini… (mis. baris WhatsApp: 2x Kopi 15000)" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font-size:12px;font-family:ui-monospace,monospace;margin-top:4px"></textarea>
+          <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="file" id="importFile" accept=".csv,.txt,.tsv,.xlsx,.xls">
+            <button type="button" class="btn btn-ghost" id="importParseBtn" style="font-size:12px">🔎 Baca &amp; pratinjau</button>
+            <span style="font-size:11px;color:#94a3b8">Shopee: Seller Centre → Pesanan → Export. Boleh tempel langsung.</span>
+          </div>
+        </div>
+        <div id="importMapWrap" hidden style="margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px"></div>
+        <div id="importPreview" style="margin-top:10px"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="importCancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="importCommitBtn" disabled>Import</button>
+      </footer>
+    </div>
+  </dialog>
+
 <dialog id="infoModal" class="modal">
     <div class="modal-content" style="max-width: 520px;">
       <header class="modal-header">
@@ -1845,7 +1878,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.35.0';
+    window.__htmlVersion = '1.36.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

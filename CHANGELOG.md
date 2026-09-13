@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.36.0] - 2026-09-13
+
+### Added — Import produk & penjualan (Shopee/TikTok & WhatsApp)
+- **📥 Import produk** (Stok): tempel/pilih CSV-Excel → pemetaan kolom otomatis (Nama, SKU, Harga Jual, Modal, Stok, Min) → upsert per SKU/nama
+- **📥 Import penjualan** (Transaksi): CSV/Excel pesanan marketplace → peta kolom otomatis (Order, SKU, Nama, Qty, Harga, Tanggal, Pembeli, Status) → dikelompokkan per pesanan → dicocokkan ke barang (SKU lalu nama) → pratinjau → buat penjualan (stok + jurnal, `channel: marketplace`)
+- **WhatsApp/offline**: tempel teks (`2x Kopi 15000`, `1 Teh @8000`, `Kopi Susu 3x 20000`) → parse qty/harga → cocokkan item → pratinjau → simpan
+- Baris tak cocok ditandai ⚠ & dilewati (tak ada ledger setengah jalan)
+- `marketplace.js` murni + 10 test; 238/238 tests ✓
+
+---
+
 ## [1.35.0] - 2026-09-13
 
 ### Fixed — Stok & penjualan (audit menemukan bug kritis)
