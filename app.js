@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.50.0';
+const APP_VERSION = '1.51.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -978,6 +978,7 @@ function bindEvents() {
   document.getElementById('sevCalc')?.addEventListener('click', handleSeveranceCalc);
   document.getElementById('cloudAnonBtn')?.addEventListener('click', handleCloudAnon);
   document.getElementById('cloudLinkBtn')?.addEventListener('click', handleCloudLinkEmail);
+  document.getElementById('cloudEmailLoginBtn')?.addEventListener('click', handleCloudEmailLogin);
   document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
   document.getElementById('cloudPingBtn')?.addEventListener('click', handleCloudPing);
   document.getElementById('cloudOffBtn')?.addEventListener('click', handleCloudOff);
@@ -4633,6 +4634,33 @@ async function handleCloudPing() {
     updateCloudDot();
   } catch (err) {
     UI.showError(err && err.message ? err.message : 'Koneksi gagal');
+    refreshCloudLabel();
+    updateCloudDot();
+  }
+}
+async function handleCloudEmailLogin() {
+  const url = document.getElementById('cloudUrl')?.value || '';
+  const key = document.getElementById('cloudKey')?.value || '';
+  const email = document.getElementById('cloudEmail2')?.value || '';
+  const pass = document.getElementById('cloudPass2')?.value || '';
+  try {
+    if (url || key) Cloud.saveCloudConfig(url, key);
+    if (!Cloud.isCloudConfigured()) return UI.showError('Isi URL + anon key Supabase dulu');
+    if (!email || !pass) return UI.showError('Isi email + kata sandi akun');
+    await Cloud.cloudSignIn(email, pass);
+    const p = document.getElementById('cloudPass2');
+    if (p) p.value = '';
+    UI.showSuccess('Masuk — menarik data dari server…');
+    refreshCloudLabel();
+    updateCloudDot();
+    const res = await Cloud.syncNow();
+    if (res && res.error) UI.showError(res.error);
+    else UI.showSuccess(`Data ditarik (↑${res.pushed || 0} ↓${res.pulled || 0})`);
+    refreshCloudLabel();
+    updateCloudDot();
+    refresh();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal masuk dengan email');
     refreshCloudLabel();
     updateCloudDot();
   }

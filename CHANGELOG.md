@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.51.0] - 2026-09-13
+
+### Added — Masuk dengan email (pulihkan data dari cloud)
+- Sinkron Online: form **👤 Sudah punya akun (email)? Masuk & tarik data** → `cloudSignIn` lalu `syncNow` menarik data dari Supabase (perlu akun yang sama)
+- Domisili baru (domain lain) mulai kosong karena localStorage berbeda origin — ini jalan pulihkan datanya
+- +1 test; 256/256 tests ✓
+
+---
+
 ## [1.50.0] - 2026-09-13
 
 ### Added — F4: Kesehatan Data (uji-diri integritas)

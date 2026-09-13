@@ -121,6 +121,21 @@ describe('cloudSignInAnonymously (fetch di-stub, tanpa network)', () => {
   });
 });
 
+describe('cloudSignIn (email, tarik data)', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => { globalThis.fetch = realFetch; try { localStorage.clear(); } catch {} });
+  it('POST token grant_type=password + simpan email', async () => {
+    const { saveCloudConfig, cloudSignIn, getCloudSession } = await import('../supabase.js');
+    saveCloudConfig('https://abc.supabase.co', 'x'.repeat(40));
+    const calls = [];
+    globalThis.fetch = async (url, opts) => { calls.push([url, opts]); return { ok: true, json: async () => ({ access_token: 'a', refresh_token: 'r', expires_in: 3600, user: { id: 'u9', email: 'me@x.com' } }) }; };
+    const s = await cloudSignIn('me@x.com', 'secret1');
+    expect(calls[0][0]).toContain('grant_type=password');
+    expect(s.user_id).toBe('u9');
+    expect(getCloudSession().email).toBe('me@x.com');
+  });
+});
+
 describe('cloudPing (uji koneksi)', () => {
   const realFetch = globalThis.fetch;
   afterEach(() => { globalThis.fetch = realFetch; try { localStorage.clear(); } catch {} });
