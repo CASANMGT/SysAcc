@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.35.0** · Production **v1.35.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.35.0, sw=wynara-v1-35-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.36.0** · Production **v1.36.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.36.0, sw=wynara-v1-36-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,8 +13,8 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ still requires every axis ≥85. Lowest: F4 74, F2 80, F9 82, F7 83, F8 83, F3 84
-— six axes below 85 (F1 88, F5/F6 ≥85). Keep working correctness; do not chase cosmetics.
+A+ still requires every axis ≥85. Lowest: F4 74, F2 80, F9 82, F8 83, F3 84, F7 84
+— six axes below 85 (F6 88, F1 88, F5 92). Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -30,14 +30,14 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F3 Payroll & HR | 12 | 73 | **84** | 10.08 | Dec recon + 1721-A1 + kasbon + **lembur KEP-102, cuti UU13/2003, ganti cuti, validasi UMP** |
 | F4 Data durability | 15 | 52 | **74** | 11.10 | Supabase LIVE + RLS; peran+actor; **tautkan sesi anonim→email + uji-diri backup**. Gap: OQ4 matriks Akuntan/HRD |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
-| F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
-| F7 Cognitive load | 10 | 80 | **83** | 8.30 | Form Pinjaman disederhanakan + kontak **Karyawan** eksplisit (picker kasbon) |
+| F6 Task efficiency | 12 | 86 | **88** | 10.56 | Import produk & pesanan (marketplace CSV + WhatsApp) → input massal tanpa ketik ulang |
+| F7 Cognitive load | 10 | 80 | **84** | 8.40 | Form Pinjaman ringkas + kontak Karyawan + import marketplace/WA (pemetaan otomatis) |
 | F8 Mobile | 7 | 82 | **83** | 5.81 | Audit mobile + lanjutan: safe-area footer entri, font ≥11px, modal scroll-x, target sentuh |
 | F9 Accessibility | 7 | 68 | **82** | 5.74 | Label/dialog/focus/contrast + scope/caption/alt/hierarki + nama nav bersih (tanpa emoji) |
-| **OVERALL** | | ~~90~~ | | **83.35** | F1 86→88 (stok/jual), F3 81→84 (iter20); arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **83.69** | F6 86→88, F7 83→84 (import marketplace/WA); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 88×15 + 80×12 + 84×12 + 74×15 + 92×10 + 86×12 + 83×10 + 83×7 + 82×7
-= 1320 + 960 + 1008 + 1110 + 920 + 1032 + 830 + 581 + 574 = **8335 / 100 = 83.35**. Baseline 59.7 → **+23.65**.
+Aritmetika (wajib tampil): 88×15 + 80×12 + 84×12 + 74×15 + 92×10 + 88×12 + 84×10 + 83×7 + 82×7
+= 1320 + 960 + 1008 + 1110 + 920 + 1056 + 840 + 581 + 574 = **8369 / 100 = 83.69**. Baseline 59.7 → **+23.99**.
 
 Six of nine axes below 85. Stop condition not met on either clause.
 
@@ -144,6 +144,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.34.0 (iter 20 — F3)**: lembur **KEP-102/MEN/VI/2004** (jam → 1,5×/2× dari upah÷173); **ganti cuti** (lembur → saldo cuti, 8 jam=1 hari); cuti **UU 13/2003** (jatah 12, saldo per karyawan/tahun, ikut sinkron); **UMP configurable** + peringatan upah di bawah UMP. **→ F3 81→84.** +8 test. 225/225 ✓.
 
 - **v1.35.0 (stok & penjualan — F1)**: audit menemukan bug kritis — penjualan modal **Jual** tak mengurangi stok tapi posting HPP (oversell + mismatch); **diperbaiki** (`sale.lines` kurangi stok). Reversal stok tak lagi ditelan (hapus/edit aman); hapus barang yang dipakai ditolak; kunci periode ditegakkan di pembelian/pembayaran supplier; **📜 kartu stok** (riwayat mutasi). **→ F1 86→88.** +3 test. 228/228 ✓.
+
+- **v1.36.0 (F6/F7 — import marketplace/WA)**: **📥 Import produk** (CSV/Excel, pemetaan kolom otomatis, upsert per SKU/nama) + **📥 Import penjualan** (CSV/Excel pesanan Shopee/TikTok: peta kolom, kelompok per pesanan, cocokkan item, pratinjau, buat penjualan + stok/jurnal) + **WhatsApp/offline** (tempel `2x Kopi 15000`). `marketplace.js` murni. **→ F6 86→88, F7 83→84.** +10 test (13 file). 238/238 ✓.
 
 > Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
