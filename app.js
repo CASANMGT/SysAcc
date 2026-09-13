@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.45.0';
+const APP_VERSION = '1.46.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -978,6 +978,7 @@ function bindEvents() {
   document.getElementById('cloudAnonBtn')?.addEventListener('click', handleCloudAnon);
   document.getElementById('cloudLinkBtn')?.addEventListener('click', handleCloudLinkEmail);
   document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
+  document.getElementById('cloudPingBtn')?.addEventListener('click', handleCloudPing);
   document.getElementById('cloudOffBtn')?.addEventListener('click', handleCloudOff);
   document.getElementById('closingBtn')?.addEventListener('click', handleClosing);
   const buildTaxCsv = () => {
@@ -4597,6 +4598,19 @@ async function handleBackupSelfTest() {
     else UI.showError(`Backup bermasalah: ${r.err || 'tidak valid'}`);
   } catch (e) {
     UI.showError(e && e.message ? e.message : 'Gagal menguji backup');
+  }
+}
+async function handleCloudPing() {
+  try {
+    if (!Cloud.isCloudConfigured()) return UI.showError('Hubungkan Supabase dulu (isi URL + key)');
+    await Cloud.cloudPing();
+    UI.showSuccess('Koneksi OK — sesi valid & RLS jalan');
+    refreshCloudLabel();
+    updateCloudDot();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Koneksi gagal');
+    refreshCloudLabel();
+    updateCloudDot();
   }
 }
 async function handleCloudLinkEmail() {

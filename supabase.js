@@ -147,6 +147,21 @@ export function isAnonymousSession() {
   const s = readSession();
   return !!(s && s.access_token && s.anon && !s.email);
 }
+// Uji koneksi ringan: pastikan sesi valid + RLS jalan (query 1 baris).
+export async function cloudPing() {
+  const cfg = getCloudConfig();
+  if (!cfg) throw new Error('Supabase belum dikonfigurasi');
+  const s = await ensureToken();
+  const r = await fetch(cfg.url + '/rest/v1/wynara_kv?select=key&limit=1', {
+    headers: { apikey: cfg.anonKey, Authorization: 'Bearer ' + s.access_token },
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.message || ('Koneksi gagal (' + r.status + ')'));
+  }
+  setCloudStatus('ready', 'koneksi OK');
+  return { ok: true };
+}
 async function ensureToken() {
   let s = readSession();
   if (!s || !s.access_token) throw new Error('Belum login akun online (masuk dulu di Pengaturan)');
@@ -371,7 +386,7 @@ export async function syncNow(opts = {}) {
 
     meta.lastSync = Date.now();
     writeMeta(meta);
-    setCloudStatus('ready', `sinkron ${new Date(meta.lastSync).toLocaleTimeString('id-ID')} • ↑${summary.pushed} ↓${summary.pulled}`);
+    setCloudStatus('ready', `sinkron ${new Date(meta.lastSync).toLocaleTimeString('id-ID')} • ↑${summary.pushed} ↓${summary.pulled}${summary.conflicts ? ` • ${summary.conflicts} konflik` : ''}`);
     cloudStatus.lastSync = meta.lastSync;
     return summary;
   } catch (e) {
