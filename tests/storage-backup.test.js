@@ -504,6 +504,15 @@ describe('produk: varian & diskon', () => {
     expect(it.category).toBe('Minuman');
     expect(it.barcode).toBe('899123');
   });
+  it('saveItem menyimpan foto + berat/dimensi kirim', () => {
+    const it = saveItem({ name: 'Kaos', price: 50000, stock: 1, image: 'data:image/jpeg;base64,AAA', weight: 250, length: 30, width: 20, height: 3 });
+    const got = getItemById(it.id);
+    expect(got.image).toBe('data:image/jpeg;base64,AAA');
+    expect(got.weight).toBe(250);
+    expect(got.length).toBe(30);
+    expect(got.width).toBe(20);
+    expect(got.height).toBe(3);
+  });
   it('importItemsBulk upsert per SKU + simpan varian', () => {
     const r1 = importItemsBulk([{ name: 'Kaos', sku: 'K-1', price: 100000, size: 'L', color: 'Hitam', discountPct: 10, stock: 3 }]);
     expect(r1.added).toBe(1);

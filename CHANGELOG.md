@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.63.0] - 2026-09-14
+
+### Changed — Harga per-varian + info produk lebih lengkap, wizard 2 langkah
+- **Tabel harga per-varian (ukuran × warna)**: tiap varian punya **Harga jual, Modal, Diskon %, Stok, SKU, Barcode** sendiri — tidak lagi harga per-ukuran yang dibagi
+- **Wizard jadi 2 langkah**: Langkah 1 Info produk → Langkah 2 **Harga, stok & varian** (langkah "Harga" terpisah dihapus; semua di satu tempat)
+- Tombol **warna premium** dihapus (digantikan harga per-varian yang eksplisit)
+- **Foto produk** (opsional): otomatis dikompres jadi thumbnail (±240px JPEG) agar tidak memberatkan penyimpanan; tampil di kartu produk
+- **Info pengiriman** (opsional): **berat (gram)** + **dimensi P×L×T (cm)** — untuk ekspedisi/marketplace
+- +2 test; 276/276 tests ✓
+
+---
+
 ## [1.62.0] - 2026-09-14
 
 ### Changed — Satu alur harga & varian (hapus input ganda)

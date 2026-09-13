@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.62.0';
+const APP_VERSION = '1.63.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3415,8 +3415,10 @@ function handleStockSave() {
             id: null, name: nm, sku: v.sku || (d.sku ? `${d.sku}-${i + 1}` : ''), barcode: v.barcode || '',
             unit: d.unit, category: d.category,
             size: v.size, color: v.color,
-            price: v.price || d.price, cost: v.cost != null ? v.cost : d.cost,
-            discountPct: d.discountPct, stock: v.stock, minStock: d.minStock,
+            price: Number(v.price) || 0, cost: Number(v.cost) || 0,
+            discountPct: v.discountPct != null ? v.discountPct : d.discountPct,
+            stock: v.stock, minStock: d.minStock,
+            image: d.image, weight: d.weight, length: d.length, width: d.width, height: d.height,
             groupId, baseName: d.name,
           });
           created++; totalStock += v.stock;
@@ -3435,10 +3437,10 @@ function handleStockSave() {
     if (prev && Number(d.stock) !== Number(prev.stock) && Storage.isMonthLocked(opnameDate)) {
       return UI.showError(`Bulan ${opnameDate.slice(0, 7)} terkunci — stok tidak bisa disesuaikan`);
     }
-    // Fallback: mode varian tanpa ukuran/warna terisi → pakai harga per ukuran pertama bila ada.
-    if (!(Number(d.price) > 0) && Array.isArray(vd.sizePricing) && vd.sizePricing[0]) {
-      d.price = Number(vd.sizePricing[0].price) || 0;
-      d.cost = Number(vd.sizePricing[0].cost) || 0;
+    // Fallback: mode varian tanpa ukuran/warna terisi → pakai harga varian pertama bila ada.
+    if (!(Number(d.price) > 0) && Array.isArray(vd.variants) && vd.variants[0]) {
+      d.price = Number(vd.variants[0].price) || 0;
+      d.cost = Number(vd.variants[0].cost) || 0;
     }
     const saved = Storage.saveItem(d);
     if (prev && saved.stock !== prev.stock) {

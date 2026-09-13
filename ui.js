@@ -3472,6 +3472,7 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
     }).join('');
     return `<div class="stock-card" data-key="${esc(g.key)}">
       <div class="stock-card-head">
+        ${g.variants[0] && g.variants[0].image ? `<img src="${g.variants[0].image}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;flex:0 0 auto">` : ''}
         <div style="flex:1;min-width:0">
           <div class="stock-card-title">${esc(g.name)}</div>
           <div class="stock-card-sub">${g.sku ? esc(g.sku) + ' • ' : ''}${g.variants[0] && g.variants[0].category ? esc(g.variants[0].category) + ' • ' : ''}${g.variants[0] && g.variants[0].unit ? esc(g.variants[0].unit) + ' • ' : ''}${g.variants.length} varian • stok${shopName ? ' ' + esc(shopName) : ''}: ${g.shopStock} • total ${g.totalStock} • ${priceTxt}${lowV ? ` • <span style="color:#b45309">${lowV} menipis</span>` : ''}</div>
@@ -3503,15 +3504,19 @@ export function getStockFormData() {
     cost: Number(num('stockCost')) || 0,
     stock: Math.max(parseInt(document.getElementById('stockQty')?.value || '0', 10) || 0, 0),
     minStock: Math.max(parseInt(document.getElementById('stockMin')?.value || '0', 10) || 0, 0),
-    sizes: document.getElementById('stockSizes')?.value.trim() || '',
-    colors: document.getElementById('stockColors')?.value.trim() || '',
+    image: stockImageData,
+    weight: Math.max(Number(document.getElementById('stockWeight')?.value) || 0, 0),
+    length: Math.max(Number(document.getElementById('stockLength')?.value) || 0, 0),
+    width: Math.max(Number(document.getElementById('stockWidth')?.value) || 0, 0),
+    height: Math.max(Number(document.getElementById('stockHeight')?.value) || 0, 0),
     variant: stockVariantMode,
     variantData: readVariantInputs()
   };
 }
-// Varian: SATU alur. Mode "single" = produk tunggal; mode "variant" = matriks ukuran×warna.
-// Harga & modal per ukuran di langkah 2; stok/SKU/barcode per varian di langkah 3.
+// Varian: SATU alur. Mode "single" = produk tunggal; mode "variant" = tabel per-varian
+// (harga, modal, diskon, stok, SKU, barcode masing-masing ukuran × warna).
 let stockVariantMode = 'single';
+let stockImageData = '';
 function splitCsv(id) {
   return String(document.getElementById(id)?.value || '').split(',').map(s => s.trim()).filter(Boolean);
 }
@@ -3529,43 +3534,31 @@ export function applyVariantMode() {
   const variant = stockVariantMode === 'variant';
   const sv = document.getElementById('singleVariantFields'); if (sv) sv.hidden = variant;
   const mv = document.getElementById('multiVariantFields'); if (mv) mv.hidden = !variant;
-  const sp = document.getElementById('stockSinglePriceWrap'); if (sp) sp.hidden = variant;
-  const sc = document.getElementById('stockSingleCostWrap'); if (sc) sc.hidden = variant;
-  const vp = document.getElementById('stockVariantPricing'); if (vp) vp.hidden = !variant;
   document.querySelectorAll('#stockVariantMode .chip').forEach(c => c.classList.toggle('selected', (c.dataset.mode === 'variant') === variant));
   const profitBox = document.getElementById('stockProfit');
   if (profitBox && variant) profitBox.innerHTML = '';
-  renderVariantPricing();
-  renderVariantStock();
+  renderVariantTable();
   if (!variant) updateStockProfit();
 }
-export function renderVariantPricing() {
-  const box = document.getElementById('variantPriceGrid');
-  if (!box) return;
-  if (stockVariantMode !== 'variant') { box.innerHTML = ''; return; }
-  const { S } = variantCombos();
-  const priceRow = S.map((sz, i) => `<tr><td style="font-size:12px">${escapeHtml(sz || '(tanpa ukuran)')}</td>
-    <td><input type="text" class="vprice" data-i="${i}" inputmode="decimal" placeholder="Rp" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
-    <td><input type="text" class="vcost" data-i="${i}" inputmode="decimal" placeholder="Rp" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`).join('');
-  box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Ukuran</th><th>Harga jual</th><th>Modal</th></tr></thead><tbody>${priceRow}</tbody></table></div>`;
-  bindVariantRupiah();
-}
-export function renderVariantStock() {
-  const box = document.getElementById('variantStockGrid');
+export function renderVariantTable() {
+  const box = document.getElementById('variantTable');
   if (!box) return;
   if (stockVariantMode !== 'variant') { box.innerHTML = ''; return; }
   const { S, C } = variantCombos();
-  const premiums = splitCsv('stockPremium').map(s => s.toLowerCase());
-  const stockRows = [];
+  const rows = [];
   S.forEach((sz, si) => C.forEach((cl, ci) => {
-    const prem = premiums.includes(String(cl).toLowerCase());
-    stockRows.push(`<tr><td style="font-size:12px">${escapeHtml([sz, cl].filter(Boolean).join(' / ') || '(tanpa varian)')}${prem ? ' <span title="warna premium">⭐</span>' : ''}</td>
-      <td><input type="number" class="vstock" data-s="${si}" data-c="${ci}" min="0" step="1" placeholder="0" style="width:80px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
-      <td><input type="text" class="vsku" data-s="${si}" data-c="${ci}" maxlength="30" placeholder="SKU" style="width:110px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
-      <td><input type="text" class="vbar" data-s="${si}" data-c="${ci}" maxlength="40" placeholder="barcode" style="width:120px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`);
+    rows.push(`<tr>
+      <td style="font-size:12px;white-space:nowrap">${escapeHtml([sz, cl].filter(Boolean).join(' / ') || '(tanpa varian)')}</td>
+      <td><input type="text" class="vprice" data-s="${si}" data-c="${ci}" inputmode="decimal" placeholder="Rp" style="width:110px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
+      <td><input type="text" class="vcost" data-s="${si}" data-c="${ci}" inputmode="decimal" placeholder="Rp" style="width:110px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
+      <td><input type="number" class="vdisc" data-s="${si}" data-c="${ci}" min="0" max="100" step="1" placeholder="0" style="width:64px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;font-size:12px"></td>
+      <td><input type="number" class="vstock" data-s="${si}" data-c="${ci}" min="0" step="1" placeholder="0" style="width:70px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;font-size:12px"></td>
+      <td><input type="text" class="vsku" data-s="${si}" data-c="${ci}" maxlength="30" placeholder="SKU" style="width:100px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td>
+      <td><input type="text" class="vbar" data-s="${si}" data-c="${ci}" maxlength="40" placeholder="barcode" style="width:110px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`);
   }));
-  box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian (ukuran × warna)</th><th>Stok</th><th>SKU</th><th>Barcode</th></tr></thead><tbody>${stockRows.join('')}</tbody></table></div>
+  box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian</th><th>Harga jual</th><th>Modal</th><th>Disc %</th><th>Stok</th><th>SKU</th><th>Barcode</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
     <div id="variantTotal" style="font-size:12px;color:#334155;margin-top:6px;font-weight:600"></div>`;
+  bindVariantRupiah();
   updateVariantTotal();
 }
 function bindVariantRupiah() {
@@ -3575,15 +3568,50 @@ function bindVariantRupiah() {
     bindRupiah(el);
   });
 }
+export function getStockImage() { return stockImageData; }
+function setStockImage(dataUrl) {
+  stockImageData = dataUrl || '';
+  const prev = document.getElementById('stockImagePreview');
+  if (prev) prev.innerHTML = stockImageData ? `<img src="${stockImageData}" alt="Foto produk" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0">` : '';
+  const clear = document.getElementById('stockImageClear');
+  if (clear) clear.hidden = !stockImageData;
+}
+function downscaleImage(file, max, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read'));
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onerror = () => reject(new Error('img'));
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width || 1, img.height || 1));
+        const w = Math.max(Math.round((img.width || max) * scale), 1);
+        const h = Math.max(Math.round((img.height || max) * scale), 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('ctx'));
+        ctx.drawImage(img, 0, 0, w, h);
+        try { resolve(canvas.toDataURL('image/jpeg', quality)); } catch { reject(new Error('encode')); }
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function handleStockImageFile(file) {
+  if (!file) return;
+  if (!/^image\//.test(file.type || '')) { showError('File harus berupa gambar'); return; }
+  try { setStockImage(await downscaleImage(file, 240, 0.6)); } catch { showError('Gagal memuat gambar'); }
+}
 let stockWizardStep = 1;
 export function setStockStep(n) {
-  stockWizardStep = Math.min(Math.max(Number(n) || 1, 1), 3);
+  stockWizardStep = Math.min(Math.max(Number(n) || 1, 1), 2);
   document.querySelectorAll('#stockForm .stock-step').forEach(s => { s.hidden = Number(s.dataset.step) !== stockWizardStep; });
   const back = document.getElementById('stockStepBack'); if (back) back.hidden = stockWizardStep === 1;
-  const next = document.getElementById('stockStepNext'); if (next) next.hidden = stockWizardStep === 3;
-  const save = document.getElementById('stockStepSave'); if (save) save.hidden = stockWizardStep !== 3;
-  if (stockWizardStep === 3) renderVariantStock();
-  if (stockWizardStep === 2) { renderVariantPricing(); updateStockProfit(); }
+  const next = document.getElementById('stockStepNext'); if (next) next.hidden = stockWizardStep === 2;
+  const save = document.getElementById('stockStepSave'); if (save) save.hidden = stockWizardStep !== 2;
+  if (stockWizardStep === 2) { applyVariantMode(); updateStockProfit(); }
 }
 export function getStockStep() { return stockWizardStep; }
 export function updateVariantTotal() {
@@ -3594,25 +3622,20 @@ export function updateVariantTotal() {
   el.textContent = stocks.length ? `Total stok semua varian: ${total} pcs` : '';
 }
 function readVariantInputs() {
-  if (stockVariantMode !== 'variant') return { variants: [], sizePricing: [] };
+  if (stockVariantMode !== 'variant') return { variants: [] };
   const { S, C } = variantCombos();
-  const premiums = splitCsv('stockPremium').map(s => s.toLowerCase());
-  const add = Math.round(Number(parseIdrInput(document.getElementById('stockPremiumAdd')?.value || '')) || 0);
-  const sizePricing = S.map((sz, i) => ({
-    size: sz,
-    price: Math.round(Number(parseIdrInput(document.querySelector(`.vprice[data-i="${i}"]`)?.value || '')) || 0),
-    cost: Math.round(Number(parseIdrInput(document.querySelector(`.vcost[data-i="${i}"]`)?.value || '')) || 0),
-  }));
   const variants = [];
   S.forEach((sz, si) => C.forEach((cl, ci) => {
-    const prem = premiums.includes(String(cl).toLowerCase());
-    const stock = Math.max(parseInt(document.querySelector(`.vstock[data-s="${si}"][data-c="${ci}"]`)?.value || '0', 10) || 0, 0);
-    const vsku = String(document.querySelector(`.vsku[data-s="${si}"][data-c="${ci}"]`)?.value || '').trim();
-    const vbar = String(document.querySelector(`.vbar[data-s="${si}"][data-c="${ci}"]`)?.value || '').trim();
-    const base = sizePricing[si] || { price: 0, cost: 0 };
-    variants.push({ size: sz, color: cl, stock, premium: prem, sku: vsku, barcode: vbar, price: Math.round(base.price + (prem ? add : 0)), cost: base.cost });
+    const q = (cls) => document.querySelector(`.${cls}[data-s="${si}"][data-c="${ci}"]`);
+    const price = Math.round(Number(parseIdrInput(q('vprice')?.value || '')) || 0);
+    const cost = Math.round(Number(parseIdrInput(q('vcost')?.value || '')) || 0);
+    const discountPct = Math.min(Math.max(Number(q('vdisc')?.value) || 0, 0), 100);
+    const stock = Math.max(parseInt(q('vstock')?.value || '0', 10) || 0, 0);
+    const sku = String(q('vsku')?.value || '').trim();
+    const barcode = String(q('vbar')?.value || '').trim();
+    variants.push({ size: sz, color: cl, price, cost, discountPct, stock, sku, barcode });
   }));
-  return { variants, sizePricing, premiumAdd: add };
+  return { variants };
 }
 export function fillStockForm(item) {
   document.getElementById('stockFormId').value = item?.id || '';
@@ -3628,6 +3651,11 @@ export function fillStockForm(item) {
   document.getElementById('stockCost').value = item?.cost || '';
   document.getElementById('stockQty').value = item ? shopStockOf(item, getActiveShopId()) : '';
   document.getElementById('stockMin').value = item?.minStock ?? '';
+  const wEl = document.getElementById('stockWeight'); if (wEl) wEl.value = item?.weight || '';
+  const lEl = document.getElementById('stockLength'); if (lEl) lEl.value = item?.length || '';
+  const wiEl = document.getElementById('stockWidth'); if (wiEl) wiEl.value = item?.width || '';
+  const hEl = document.getElementById('stockHeight'); if (hEl) hEl.value = item?.height || '';
+  setStockImage(item?.image || '');
   const ql = document.getElementById('stockQtyLabel');
   if (ql) { const nm = (getShops().find(s => s.id === getActiveShopId()) || {}).name || ''; ql.textContent = 'Punya berapa?' + (nm ? ` (${nm})` : ''); }
   document.getElementById('stockName')?.focus();
@@ -3654,6 +3682,8 @@ export function updateStockProfit() {
 export function resetStockForm() {
   document.getElementById('stockForm')?.reset();
   document.getElementById('stockFormId').value = '';
+  const fi = document.getElementById('stockImage'); if (fi) fi.value = '';
+  setStockImage('');
   setStockStep(1);
   setStockVariantMode('single');
   updateStockProfit();
@@ -3676,12 +3706,14 @@ export function bindStock(onSave, onEdit, onDelete, onHistory) {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updateStockProfit);
   });
-  ['stockSizes', 'stockColors', 'stockPremium', 'stockPremiumAdd'].forEach(id => {
+  ['stockSizes', 'stockColors'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', applyVariantMode);
   });
   document.querySelectorAll('#stockVariantMode .chip').forEach(c => c.addEventListener('click', () => setStockVariantMode(c.dataset.mode)));
-  document.getElementById('variantStockGrid')?.addEventListener('input', updateVariantTotal);
+  document.getElementById('variantTable')?.addEventListener('input', updateVariantTotal);
+  document.getElementById('stockImage')?.addEventListener('change', (e) => handleStockImageFile(e.target.files && e.target.files[0]));
+  document.getElementById('stockImageClear')?.addEventListener('click', () => { const fi = document.getElementById('stockImage'); if (fi) fi.value = ''; setStockImage(''); });
   document.getElementById('stockSearch')?.addEventListener('input', (e) => {
     stockSearchTerm = e.target.value;
     document.dispatchEvent(new CustomEvent('wynara:stock-search'));
