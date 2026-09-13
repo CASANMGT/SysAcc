@@ -3302,6 +3302,7 @@ export function openStock() {
   const m = document.getElementById('stockModal');
   if (m && !m.open) { try { m.showModal(); } catch {} }
   if (m) trapFocus(m);
+  renderVariantGrid();
   updateStockProfit();
 }
 export function closeStock() {
@@ -3352,8 +3353,44 @@ export function getStockFormData() {
     stock: Math.max(parseInt(document.getElementById('stockQty')?.value || '0', 10) || 0, 0),
     minStock: Math.max(parseInt(document.getElementById('stockMin')?.value || '0', 10) || 0, 0),
     sizes: document.getElementById('stockSizes')?.value.trim() || '',
-    colors: document.getElementById('stockColors')?.value.trim() || ''
+    colors: document.getElementById('stockColors')?.value.trim() || '',
+    variants: readVariantInputs()
   };
+}
+// Matriks varian: isi stok & diskon per kombinasi ukuran × warna.
+export function renderVariantGrid() {
+  const box = document.getElementById('variantGrid');
+  if (!box) return;
+  const sizes = String(document.getElementById('stockSizes')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  const colors = String(document.getElementById('stockColors')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  const S = sizes.length ? sizes : [''];
+  const C = colors.length ? colors : [''];
+  const combos = [];
+  S.forEach(sz => C.forEach(cl => combos.push({ size: sz, color: cl })));
+  if (combos.length <= 1) {
+    box.innerHTML = '<div style="font-size:11px;color:#94a3b8">Isi minimal salah satu (ukuran atau warna) untuk membuat varian.</div>';
+    return;
+  }
+  const inp = (cls, i, max) => `<input type="number" class="${cls}" data-i="${i}" min="0" ${max ? 'max="100"' : ''} step="1" placeholder="0" style="width:96px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px">`;
+  box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#475569;margin:6px 0 4px">Isi stok (dan diskon) tiap varian:</div>
+    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian</th><th>Stok</th><th>Diskon %</th></tr></thead><tbody>
+    ${combos.map((c, i) => `<tr><td style="font-size:12px">${escapeHtml([c.size, c.color].filter(Boolean).join(' / ') || '(tanpa varian)')}</td>
+      <td>${inp('vstock', i)}</td><td>${inp('vdisc', i, true)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+function readVariantInputs() {
+  const sizes = String(document.getElementById('stockSizes')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  const colors = String(document.getElementById('stockColors')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  const S = sizes.length ? sizes : [''];
+  const C = colors.length ? colors : [''];
+  const combos = [];
+  S.forEach(sz => C.forEach(cl => combos.push({ size: sz, color: cl })));
+  if (combos.length <= 1) return [];
+  return combos.map((c, i) => {
+    const st = document.querySelector(`#variantGrid .vstock[data-i="${i}"]`);
+    const dc = document.querySelector(`#variantGrid .vdisc[data-i="${i}"]`);
+    return { size: c.size, color: c.color, stock: Math.max(parseInt(st?.value || '0', 10) || 0, 0), discountPct: Math.min(Math.max(Number(dc?.value) || 0, 0), 100) };
+  });
 }
 export function fillStockForm(item) {
   document.getElementById('stockFormId').value = item?.id || '';
@@ -3390,6 +3427,7 @@ export function updateStockProfit() {
 export function resetStockForm() {
   document.getElementById('stockForm')?.reset();
   document.getElementById('stockFormId').value = '';
+  renderVariantGrid();
   updateStockProfit();
 }
 export function bindStock(onSave, onEdit, onDelete, onHistory) {
@@ -3400,6 +3438,10 @@ export function bindStock(onSave, onEdit, onDelete, onHistory) {
   ['stockPrice', 'stockCost'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updateStockProfit);
+  });
+  ['stockSizes', 'stockColors'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', renderVariantGrid);
   });
   document.getElementById('stockSearch')?.addEventListener('input', (e) => {
     stockSearchTerm = e.target.value;

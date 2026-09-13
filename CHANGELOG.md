@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.38.0] - 2026-09-13
+
+### Changed — Isi stok & diskon per varian langsung di tabel
+- Setelah mengisi ukuran/warna, muncul **tabel varian** (kombinasi ukuran × warna) dengan input **Stok** dan **Diskon %** per baris → sekali isi, sekali Simpan
+- Sebelumnya varian dibuat dengan stok 0 lalu harus diedit satu-satu; sekarang stok/diskon langsung dari tabel
+- Diskoveri & listing varian kini praktis untuk jualan Shopee/offline
+- 242/242 tests ✓
+
+---
+
 ## [1.37.0] - 2026-09-13
 
 ### Added — Varian produk (ukuran/warna) & diskon

@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.37.0';
+const APP_VERSION = '1.38.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2937,30 +2937,23 @@ function handleStockSave() {
   const d = UI.getStockFormData();
   if (!d.name) return UI.showError('Nama barang wajib diisi');
   try {
-    // Buat banyak varian (ukuran × warna) untuk barang BARU
-    const sizes = String(d.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
-    const colors = String(d.colors || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (!d.id && (sizes.length || colors.length)) {
-      const S = sizes.length ? sizes : [''];
-      const C = colors.length ? colors : [''];
-      const combos = [];
-      S.forEach(sz => C.forEach(cl => combos.push({ size: sz, color: cl })));
-      if (combos.length > 1) {
-        let created = 0;
-        combos.forEach((combo, i) => {
-          const nm = `${d.name}${combo.size ? ' • ' + combo.size : ''}${combo.color ? ' • ' + combo.color : ''}`;
-          try {
-            Storage.saveItem({ ...d, id: null, name: nm, sku: d.sku ? `${d.sku}-${i + 1}` : '', size: combo.size, color: combo.color, stock: 0 });
-            created++;
-          } catch {}
-        });
-        Storage.logAudit('create', 'item', '', null, { variants: created, base: d.name });
-        UI.showSuccess(`${created} varian “${d.name}” dibuat — atur stok tiap varian di daftar.`);
-        UI.resetStockForm();
-        refreshStock();
-        queueMirror();
-        return;
-      }
+    // Buat banyak varian (ukuran × warna) untuk barang BARU — pakai stok/diskon per varian
+    const variants = Array.isArray(d.variants) ? d.variants : [];
+    if (!d.id && variants.length > 1) {
+      let created = 0;
+      variants.forEach((v, i) => {
+        const nm = `${d.name}${v.size ? ' • ' + v.size : ''}${v.color ? ' • ' + v.color : ''}`;
+        try {
+          Storage.saveItem({ ...d, id: null, name: nm, sku: d.sku ? `${d.sku}-${i + 1}` : '', size: v.size, color: v.color, stock: v.stock, discountPct: v.discountPct != null ? v.discountPct : d.discountPct });
+          created++;
+        } catch {}
+      });
+      Storage.logAudit('create', 'item', '', null, { variants: created, base: d.name });
+      UI.showSuccess(`${created} varian “${d.name}” dibuat.`);
+      UI.resetStockForm();
+      refreshStock();
+      queueMirror();
+      return;
     }
     const prev = d.id ? Storage.getItemById(d.id) : null;
     const opnameDate = new Date().toISOString().split('T')[0];
