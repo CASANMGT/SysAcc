@@ -17,6 +17,9 @@ describe('F8 mobile regressions', () => {
   it('viewport-fit=cover untuk safe-area perangkat berponi', () => {
     expect(html).toMatch(/viewport-fit=cover/);
   });
+  it('teks redup pakai var(--text-muted), bukan #94a3b8 inline (kontras)', () => {
+    expect(html).not.toMatch(/color:#94a3b8/);
+  });
   it('guard mobile: overflow-x, text-size-adjust, target sentuh, sidebar adaptif', () => {
     expect(css).toMatch(/overflow-x: clip/);
     expect(css).toMatch(/text-size-adjust: 100%/);

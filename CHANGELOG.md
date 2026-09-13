@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.48.0] - 2026-09-13
+
+### Changed — F9: kontras teks redup
+- 22 warna `#94a3b8` inline di index.html diganti **`var(--text-muted)`** → kontras lebih baik di tema terang & otomatis menyesuaikan tema gelap
+- +1 guard test; 253/253 tests ✓
+
+---
+
 ## [1.47.0] - 2026-09-13
 
 ### Added — F2: CSV rekap PPh 21 + pengingat tenggat pajak

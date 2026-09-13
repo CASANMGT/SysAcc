@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.47.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.48.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -407,7 +407,7 @@
             <a href="#" id="ownerToReports" style="font-size:11px;color:#2563eb;text-decoration:none">Laporan →</a>
           </div>
           <div id="ownerPanelBody"></div>
-          <div style="font-size:10px;color:#94a3b8;margin-top:6px">Margin &amp; laba dari jurnal (SAK EMKM); runway = kas ÷ biaya rata-rata 3 bulan.</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:6px">Margin &amp; laba dari jurnal (SAK EMKM); runway = kas ÷ biaya rata-rata 3 bulan.</div>
         </div>
 
         <!-- Bottom grid: Transaksi + Aksi Cepat -->
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.47.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.48.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -495,7 +495,7 @@
           </div>
           <div class="transaksi-toolbar">
             <div class="search-wrap">
-              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8">🔍</span>
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
               <input type="search" id="transaksiSearch" placeholder="Cari transaksi..." style="width:100%;height:40px;padding:0 12px 0 36px;border:1px solid #e2e8f0;border-radius:12px;background:white;font-size:13px">
             </div>
             <select id="transaksiFilterJenis" style="height:40px;padding:0 12px;border:1px solid #e2e8f0;border-radius:12px;background:white;font-size:13px">
@@ -511,7 +511,7 @@
             <div class="table-wrapper" style="overflow-x:auto">
               <table id="transaksiTable" style="width:100%;min-width:900px;border-collapse:collapse">
                 <thead>
-                  <tr style="font-size:11px;letter-spacing:0.08em;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+                  <tr style="font-size:11px;letter-spacing:0.08em;color:var(--text-muted);border-bottom:1px solid #f1f5f9">
                     <th style="padding:12px;text-align:left;white-space:nowrap">TANGGAL</th>
                     <th style="padding:12px;text-align:left">KATEGORI</th>
                     <th style="padding:12px;text-align:left">CATATAN</th>
@@ -524,7 +524,7 @@
                 </thead>
                 <tbody id="transaksiBody"></tbody>
               </table>
-              <div id="transaksiEmpty" class="empty-state hidden" style="padding:40px;text-align:center;color:#94a3b8">
+              <div id="transaksiEmpty" class="empty-state hidden" style="padding:40px;text-align:center;color:var(--text-muted)">
                 <div style="font-size:32px">📝</div>
                 <p>Belum ada transaksi</p>
               </div>
@@ -552,7 +552,7 @@
           </div>
           <div class="transaksi-toolbar">
             <div class="search-wrap">
-              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8">🔍</span>
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted)">🔍</span>
               <input type="search" id="stockPageSearch" placeholder="Cari produk / SKU / varian..." style="width:100%;height:40px;padding:0 12px 0 36px;border:1px solid #e2e8f0;border-radius:12px;background:white;font-size:13px">
             </div>
             <div class="chip-group" id="stockPageFilter" role="group" aria-label="Filter stok">
@@ -593,7 +593,7 @@
                 <input type="search" id="empSearch" placeholder="🔍 Cari nama, jabatan, atau status..." style="width:100%;height:40px;padding:0 12px;border:1px solid #e2e8f0;border-radius:12px;background:white;font-size:13px;margin-bottom:10px">
                 <div style="overflow-x:auto">
                   <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:13px">
-                    <thead><tr style="font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+                    <thead><tr style="font-size:11px;color:var(--text-muted);border-bottom:1px solid #f1f5f9">
                       <th style="padding:10px;text-align:left">Nama</th>
                       <th style="padding:10px;text-align:left">Jabatan</th>
                       <th style="padding:10px;text-align:left">Status kerja</th>
@@ -628,7 +628,7 @@
             <div class="dash-panel" style="padding:0;overflow:hidden">
               <div style="overflow-x:auto">
                 <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:13px">
-                  <thead><tr style="font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+                  <thead><tr style="font-size:11px;color:var(--text-muted);border-bottom:1px solid #f1f5f9">
                     <th style="padding:12px;width:36px"><input type="checkbox" id="payrollCheckAll" aria-label="Pilih semua"></th>
                   <th style="padding:12px;text-align:left">Karyawan</th>
                   <th style="padding:12px;text-align:right">Gaji pokok</th>
@@ -688,7 +688,7 @@
             </div>
           </div>
           <div class="chip-group" id="pageReportTabs" role="tablist" aria-label="Jenis laporan" style="margin-bottom:8px">
-            <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">IKHTISAR</div>
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);flex-basis:100%">IKHTISAR</div>
             <button type="button" class="chip selected page-report-tab" data-report="monthly">Bulanan</button>
             <button type="button" class="chip page-report-tab" data-report="category">Per Kategori</button>
             <button type="button" class="chip page-report-tab" data-report="cashflow">Arus Kas</button>
@@ -697,7 +697,7 @@
             <button type="button" class="chip page-report-tab" data-report="products">Produk</button>
           </div>
           <div class="chip-group" role="group" aria-label="Laporan resmi" style="margin-bottom:8px">
-            <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">LAPORAN RESMI</div>
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);flex-basis:100%">LAPORAN RESMI</div>
             <button type="button" class="chip page-report-tab" data-report="pl">Laba Rugi</button>
             <button type="button" class="chip page-report-tab" data-report="bs">Neraca</button>
             <button type="button" class="chip page-report-tab" data-report="trial">Neraca Saldo</button>
@@ -705,7 +705,7 @@
             <button type="button" class="chip page-report-tab" data-report="ledger">Buku Besar</button>
           </div>
           <div class="chip-group" role="group" aria-label="Kepatuhan" style="margin-bottom:14px">
-            <div style="font-size:10px;font-weight:700;color:#94a3b8;flex-basis:100%">KEPATUHAN</div>
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);flex-basis:100%">KEPATUHAN</div>
             <button type="button" class="chip page-report-tab" data-report="tax">Pajak</button>
             <button type="button" class="chip page-report-tab" data-report="ppn">PPN</button>
             <button type="button" class="chip page-report-tab" data-report="pph21">PPh 21</button>
@@ -736,7 +736,7 @@
             </div>
           </div>
           <div class="dash-panel" style="padding:16px;overflow-x:auto">
-            <div id="changelogContent" style="font-size:13px;line-height:1.7"><p style="color:#94a3b8">Memuat…</p></div>
+            <div id="changelogContent" style="font-size:13px;line-height:1.7"><p style="color:var(--text-muted)">Memuat…</p></div>
           </div>
         </div>
       </main>
@@ -1040,7 +1040,7 @@
           </div>
 
           <details id="txMoreDetails" style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;background:#fff">
-            <summary style="cursor:pointer;font-weight:600;font-size:13px;color:#2563eb;user-select:none">Detail lainnya <span style="color:#94a3b8;font-weight:400">▾</span></summary>
+            <summary style="cursor:pointer;font-weight:600;font-size:13px;color:#2563eb;user-select:none">Detail lainnya <span style="color:var(--text-muted);font-weight:400">▾</span></summary>
             <div style="padding-bottom:0">
           <div class="tx-section" id="itemGroupWrap" hidden>
             <span class="tx-label" id="itemGroupLabel">Barang</span>
@@ -1272,13 +1272,13 @@
               <label style="flex:1 1 150px;font-size:11px;color:#64748b">Tambah harga premium (Rp) <input type="text" id="stockPremiumAdd" placeholder="0" inputmode="numeric" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
             </div>
             <div id="variantGrid" style="margin-top:6px"></div>
-            <p style="font-size:11px;color:#94a3b8;margin:4px 0 0">Harga &amp; modal diisi <b>per ukuran</b>; semua warna memakai harga ukurannya, warna premium ditambah. Stok diisi tiap varian.</p>
+            <p style="font-size:11px;color:var(--text-muted);margin:4px 0 0">Harga &amp; modal diisi <b>per ukuran</b>; semua warna memakai harga ukurannya, warna premium ditambah. Stok diisi tiap varian.</p>
           </details>
           <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;border-top:1px solid #f1f5f9;padding-top:12px;margin-top:12px">
             <button type="button" class="btn btn-ghost" id="stockFormReset">Batal</button>
             <button type="submit" class="btn btn-primary">💾 Simpan</button>
           </div>
-          <p style="font-size:11px;color:#94a3b8;margin:8px 0 0">Stok berkurang otomatis tiap ada penjualan. Isi "Ingatkan kalau sisa" kalau mau dapat peringatan.</p>
+          <p style="font-size:11px;color:var(--text-muted);margin:8px 0 0">Stok berkurang otomatis tiap ada penjualan. Isi "Ingatkan kalau sisa" kalau mau dapat peringatan.</p>
         </form>
         <div class="contacts-toolbar">
           <input type="search" id="stockSearch" class="loan-search" placeholder="🔍 Cari barang...">
@@ -1456,7 +1456,7 @@
               <option value="other">📦 Lainnya</option>
             </select></label>
         </div>
-        <div style="font-size:10px;color:#94a3b8;display:flex;gap:6px;margin:2px 0 4px"><b style="flex:2;text-align:left">Barang</b><b style="flex:0 0 64px;text-align:center">Qty</b><b style="flex:1;text-align:left">Harga/pcs</b><b style="flex:1;text-align:right">Subtotal</b><b style="flex:0 0 24px"></b></div>
+        <div style="font-size:10px;color:var(--text-muted);display:flex;gap:6px;margin:2px 0 4px"><b style="flex:2;text-align:left">Barang</b><b style="flex:0 0 64px;text-align:center">Qty</b><b style="flex:1;text-align:left">Harga/pcs</b><b style="flex:1;text-align:right">Subtotal</b><b style="flex:0 0 24px"></b></div>
         <div id="saleRows" style="display:flex;flex-direction:column;gap:8px"></div>
         <button type="button" class="btn btn-ghost" id="saleAddRow" style="margin:8px 0">＋ Tambah barang</button>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
@@ -1491,7 +1491,7 @@
           <label style="flex:1;min-width:110px;font-size:11px;color:#64748b">Jatuh tempo <span style="opacity:.6">(boleh kosong)</span>
             <input type="date" id="buyDue" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
         </div>
-        <div style="font-size:10px;color:#94a3b8;display:flex;gap:6px;margin:2px 0 4px"><b style="flex:2;text-align:left">Barang</b><b style="flex:0 0 64px;text-align:center">Qty</b><b style="flex:1;text-align:left">Modal/pcs</b><b style="flex:1;text-align:right">Subtotal</b><b style="flex:0 0 24px"></b></div>
+        <div style="font-size:10px;color:var(--text-muted);display:flex;gap:6px;margin:2px 0 4px"><b style="flex:2;text-align:left">Barang</b><b style="flex:0 0 64px;text-align:center">Qty</b><b style="flex:1;text-align:left">Modal/pcs</b><b style="flex:1;text-align:right">Subtotal</b><b style="flex:0 0 24px"></b></div>
         <div id="buyRows" style="display:flex;flex-direction:column;gap:8px"></div>
         <button type="button" class="btn btn-ghost" id="buyAddRow" style="margin:8px 0">＋ Tambah barang</button>
         <label style="display:block;font-size:11px;color:#64748b;margin-bottom:8px">Catatan <span style="opacity:.6">(boleh kosong)</span>
@@ -1805,7 +1805,7 @@
       <div id="assetSummary" style="margin-bottom:10px"></div>
       <div style="overflow-x:auto">
         <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:12px">
-          <thead><tr style="font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+          <thead><tr style="font-size:11px;color:var(--text-muted);border-bottom:1px solid #f1f5f9">
             <th style="padding:8px;text-align:left">Aset</th>
             <th style="padding:8px;text-align:right">Perolehan</th>
             <th style="padding:8px;text-align:right">Susut/bln</th>
@@ -1870,7 +1870,7 @@
       <p style="font-size:11px;color:#64748b;margin-bottom:8px">Isi saldo akhir pembukuan sebelumnya per akun (debit/kredit). Yang tidak diisi = 0. Total debit harus = total kredit. Modal ditutup ke akun 3101 otomatis bila kurang (rilis). Posting bisa dipakai ulang — jurnal lama saldo awal diganti.</p>
       <div style="max-height:46vh;overflow-y:auto;overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px">
         <table style="width:100%;min-width:0;border-collapse:collapse;font-size:12px">
-          <thead><tr style="position:sticky;top:0;background:white;font-size:11px;color:#94a3b8;border-bottom:1px solid #f1f5f9">
+          <thead><tr style="position:sticky;top:0;background:white;font-size:11px;color:var(--text-muted);border-bottom:1px solid #f1f5f9">
             <th style="padding:8px;text-align:left">Akun</th>
             <th style="padding:8px;text-align:right">Debit</th>
             <th style="padding:8px;text-align:right">Kredit</th>
@@ -1904,7 +1904,7 @@
         </div>
         <button type="button" class="btn btn-primary" id="sevCalc" style="margin-top:12px">Hitung</button>
         <div id="sevResult" style="margin-top:12px"></div>
-        <p style="font-size:11px;color:#94a3b8;margin-top:8px">Mengacu PP 35/2021 (turunan UU 11/2020). Angka &amp; pengali per alasan PHK bisa berubah — minta konfirmasi konsultan sebelum pembayaran.</p>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Mengacu PP 35/2021 (turunan UU 11/2020). Angka &amp; pengali per alasan PHK bisa berubah — minta konfirmasi konsultan sebelum pembayaran.</p>
       </div>
     </div>
   </dialog>
@@ -1922,7 +1922,7 @@
         <label style="font-size:12px;display:block;margin-bottom:6px">Modal / pcs (Rp)<input type="text" id="restockCost" inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
         <label style="font-size:12px;display:block;margin-bottom:6px">Tanggal<input type="date" id="restockDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
         <label style="font-size:12px;display:block">Bayar pakai<select id="restockPayment" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"><option value="cash">Tunai</option><option value="transfer">Transfer</option><option value="qris">QRIS</option><option value="ewallet">E-Wallet</option><option value="debit">Debit</option><option value="other">Lainnya</option></select></label>
-        <p style="font-size:11px;color:#94a3b8;margin-top:8px">Restock = beli tunai (Dr Persediaan / Cr Kas). Untuk hutang supplier, pakai menu Beli.</p>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Restock = beli tunai (Dr Persediaan / Cr Kas). Untuk hutang supplier, pakai menu Beli.</p>
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="restockCancel">Batal</button>
@@ -1949,7 +1949,7 @@
           <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="file" id="importFile" accept=".csv,.txt,.tsv,.xlsx,.xls">
             <button type="button" class="btn btn-ghost" id="importParseBtn" style="font-size:12px">🔎 Baca &amp; pratinjau</button>
-            <span style="font-size:11px;color:#94a3b8">Shopee: Seller Centre → Pesanan → Export. Boleh tempel langsung.</span>
+            <span style="font-size:11px;color:var(--text-muted)">Shopee: Seller Centre → Pesanan → Export. Boleh tempel langsung.</span>
           </div>
         </div>
         <div id="importMapWrap" hidden style="margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px"></div>
@@ -1981,7 +1981,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.47.0';
+    window.__htmlVersion = '1.48.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
