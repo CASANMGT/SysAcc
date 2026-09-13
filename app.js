@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.22.3';
+const APP_VERSION = '1.22.4';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -785,9 +785,7 @@ function bindEvents() {
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
   document.getElementById('backupShareBtn')?.addEventListener('click', handleBackupShare);
-  document.getElementById('cloudConnectBtn')?.addEventListener('click', handleCloudConnect);
   document.getElementById('cloudAnonBtn')?.addEventListener('click', handleCloudAnon);
-  document.getElementById('cloudSignupBtn')?.addEventListener('click', handleCloudSignup);
   document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
   document.getElementById('cloudOffBtn')?.addEventListener('click', handleCloudOff);
   document.getElementById('closingBtn')?.addEventListener('click', handleClosing);
@@ -3931,37 +3929,10 @@ function refreshCloudLabel() {
     return;
   }
   if (!ses) {
-    label.textContent = 'Server tersimpan, belum masuk — isi email + kata sandi lalu Hubungkan.';
+    label.textContent = 'Server tersimpan, belum masuk — tekan 👻 Masuk tanpa email.';
     return;
   }
   label.textContent = 'Terhubung sebagai ' + (ses.user_id || '').slice(0, 8) + '… — ' + (st.detail || st.state);
-}
-async function handleCloudConnect() {
-  const url = document.getElementById('cloudUrl')?.value || '';
-  const key = document.getElementById('cloudKey')?.value || '';
-  const email = document.getElementById('cloudEmail')?.value || '';
-  const pass = document.getElementById('cloudPass')?.value || '';
-  try {
-    if (url || key) Cloud.saveCloudConfig(url, key);
-    if (!Cloud.isCloudConfigured()) return UI.showError('Isi URL + anon key Supabase dulu');
-    if (!email || !pass) return UI.showError('Isi email + kata sandi akun online');
-    await Cloud.cloudSignIn(email, pass);
-    const passEl = document.getElementById('cloudPass');
-    if (passEl) passEl.value = '';
-    UI.showSuccess('Terhubung — sinkronisasi pertama mengunggah data HP ini');
-    refreshCloudLabel();
-    updateCloudDot();
-    const res = await Cloud.syncNow();
-    if (res && res.error) UI.showError(res.error);
-    else UI.showSuccess(`Sinkron awal selesai (↑${res.pushed || 0} ↓${res.pulled || 0})`);
-    refreshCloudLabel();
-    updateCloudDot();
-    refresh();
-  } catch (err) {
-    UI.showError(err && err.message ? err.message : 'Gagal terhubung');
-    refreshCloudLabel();
-    updateCloudDot();
-  }
 }
 async function handleCloudAnon() {
   const url = document.getElementById('cloudUrl')?.value || '';
@@ -3985,33 +3956,6 @@ async function handleCloudAnon() {
     updateCloudDot();
   }
 }
-async function handleCloudSignup() {  const url = document.getElementById('cloudUrl')?.value || '';
-  const key = document.getElementById('cloudKey')?.value || '';
-  const email = document.getElementById('cloudEmail')?.value || '';
-  const pass = document.getElementById('cloudPass')?.value || '';
-  try {
-    if (url || key) Cloud.saveCloudConfig(url, key);
-    if (!Cloud.isCloudConfigured()) return UI.showError('Isi URL + anon key Supabase dulu');
-    if (!email || !pass) return UI.showError('Isi email + kata sandi untuk akun baru');
-    const res = await Cloud.cloudSignUp(email, pass);
-    const passEl = document.getElementById('cloudPass');
-    if (passEl) passEl.value = '';
-    if (res && res.needConfirm) {
-      UI.showInfo('Akun dibuat — cek email untuk konfirmasi, lalu tekan Hubungkan & Masuk');
-    } else {
-      UI.showSuccess('Akun dibuat & masuk — sinkronisasi pertama mengunggah data HP ini');
-      const r = await Cloud.syncNow();
-      if (r && r.error) UI.showError(r.error);
-      refresh();
-    }
-    refreshCloudLabel();
-    updateCloudDot();
-  } catch (err) {
-    UI.showError(err && err.message ? err.message : 'Gagal mendaftar');
-    refreshCloudLabel();
-    updateCloudDot();
-  }
-}
 async function handleCloudSyncNow() {  if (!Cloud.isCloudConfigured()) return UI.showError('Hubungkan Supabase dulu (isi URL + key + login)');
   updateCloudDot();
   const res = await Cloud.syncNow();
@@ -4025,8 +3969,6 @@ async function handleCloudSyncNow() {  if (!Cloud.isCloudConfigured()) return UI
 }
 function handleCloudOff() {
   Cloud.clearCloudConfig();
-  const passEl = document.getElementById('cloudPass');
-  if (passEl) passEl.value = '';
   UI.showInfo('Sinkron online dimatikan — data lokal tetap utuh');
   refreshCloudLabel();
   updateCloudDot();

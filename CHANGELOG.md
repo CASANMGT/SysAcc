@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.22.4] - 2026-09-13
+
+### Changed — Sinkron Online kini satu tombol saja
+- Hapus field email/kata sandi, tombol **🔌 Hubungkan & Masuk**, dan **📝 Daftar akun baru** — cukup **👻 Masuk tanpa email** (primer) + **🔄 Sinkron sekarang** + **Putuskan**
+- Buang handler mati (`handleCloudConnect`, `handleCloudSignup`) + listener; teks status & README disesuaikan
+- 175/175 tests ✓
+
+---
+
 ## [1.22.3] - 2026-09-13
 
 ### Fixed — Masuk anonim memakai endpoint GoTrue yang benar

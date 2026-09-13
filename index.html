@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.22.3</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.22.4</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.22.3</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.22.4</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1597,13 +1597,7 @@
             <input type="password" id="cloudKey" placeholder="anon/public key" autocomplete="off" style="flex:2;min-width:160px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            <input type="email" id="cloudEmail" placeholder="email akun online" autocomplete="off" style="flex:1;min-width:140px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-            <input type="password" id="cloudPass" placeholder="kata sandi" style="flex:1;min-width:120px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            <button type="button" class="btn btn-ghost" id="cloudConnectBtn">🔌 Hubungkan &amp; Masuk</button>
-            <button type="button" class="btn btn-ghost" id="cloudAnonBtn">👻 Masuk tanpa email</button>
-            <button type="button" class="btn btn-ghost" id="cloudSignupBtn">📝 Daftar akun baru</button>
+            <button type="button" class="btn" id="cloudAnonBtn">👻 Masuk tanpa email</button>
             <button type="button" class="btn btn-ghost" id="cloudSyncBtn">🔄 Sinkron sekarang</button>
             <button type="button" class="btn btn-ghost" id="cloudOffBtn">Putuskan</button>
           </div>
@@ -1816,7 +1810,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.22.3';
+    window.__htmlVersion = '1.22.4';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
