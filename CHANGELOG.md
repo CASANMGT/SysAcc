@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.49.0] - 2026-09-13
+
+### Changed — F8: HP kecil (grafik & gambar)
+- `img` dibatasi `max-width:100%`; bulan grafik & legenda donut membungkus di ≤480px
+- Judul/sub kartu stok bisa patah kata (SKU panjang tak meluber)
+- +1 guard test; 253/253 tests ✓
+
+---
+
 ## [1.48.0] - 2026-09-13
 
 ### Changed — F9: kontras teks redup

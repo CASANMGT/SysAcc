@@ -3774,6 +3774,13 @@ body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
   .stock-card-actions .btn { flex: 1; }
 }
 
+/* Gambar & legenda grafik tidak meluber di HP */
+img { max-width: 100%; height: auto; }
+@media (max-width: 480px) {
+  .chart-months, .donut-legend { flex-wrap: wrap; }
+  .stock-card-sub, .stock-card-title { overflow-wrap: anywhere; }
+}
+
 /* Target sentuh nyaman (layar sentuh) */
 @media (pointer: coarse) {
   .modal-close, .tx-close, .topbar-burger, .topbar-icon-btn, .dash-panel-icon, .tx-search-toggle { min-width: 44px; min-height: 44px; }
