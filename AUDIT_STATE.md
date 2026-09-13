@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.28.0** · Production **v1.28.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.28.0, sw=wynara-v1-28-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.29.0** · Production **v1.29.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.29.0, sw=wynara-v1-29-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,8 +13,8 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ still requires every axis ≥85. Lowest: F4 71, F8 74, F9 75, F2 76
-— four axes below 85 (F3 81, F7 82). Keep working correctness; do not chase cosmetics.
+A+ still requires every axis ≥85. Lowest: F4 71, F9 75, F2 76
+— three axes below 85 (F3 81, F7 83, F8 81). Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -32,14 +32,14 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
 | F7 Cognitive load | 10 | 80 | **83** | 8.30 | Form Pinjaman disederhanakan + kontak **Karyawan** eksplisit (picker kasbon) |
-| F8 Mobile | 7 | 82 | **74** | 5.18 | 8 releases of mobile layout defects |
+| F8 Mobile | 7 | 82 | **81** | 5.67 | Audit mobile: hapus hide-kolom global (data hilang di HP), safe-area, drawer di atas nav, target sentuh, modal scroll |
 | F9 Accessibility | 7 | 68 | **75** | 5.25 | Label/dialog/focus/contrast/reduced-motion pass (WCAG audit). Sisa: caption/scope tabel, alt chart, hierarki heading |
-| **OVERALL** | | ~~90~~ | | **80.64** | F7 82→83 (link Karyawan); arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **81.13** | F8 74→81 (mobile); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 86×15 + 76×12 + 81×12 + 71×15 + 92×10 + 86×12 + 83×10 + 74×7 + 75×7
-= 1290 + 912 + 972 + 1065 + 920 + 1032 + 830 + 518 + 525 = **8064 / 100 = 80.64**. Baseline 59.7 → **+20.94**.
+Aritmetika (wajib tampil): 86×15 + 76×12 + 81×12 + 71×15 + 92×10 + 86×12 + 83×10 + 81×7 + 75×7
+= 1290 + 912 + 972 + 1065 + 920 + 1032 + 830 + 567 + 525 = **8113 / 100 = 81.13**. Baseline 59.7 → **+21.43**.
 
-Four of nine axes below 85. Stop condition not met on either clause.
+Three of nine axes below 85. Stop condition not met on either clause.
 
 ---
 
@@ -130,6 +130,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.27.0 (F3 — kasbon karyawan)**: pinjaman ke nama karyawan auto-link (`employeeId`) → potong otomatis dari gaji; baris "Potong kasbon bulan ini" (cicilan atau sisa, setelah pajak/BPJS, THP ≥ 0, bisa override); "Jeda potong bulan ini"; finalisasi → entri gaji THP berkurang + **Dr Beban Gaji / Cr Piutang** (bunga → Cr 4102), pelunasan source `payroll`, status Lunas; slip cetak & WA menampilkan. **→ F3 76→81.** +6 test. 205/205 ✓.
 
 - **v1.28.0 (F7 — tautkan kontak Karyawan)**: toggle kontak form Pinjaman **Orang / 👷 Karyawan / Perusahaan**; pilih Karyawan → picker karyawan (datalist + chip sisa kasbon) + validasi nama; simpan `contactType:"karyawan"` + `employeeId`; ikon 👷 di kartu/Kontak + Excel-CSV. **→ F7 82→83.** +2 test. 206/206 ✓.
+
+- **v1.29.0 (F8 — mobile)**: audit responsif → hapus aturan global `th/td:nth-child(3,4){display:none}` (menyembunyikan Debit/Kredit di HP = data hilang); tabel Saldo Awal scroll; drawer di atas bottom-nav (z 70/65); `viewport-fit=cover` + `text-size-adjust` + `overflow-x:clip`; padding topbar/konten ≤640; toast di atas nav; modal `max-height:90vh` + body scroll; `.dashboard-head` wrap; grid 2-kolom inline → 1 kolom ≤480; target sentuh `pointer:coarse` ≥44px. **→ F8 74→81.** +3 test statis (12 file). 209/209 ✓.
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
