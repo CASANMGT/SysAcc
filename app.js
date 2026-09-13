@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.22.0';
+const APP_VERSION = '1.22.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -786,6 +786,7 @@ function bindEvents() {
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
   document.getElementById('backupShareBtn')?.addEventListener('click', handleBackupShare);
   document.getElementById('cloudConnectBtn')?.addEventListener('click', handleCloudConnect);
+  document.getElementById('cloudSignupBtn')?.addEventListener('click', handleCloudSignup);
   document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
   document.getElementById('cloudOffBtn')?.addEventListener('click', handleCloudOff);
   document.getElementById('closingBtn')?.addEventListener('click', handleClosing);
@@ -3961,8 +3962,35 @@ async function handleCloudConnect() {
     updateCloudDot();
   }
 }
-async function handleCloudSyncNow() {
-  if (!Cloud.isCloudConfigured()) return UI.showError('Hubungkan Supabase dulu (isi URL + key + login)');
+async function handleCloudSignup() {
+  const url = document.getElementById('cloudUrl')?.value || '';
+  const key = document.getElementById('cloudKey')?.value || '';
+  const email = document.getElementById('cloudEmail')?.value || '';
+  const pass = document.getElementById('cloudPass')?.value || '';
+  try {
+    if (url || key) Cloud.saveCloudConfig(url, key);
+    if (!Cloud.isCloudConfigured()) return UI.showError('Isi URL + anon key Supabase dulu');
+    if (!email || !pass) return UI.showError('Isi email + kata sandi untuk akun baru');
+    const res = await Cloud.cloudSignUp(email, pass);
+    const passEl = document.getElementById('cloudPass');
+    if (passEl) passEl.value = '';
+    if (res && res.needConfirm) {
+      UI.showInfo('Akun dibuat — cek email untuk konfirmasi, lalu tekan Hubungkan & Masuk');
+    } else {
+      UI.showSuccess('Akun dibuat & masuk — sinkronisasi pertama mengunggah data HP ini');
+      const r = await Cloud.syncNow();
+      if (r && r.error) UI.showError(r.error);
+      refresh();
+    }
+    refreshCloudLabel();
+    updateCloudDot();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal mendaftar');
+    refreshCloudLabel();
+    updateCloudDot();
+  }
+}
+async function handleCloudSyncNow() {  if (!Cloud.isCloudConfigured()) return UI.showError('Hubungkan Supabase dulu (isi URL + key + login)');
   updateCloudDot();
   const res = await Cloud.syncNow();
   if (res && res.error) UI.showError(res.error);

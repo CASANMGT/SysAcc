@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.22.1] - 2026-09-11
+
+### Added — Tombol daftar akun Supabase
+- Pengaturan → Sinkron: **📝 Daftar akun baru** (sebelumnya hanya Masuk — akun pertama tak bisa dibuat dari aplikasi)
+- Alur konfirmasi email ditangani eksplisit (pesan "cek email" bila provider minta konfirmasi)
+
+---
+
 ## [1.22.0] - 2026-09-11
 
 ### Added — Sinkron Online Supabase, local-first (B1 groundwork)
