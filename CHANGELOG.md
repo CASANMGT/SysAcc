@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.58.0] - 2026-09-14
+
+### Changed — Form stok jadi wizard 3 langkah & aksi massal diperluas
+- Form tambah/edit barang kini **wizard 3 langkah** (1 Info produk → 2 Harga → 3 Stok & varian) dengan tombol **Lanjut/Kembali/Simpan**; kurangi kebingungan input
+- Ukuran/warna **tunggal** dipindah ke langkah 3; bila mode **varian (matriks)** aktif, field harga/stok/ukuran-tunggal pusat disembunyikan otomatis
+- **✎ Edit massal** (bar aksi massal): ubah **Kategori**, **Satuan**, dan **penyesuaian harga & modal (%)** sekaligus untuk banyak produk
+- **🗑 Hapus massal**: menghapus produk terpilih; produk yang sudah dipakai transaksi/pembelian otomatis **dilewati** (aman)
+- +3 fungsi storage (`setItemsUnit`, `setItemsPricePct`, `deleteItemsBulk`); 266/266 tests ✓
+
+---
+
 ## [1.57.0] - 2026-09-13
 
 ### Added — Fase 3: retur penjualan (parsial)

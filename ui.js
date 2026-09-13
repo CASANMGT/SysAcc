@@ -3337,6 +3337,7 @@ export function openStock() {
   const m = document.getElementById('stockModal');
   if (m && !m.open) { try { m.showModal(); } catch {} }
   if (m) trapFocus(m);
+  setStockStep(1);
   renderVariantGrid();
   updateStockProfit();
 }
@@ -3503,8 +3504,8 @@ export function renderVariantGrid() {
   const box = document.getElementById('variantGrid');
   if (!box) return;
   const { S, C, active } = variantCombos();
-  // Sembunyikan harga/stok pusat saat pakai varian
-  ['stockPrice', 'stockCost', 'stockQty'].forEach(id => {
+  // Sembunyikan harga/stok/ukuran-tunggal pusat saat pakai varian
+  ['stockPrice', 'stockCost', 'stockQty', 'stockSize', 'stockColor'].forEach(id => {
     const l = document.getElementById(id)?.closest('label');
     if (l) l.style.display = active ? 'none' : '';
   });
@@ -3538,6 +3539,19 @@ function bindVariantRupiah() {
     bindRupiah(el);
   });
 }
+let stockWizardStep = 1;
+export function setStockStep(n) {
+  stockWizardStep = Math.min(Math.max(Number(n) || 1, 1), 3);
+  document.querySelectorAll('#stockForm .stock-step').forEach(s => { s.hidden = Number(s.dataset.step) !== stockWizardStep; });
+  const back = document.getElementById('stockStepBack'); if (back) back.hidden = stockWizardStep === 1;
+  const next = document.getElementById('stockStepNext'); if (next) next.hidden = stockWizardStep === 3;
+  const save = document.getElementById('stockStepSave'); if (save) save.hidden = stockWizardStep !== 3;
+  const note = document.getElementById('stockVariantPriceNote');
+  if (note) note.hidden = !(stockWizardStep === 2 && variantCombos().active);
+  if (stockWizardStep === 3) renderVariantGrid();
+  if (stockWizardStep === 2) updateStockProfit();
+}
+export function getStockStep() { return stockWizardStep; }
 export function updateVariantTotal() {
   const el = document.getElementById('variantTotal');
   if (!el) return;
@@ -3606,6 +3620,7 @@ export function updateStockProfit() {
 export function resetStockForm() {
   document.getElementById('stockForm')?.reset();
   document.getElementById('stockFormId').value = '';
+  setStockStep(1);
   renderVariantGrid();
   updateStockProfit();
 }
@@ -3614,6 +3629,14 @@ export function bindStock(onSave, onEdit, onDelete, onHistory) {
   document.getElementById('stockModal')?.addEventListener('click', (e) => { if (e.target.id === 'stockModal') closeStock(); });
   document.getElementById('stockForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSave(); });
   document.getElementById('stockFormReset')?.addEventListener('click', resetStockForm);
+  document.getElementById('stockStepNext')?.addEventListener('click', () => {
+    if (stockWizardStep === 1) {
+      const nm = document.getElementById('stockName')?.value.trim();
+      if (!nm) { showError('Nama barang wajib diisi'); return; }
+    }
+    setStockStep(stockWizardStep + 1);
+  });
+  document.getElementById('stockStepBack')?.addEventListener('click', () => setStockStep(stockWizardStep - 1));
   ['stockPrice', 'stockCost'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updateStockProfit);

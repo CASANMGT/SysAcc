@@ -3803,6 +3803,8 @@ img { max-width: 100%; height: auto; }
 .stock-chip-label { font-weight: 600; color: #334155; }
 .stock-chip-stock { font-variant-numeric: tabular-nums; color: #0f172a; font-weight: 700; }
 .stock-chip-stock.low { color: #b45309; }
+.stock-step-title { font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px; }
+.stock-step-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
 
 /* ===== Mode kasir: sembunyikan akses pemilik ===== */
 #appRoot[data-role="kasir"] #reportBtnSidebar,

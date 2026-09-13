@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.57.0';
+const APP_VERSION = '1.58.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1009,6 +1009,11 @@ function bindEvents() {
     queueMirror();
   });
   document.getElementById('bulkExport')?.addEventListener('click', bulkExportCsv);
+  document.getElementById('bulkStockEditBtn')?.addEventListener('click', handleBulkEditOpen);
+  document.getElementById('bulkStockDeleteBtn')?.addEventListener('click', handleStockBulkDelete);
+  document.getElementById('bulkEditClose')?.addEventListener('click', closeBulkEdit);
+  document.getElementById('bulkEditCancel')?.addEventListener('click', closeBulkEdit);
+  document.getElementById('bulkEditSave')?.addEventListener('click', handleBulkEditSubmit);
   document.getElementById('bulkCancel')?.addEventListener('click', () => {
     document.querySelectorAll('#stockPageList .stock-row-check').forEach(c => { c.checked = false; });
     renderBulkBar();
@@ -3196,6 +3201,42 @@ function bulkSetActive(active) {
     refreshStock();
     queueMirror();
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal'); }
+}
+function handleBulkEditOpen() {
+  const ids = selectedStockIds();
+  if (!ids.length) return;
+  const info = document.getElementById('bulkEditInfo');
+  if (info) info.textContent = `${ids.length} produk dipilih`;
+  ['bulkEditCategory', 'bulkEditUnit', 'bulkEditPct'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const m = document.getElementById('bulkEditModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function closeBulkEdit() { const m = document.getElementById('bulkEditModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function handleBulkEditSubmit() {
+  const ids = selectedStockIds();
+  if (!ids.length) return closeBulkEdit();
+  const cat = document.getElementById('bulkEditCategory')?.value.trim();
+  const unit = document.getElementById('bulkEditUnit')?.value.trim();
+  const pct = document.getElementById('bulkEditPct')?.value;
+  try {
+    let n = 0;
+    if (cat) { Storage.setItemsCategory(ids, cat); n++; }
+    if (unit) { Storage.setItemsUnit(ids, unit); n++; }
+    if (String(pct || '').trim() !== '' && Number(pct) !== 0) { Storage.setItemsPricePct(ids, Number(pct)); n++; }
+    if (!n) return UI.showError('Isi minimal satu perubahan');
+    UI.showSuccess(`${ids.length} produk diperbarui`);
+    closeBulkEdit(); refreshStock(); queueMirror();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal edit massal'); }
+}
+function handleStockBulkDelete() {
+  const ids = selectedStockIds();
+  if (!ids.length) return;
+  if (!confirm(`Hapus ${ids.length} produk terpilih? Barang yang sudah dipakai transaksi/pembelian akan dilewati.`)) return;
+  try {
+    const r = Storage.deleteItemsBulk(ids);
+    UI.showSuccess(`${r.deleted} dihapus${r.skipped ? `, ${r.skipped} dilewati (sudah dipakai)` : ''}`);
+    refreshStock(); queueMirror();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menghapus'); }
 }
 function bulkExportCsv() {
   const ids = selectedStockIds();

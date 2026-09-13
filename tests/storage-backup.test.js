@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -236,6 +236,31 @@ describe('aksi massal & restock (F1)', () => {
     expect(getReorderList('main').map(r => r.item.id)).not.toContain(a.id);
     setItemsCategory([b.id], 'Minuman');
     expect(getItemById(b.id).category).toBe('Minuman');
+  });
+  it('setItemsUnit & setItemsPricePct mengubah satuan dan harga/modal', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const a = saveItem({ name: 'Kaos', price: 100000, cost: 60000, stock: 1 });
+    setItemsUnit([a.id], 'box');
+    setItemsPricePct([a.id], 10);
+    const u = getItemById(a.id);
+    expect(u.unit).toBe('box');
+    expect(u.price).toBe(110000);
+    expect(u.cost).toBe(66000);
+    setItemsPricePct([a.id], -50);
+    expect(getItemById(a.id).price).toBe(55000);
+  });
+  it('deleteItemsBulk menghapus yang tidak dipakai, melewati yang sudah dipakai', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const free = saveItem({ name: 'Free', price: 1000, cost: 500, stock: 1 });
+    const used = saveItem({ name: 'Used', price: 2000, cost: 1000, stock: 5 });
+    createEntry({ date: '2026-08-01', type: 'income', category: 'jualan', amount: 2000, sale: { lines: [{ itemId: used.id, qty: 1, price: 2000 }] } });
+    const r = deleteItemsBulk([free.id, used.id]);
+    expect(r.deleted).toBe(1);
+    expect(r.skipped).toBe(1);
+    expect(getItemById(free.id)).toBeFalsy();
+    expect(getItemById(used.id)).toBeTruthy();
   });
 });
 

@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.57.0** · Production **v1.57.0 VERIFIED 2026-09-13** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE**.
+Repo **v1.58.0** · Production **v1.58.0** di `https://wynara-acc.vercel.app`. Backend Supabase **LIVE**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,7 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 88.60 still <95. Lowest: F8/F9 85.
+A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 88.82 still <95. Lowest: F8/F9 85.
 ```
 
 ---
@@ -29,14 +29,14 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
 | F4 Data durability | 15 | 52 | **86** | 12.90 | Supabase + RLS + tautkan email + uji backup + peran + uji koneksi + **Kesehatan Data (integritas)** |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
-| F6 Task efficiency | 12 | 86 | **93** | 11.16 | Tabel sortable + aksi massal + laporan restock + POS + dokumen stok |
-| F7 Cognitive load | 10 | 80 | **87** | 8.70 | Harga/modal per ukuran + warna premium; stok per varian; import marketplace/WA |
+| F6 Task efficiency | 12 | 86 | **94** | 11.28 | Tabel sortable + aksi massal + edit/hapus massal + laporan restock + POS + dokumen stok |
+| F7 Cognitive load | 10 | 80 | **88** | 8.80 | Wizard 3 langkah (info→harga→stok/varian); harga/modal per ukuran; stok per varian; import marketplace/WA |
 | F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
 | F9 Accessibility | 7 | 68 | **85** | 5.95 | Scope/caption/alt/hierarki + aria-current + prefers-contrast + kontras teks redup (var) |
-| **OVERALL** | | ~~90~~ | | **88.60** | v1.57 retur penjualan; arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **88.82** | v1.58 wizard stok + edit/hapus massal; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 94×15 + 86×12 + 86×12 + 86×15 + 92×10 + 93×12 + 87×10 + 85×7 + 85×7
-= 1410 + 1032 + 1032 + 1290 + 920 + 1116 + 870 + 595 + 595 = **8860 / 100 = 88.60**. Baseline 59.7 → **+28.90**.
+Aritmetika (wajib tampil): 94×15 + 86×12 + 86×12 + 86×15 + 92×10 + 94×12 + 88×10 + 85×7 + 85×7
+= 1410 + 1032 + 1032 + 1290 + 920 + 1128 + 880 + 595 + 595 = **8882 / 100 = 88.82**. Baseline 59.7 → **+29.12**.
 
 All nine axes ≥85 (F8/F9 85, F2/F3/F4 86, F7 87, F5 92, F6 93, F1 94). A+ needs overall ≥95.
 

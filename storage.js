@@ -2804,6 +2804,52 @@ export function setItemsCategory(ids, category) {
   logAudit('update', 'item-bulk', '', null, { category: cat, count: set.size });
   return set.size;
 }
+export function setItemsUnit(ids, unit) {
+  requireCap('ledger');
+  const set = new Set(ids || []);
+  if (!set.size) return 0;
+  const u = String(unit || '').slice(0, 12);
+  const items = getItems().map(i => set.has(i.id) ? { ...i, unit: u, updatedAt: new Date().toISOString() } : i);
+  localStorage.setItem(ITEM_KEY, JSON.stringify(items));
+  logAudit('update', 'item-bulk', '', null, { unit: u, count: set.size });
+  return set.size;
+}
+export function setItemsPricePct(ids, pct) {
+  requireCap('ledger');
+  const set = new Set(ids || []);
+  if (!set.size) return 0;
+  const p = Number(pct) || 0;
+  const f = 1 + p / 100;
+  const items = getItems().map(i => set.has(i.id) ? {
+    ...i,
+    price: Math.max(Math.round((Number(i.price) || 0) * f), 0),
+    cost: Math.max(Math.round((Number(i.cost) || 0) * f), 0),
+    updatedAt: new Date().toISOString(),
+  } : i);
+  localStorage.setItem(ITEM_KEY, JSON.stringify(items));
+  logAudit('update', 'item-bulk', '', null, { pricePct: p, count: set.size });
+  return set.size;
+}
+// Hapus massal: lewati barang yang sudah dipakai pembelian/penjualan.
+export function deleteItemsBulk(ids) {
+  requireCap('ledger');
+  const set = new Set(ids || []);
+  let deleted = 0, skipped = 0;
+  if (!set.size) return { deleted, skipped };
+  const purchases = getPurchases();
+  const entries = getEntries();
+  const kept = [];
+  getItems().forEach(it => {
+    if (!set.has(it.id)) { kept.push(it); return; }
+    const usedByPurchase = purchases.some(p => (p.lines || []).some(l => l && l.itemId === it.id));
+    const usedByEntry = entries.some(e => e.itemId === it.id || (e.sale && Array.isArray(e.sale.lines) && e.sale.lines.some(l => l && l.itemId === it.id)));
+    if (usedByPurchase || usedByEntry) { skipped++; kept.push(it); }
+    else deleted++;
+  });
+  localStorage.setItem(ITEM_KEY, JSON.stringify(kept));
+  logAudit('delete', 'item-bulk', '', null, { deleted, skipped });
+  return { deleted, skipped };
+}
 export function getReorderList(shopId) {
   const sid = shopId || getActiveShopId();
   const out = [];
