@@ -3329,6 +3329,7 @@ export function renderStock(items) {
       <span style="font-size:18px">${isLow ? '⚠️' : '📦'}</span>
       <span style="flex:1;min-width:0"><b>${escapeHtml(i.name)}</b>${i.sku ? ` <small style="color:#94a3b8">${escapeHtml(i.sku)}</small>` : ''}<br>
       <small style="color:#64748b">Stok ${i.stock} • Jual ${fmt(i.price)} • Modal ${fmt(i.cost)} • Nilai ${fmt(i.stock * i.cost)}</small></span>
+      <button class="btn btn-ghost stock-hist" data-id="${i.id}" aria-label="Kartu stok ${escapeHtml(i.name)}" title="Kartu stok (riwayat mutasi)" style="font-size:11px;padding:2px 8px">📜</button>
       <button class="btn btn-ghost stock-edit" data-id="${i.id}" aria-label="Edit ${escapeHtml(i.name)}" title="Edit" style="font-size:11px;padding:2px 8px">✎</button>
       <button class="btn btn-ghost stock-del" data-id="${i.id}" aria-label="Hapus ${escapeHtml(i.name)}" title="Hapus" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
     </div>`;
@@ -3377,7 +3378,7 @@ export function resetStockForm() {
   document.getElementById('stockFormId').value = '';
   updateStockProfit();
 }
-export function bindStock(onSave, onEdit, onDelete) {
+export function bindStock(onSave, onEdit, onDelete, onHistory) {
   document.getElementById('closeStockBtn')?.addEventListener('click', closeStock);
   document.getElementById('stockModal')?.addEventListener('click', (e) => { if (e.target.id === 'stockModal') closeStock(); });
   document.getElementById('stockForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSave(); });
@@ -3393,6 +3394,8 @@ export function bindStock(onSave, onEdit, onDelete) {
   document.getElementById('stockList')?.addEventListener('click', (e) => {
     const ed = e.target.closest('.stock-edit');
     const del = e.target.closest('.stock-del');
+    const hs = e.target.closest('.stock-hist');
+    if (hs && onHistory) { onHistory(hs.dataset.id); return; }
     if (ed) onEdit(ed.dataset.id);
     if (del) onDelete(del.dataset.id);
   });

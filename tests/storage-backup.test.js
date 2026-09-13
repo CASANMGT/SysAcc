@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, deleteItem, getStockMoves, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -254,6 +254,27 @@ describe('cuti & UMP (storage)', () => {
     expect(getUmp().amount).toBe(0);
     saveUmp('3.500.000');
     expect(getUmp().amount).toBe(3500000);
+  });
+});
+
+describe('stok & penjualan (regresi #1 — sale.lines)', () => {
+  it('penjualan via sale.lines MENGURANGI stok + tercatat di kartu stok; hapus → stok balik', () => {
+    const it = saveItem({ name: 'Kopi', stock: 10, cost: 10000, price: 15000 });
+    const e = createEntry({ date: '2026-08-01', type: 'income', category: 'jualan', amount: 50000, sale: { lines: [{ itemId: it.id, qty: 2, price: 25000 }] } });
+    expect(getItemById(it.id).stock).toBe(8);
+    expect(getStockMoves(it.id).some(m => m.qtyOut === 2)).toBe(true);
+    deleteEntry(e.id);
+    expect(getItemById(it.id).stock).toBe(10);
+  });
+  it('hapus barang yang sudah dipakai transaksi ditolak', () => {
+    const it = saveItem({ name: 'Teh', stock: 5, cost: 5000, price: 8000 });
+    createEntry({ date: '2026-08-01', type: 'income', category: 'jualan', amount: 8000, sale: { lines: [{ itemId: it.id, qty: 1, price: 8000 }] } });
+    expect(() => deleteItem(it.id)).toThrow(/sudah dipakai/);
+  });
+  it('pembelian di bulan terkunci ditolak di lapisan storage', () => {
+    const it = saveItem({ name: 'Gula', stock: 0, cost: 12000, price: 15000 });
+    lockMonth('2026-08');
+    expect(() => createPurchase({ supplier: 'PT S', date: '2026-08-05', lines: [{ itemId: it.id, qty: 1, unitCost: 12000 }] })).toThrow(/terkunci/);
   });
 });
 

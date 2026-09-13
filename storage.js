@@ -80,8 +80,10 @@ export function createEntry(entry) {
   if (entry.contactType) newEntry.contactType = entry.contactType;
   entries.push(newEntry);
   saveEntries(entries);
-  // Stok: jual kurangi, beli tambah (gagal → rollback entry)
-  if (newEntry.itemId && newEntry.qty > 0 && !newEntry.loanId) {
+  // Stok: jual kurangi (item tunggal ATAU baris penjualan), beli tambah.
+  // Gagal → rollback entry (jangan tinggalkan stok/jurnal setengah jalan).
+  const hasSaleLines = !!(newEntry.sale && Array.isArray(newEntry.sale.lines) && newEntry.sale.lines.some(l => l && l.itemId && l.qty > 0));
+  if (!newEntry.loanId && ((newEntry.itemId && newEntry.qty > 0) || hasSaleLines)) {
     try {
       applyStockMoveForEntry(newEntry);
     } catch (err) {
@@ -142,17 +144,16 @@ function journalOptsFor(entry) {
 
 function applyStockMoveForEntry(entry) {
   stockMovesFor(entry).forEach(m => {
-    if (m.dir === 'out') applyStockMove(m.itemId, { qtyOut: m.qty });
-    else applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: m.unitCost || 0 });
+    if (m.dir === 'out') applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id });
+    else applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: m.unitCost || 0, ref: entry.id });
   });
 }
 
 function reverseStockMoveForEntry(entry) {
+  // JANGAN telan error: kegagalan balik stok harus terlihat (cek stok kurang).
   stockMovesFor(entry).forEach(m => {
-    try {
-      if (m.dir === 'out') applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: 0, keepCost: true });
-      else applyStockMove(m.itemId, { qtyOut: m.qty });
-    } catch {}
+    if (m.dir === 'out') applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: 0, keepCost: true, ref: entry.id, note: 'reversal' });
+    else applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id, note: 'reversal' });
   });
 }
 
@@ -173,9 +174,18 @@ export function updateEntry(id, updates) {
   entries[index] = { ...entries[index], ...safe };
   saveEntries(entries);
   if (!entries[index].loanId) {
-    if (before.itemId || entries[index].itemId) {
-      reverseStockMoveForEntry(before);
-      try { applyStockMoveForEntry(entries[index]); } catch (err) {
+    if (before.itemId || entries[index].itemId || (before.sale && before.sale.lines) || (entries[index].sale && entries[index].sale.lines)) {
+      try {
+        reverseStockMoveForEntry(before);
+      } catch (err) {
+        // Gagal membalik stok lama → batalkan edit, jangan rusak data
+        entries[index] = before;
+        saveEntries(entries);
+        throw err;
+      }
+      try {
+        applyStockMoveForEntry(entries[index]);
+      } catch (err) {
         // Gagal terapkan baru → kembalikan lama (best-effort)
         try { applyStockMoveForEntry(before); } catch {}
         entries[index] = before;
@@ -197,15 +207,15 @@ export function deleteEntry(id) {
   requireOwner();
   const entries = getEntries();
   const target = entries.find(e => e.id === id);
-  const filtered = entries.filter(e => e.id !== id);
-  saveEntries(filtered);
-  const removed = filtered.length !== entries.length;
-  if (removed && target && !target.loanId) {
-    reverseStockMoveForEntry(target);
+  if (!target) return false;
+  // Balik stok DULU — bila gagal, batalkan (jangan hapus tanpa restore).
+  if (!target.loanId) reverseStockMoveForEntry(target);
+  saveEntries(entries.filter(e => e.id !== id));
+  if (!target.loanId) {
     deleteJournalsByRef('entry', id);
     logAudit('delete', 'entry', id, { amount: target.amount, category: target.category, date: target.date }, null);
   }
-  return removed;
+  return true;
 }
 
 // Masukkan kembali entry persis (untuk Urungkan hapus). Return true jika masuk.
@@ -1831,12 +1841,18 @@ export function saveItem(item) {
 }
 
 export function deleteItem(id) {
+  requireOwner();
+  // Jangan hapus barang yang sudah dipakai pembelian/penjualan (bikin data menggantung).
+  const usedByPurchase = getPurchases().some(p => (p.lines || []).some(l => l && l.itemId === id));
+  if (usedByPurchase) throw new Error('Barang dipakai di pembelian — tidak bisa dihapus. Kosongkan stoknya saja bila sudah tidak dijual.');
+  const usedByEntry = getEntries().some(e => e.itemId === id || (e.sale && Array.isArray(e.sale.lines) && e.sale.lines.some(l => l && l.itemId === id)));
+  if (usedByEntry) throw new Error('Barang sudah dipakai transaksi — tidak bisa dihapus (riwayat penjualan tetap utuh).');
   localStorage.setItem(ITEM_KEY, JSON.stringify(getItems().filter(i => i.id !== id)));
 }
 
 // Stok + rata-rata tertimbang. qtyOut untuk jual (cek stok), qtyIn untuk beli.
 // keepCost: tambah stok tanpa ubah rata-rata (untuk reversal).
-export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, keepCost = false } = {}) {
+export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, keepCost = false, ref = '', note = '' } = {}) {
   const list = getItems();
   const idx = list.findIndex(i => i.id === itemId);
   if (idx === -1) throw new Error('Barang tidak ditemukan');
@@ -1855,7 +1871,31 @@ export function applyStockMove(itemId, { qtyIn = 0, qtyOut = 0, unitCost = 0, ke
   it.updatedAt = new Date().toISOString();
   list[idx] = it;
   localStorage.setItem(ITEM_KEY, JSON.stringify(list));
+  if (qi > 0 || qo > 0) {
+    try { recordStockMove({ itemId, qtyIn: qi, qtyOut: qo, unitCost: Math.max(Number(unitCost) || 0, 0), balance: it.stock, ref, note }); } catch {}
+  }
   return it;
+}
+
+// ===== Kartu stok (riwayat mutasi per barang) =====
+const MOVE_KEY = 'wynara_stock_moves';
+function recordStockMove(m) {
+  let list = [];
+  try { const v = JSON.parse(localStorage.getItem(MOVE_KEY) || '[]'); list = Array.isArray(v) ? v : []; } catch {}
+  list.unshift({
+    id: generateId(), ts: new Date().toISOString(),
+    itemId: m.itemId, qtyIn: m.qtyIn || 0, qtyOut: m.qtyOut || 0,
+    unitCost: m.unitCost || 0, balance: m.balance || 0, ref: String(m.ref || ''), note: String(m.note || ''),
+  });
+  if (list.length > 2000) list = list.slice(0, 2000);
+  localStorage.setItem(MOVE_KEY, JSON.stringify(list));
+}
+export function getStockMoves(itemId) {
+  try {
+    const v = JSON.parse(localStorage.getItem(MOVE_KEY) || '[]');
+    const list = Array.isArray(v) ? v : [];
+    return (itemId ? list.filter(m => m.itemId === itemId) : list);
+  } catch { return []; }
 }
 
 // ===== Karyawan =====
@@ -2060,6 +2100,7 @@ function sanitizePurchaseLine(l) {
 
 export function createPurchase({ supplier, date, dueDate, lines, note }) {
   requireOwner();
+  assertUnlocked(String(date || '').slice(0, 10));
   const cleanLines = (Array.isArray(lines) ? lines : []).map(sanitizePurchaseLine).filter(Boolean);
   if (!cleanLines.length) throw new Error('Isi dulu barang + qty + harga modal');
   if (!isValidDateStr(String(date || '').slice(0, 10))) throw new Error('Tanggal tidak valid');
@@ -2082,7 +2123,7 @@ export function createPurchase({ supplier, date, dueDate, lines, note }) {
   const applied = [];
   try {
     cleanLines.forEach(l => {
-      applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost });
+      applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost, ref: rec.id });
       applied.push(l);
     });
   } catch (err) {
@@ -2103,6 +2144,7 @@ export function createPurchase({ supplier, date, dueDate, lines, note }) {
 
 export function addPurchasePayment(purchaseId, { amount, date, payment, paymentDetail, note, withhold: whRaw }) {
   requireOwner();
+  assertUnlocked(String(date || '').slice(0, 10));
   const list = getPurchases();
   const idx = list.findIndex(p => p.id === purchaseId);
   if (idx === -1) throw new Error('Pembelian tidak ditemukan');
@@ -2144,9 +2186,10 @@ export function deletePurchase(id) {
   const list = getPurchases();
   const p = list.find(x => x.id === id);
   if (!p) return false;
+  assertUnlocked(p.date);
   if ((p.payments || []).length) throw new Error('Sudah ada pembayaran — hapus pembayaran dulu via riwayat? (belum didukung, hubungi admin data)');
   // Kembalikan stok (gagal bila sudah terjual → tolak hapus)
-  p.lines.forEach(l => applyStockMove(l.itemId, { qtyOut: l.qty }));
+  p.lines.forEach(l => applyStockMove(l.itemId, { qtyOut: l.qty, ref: id, note: 'hapus beli' }));
   savePurchases(list.filter(x => x.id !== id));
   deleteJournalsByRef('purchase', id);
   deleteJournalsByRef('purchase-pay', id);

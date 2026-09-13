@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.35.0] - 2026-09-13
+
+### Fixed — Stok & penjualan (audit menemukan bug kritis)
+- **KRITIS**: penjualan lewat modal **Jual** tidak pernah mengurangi stok (tapi tetap posting HPP) → oversell bebas + stok/jurnal tak sinkron. Kini `sale.lines` ikut mengurangi stok (rollback bila stok kurang)
+- Hapus penjualan tak lagi membuat stok "hantu"; pembalikan stok DULU baru hapus (gagal → batal)
+- Edit transaksi tidak lagi menelan kegagalan balik stok diam-diam
+- Hapus barang yang sudah dipakai pembelian/penjualan **ditolak** (cegah data menggantung) + sekat peran
+- Pembelian & pembayaran supplier kini menegakkan **kunci periode** di lapisan storage
+- **Baru — 📜 Kartu stok**: riwayat mutasi per barang (masuk/keluar/sisa/modal per unit), diakses dari tombol di daftar stok
+- +3 test; 228/228 tests ✓
+
+---
+
 ## [1.34.0] - 2026-09-13
 
 ### Added — Iter 20: lembur, cuti, ganti-cuti & validasi UMP

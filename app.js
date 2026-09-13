@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.34.0';
+const APP_VERSION = '1.35.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -687,7 +687,7 @@ function bindEvents() {
   document.getElementById('payrollBtnSidebar')?.addEventListener('click', () => showView('viewPayroll'));
   document.getElementById('kasOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
   document.getElementById('bankOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
-  UI.bindStock(handleStockSave, handleStockEdit, handleStockDelete);
+  UI.bindStock(handleStockSave, handleStockEdit, handleStockDelete, handleStockHistory);
   document.getElementById('secSaveBtn')?.addEventListener('click', async () => {
     const oldP = document.getElementById('secOld')?.value || '';
     const p1 = document.getElementById('secNew')?.value || '';
@@ -2956,15 +2956,33 @@ function handleStockEdit(id) {
   const it = Storage.getItemById(id);
   if (it) UI.fillStockForm(it);
 }
+function handleStockHistory(id) {
+  const it = Storage.getItemById(id);
+  if (!it) return;
+  const moves = Storage.getStockMoves(id);
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const dt = (s) => { try { return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
+  const body = moves.length
+    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">${escapeHtml(it.name)} — stok kini <b>${it.stock}</b> • modal rata-rata ${fmt(it.cost)}</div>
+       <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Waktu</th><th>Masuk</th><th>Keluar</th><th>Sisa</th><th>Modal/unit</th></tr></thead><tbody>
+       ${moves.slice(0, 100).map(m => `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? '−' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td><td class="amount-col">${fmt(m.unitCost)}</td></tr>`).join('')}
+       </tbody></table></div>`
+    : '<p style="color:#64748b">Belum ada mutasi tercatat untuk barang ini.</p>';
+  UI.openInfoModal(`📜 Kartu stok — ${it.name}`, body);
+}
 function handleStockDelete(id) {
   const it = Storage.getItemById(id);
   if (!it) return;
   if (!confirm(`Hapus barang “${it.name}”? (transaksi lama tidak ikut terhapus)`)) return;
-  Storage.deleteItem(id);
-  Storage.logAudit('delete', 'item', id, { name: it.name }, null);
-  UI.showSuccess('Barang dihapus');
-  refreshStock();
-  queueMirror();
+  try {
+    Storage.deleteItem(id);
+    Storage.logAudit('delete', 'item', id, { name: it.name }, null);
+    UI.showSuccess('Barang dihapus');
+    refreshStock();
+    queueMirror();
+  } catch (err) {
+    UI.showError(err && err.message ? err.message : 'Gagal menghapus barang');
+  }
 }
 
 /* ===== Beli supplier ===== */
