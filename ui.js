@@ -3334,14 +3334,27 @@ export function bindContactsSearch(handler) {
 /* ===== Stok ===== */
 let stockSearchTerm = '';
 export function openStock() {
-  const m = document.getElementById('stockModal');
-  if (m && !m.open) { try { m.showModal(); } catch {} }
-  if (m) trapFocus(m);
+  const panel = document.getElementById('stockFormPanel');
+  if (panel) panel.hidden = false;
+  const id = document.getElementById('stockFormId')?.value;
+  const title = document.getElementById('stockFormTitle');
+  if (title) title.textContent = id ? '✎ Edit produk' : '＋ Tambah produk';
+  if (panel && typeof panel.scrollIntoView === 'function') { try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {} }
   setStockStep(1);
   renderVariantGrid();
   updateStockProfit();
+  setTimeout(() => document.getElementById('stockName')?.focus(), 40);
 }
 export function closeStock() {
+  const panel = document.getElementById('stockFormPanel');
+  if (panel) panel.hidden = true;
+}
+export function openSupplier() {
+  const m = document.getElementById('stockModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+  if (m) trapFocus(m);
+}
+export function closeSupplier() {
   const m = document.getElementById('stockModal');
   if (!m) return;
   releaseFocus(m);
@@ -3625,10 +3638,11 @@ export function resetStockForm() {
   updateStockProfit();
 }
 export function bindStock(onSave, onEdit, onDelete, onHistory) {
-  document.getElementById('closeStockBtn')?.addEventListener('click', closeStock);
-  document.getElementById('stockModal')?.addEventListener('click', (e) => { if (e.target.id === 'stockModal') closeStock(); });
+  document.getElementById('closeStockBtn')?.addEventListener('click', closeSupplier);
+  document.getElementById('stockModal')?.addEventListener('click', (e) => { if (e.target.id === 'stockModal') closeSupplier(); });
+  document.getElementById('stockFormCollapse')?.addEventListener('click', closeStock);
   document.getElementById('stockForm')?.addEventListener('submit', (e) => { e.preventDefault(); onSave(); });
-  document.getElementById('stockFormReset')?.addEventListener('click', resetStockForm);
+  document.getElementById('stockFormReset')?.addEventListener('click', () => { resetStockForm(); closeStock(); });
   document.getElementById('stockStepNext')?.addEventListener('click', () => {
     if (stockWizardStep === 1) {
       const nm = document.getElementById('stockName')?.value.trim();

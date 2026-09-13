@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.58.0';
+const APP_VERSION = '1.59.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -953,6 +953,7 @@ function bindEvents() {
   document.getElementById('importMapWrap')?.addEventListener('change', () => { if (importMode === 'products') renderProductsPreview(); else renderSalesPreview(); });
   document.getElementById('importText')?.addEventListener('input', () => { if (importMode === 'wa') renderWaPreview(); });
   document.getElementById('stockAddBtn')?.addEventListener('click', () => { UI.resetStockForm(); UI.openStock(); });
+  document.getElementById('supplierOpenBtn')?.addEventListener('click', () => UI.openSupplier());
   document.getElementById('stockImportPageBtn')?.addEventListener('click', () => openImport('products'));
   document.getElementById('stockPageSearch')?.addEventListener('input', refreshStockPage);
   document.getElementById('shopSelect')?.addEventListener('change', (e) => {
@@ -3383,6 +3384,7 @@ function handleStockSave() {
       Storage.logAudit('create', 'item', '', null, { variants: created, base: d.name });
       UI.showSuccess(`${created} varian “${d.name}” dibuat — total stok ${totalStock}.`);
       UI.resetStockForm();
+      UI.closeStock();
       refreshStock();
       queueMirror();
       return;
@@ -3406,6 +3408,7 @@ function handleStockSave() {
     Storage.logAudit(d.id ? 'update' : 'create', 'item', saved.id, prev ? { stock: prev.stock } : null, { stock: saved.stock });
     UI.showSuccess(`Barang “${saved.name}” disimpan`);
     UI.resetStockForm();
+    UI.closeStock();
     refreshStock();
     queueMirror();
   } catch (err) {
@@ -3414,7 +3417,7 @@ function handleStockSave() {
 }
 function handleStockEdit(id) {
   const it = Storage.getItemById(id);
-  if (it) UI.fillStockForm(it);
+  if (it) { UI.fillStockForm(it); UI.openStock(); }
 }
 function handleStockHistory(id) {
   const it = Storage.getItemById(id);

@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.59.0] - 2026-09-14
+
+### Changed — Form tambah/edit produk pindah ke halaman (bukan modal)
+- Form produk kini **panel inline di halaman Stok** (`#stockFormPanel`), dibuka via **＋ Tambah produk** / tombol **✎** baris; **✕** atau **Batal** menutupnya
+- Tidak ada lagi modal untuk menambah produk — bisa sambil lihat **tabel/kartu**, filter, dan aksi massal tanpa berpindah konteks
+- Modal lama jadi **🧾 Hutang ke Supplier** saja (tombol **Supplier** di header halaman); legacy search/list dihapus
+- +1 test regresi (form ada di `#viewStock`, tidak di modal); 267/267 tests ✓
+
+---
+
 ## [1.58.0] - 2026-09-14
 
 ### Changed — Form stok jadi wizard 3 langkah & aksi massal diperluas

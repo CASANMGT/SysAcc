@@ -105,7 +105,7 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(document.getElementById('txAmountLabel')).toBeTruthy();
   });
   it('input pencarian & filter tanpa label markup diberi nama otomatis', () => {
-    ['transaksiSearch', 'empSearch', 'loanSearch', 'stockSearch', 'contactSearch',
+    ['transaksiSearch', 'empSearch', 'loanSearch', 'stockPageSearch', 'contactSearch',
       'transaksiFilterJenis', 'transaksiFilterKategori'].forEach(id => {
       const el = document.getElementById(id);
       expect(named(el)).toBe(true);
@@ -120,6 +120,14 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
   it('logo kasir & login error aman untuk screen reader', () => {
     expect(document.getElementById('loginError').getAttribute('role')).toBe('alert');
     expect(document.querySelector('#appRoot[role="main"]')).toBe(null);
+  });
+  it('form tambah/edit produk ada di halaman (bukan modal)', () => {
+    const form = document.getElementById('stockForm');
+    const panel = document.getElementById('stockFormPanel');
+    expect(panel.closest('#viewStock')).toBeTruthy();
+    expect(form.closest('#stockModal')).toBe(null);
+    expect(panel.closest('#stockModal')).toBe(null);
+    expect(panel.hidden).toBe(true);
   });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
