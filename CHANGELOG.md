@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.33.0] - 2026-09-13
+
+### Changed — F8 mobile (lanjutan) + F9 final
+- Mobile: footer entri hormati safe-area kiri/kanan (ponsel berponi/landscape); naikkan font mikro (mode-sub, badge, opsional, sched, pay-sub, desc-count) ke ≥11px; `.modal-body` bisa scroll horizontal
+- F9: item sidebar & bottom-nav beremoji diberi `aria-label` bersih (screen reader tak membaca emoji)
+- +1 test (12 file); 218/218 tests ✓
+
+---
+
 ## [1.32.0] - 2026-09-13
 
 ### Changed — F2 pajak: keputusan OQ2 + kelayakan PPh Final

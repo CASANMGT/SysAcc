@@ -147,4 +147,10 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(h.getAttribute('role')).toBe('heading');
     expect(h.getAttribute('aria-level')).toBe('2');
   });
+  it('item nav beremoji punya nama bersih (tanpa emoji)', () => {
+    const b = document.getElementById('loanBtnSidebar');
+    const label = b.getAttribute('aria-label') || '';
+    expect(label).toMatch(/Pinjemin/);
+    expect(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(label)).toBe(false);
+  });
 });

@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.32.0';
+const APP_VERSION = '1.33.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -161,6 +161,12 @@ function setupA11y() {
   syncTabStates(document);
   enhanceHeadings();
   enhanceTables(document);
+  // Nama bersih untuk item nav beremoji (screen reader tak membaca emoji).
+  document.querySelectorAll('.sidebar-item, .bn-item').forEach(b => {
+    if (b.getAttribute('aria-label')) return;
+    const t = (b.textContent || '').replace(/[\u{1F000}-\u{1FAFF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2600}-\u{27BF}]/gu, ' ').replace(/\s+/g, ' ').trim();
+    if (t) b.setAttribute('aria-label', t);
+  });
 
   // Kembalikan fokus ke pemicu + lepas trap saat dialog tertutup (semua jalur)
   let lastOutside = null;

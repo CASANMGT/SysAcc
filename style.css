@@ -862,7 +862,7 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
 }
 .pay-sub {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 400;
   color: var(--text-muted);
   white-space: nowrap;
@@ -1081,6 +1081,7 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
 .modal-body {
   padding: var(--space-5);
   overflow-y: auto;
+  overflow-x: auto;
 }
 
 .form-group {
@@ -2560,7 +2561,7 @@ tr:hover .table-row-actions {
 .tx-piutang-title-row { display: flex; align-items: center; gap: 8px; }
 .tx-piutang-title-row h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; color: #0f172a; }
 .tx-piutang-badge {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -2598,7 +2599,7 @@ tr:hover .table-row-actions {
   box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
 }
 #loanModeGroup .select-btn { flex-direction: column; gap: 2px; padding: 10px 8px !important; line-height: 1.2; }
-.tx-mode-sub { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; opacity: 0.65; }
+.tx-mode-sub { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; opacity: 0.7; }
 .tx-mode-sub.out { color: #dc2626; }
 .tx-mode-sub.in { color: #059669; }
 #loanModeGroup .select-btn.selected .tx-mode-sub { opacity: 1; }
@@ -2817,7 +2818,7 @@ tr:hover .table-row-actions {
   background: white !important;
 }
 .tx-opsional {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 9999px;
@@ -2839,7 +2840,7 @@ tr:hover .table-row-actions {
 .hutang-item .hutang-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
 .hutang-item .hutang-amt { margin-left: auto; text-align: right; flex-shrink: 0; }
 .hutang-item .hutang-amt strong { display: block; font-size: 13px; color: #b91c1c; font-variant-numeric: tabular-nums; }
-.hutang-item .hutang-amt span { font-size: 10px; color: #64748b; }
+.hutang-item .hutang-amt span { font-size: 11px; color: #64748b; }
 .hutang-empty { padding: 16px; text-align: center; font-size: 12px; color: #64748b; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 12px; line-height: 1.5; }
 .hutang-lunasi { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 9999px; background: #fff; border: 1px solid #bfdbfe; color: #1d4ed8; cursor: pointer; }
 .hutang-lunasi:hover { background: #eff6ff; }
@@ -2955,7 +2956,7 @@ tr:hover .table-row-actions {
   position: absolute;
   bottom: 12px;
   right: 12px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   color: #94a3b8;
   background: white;
@@ -3052,7 +3053,7 @@ tr:hover .table-row-actions {
   .tx-amount-input { font-size: 36px !important; }
   .tx-section { padding: 20px; }
   .tx-piutang-outer { padding: 12px 12px 16px; }
-  .tx-footer { padding: 12px 16px; }
+  .tx-footer { padding: 12px 16px; padding-left: calc(16px + env(safe-area-inset-left, 0px)); padding-right: calc(16px + env(safe-area-inset-right, 0px)); }
 }
 
 /* ===== New Dashboard & Login (Wynara clean) ===== */
@@ -3548,7 +3549,7 @@ tr:hover .table-row-actions {
 .loan-schedule { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; }
 .loan-schedule-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .loan-schedule-row:last-child { border-bottom: none; }
-.sched-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; }
+.sched-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; }
 .sched-badge.done { background: var(--success-light); color: var(--success); }
 .sched-badge.next { background: #dbeafe; color: #1d4ed8; }
 .sched-badge.todo { background: var(--bg); color: var(--text-muted); }
