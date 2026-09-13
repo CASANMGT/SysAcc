@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.27.0** · Production **v1.27.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.27.0, sw=wynara-v1-27-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.28.0** · Production **v1.28.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.28.0, sw=wynara-v1-28-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -31,13 +31,13 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F4 Data durability | 15 | 52 | **71** | 10.65 | Supabase LIVE + RLS verified; peran ditegakkan di storage + actor audit (B3 subset). Gap: OQ4 matriks Akuntan/HRD, sesi anonim terikat browser |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
-| F7 Cognitive load | 10 | 80 | **82** | 8.20 | Form Pinjaman disederhanakan (bunga preset, tenor satu penggerak, jatuh tempo cepat) |
+| F7 Cognitive load | 10 | 80 | **83** | 8.30 | Form Pinjaman disederhanakan + kontak **Karyawan** eksplisit (picker kasbon) |
 | F8 Mobile | 7 | 82 | **74** | 5.18 | 8 releases of mobile layout defects |
 | F9 Accessibility | 7 | 68 | **75** | 5.25 | Label/dialog/focus/contrast/reduced-motion pass (WCAG audit). Sisa: caption/scope tabel, alt chart, hierarki heading |
-| **OVERALL** | | ~~90~~ | | **80.54** | F3 76→81 (kasbon); arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **80.64** | F7 82→83 (link Karyawan); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 86×15 + 76×12 + 81×12 + 71×15 + 92×10 + 86×12 + 82×10 + 74×7 + 75×7
-= 1290 + 912 + 972 + 1065 + 920 + 1032 + 820 + 518 + 525 = **8054 / 100 = 80.54**. Baseline 59.7 → **+20.84**.
+Aritmetika (wajib tampil): 86×15 + 76×12 + 81×12 + 71×15 + 92×10 + 86×12 + 83×10 + 74×7 + 75×7
+= 1290 + 912 + 972 + 1065 + 920 + 1032 + 830 + 518 + 525 = **8064 / 100 = 80.64**. Baseline 59.7 → **+20.94**.
 
 Four of nine axes below 85. Stop condition not met on either clause.
 
@@ -128,6 +128,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.26.0 (F7 — form Pinjaman disederhanakan)**: bunga jadi chip preset (`Tanpa/2/5/10/Lainnya`), cicilan satu penggerak ("Dibayar berapa bulan?" chip 3/6/12/24) dengan cicilan/bulan read-only (hapus dua field yang saling menimpa), jatuh tempo chip cepat (7/14/30/90 hari) — bahasa diper-sederhana. Validasi cicilan wajib pilih tenor. **→ F7 78→82.** +4 test. 197/197 ✓.
 
 - **v1.27.0 (F3 — kasbon karyawan)**: pinjaman ke nama karyawan auto-link (`employeeId`) → potong otomatis dari gaji; baris "Potong kasbon bulan ini" (cicilan atau sisa, setelah pajak/BPJS, THP ≥ 0, bisa override); "Jeda potong bulan ini"; finalisasi → entri gaji THP berkurang + **Dr Beban Gaji / Cr Piutang** (bunga → Cr 4102), pelunasan source `payroll`, status Lunas; slip cetak & WA menampilkan. **→ F3 76→81.** +6 test. 205/205 ✓.
+
+- **v1.28.0 (F7 — tautkan kontak Karyawan)**: toggle kontak form Pinjaman **Orang / 👷 Karyawan / Perusahaan**; pilih Karyawan → picker karyawan (datalist + chip sisa kasbon) + validasi nama; simpan `contactType:"karyawan"` + `employeeId`; ikon 👷 di kartu/Kontak + Excel-CSV. **→ F7 82→83.** +2 test. 206/206 ✓.
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
