@@ -13,7 +13,7 @@
   <script>if (typeof XLSX === 'undefined') { var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; document.head.appendChild(s); }</script>
 </head>
 <body>
-  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <a href="#main-content" class="skip-link">Lompat ke konten utama</a>
   <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
   <dialog id="empModal" class="modal">
     <form id="empViewForm" class="modal-content" style="max-width:640px">
@@ -96,7 +96,7 @@
         <div class="login-bar-full"></div>
         <div class="login-bar-half"></div>
         <div class="login-left-card-footer">
-          <div class="login-card-icon">↗</div>
+          <div class="login-card-icon" aria-hidden="true">↗</div>
           <div class="login-card-text"><span>Total</span><strong>Rp 6.000.000</strong></div>
         </div>
       </div>
@@ -108,9 +108,9 @@
         <h1>Keuangan tertata.<br>Bisnis lebih tenang.</h1>
         <p>Kelola transaksi, pantau arus kas, dan siapkan laporan dalam satu tempat.</p>
         <div class="login-features">
-          <div class="login-feature"><span class="login-feature-icon">🧾</span><div><strong>Transaksi</strong><span>Catat dengan mudah</span></div></div>
-          <div class="login-feature"><span class="login-feature-icon">📈</span><div><strong>Arus kas</strong><span>Pantau real-time</span></div></div>
-          <div class="login-feature"><span class="login-feature-icon">📊</span><div><strong>Laporan</strong><span>Dukung keputusan</span></div></div>
+          <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">🧾</span><div><strong>Transaksi</strong><span>Catat dengan mudah</span></div></div>
+          <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">📈</span><div><strong>Arus kas</strong><span>Pantau real-time</span></div></div>
+          <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">📊</span><div><strong>Laporan</strong><span>Dukung keputusan</span></div></div>
         </div>
       </div>
 
@@ -132,14 +132,14 @@
           <div class="form-group">
             <label for="loginUser">Username</label>
             <div class="login-input-wrap">
-              <span class="login-input-icon">👤</span>
+              <span class="login-input-icon" aria-hidden="true">👤</span>
               <input type="text" id="loginUser" placeholder="Masukkan username" required autocomplete="username">
             </div>
           </div>
           <div class="form-group">
             <label for="loginPass">Kata sandi</label>
             <div class="login-input-wrap">
-              <span class="login-input-icon">🔒</span>
+              <span class="login-input-icon" aria-hidden="true">🔒</span>
               <input type="password" id="loginPass" placeholder="Masukkan kata sandi" required autocomplete="current-password">
               <button type="button" class="login-eye" id="loginEye" aria-label="Tampilkan atau sembunyikan kata sandi" aria-pressed="false">👁️</button>
             </div>
@@ -148,7 +148,7 @@
             <label class="login-check"><input type="checkbox" id="loginRemember" checked> Ingat saya</label>
             <a href="#" class="login-forgot">Lupa kata sandi?</a>
           </div>
-          <div id="loginError" class="login-error hidden">Username atau kata sandi salah</div>
+          <div id="loginError" class="login-error hidden" role="alert">Username atau kata sandi salah</div>
           <button type="submit" class="btn btn-primary login-btn-new">Masuk <span>→</span></button>
         </form>
         <p class="login-hint" id="loginHint">Masuk dengan akun yang diberikan pemilik</p>
@@ -158,7 +158,7 @@
   </div>
 
   <!-- APP with sidebar + topbar -->
-  <div class="app hidden" id="appRoot" role="main">
+  <div class="app hidden" id="appRoot">
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-head">
         <div class="sidebar-logo"><img class="sidebar-logo-icon" src="icons/w-logo.svg" alt="Wynara" width="32" height="32"><div><strong>Wynara</strong><span>Accounting</span></div></div>
@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.24.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.25.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -463,7 +463,7 @@
             </div>
             <div class="table-foot">
               <span id="tableCount">Menampilkan 0 dari 0 transaksi</span>
-              <div class="table-pager"><button id="prevPage" disabled>‹</button><span class="pager-active" id="pagerNum">1</span><button id="nextPage" disabled>›</button></div>
+              <div class="table-pager"><button type="button" id="prevPage" aria-label="Halaman sebelumnya" disabled>‹</button><span class="pager-active" id="pagerNum">1</span><button type="button" id="nextPage" aria-label="Halaman berikutnya" disabled>›</button></div>
             </div>
             <div id="loadMoreWrap" class="hidden" style="text-align:center;padding:12px">
               <button id="loadMoreBtn" class="btn btn-ghost">Muat 20 lebih banyak</button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.24.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.25.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -532,7 +532,7 @@
               <span id="transaksiCount">Menampilkan 0 dari 0 transaksi</span>
               <div style="display:flex;gap:8px;align-items:center">
                 <span id="transaksiSaldo" style="font-weight:600">Total saldo: Rp 0,00</span>
-                <div class="table-pager" style="display:flex;gap:4px"><button id="transaksiPrev" disabled>‹</button><span class="pager-active" id="transaksiPagerNum">1</span><button id="transaksiNext" disabled>›</button></div>
+                <div class="table-pager" style="display:flex;gap:4px"><button type="button" id="transaksiPrev" aria-label="Halaman sebelumnya" disabled>‹</button><span class="pager-active" id="transaksiPagerNum">1</span><button type="button" id="transaksiNext" aria-label="Halaman berikutnya" disabled>›</button></div>
               </div>
             </div>
           </div>
@@ -738,7 +738,7 @@
         <div class="tx-card">
           <div class="tx-hero">
             <div class="tx-hero-top">
-              <span class="tx-hero-label">Uang berapa?</span>
+              <span class="tx-hero-label" id="txAmountLabel">Uang berapa?</span>
               <button type="button" id="txDatePill" class="tx-date-pill">
                 <span class="tx-date-icon">📅</span>
                 <span id="txDateLabel">29 Agu 2026</span>
@@ -748,7 +748,7 @@
             </div>
             <div class="tx-amount-row">
               <span class="tx-amount-prefix" id="txAmountPrefix">Rp</span>
-              <input type="text" id="entryAmount" class="tx-amount-input" placeholder="0" inputmode="numeric" autocomplete="off" required>
+              <input type="text" id="entryAmount" class="tx-amount-input" placeholder="0" inputmode="numeric" autocomplete="off" required aria-labelledby="txAmountLabel">
             </div>
             <div class="tx-amount-underline"><div id="txAmountBar" class="tx-amount-bar"></div></div>
             <p id="txAmountHint" class="tx-amount-hint">Ketuk untuk memasukkan nominal • Otomatis format Rupiah</p>
@@ -1810,7 +1810,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.24.0';
+    window.__htmlVersion = '1.25.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

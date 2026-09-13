@@ -6,6 +6,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.25.0] - 2026-09-13
+
+### Added — F9 aksesibilitas (WCAG 2.1 AA pass)
+- Nama aksesibel: field nominal pakai `aria-labelledby`; auto-label untuk input/select tanpa label (konteks → placeholder → title), termasuk yang dirender dinamis (MutationObserver)
+- Semua `<dialog>` dinamai dari heading-nya + `aria-modal`; fokus kembali ke pemicu & focus-trap dilepas di **semua** jalur tutup (termasuk Esc)
+- Chip/segmented: `aria-pressed`; tab: `aria-selected` (disinkron saat interaksi)
+- Kontras: `--text-muted` #94a3b8→#64748b (header tabel & teks redup); placeholder nominal diperbaiki
+- Focus ring field nominal tidak lagi ditekan; `prefers-reduced-motion` dihormati
+- Lain-lain: `#loginError` role alert, hapus `role="main"` ganda, tombol pager berlabel, emoji dekoratif `aria-hidden`
+- Belum digarap (F9 lanjutan): `<caption>`/`scope` tabel laporan, teks alternatif chart, hierarki heading h3→h2
+- +5 test boot aksesibilitas; 193/193 tests ✓
+
+---
+
 ## [1.24.0] - 2026-09-13
 
 ### Added — B3 (subset): penegakan peran di lapisan data + actor audit

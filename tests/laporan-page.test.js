@@ -82,3 +82,37 @@ describe('halaman Laporan', () => {
     expect(document.getElementById('pageReportContent').closest('#viewLaporan')).toBeTruthy();
   });
 });
+
+describe('aksesibilitas F9 (boot enhancements)', () => {
+  const named = (el) => !!(el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')
+    || (el.id && document.querySelector(`label[for="${el.id}"]`)) || el.closest('label'));
+  it('field nominal punya nama aksesibel (aria-labelledby)', () => {
+    const el = document.getElementById('entryAmount');
+    expect(el.getAttribute('aria-labelledby')).toBe('txAmountLabel');
+    expect(document.getElementById('txAmountLabel')).toBeTruthy();
+  });
+  it('input pencarian & filter tanpa label markup diberi nama otomatis', () => {
+    ['transaksiSearch', 'empSearch', 'loanSearch', 'stockSearch', 'contactSearch',
+      'transaksiFilterJenis', 'transaksiFilterKategori'].forEach(id => {
+      const el = document.getElementById(id);
+      expect(named(el)).toBe(true);
+    });
+  });
+  it('semua dialog punya nama (aria-labelledby/aria-label)', () => {
+    const bad = [...document.querySelectorAll('dialog')]
+      .filter(d => !d.getAttribute('aria-labelledby') && !d.getAttribute('aria-label'))
+      .map(d => d.id);
+    expect(bad).toEqual([]);
+  });
+  it('logo kasir & login error aman untuk screen reader', () => {
+    expect(document.getElementById('loginError').getAttribute('role')).toBe('alert');
+    expect(document.querySelector('#appRoot[role="main"]')).toBe(null);
+  });
+  it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
+    const seg = document.querySelectorAll('#typeGroup .select-btn');
+    expect(seg.length).toBeGreaterThan(0);
+    seg.forEach(b => expect(['true', 'false']).toContain(b.getAttribute('aria-pressed')));
+    const tabs = document.querySelectorAll('[role="tab"]');
+    tabs.forEach(t => expect(['true', 'false']).toContain(t.getAttribute('aria-selected')));
+  });
+});

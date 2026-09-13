@@ -14,7 +14,7 @@
   --card-hover: #fafafa;
   --text: #1e293b;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-muted: #64748b;
   --text-inverse: #ffffff;
 
   --primary: #2563eb;
@@ -2328,7 +2328,6 @@ tr:hover .table-row-actions {
   max-width: 360px;
   background: transparent !important;
   border: none !important;
-  outline: none !important;
   box-shadow: none !important;
   text-align: center !important;
   font-size: 48px !important;
@@ -2339,7 +2338,12 @@ tr:hover .table-row-actions {
   padding: 0 !important;
   caret-color: #0f172a;
 }
-.tx-amount-input::placeholder { color: #e2e8f0; }
+.tx-amount-input:focus-visible {
+  outline: 3px solid var(--primary) !important;
+  outline-offset: 8px !important;
+  border-radius: 12px;
+}
+.tx-amount-input::placeholder { color: #64748b; }
 .tx-amount-underline {
   margin: 12px auto 0;
   width: 96px;
@@ -3561,7 +3565,7 @@ tr:hover .table-row-actions {
 .transaksi-toolbar select { height: 40px; padding: 0 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; font-size: 13px; }
 .tx-filter-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0 12px; border-bottom: 1px solid #f1f5f9; margin-bottom: 8px; flex-wrap: wrap; }
 .tx-filter-bar .chip { font-size: 12px; padding: 6px 14px; }
-.dash-panel-table th { font-size: 11px; letter-spacing: 0.08em; color: #94a3b8; border-bottom: 1px solid #f1f5f9; padding: 10px 10px; background: transparent; white-space: nowrap; }
+.dash-panel-table th { font-size: 11px; letter-spacing: 0.08em; color: #64748b; border-bottom: 1px solid #f1f5f9; padding: 10px 10px; background: transparent; white-space: nowrap; }
 .dash-panel-table th:nth-child(1) { width: 34px; }
 .dash-panel-table th:nth-child(2) { width: 96px; }
 .dash-panel-table th:nth-child(3) { width: 122px; }
@@ -3753,4 +3757,14 @@ body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
 #appRoot[data-role="kasir"] tr td .btn-danger,
 #appRoot[data-role="kasir"] .dash-card .btn-danger {
   display: none !important;
+}
+
+/* F9 a11y: hormati preferensi minim gerak */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

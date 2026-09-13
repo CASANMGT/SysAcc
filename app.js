@@ -36,13 +36,14 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.24.0';
+const APP_VERSION = '1.25.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 
 function init() {
   window.__appBooted = true;
+  setupA11y();
   // Self-heal split-brain cache: JS baru + HTML lama (tanpa anchor wajib) →
   // buang service worker + cache, lalu reload SEKALI. Mencegah halaman putih.
   const anchors = ['loginScreen', 'appRoot', 'viewRingkasan', 'viewLaporan', 'pageReportContent', 'reportBtnSidebar'];
@@ -69,6 +70,110 @@ function init() {
     return;
   }
   showApp();
+}
+
+/* ===== F9 accessibility enhancements (boot + dinamis) ===== */
+function dialogTitle(modal) {
+  if (!modal || modal.hasAttribute('aria-labelledby') || modal.hasAttribute('aria-label')) return;
+  const h = modal.querySelector('h1, h2, h3, h4');
+  if (!h) return;
+  if (!h.id) h.id = 'dlg-title-' + Math.random().toString(36).slice(2, 8);
+  modal.setAttribute('aria-labelledby', h.id);
+  modal.setAttribute('aria-modal', 'true');
+}
+function labelField(el) {
+  if (!el || el.type === 'hidden') return;
+  if (el.getAttribute('aria-hidden') === 'true') return;
+  if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')) return;
+  if (el.closest && el.closest('label')) return;
+  if (el.id) {
+    try {
+      const esc = (window.CSS && window.CSS.escape) ? window.CSS.escape(el.id) : el.id;
+      if (document.querySelector('label[for="' + esc + '"]')) return;
+    } catch {}
+  }
+  const title = (el.getAttribute('title') || '').trim();
+  if (title) { el.setAttribute('aria-label', title); return; }
+  let prev = el.previousElementSibling, hops = 0;
+  while (prev && hops < 4) {
+    const tag = prev.tagName;
+    const cls = String(prev.className || '');
+    if (tag === 'LABEL' || /label|hint|caption|filter/.test(cls)) {
+      const t = (prev.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t && t.length <= 60) { el.setAttribute('aria-label', t); return; }
+    }
+    if (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(tag)) break;
+    prev = prev.previousElementSibling; hops++;
+  }
+  const ph = (el.getAttribute('placeholder') || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+  if (ph) { el.setAttribute('aria-label', ph); return; }
+  if (el.tagName === 'SELECT') el.setAttribute('aria-label', 'Pilih opsi');
+}
+function syncChipStates(root) {
+  (root || document).querySelectorAll('.chip-group, .chart-range, .chart-toggle, .tx-segmented, .filter-pills, .select-group').forEach(group => {
+    if (!group.hasAttribute('role')) group.setAttribute('role', 'group');
+    group.querySelectorAll('button, .select-btn').forEach(b => {
+      b.setAttribute('aria-pressed', b.classList.contains('selected') ? 'true' : 'false');
+    });
+  });
+}
+function syncTabStates(root) {
+  (root || document).querySelectorAll('[role="tab"]').forEach(t => {
+    const on = t.classList.contains('selected') || t.classList.contains('active') || t.getAttribute('aria-selected') === 'true';
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+function setupA11y() {
+  document.querySelectorAll('dialog').forEach(dialogTitle);
+  document.querySelectorAll('input, select, textarea').forEach(labelField);
+  syncChipStates(document);
+  syncTabStates(document);
+
+  // Kembalikan fokus ke pemicu + lepas trap saat dialog tertutup (semua jalur)
+  let lastOutside = null;
+  document.addEventListener('focusin', (e) => {
+    const t = e.target;
+    if (t && t.nodeType === 1 && !t.closest('dialog')) lastOutside = t;
+  }, true);
+  document.querySelectorAll('dialog').forEach(d => {
+    d.addEventListener('close', () => {
+      try { UI.releaseFocus(d); } catch {}
+      if (lastOutside && document.contains(lastOutside) && typeof lastOutside.focus === 'function') {
+        try { lastOutside.focus(); } catch {}
+      }
+    });
+  });
+
+  // Sinkron status terpilih (aria-pressed / aria-selected) setelah interaksi
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const chip = t.closest('.chip, .select-btn, .tx-seg-btn');
+    if (chip) {
+      const group = chip.closest('.chip-group, .chart-range, .chart-toggle, .tx-segmented, .filter-pills, .select-group');
+      if (group) setTimeout(() => syncChipStates(group), 0);
+    }
+    const tab = t.closest('[role="tab"]');
+    if (tab && tab.parentElement) setTimeout(() => syncTabStates(tab.parentElement), 0);
+  }, true);
+
+  // Field yang dirender dinamis → beri label & state saat muncul
+  try {
+    const obs = new window.MutationObserver((muts) => {
+      for (const m of muts) {
+        for (const n of m.addedNodes) {
+          if (n.nodeType !== 1) continue;
+          if (/^(INPUT|SELECT|TEXTAREA)$/.test(n.tagName)) labelField(n);
+          if (n.querySelectorAll) {
+            n.querySelectorAll('input, select, textarea').forEach(labelField);
+            if (n.querySelectorAll('.chip-group, .tx-segmented, .filter-pills').length) syncChipStates(n);
+            if (n.querySelectorAll('[role="tab"]').length) syncTabStates(n);
+          }
+        }
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  } catch {}
 }
 
 function safeSessionGet(k) {
