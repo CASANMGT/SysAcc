@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.23.0] - 2026-09-13
+
+### Added — Bunga pinjaman kini masuk Laba/Rugi (B7)
+- Akun baru: **4102 Pendapatan Bunga** (given) & **5113 Beban Bunga** (taken)
+- `loanmath.js`: `splitRepaymentPortions()` murni — porsi pokok vs bunga proporsional, **kumulatif & dibatasi** agar bunga diakui tak pernah melebihi bunga pinjaman
+- `journals.js`: pelunasan given → Cr Piutang + Cr 4102; taken → Dr Hutang + Dr 5113 (sebelumnya seluruhnya ke Piutang/Hutang → bunga tak pernah terlihat)
+- `storage.js`: prior repayments diteruskan di add/restore/backfill; backfill urut kronologis
+- Laba Rugi & Neraca otomatis ikut karena membaca COA per tipe
+- +6 test (porsi bunga, jurnal given/taken); 184/184 tests ✓
+- Catatan: pelunasan lama (sebelum versi ini) tidak dihitung ulang otomatis
+
+---
+
 ## [1.22.5] - 2026-09-13
 
 ### Fixed — Kunci periode ditegakkan di lapisan storage (V3 4 lubang ditutup)

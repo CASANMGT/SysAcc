@@ -235,7 +235,7 @@ export function restoreRepayment(rep) {
   try {
     const loan = getLoanById(rep.loanId);
     if (loan) {
-      const j = buildRepaymentJournal(loan, rep);
+      const j = buildRepaymentJournal(loan, rep, reps.filter(r => r.id !== rep.id));
       if (j) { j.refId = rep.id; postJournal(j); }
     }
   } catch {}
@@ -1132,7 +1132,7 @@ export function addRepayment(repayment) {
   repayments.push(newRep);
   saveRepayments(repayments);
   try {
-    const j = buildRepaymentJournal(loan, newRep);
+    const j = buildRepaymentJournal(loan, newRep, repayments.filter(r => r.id !== newRep.id));
     if (j) { j.refId = newRep.id; postJournal(j); }
   } catch {}
   logAudit('create', 'repayment', newRep.id, null, { loanId: newRep.loanId, amount: newRep.amount, date: newRep.date });
@@ -1640,12 +1640,16 @@ export function backfillJournals(builders) {
     } catch {}
   });
   const loanById = new Map(getLoans().map(l => [l.id, l]));
-  getRepayments().forEach(r => {
+  // Urut kronologis agar porsi bunga kumulatif benar saat backfill.
+  const allReps = getRepayments().slice().sort((a, b) =>
+    String(a.date || '').localeCompare(String(b.date || '')) ||
+    String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  allReps.forEach((r, idx) => {
     if (existing.has(`repayment:${r.id}`)) return;
     const loan = loanById.get(r.loanId);
     if (!loan) return;
     try {
-      const j = buildRepaymentJournal(loan, r);
+      const j = buildRepaymentJournal(loan, r, allReps.slice(0, idx));
       if (j) { made.push(j); existing.add(`repayment:${r.id}`); }
     } catch {}
   });

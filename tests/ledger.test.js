@@ -124,6 +124,26 @@ describe('buildLoanJournal / buildRepaymentJournal', () => {
     );
     expect(j.lines.find(l => l.account === AR_ACCOUNT).credit).toBe(200000);
   });
+  it('pelunasan berbunga given → bunga masuk Pendapatan Bunga 4102 (B7)', () => {
+    const j = buildRepaymentJournal(
+      { id: 'l1', direction: 'given', person: 'Budi', amount: 1000000, interestRate: 10 },
+      { id: 'r1', amount: 550000, date: '2026-09-05', payment: 'cash' }
+    );
+    const { d, c } = totals(j);
+    expect(d).toBe(c);
+    expect(j.lines.find(l => l.account === AR_ACCOUNT).credit).toBe(500000);
+    expect(j.lines.find(l => l.account === '4102').credit).toBe(50000);
+  });
+  it('pelunasan berbunga taken → bunga masuk Beban Bunga 5113 (B7)', () => {
+    const j = buildRepaymentJournal(
+      { id: 'l2', direction: 'taken', person: 'Ani', amount: 1000000, interestRate: 10 },
+      { id: 'r2', amount: 1100000, date: '2026-09-05', payment: 'transfer' }
+    );
+    const { d, c } = totals(j);
+    expect(d).toBe(c);
+    expect(j.lines.find(l => l.account === AP_ACCOUNT).debit).toBe(1000000);
+    expect(j.lines.find(l => l.account === '5113').debit).toBe(100000);
+  });
 });
 
 describe('purchase journals', () => {

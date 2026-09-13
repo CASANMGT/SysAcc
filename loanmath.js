@@ -36,6 +36,22 @@ export function outstandingOf(loan, repayments) {
   return Math.max(totalOwed(loan) - paidOf(repayments), 0);
 }
 
+// Pisahkan satu pembayaran jadi porsi pokok vs bunga (bunga flat proporsional
+// terhadap total wajib dibalikin). Kumulatif & dibatasi: total bunga yang
+// diakui tidak pernah melebihi interestAmount(loan). priorRepayments = daftar
+// pembayaran SEBELUM yang ini (agar akumulasi konsisten).
+export function splitRepaymentPortions(loan, amount, priorRepayments) {
+  const amt = Math.max(Math.round(Number(amount) || 0), 0);
+  const total = totalOwed(loan);
+  const interestTotal = interestAmount(loan);
+  if (amt <= 0 || total <= 0 || interestTotal <= 0) return { principalPortion: amt, interestPortion: 0 };
+  const before = paidOf(priorRepayments);
+  const after = before + amt;
+  const interestOn = (paid) => Math.min(Math.round(Math.min(Math.max(paid, 0), total) * interestTotal / total), interestTotal);
+  const interestPortion = Math.max(0, Math.min(interestOn(after) - interestOn(before), amt));
+  return { principalPortion: amt - interestPortion, interestPortion };
+}
+
 export function nextInstallmentAmount(loan, repayments) {
   const instAmt = Number(loan && loan.installmentAmount) || 0;
   const out = outstandingOf(loan, repayments);

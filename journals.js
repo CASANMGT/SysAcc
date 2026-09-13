@@ -5,8 +5,9 @@
 import {
   accountForPayment, expenseAccountFor, REVENUE_ACCOUNT,
   AR_ACCOUNT, AP_ACCOUNT, INVENTORY_ACCOUNT, COGS_ACCOUNT,
-  PPN_OUT, PPN_IN, PPN_RATE
+  PPN_OUT, PPN_IN, PPN_RATE, INTEREST_INCOME, INTEREST_EXPENSE
 } from './coa.js';
+import { splitRepaymentPortions } from './loanmath.js';
 
 let seq = 0;
 function jid(prefix) {
@@ -101,22 +102,26 @@ export function buildLoanJournal(loan) {
   return balanced(lines) ? j : null;
 }
 
-// Pelunasan: given (diterima) → Dr Kas Cr Piutang; taken (dibayar) → Dr Hutang Cr Kas.
-// Bunga ikut tertagih: porsi bunga = proporsional dari total.
-export function buildRepaymentJournal(loan, repayment) {
+// Pelunasan: given (diterima) → Dr Kas Cr Piutang + Cr Pendapatan Bunga;
+// taken (dibayar) → Dr Hutang + Dr Beban Bunga Cr Kas.
+// Porsi bunga dipisah agar bunga benar-benar menyentuh Laba/Rugi (B7).
+export function buildRepaymentJournal(loan, repayment, priorRepayments) {
   const amt = Math.round(Number(repayment.amount) || 0);
   if (!isFinite(amt) || amt <= 0) return null;
   const cash = accountForPayment(repayment.payment || loan.payment || 'cash');
   const memo = `Bayar ${loan.person || ''}`.trim();
-  const lines = loan.direction === 'given'
-    ? [
-      { account: cash, debit: amt, credit: 0, memo },
-      { account: AR_ACCOUNT, debit: 0, credit: amt, memo },
-    ]
-    : [
-      { account: AP_ACCOUNT, debit: amt, credit: 0, memo },
-      { account: cash, debit: 0, credit: amt, memo },
-    ];
+  const { principalPortion, interestPortion } = splitRepaymentPortions(loan, amt, priorRepayments);
+  const interestMemo = `Bunga ${loan.person || ''}`.trim();
+  const lines = [];
+  if (loan.direction === 'given') {
+    lines.push({ account: cash, debit: amt, credit: 0, memo });
+    if (principalPortion > 0) lines.push({ account: AR_ACCOUNT, debit: 0, credit: principalPortion, memo });
+    if (interestPortion > 0) lines.push({ account: INTEREST_INCOME, debit: 0, credit: interestPortion, memo: interestMemo });
+  } else {
+    if (principalPortion > 0) lines.push({ account: AP_ACCOUNT, debit: principalPortion, credit: 0, memo });
+    if (interestPortion > 0) lines.push({ account: INTEREST_EXPENSE, debit: interestPortion, credit: 0, memo: interestMemo });
+    lines.push({ account: cash, debit: 0, credit: amt, memo });
+  }
   const j = { id: jid('J'), date: repayment.date, memo, ref: 'repayment', refId: repayment.id || null, lines };
   return balanced(lines) ? j : null;
 }

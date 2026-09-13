@@ -30,6 +30,7 @@ export const ACCOUNTS = [
   { code: '3102', name: 'Laba Ditahan', type: 'equity' },
   // Pendapatan
   { code: '4101', name: 'Pendapatan Usaha', type: 'revenue' },
+  { code: '4102', name: 'Pendapatan Bunga', type: 'revenue' },
   // Beban
   { code: '5101', name: 'Beban Sewa', type: 'expense', category: 'kos' },
   { code: '5102', name: 'Beban Utilitas', type: 'expense', category: 'utilitas' },
@@ -43,6 +44,7 @@ export const ACCOUNTS = [
   { code: '5110', name: 'Beban Gaji', type: 'expense', category: 'gaji-out' },
   { code: '5111', name: 'Beban Pajak Final', type: 'expense' },
   { code: '5112', name: 'Beban BPJS Perusahaan', type: 'expense' },
+  { code: '5113', name: 'Beban Bunga', type: 'expense' },
   { code: '5129', name: 'Beban Penyusutan', type: 'expense' },
   { code: '5199', name: 'Beban Lainnya', type: 'expense' },
 ];
@@ -100,6 +102,8 @@ export const PPN_IN = '1401';
 export const PPH_PAYABLE = '2106';
 export const PPH_EXPENSE = '5111';
 export const EQUITY_ACCOUNT = '3101';
+export const INTEREST_INCOME = '4102';
+export const INTEREST_EXPENSE = '5113';
 export const PPN_RATE = 0.11;
 export const PPH_FINAL_RATE = 0.005;
 export const PPH_THRESHOLD = 4800000000;

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   calcTenor, paidOf, outstandingOf, nextInstallmentAmount,
   scheduleData, nextDue, monthLabelId,
-  interestRateOf, interestAmount, totalOwed
+  interestRateOf, interestAmount, totalOwed, splitRepaymentPortions
 } from '../loanmath.js';
 
 const loan = (over = {}) => ({
@@ -143,5 +143,36 @@ describe('monthLabelId', () => {
   });
   it('invalid → string kosong', () => {
     expect(monthLabelId('xxx')).toBe('');
+  });
+});
+
+describe('splitRepaymentPortions (B7)', () => {
+  const withRate = () => loan({ amount: 1000000, installmentAmount: 0, loanType: 'lunas', interestRate: 10 });
+  it('tanpa bunga → semua pokok', () => {
+    const r = splitRepaymentPortions(loan({ interestRate: 0 }), 250000, []);
+    expect(r).toEqual({ principalPortion: 250000, interestPortion: 0 });
+  });
+  it('pelunasan penuh → pokok + bunga persis', () => {
+    const r = splitRepaymentPortions(withRate(), 1100000, []);
+    expect(r.principalPortion).toBe(1000000);
+    expect(r.interestPortion).toBe(100000);
+  });
+  it('proporsional dan kumulatif tidak melebihi bunga', () => {
+    const l = withRate();
+    const got = [];
+    let prior = [];
+    for (let i = 0; i < 4; i++) {
+      const r = splitRepaymentPortions(l, 275000, prior);
+      got.push(r);
+      prior = prior.concat([{ amount: 275000 }]);
+    }
+    expect(got.reduce((s, r) => s + r.interestPortion, 0)).toBe(100000);
+    expect(got.reduce((s, r) => s + r.principalPortion, 0)).toBe(1000000);
+  });
+  it('kumulatif lebih kecil/lebih besar dari proporsional-naif tetap konsisten', () => {
+    const l = withRate();
+    const first = splitRepaymentPortions(l, 550000, []);
+    const second = splitRepaymentPortions(l, 550000, [{ amount: 550000 }]);
+    expect(first.interestPortion + second.interestPortion).toBe(100000);
   });
 });
