@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.33.0** · Production **v1.33.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.33.0, sw=wynara-v1-33-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.35.0** · Production **v1.35.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.35.0, sw=wynara-v1-35-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,8 +13,8 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ still requires every axis ≥85. Lowest: F4 74, F2 80, F3 81, F9 82, F7 83, F8 83
-— six axes below 85 (F1/F5/F6 ≥85). Keep working correctness; do not chase cosmetics.
+A+ still requires every axis ≥85. Lowest: F4 74, F2 80, F9 82, F7 83, F8 83, F3 84
+— six axes below 85 (F1 88, F5/F6 ≥85). Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -25,19 +25,19 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
-| F1 Core ledger | 15 | 86 | **86** | 12.90 | V3 4 lubang lock ditutup (ditegakkan di storage) + B7 bunga pinjaman kini masuk Laba/Rugi |
+| F1 Core ledger | 15 | 86 | **88** | 13.20 | V3 lock + B7 bunga + **penjualan sale.lines kini kurangi stok + reversal aman + kartu stok** |
 | F2 Tax conformance | 12 | 76 | **80** | 9.60 | OQ2 selesai (PPN 11% configurable, non-PKP); PPh Final PP23/2018 ambang Rp4,8M + peringatan |
-| F3 Payroll & HR | 12 | 73 | **81** | 9.72 | Dec recon + 1721-A1 + **kasbon karyawan** (potong gaji otomatis + jeda). Lembur/cuti/UMP → iter 20 |
+| F3 Payroll & HR | 12 | 73 | **84** | 10.08 | Dec recon + 1721-A1 + kasbon + **lembur KEP-102, cuti UU13/2003, ganti cuti, validasi UMP** |
 | F4 Data durability | 15 | 52 | **74** | 11.10 | Supabase LIVE + RLS; peran+actor; **tautkan sesi anonim→email + uji-diri backup**. Gap: OQ4 matriks Akuntan/HRD |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
 | F7 Cognitive load | 10 | 80 | **83** | 8.30 | Form Pinjaman disederhanakan + kontak **Karyawan** eksplisit (picker kasbon) |
 | F8 Mobile | 7 | 82 | **83** | 5.81 | Audit mobile + lanjutan: safe-area footer entri, font ≥11px, modal scroll-x, target sentuh |
 | F9 Accessibility | 7 | 68 | **82** | 5.74 | Label/dialog/focus/contrast + scope/caption/alt/hierarki + nama nav bersih (tanpa emoji) |
-| **OVERALL** | | ~~90~~ | | **82.69** | F8 81→83, F9 80→82; arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **83.35** | F1 86→88 (stok/jual), F3 81→84 (iter20); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 86×15 + 80×12 + 81×12 + 74×15 + 92×10 + 86×12 + 83×10 + 83×7 + 82×7
-= 1290 + 960 + 972 + 1110 + 920 + 1032 + 830 + 581 + 574 = **8269 / 100 = 82.69**. Baseline 59.7 → **+22.99**.
+Aritmetika (wajib tampil): 88×15 + 80×12 + 84×12 + 74×15 + 92×10 + 86×12 + 83×10 + 83×7 + 82×7
+= 1320 + 960 + 1008 + 1110 + 920 + 1032 + 830 + 581 + 574 = **8335 / 100 = 83.35**. Baseline 59.7 → **+23.65**.
 
 Six of nine axes below 85. Stop condition not met on either clause.
 
@@ -140,6 +140,12 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.32.0 (F2 — pajak)**: **OQ2 selesai** (PPN 11% flat configurable, non-PKP — didokumentasikan); `pphFinalForYear()` (PP 23/2018): 0,5% hanya bila omzet ≤ Rp4,8M, di atas → 0 + banner peringatan di laporan pajak. **→ F2 76→80.** +2 test. 217/217 ✓.
 
 - **v1.33.0 (F8 lanjutan + F9 final)**: safe-area kiri/kanan footer entri (landscape/poni); font mikro ≥11px; `.modal-body` scroll-x; item sidebar & bottom-nav beremoji diberi `aria-label` bersih. **→ F8 81→83, F9 80→82.** +1 test (12 file). 218/218 ✓.
+
+- **v1.34.0 (iter 20 — F3)**: lembur **KEP-102/MEN/VI/2004** (jam → 1,5×/2× dari upah÷173); **ganti cuti** (lembur → saldo cuti, 8 jam=1 hari); cuti **UU 13/2003** (jatah 12, saldo per karyawan/tahun, ikut sinkron); **UMP configurable** + peringatan upah di bawah UMP. **→ F3 81→84.** +8 test. 225/225 ✓.
+
+- **v1.35.0 (stok & penjualan — F1)**: audit menemukan bug kritis — penjualan modal **Jual** tak mengurangi stok tapi posting HPP (oversell + mismatch); **diperbaiki** (`sale.lines` kurangi stok). Reversal stok tak lagi ditelan (hapus/edit aman); hapus barang yang dipakai ditolak; kunci periode ditegakkan di pembelian/pembayaran supplier; **📜 kartu stok** (riwayat mutasi). **→ F1 86→88.** +3 test. 228/228 ✓.
+
+> Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
