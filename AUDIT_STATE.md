@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.20.2** · Production **v1.20.2 VERIFIED 2026-09-10** (fetch langsung; klaim "prod v1.14.2" di audit v2 tidak terbukti — pipeline deploy bekerja, deployment terakhir Ready/Production)
+Repo **v1.22.4** · Production **v1.22.4 VERIFIED 2026-09-13** (check-prod PASS: index=1.22.4, sw=wynara-v1-22-4). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -8,17 +8,14 @@ Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmeti
 ## ⚠ Feasibility — read first
 
 ```
-F4 (Data durability, weight 15) is blocked on Open Question 3 (backend
-choice). Ceiling without a backend: ~55.
+OQ1/OQ3 backend is RESOLVED: Supabase live. schema.sql applied; anonymous
+sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
+with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
+The former hard ceiling (93.25) is gone. No structural block remains.
 
-max_achievable = 100 × 0.85 + 55 × 0.15 = 93.25
-
-93.25 < 95  →  A+ IS UNREACHABLE.
+A+ still requires every axis ≥85. Lowest: F9 68, F8 74, F2 76, F3 76, F7 78,
+F1 78 — six axes below 85. Keep working correctness; do not chase cosmetics.
 ```
-
-Do not start another feature iteration until Open Question 3 is answered
-by a human. Iterations chasing the remaining points without it burn effort
-against an unreachable target.
 
 ---
 
@@ -31,13 +28,16 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F1 Core ledger | 15 | 86 | **78** | 11.70 | V17: V2/V4/V5/V6/V9 lulus; V3 4 lubang lock + V7 bunga tak diakui |
 | F2 Tax conformance | 12 | 76 | **76** | 9.12 | Faktur/NITKU open; PPN position open |
 | F3 Payroll & HR | 12 | 73 | **76** | 9.12 | Dec recon + 1721-A1 ship (lembur/cuti/UMP → iter 20) |
-| F4 Data durability | 15 | 52 | **54** | 8.10 | Pipeline verified + check-prod guard + version-source tooling (kelas regresi skew ditutup) |
+| F4 Data durability | 15 | 52 | **68** | 10.20 | Supabase LIVE: first-sync push + RLS read/write/delete verified server-side. Gap: sesi anonim masih terikat browser |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
 | F7 Cognitive load | 10 | 80 | **78** | 7.80 | Mode Sederhana helped; U2 Frozen |
 | F8 Mobile | 7 | 82 | **74** | 5.18 | 8 releases of mobile layout defects |
 | F9 Accessibility | 7 | 68 | **68** | 4.76 | U5 emoji icons untouched |
-| **OVERALL** | | ~~90~~ | | **75.30** | Baseline was 59.7 → **+15.6** |
+| **OVERALL** | | ~~90~~ | | **77.40** | F4 52→68; arithmetic di bawah |
+
+Aritmetika (wajib tampil): 78×15 + 76×12 + 76×12 + 68×15 + 92×10 + 86×12 + 78×10 + 74×7 + 68×7
+= 1170 + 912 + 912 + 1020 + 920 + 1032 + 780 + 518 + 476 = **7740 / 100 = 77.40**. Baseline 59.7 → **+17.7**.
 
 Six of nine axes below 85. Stop condition not met on either clause.
 
@@ -45,7 +45,7 @@ Six of nine axes below 85. Stop condition not met on either clause.
 
 ## Blocking decisions — nothing proceeds without these
 
-1. **Backend for B1** — arah: **Supabase** (keputusan tentatif user "maybe use supabase", 2026-09-11). Skema + mesin sync + UI sudah ship (unversioned engine, v1.22.0). Kredensial diterima 2026-09-11 (URL + publishable key valid; project reachable). **MENUNGGU: (a) Run `supabase/schema.sql` di SQL Editor (tabel belum ada — 404 terkonfirmasi), (b) daftar/masuk akun di aplikasi, (c) first-sync terverifikasi** → F4 baru bergerak saat (c) hijau.
+1. ~~Backend for B1~~ **RESOLVED 2026-09-13** — Supabase live. URL + publishable key valid; `supabase/schema.sql` sudah di-Run; anonymous sign-in ON; first-sync hijau (klien ↑3 ↓0) dan diverifikasi server-side via akun probe terpisah (INSERT 201 / READ-own 200 / READ-other [] RLS / DELETE 204). Endpoint anonim diperbaiki ke `/auth/v1/signup` (v1.22.3). → F4 52→68. Sisa celah: sesi anonim terikat browser, belum ada tautkan-email (backlog).
 2. **PPN position** — 11% flat, or 12% with DPP nilai lain (effective 11%)? Needs a current cited source.
 3. **UMP/UMK 2026** per province — effective-dated table?
 4. **Akuntan/HRD permission matrix** — may an accountant post adjusting journals without approval?
@@ -114,7 +114,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 
 ## Completed — iterations 1–19 + supabase engine (unversioned F4 groundwork)
 
-- **supabase engine (v1.22.0)**: direct human order (menyimpang dari urutan tetap — dicatat). Skema 2-tabel + RLS, mesin LWW/tombstone, throttle, dot status, 11 test (1 test menangkap bug `Date.parse(0)` pra-produksi). F4 TETAP 52 — skor hanya bergerak setelah first-sync live terverifikasi. Personas: tak ada perubahan UI yang mereka pakai (section di Pengaturan, kasir tak melihat).
+- **supabase engine (v1.22.0)**: direct human order (menyimpang dari urutan tetap — dicatat). Skema 2-tabel + RLS, mesin LWW/tombstone, throttle, dot status, 11 test (1 test menangkap bug `Date.parse(0)` pra-produksi). Personas: tak ada perubahan UI yang mereka pakai (section di Pengaturan, kasir tak melihat).
+- **v1.22.1 / v1.22.2 / v1.22.3 / v1.22.4 (direct human order — dicatat)**: onboarding akun, masuk anonim, **fix endpoint anonim** (`/auth/v1/authorize`→`/auth/v1/signup`, bug 405), lalu **UI Sinkron disederhanakan** jadi satu tombol primer (hapus email/password + handler mati). First-sync LIVE hijau + RLS diverifikasi server-side dengan akun probe (INSERT 201 / READ-own 200 / READ-other [] / DELETE 204). **F4 54→68.** Tests 175/175 ✓.
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
