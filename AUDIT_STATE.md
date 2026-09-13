@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.39.0** · Production **v1.39.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.39.0, sw=wynara-v1-39-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.40.0** · Production **v1.40.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.40.0, sw=wynara-v1-40-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -14,7 +14,7 @@ with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete [
 The former hard ceiling (93.25) is gone. No structural block remains.
 
 A+ still requires every axis ≥85. Lowest: F4 74, F2 80, F9 82, F8 83, F3 84
-— five axes below 85 (F7 87, F6 88, F1 89, F5 92). Keep working correctness; do not chase cosmetics.
+— five axes below 85 (F7 87, F6 90, F1 90, F5 92). Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -25,19 +25,19 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
-| F1 Core ledger | 15 | 86 | **89** | 13.35 | + varian produk (ukuran/warna), diskon, harga jual otomatis di Jual |
+| F1 Core ledger | 15 | 86 | **90** | 13.50 | + halaman stok bergrup, restock + jurnal Dr Persediaan/Cr Kas |
 | F2 Tax conformance | 12 | 76 | **80** | 9.60 | OQ2 selesai (PPN 11% configurable, non-PKP); PPh Final PP23/2018 ambang Rp4,8M + peringatan |
 | F3 Payroll & HR | 12 | 73 | **84** | 10.08 | Dec recon + 1721-A1 + kasbon + **lembur KEP-102, cuti UU13/2003, ganti cuti, validasi UMP** |
 | F4 Data durability | 15 | 52 | **74** | 11.10 | Supabase LIVE + RLS; peran+actor; **tautkan sesi anonim→email + uji-diri backup**. Gap: OQ4 matriks Akuntan/HRD |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
-| F6 Task efficiency | 12 | 86 | **88** | 10.56 | Import produk & pesanan (marketplace CSV + WhatsApp) → input massal tanpa ketik ulang |
+| F6 Task efficiency | 12 | 86 | **90** | 10.80 | Halaman stok (cari/filter/restock) + import marketplace/WA |
 | F7 Cognitive load | 10 | 80 | **87** | 8.70 | Harga/modal per ukuran + warna premium; stok per varian; import marketplace/WA |
 | F8 Mobile | 7 | 82 | **83** | 5.81 | Audit mobile + lanjutan: safe-area footer entri, font ≥11px, modal scroll-x, target sentuh |
 | F9 Accessibility | 7 | 68 | **82** | 5.74 | Label/dialog/focus/contrast + scope/caption/alt/hierarki + nama nav bersih (tanpa emoji) |
-| **OVERALL** | | ~~90~~ | | **84.14** | F7 86→87 (harga per ukuran); arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **84.53** | F1 89→90, F6 88→90 (halaman stok+restock); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 89×15 + 80×12 + 84×12 + 74×15 + 92×10 + 88×12 + 87×10 + 83×7 + 82×7
-= 1335 + 960 + 1008 + 1110 + 920 + 1056 + 870 + 581 + 574 = **8414 / 100 = 84.14**. Baseline 59.7 → **+24.44**.
+Aritmetika (wajib tampil): 90×15 + 80×12 + 84×12 + 74×15 + 92×10 + 90×12 + 87×10 + 83×7 + 82×7
+= 1350 + 960 + 1008 + 1110 + 920 + 1080 + 870 + 581 + 574 = **8453 / 100 = 84.53**. Baseline 59.7 → **+24.83**.
 
 Five of nine axes below 85. Stop condition not met on either clause.
 
@@ -152,6 +152,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.38.0 (F7)**: **isi stok & diskon per varian** langsung di tabel matriks (kombinasi ukuran × warna) — sekali isi & Simpan (sebelumnya varian jadi stok 0 lalu diedit satu-satu). **→ F7 85→86.** 242/242 ✓.
 
 - **v1.39.0 (F7)**: **harga & modal per UKURAN** (bukan harga pusat) + **warna premium** (tambahan harga) — varian jadi = ukuran × warna; stok per sel (total ditampilkan); harga/modal/stok pusat disembunyikan saat varian aktif. **→ F7 86→87.** 242/242 ✓.
+
+- **v1.40.0 (F1/F6)**: **halaman Stok** — produk dikelompokkan (SKU) dengan varian sebagai chip + stok; filter stok menipis; **Restock cepat** per varian (jurnal Dr Persediaan / Cr Kas); aksi Jual/Restock/Edit per produk; varian simpan `groupId`/`baseName`. **→ F1 89→90, F6 88→90.** +2 test. 244/244 ✓.
 
 > Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
