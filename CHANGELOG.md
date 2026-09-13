@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.57.0] - 2026-09-13
+
+### Added — Fase 3: retur penjualan (parsial)
+- Tombol **↩️** di baris transaksi penjualan → modal **Retur** per baris (qty ≤ sisa, tahan retur berulang)
+- Stok **masuk lagi**; jurnal: **Dr 4101** (pendapatan) + **Dr 2105** (PPN bila ada) + **Dr 1301** (stok), **Cr kas/bank** (refund) + **Cr 5109** (HPP dibalik)
+- Refund via metode pilihan; retur tersimpan (`wynara_sale_returns`) & ikut sinkron/backup
+- +2 test; 264/264 tests ✓
+
+---
+
 ## [1.56.0] - 2026-09-13
 
 ### Added — Tampilan tabel, aksi massal & laporan restock

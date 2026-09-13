@@ -126,6 +126,28 @@ export function buildRepaymentJournal(loan, repayment, priorRepayments) {
   return balanced(lines) ? j : null;
 }
 
+// Retur penjualan: balik pendapatan (+PPN) ke kas, barang masuk lagi & HPP dibalik.
+export function buildSaleReturnJournal({ amount, dpp, ppn, cost, date, payment, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const cash = accountForPayment(payment || 'transfer');
+  const m = memo || 'Retur penjualan';
+  const c = Math.round(Number(cost) || 0);
+  const p = Math.round(Number(ppn) || 0);
+  const d = Math.round(Number(dpp) || 0);
+  const lines = [
+    { account: REVENUE_ACCOUNT, debit: d, credit: 0, memo: m },
+  ];
+  if (p > 0) lines.push({ account: PPN_OUT, debit: p, credit: 0, memo: m });
+  lines.push({ account: cash, debit: 0, credit: amt, memo: m });
+  if (c > 0) {
+    lines.push({ account: INVENTORY_ACCOUNT, debit: c, credit: 0, memo: `${m} (stok)` });
+    lines.push({ account: COGS_ACCOUNT, debit: 0, credit: c, memo: `${m} (HPP)` });
+  }
+  const j = { id: jid('J'), date, memo: m, ref: 'sale-return', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
+
 // Kasbon karyawan dipotong dari gaji: Dr Beban Gaji / Cr Piutang (1201),
 // porsi bunga (bila ada) → Cr Pendapatan Bunga 4102 (konsisten dgn B7).
 // Bukan kas masuk — THP gaji sudah dikurangi, jadi piutang lunas tanpa kas.

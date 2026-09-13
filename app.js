@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.56.0';
+const APP_VERSION = '1.57.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -573,7 +573,7 @@ function bindEvents() {
   window.__isLockedMonth = (d) => Storage.isMonthLocked(d);
   UI.bindFormSubmit(handleFormSubmit);
   UI.bindModalClose(UI.closeModal);
-  UI.bindTableActions(handleEdit, handleDelete, handleDuplicate, handleReceipt);
+  UI.bindTableActions(handleEdit, handleDelete, handleDuplicate, handleReceipt, handleReturnOpen);
   UI.bindReceipt();
   UI.bindFilters(handleFilterChange);
   window.__onFilterChange = handleFilterChange;
@@ -1025,6 +1025,10 @@ function bindEvents() {
   document.getElementById('restockClose')?.addEventListener('click', closeRestock);
   document.getElementById('restockCancel')?.addEventListener('click', closeRestock);
   document.getElementById('restockSave')?.addEventListener('click', handleRestockSubmit);
+  document.getElementById('returnClose')?.addEventListener('click', closeReturn);
+  document.getElementById('returnCancel')?.addEventListener('click', closeReturn);
+  document.getElementById('returnSave')?.addEventListener('click', handleReturnSubmit);
+  document.getElementById('returnRows')?.addEventListener('input', updateReturnTotal);
   document.getElementById('adjustOpenBtn')?.addEventListener('click', openStockAdjust);
   document.getElementById('stockAdjustClose')?.addEventListener('click', closeStockAdjust);
   document.getElementById('stockAdjustCancel')?.addEventListener('click', closeStockAdjust);
@@ -1621,6 +1625,56 @@ function handleDelete(id) {
   }
 }
 
+/* ===== Retur penjualan ===== */
+let returnSaleId = '';
+function handleReturnOpen(entryId) {
+  const e = Storage.getEntryById(entryId);
+  if (!e || !e.sale || !Array.isArray(e.sale.lines)) return UI.showError('Bukan penjualan barang');
+  returnSaleId = entryId;
+  const returned = Storage.returnedQtyFor(entryId);
+  const all = Storage.getAllItems();
+  document.getElementById('returnRows').innerHTML = e.sale.lines.map(l => {
+    const it = all.find(x => x.id === l.itemId);
+    const v = it ? [it.size, it.color].filter(Boolean).join('/') : '';
+    const name = (it ? it.name : '(barang terhapus)') + (v ? ' ' + v : '');
+    const ret = returned[l.itemId] || 0;
+    const remaining = (Number(l.qty) || 0) - ret;
+    return `<tr><td style="font-size:12px">${escapeHtml(name)}</td><td class="amount-col">${l.qty}</td><td class="amount-col">${ret}</td><td class="amount-col"><input type="number" class="ret-qty" data-item="${l.itemId}" min="0" max="${Math.max(remaining, 0)}" step="1" value="0" ${remaining <= 0 ? 'disabled' : ''} style="width:80px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`;
+  }).join('');
+  document.getElementById('returnInfo').innerHTML = `Penjualan <b>${new Date(e.date).toLocaleDateString('id-ID')}</b>${e.person ? ' • ' + escapeHtml(e.person) : ''} • ${Storage.getSaleReturns(entryId).length} retur sebelumnya`;
+  const dEl = document.getElementById('returnDate'); if (dEl) dEl.value = new Date().toISOString().split('T')[0];
+  const pEl = document.getElementById('returnPayment'); if (pEl) pEl.value = e.payment || 'transfer';
+  updateReturnTotal();
+  const m = document.getElementById('returnModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function updateReturnTotal() {
+  const e = Storage.getEntryById(returnSaleId);
+  if (!e) return;
+  let total = 0;
+  document.querySelectorAll('#returnRows .ret-qty').forEach(inp => {
+    const q = Math.max(Math.floor(Number(inp.value) || 0), 0);
+    const l = e.sale.lines.find(x => x.itemId === inp.dataset.item);
+    if (l && q > 0) total += q * (Number(l.price) || 0);
+  });
+  const el = document.getElementById('returnTotal');
+  if (el) el.textContent = `Refund: Rp${Math.round(total).toLocaleString('id-ID')}`;
+}
+function closeReturn() { const m = document.getElementById('returnModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function handleReturnSubmit() {
+  const e = Storage.getEntryById(returnSaleId);
+  if (!e) return;
+  const items = [...document.querySelectorAll('#returnRows .ret-qty')]
+    .map(inp => ({ itemId: inp.dataset.item, qty: Math.max(Math.floor(Number(inp.value) || 0), 0) }))
+    .filter(x => x.qty > 0);
+  if (!items.length) return UI.showError('Isi qty retur dulu');
+  const date = document.getElementById('returnDate')?.value || new Date().toISOString().split('T')[0];
+  const payment = document.getElementById('returnPayment')?.value || 'transfer';
+  try {
+    const rec = Storage.returnSale(returnSaleId, items, { date, payment });
+    UI.showSuccess(`Retur Rp${Math.round(rec.refund).toLocaleString('id-ID')} — stok masuk lagi`);
+    closeReturn(); refresh(); refreshStock(); queueMirror();
+  } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal retur'); }
+}
 function handleReceipt(id) {
   const entry = Storage.getEntryById(id);
   if (!entry) return;

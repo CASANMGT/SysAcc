@@ -218,11 +218,13 @@ export function renderEntries(entries) {
     const amt = Number(e.amount) || 0;
     const checked = selected.has(e.id) ? 'checked' : '';
     const checkDisabled = isLoan ? 'disabled title="Pinjaman dikelola dari menu Pinjaman"' : '';
+    const hasSale = !!(e.sale && Array.isArray(e.sale.lines) && e.sale.lines.length);
     const actions = isLoan
       ? '<span class="muted-tag">di Pinjaman</span>'
       : `<div class="table-row-actions">
           <button class="btn btn-ghost edit-btn" data-id="${e.id}" aria-label="Edit" title="Edit">✎</button>
           <button class="btn btn-ghost duplicate-btn" data-id="${e.id}" aria-label="Duplikasi" title="Duplikasi">📋</button>
+          ${hasSale ? `<button class="btn btn-ghost return-btn" data-id="${e.id}" aria-label="Retur" title="Retur penjualan">↩️</button>` : ''}
           <button class="btn btn-ghost receipt-btn" data-id="${e.id}" aria-label="Kwitansi" title="Cetak kwitansi">🧾</button>
           <button class="btn btn-danger delete-btn" data-id="${e.id}" aria-label="Hapus" title="Hapus">🗑</button>
         </div>`;
@@ -1620,16 +1622,18 @@ export function bindModalClose(handler) {
   });
 }
 
-export function bindTableActions(onEdit, onDelete, onDuplicate, onReceipt) {
+export function bindTableActions(onEdit, onDelete, onDuplicate, onReceipt, onReturn) {
   elements.entriesBody.addEventListener('click', (e) => {
     const editBtn = e.target.closest('.edit-btn');
     const deleteBtn = e.target.closest('.delete-btn');
     const duplicateBtn = e.target.closest('.duplicate-btn');
     const receiptBtn = e.target.closest('.receipt-btn');
+    const returnBtn = e.target.closest('.return-btn');
     if (editBtn) onEdit(editBtn.dataset.id);
     if (deleteBtn) onDelete(deleteBtn.dataset.id);
     if (duplicateBtn && onDuplicate) onDuplicate(duplicateBtn.dataset.id);
     if (receiptBtn && onReceipt) onReceipt(receiptBtn.dataset.id);
+    if (returnBtn && onReturn) onReturn(returnBtn.dataset.id);
   });
 }
 

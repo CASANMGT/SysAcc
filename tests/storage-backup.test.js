@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, getReorderList, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -193,6 +193,32 @@ describe('updateLoan', () => {
     const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
     updateLoan(loan.id, { status: 'paid' });
     expect(getLoanById(loan.id).status).toBe('paid');
+  });
+});
+
+describe('retur penjualan (F1)', () => {
+  it('retur parsial: stok balik + jurnal (pendapatan & HPP dibalik)', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'Kopi', price: 10000, cost: 5000, stock: 10 });
+    const e = createEntry({ date: '2026-08-01', type: 'income', category: 'jualan', amount: 20000, sale: { lines: [{ itemId: it.id, qty: 2, price: 10000 }] } });
+    expect(getItemById(it.id).stock).toBe(8);
+    const rec = returnSale(e.id, [{ itemId: it.id, qty: 1 }], { date: '2026-08-02', payment: 'cash' });
+    expect(rec.refund).toBe(10000);
+    expect(getItemById(it.id).stock).toBe(9);
+    expect(returnedQtyFor(e.id)[it.id]).toBe(1);
+    const j = getAllJournals().find(x => x.ref === 'sale-return');
+    expect(j.lines.find(l => l.account === '4101').debit).toBe(10000);
+    expect(j.lines.find(l => l.account === '1301').debit).toBe(5000);
+    expect(j.lines.find(l => l.account === '5109').credit).toBe(5000);
+    expect(getSaleReturns(e.id).length).toBe(1);
+  });
+  it('retur melebihi sisa ditolak', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'Teh', price: 5000, cost: 2000, stock: 5 });
+    const e = createEntry({ date: '2026-08-01', type: 'income', category: 'jualan', amount: 5000, sale: { lines: [{ itemId: it.id, qty: 1, price: 5000 }] } });
+    expect(() => returnSale(e.id, [{ itemId: it.id, qty: 2 }], { date: '2026-08-02' })).toThrow(/Melebihi/);
   });
 });
 

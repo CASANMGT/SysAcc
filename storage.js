@@ -1,6 +1,6 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, findUnbalanced } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, findUnbalanced } from './journals.js';
 import { getAccounts } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
@@ -1498,6 +1498,7 @@ export function snapshotAll() {
     purchases: getPurchases(),
     drafts: (() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch { return {}; } })(),
     shops: getShops(),
+    saleReturns: getSaleReturns(),
     exportedAt: new Date().toISOString(),
     version: 3
   };
@@ -1583,6 +1584,7 @@ export function dataHealthCheck() {
 export function restoreAll(snap) {
   if (!snap || typeof snap !== 'object') throw new Error('Snapshot tidak valid');
   if (Array.isArray(snap.shops) && snap.shops.length) { try { saveShops(snap.shops); } catch {} }
+  if (Array.isArray(snap.saleReturns)) { try { saveSaleReturns(snap.saleReturns); } catch {} }
   let cE = 0, cL = 0, cR = 0, cP = 0;
   if (Array.isArray(snap.entries)) {
     const valid = snap.entries.map(sanitizeEntry).filter(Boolean);
@@ -2682,6 +2684,63 @@ export function saveLeave(empId, year, obj) {
 export function addLeave(empId, year, { comp = 0, taken = 0 } = {}) {
   const cur = getLeave(empId, year);
   return saveLeave(empId, year, { entitled: cur.entitled, taken: cur.taken + (Number(taken) || 0), comp: cur.comp + (Number(comp) || 0) });
+}
+
+// ===== Retur penjualan (parsial) =====
+const SALE_RET_KEY = 'wynara_sale_returns';
+export function getSaleReturns(saleId) {
+  try {
+    const v = JSON.parse(localStorage.getItem(SALE_RET_KEY) || '[]');
+    const list = Array.isArray(v) ? v : [];
+    return saleId ? list.filter(r => r.saleId === saleId) : list;
+  } catch { return []; }
+}
+function saveSaleReturns(list) { try { localStorage.setItem(SALE_RET_KEY, JSON.stringify(list)); } catch {} }
+export function returnedQtyFor(saleId) {
+  const map = {};
+  getSaleReturns(saleId).forEach(r => (r.lines || []).forEach(l => { map[l.itemId] = (map[l.itemId] || 0) + (Number(l.qty) || 0); }));
+  return map;
+}
+// items: [{ itemId, qty }] — kembalikan stok + refund kas + balik pendapatan/HPP.
+export function returnSale(saleId, items, { date, payment } = {}) {
+  requireCap('ledger');
+  const sale = getEntryById(saleId);
+  if (!sale || !sale.sale || !Array.isArray(sale.sale.lines)) throw new Error('Bukan penjualan barang');
+  const returned = returnedQtyFor(saleId);
+  const lines = [];
+  let refund = 0, costBack = 0;
+  (Array.isArray(items) ? items : []).forEach(it => {
+    const orig = sale.sale.lines.find(l => l.itemId === it.itemId);
+    if (!orig) throw new Error('Baris tidak ditemukan di penjualan');
+    const q = Math.floor(Number(it.qty) || 0);
+    if (q <= 0) return;
+    const remaining = (Number(orig.qty) || 0) - (returned[it.itemId] || 0);
+    if (q > remaining) throw new Error(`Melebihi jumlah jual (sisa bisa diretur ${Math.max(remaining, 0)})`);
+    const price = Number(orig.price) || 0;
+    const item = getItemById(it.itemId);
+    const cost = item ? Number(item.cost) || 0 : 0;
+    refund += price * q; costBack += cost * q;
+    lines.push({ itemId: it.itemId, qty: q, price, cost });
+  });
+  if (!lines.length) throw new Error('Tidak ada baris untuk diretur');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const shopId = getActiveShopId();
+  const rate = getPpn().rate;
+  const dpp = sale.ppn ? Math.round(refund / (1 + rate)) : refund;
+  const ppn = sale.ppn ? refund - dpp : 0;
+  lines.forEach(l => applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.cost, keepCost: true, shop: shopId, ref: saleId, note: 'retur jual' }));
+  try {
+    const j = buildSaleReturnJournal({
+      amount: refund, dpp, ppn, cost: costBack, date: d, payment: payment || sale.payment,
+      memo: `Retur ${sale.person || ''}: ${lines.map(l => `${l.qty}× ${(getItemById(l.itemId) || {}).name || ''}`).join(', ')}`,
+    });
+    if (j) postJournal(j);
+  } catch {}
+  const rec = { id: generateId(), saleId, date: d, payment: payment || sale.payment || 'transfer', lines, refund, dpp, ppn, costBack, createdAt: new Date().toISOString() };
+  saveSaleReturns(getSaleReturns().concat(rec));
+  logAudit('create', 'sale-return', rec.id, null, { saleId, refund, cost: costBack, lines: lines.length });
+  return rec;
 }
 
 // ===== Dokumen stok: penyesuaian & transfer antar toko =====
