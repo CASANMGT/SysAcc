@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.37.0** · Production **v1.37.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.37.0, sw=wynara-v1-37-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.38.0** · Production **v1.38.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.38.0, sw=wynara-v1-38-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -14,7 +14,7 @@ with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete [
 The former hard ceiling (93.25) is gone. No structural block remains.
 
 A+ still requires every axis ≥85. Lowest: F4 74, F2 80, F9 82, F8 83, F3 84
-— five axes below 85 (F7 85, F6 88, F1 89, F5 92). Keep working correctness; do not chase cosmetics.
+— five axes below 85 (F7 86, F6 88, F1 89, F5 92). Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -31,13 +31,13 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F4 Data durability | 15 | 52 | **74** | 11.10 | Supabase LIVE + RLS; peran+actor; **tautkan sesi anonim→email + uji-diri backup**. Gap: OQ4 matriks Akuntan/HRD |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **88** | 10.56 | Import produk & pesanan (marketplace CSV + WhatsApp) → input massal tanpa ketik ulang |
-| F7 Cognitive load | 10 | 80 | **85** | 8.50 | Impot marketplace/WA + varian & diskon produk (input jual makin ringkas) |
+| F7 Cognitive load | 10 | 80 | **86** | 8.60 | Import marketplace/WA + varian & diskon + isi stok/diskon per varian via tabel |
 | F8 Mobile | 7 | 82 | **83** | 5.81 | Audit mobile + lanjutan: safe-area footer entri, font ≥11px, modal scroll-x, target sentuh |
 | F9 Accessibility | 7 | 68 | **82** | 5.74 | Label/dialog/focus/contrast + scope/caption/alt/hierarki + nama nav bersih (tanpa emoji) |
-| **OVERALL** | | ~~90~~ | | **83.94** | F1 88→89, F7 84→85 (varian+diskon); arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **84.04** | F7 85→86 (isi stok/diskon per varian); arithmetic di bawah |
 
-Aritmetika (wajib tampil): 89×15 + 80×12 + 84×12 + 74×15 + 92×10 + 88×12 + 85×10 + 83×7 + 82×7
-= 1335 + 960 + 1008 + 1110 + 920 + 1056 + 850 + 581 + 574 = **8394 / 100 = 83.94**. Baseline 59.7 → **+24.24**.
+Aritmetika (wajib tampil): 89×15 + 80×12 + 84×12 + 74×15 + 92×10 + 88×12 + 86×10 + 83×7 + 82×7
+= 1335 + 960 + 1008 + 1110 + 920 + 1056 + 860 + 581 + 574 = **8404 / 100 = 84.04**. Baseline 59.7 → **+24.34**.
 
 Five of nine axes below 85. Stop condition not met on either clause.
 
@@ -148,6 +148,8 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.36.0 (F6/F7 — import marketplace/WA)**: **📥 Import produk** (CSV/Excel, pemetaan kolom otomatis, upsert per SKU/nama) + **📥 Import penjualan** (CSV/Excel pesanan Shopee/TikTok: peta kolom, kelompok per pesanan, cocokkan item, pratinjau, buat penjualan + stok/jurnal) + **WhatsApp/offline** (tempel `2x Kopi 15000`). `marketplace.js` murni. **→ F6 86→88, F7 83→84.** +10 test (13 file). 238/238 ✓.
 
 - **v1.37.0 (F1/F7 — varian & diskon)**: produk punya **Ukuran/Warna/Diskon**; **buat banyak varian** (matriks); harga jual di **Jual** otomatis = harga setelah diskon; untung dari netto; **import produk** memetakan Ukuran/Warna/Diskon. **→ F1 88→89, F7 84→85.** +5 test. 242/242 ✓.
+
+- **v1.38.0 (F7)**: **isi stok & diskon per varian** langsung di tabel matriks (kombinasi ukuran × warna) — sekali isi & Simpan (sebelumnya varian jadi stok 0 lalu diedit satu-satu). **→ F7 85→86.** 242/242 ✓.
 
 > Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
