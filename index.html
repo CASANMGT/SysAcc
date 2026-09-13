@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.55.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.56.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.55.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.56.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -564,6 +564,22 @@
             </div>
           </div>
           <div id="stockPageSummary" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <div class="chip-group" id="stockViewToggle" role="group" aria-label="Tampilan stok">
+              <button type="button" class="chip selected" data-v="cards">🃏 Kartu</button>
+              <button type="button" class="chip" data-v="table">📋 Tabel</button>
+            </div>
+            <button type="button" class="btn btn-ghost" id="reorderBtn" style="font-size:12px;padding:6px 12px" title="Daftar perlu restock">📋 Perlu restock</button>
+            <label class="login-check" style="font-size:12px"><input type="checkbox" id="stockShowInactive"> Tampilkan arsip</label>
+          </div>
+          <div id="stockBulkBar" hidden style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 10px;margin-bottom:10px">
+            <span id="stockBulkCount" style="font-size:12px;color:#1e3a8a"></span>
+            <button type="button" class="btn btn-ghost" id="bulkActivate" style="font-size:12px;padding:4px 10px">Aktifkan</button>
+            <button type="button" class="btn btn-ghost" id="bulkArchive" style="font-size:12px;padding:4px 10px">Nonaktifkan</button>
+            <select id="bulkCategory" style="height:32px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;padding:0 8px"><option value="">Set kategori…</option></select>
+            <button type="button" class="btn btn-ghost" id="bulkExport" style="font-size:12px;padding:4px 10px">⬇️ Export CSV</button>
+            <button type="button" class="btn btn-ghost" id="bulkCancel" style="font-size:12px;padding:4px 10px">Batal</button>
+          </div>
           <div id="stockPageList"></div>
         </div>
 
@@ -2058,7 +2074,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.55.0';
+    window.__htmlVersion = '1.56.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

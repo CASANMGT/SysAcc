@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, getReorderList, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -193,6 +193,23 @@ describe('updateLoan', () => {
     const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
     updateLoan(loan.id, { status: 'paid' });
     expect(getLoanById(loan.id).status).toBe('paid');
+  });
+});
+
+describe('aksi massal & restock (F1)', () => {
+  it('getReorderList, aktif/nonaktif massal, set kategori', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const a = saveItem({ name: 'A', price: 1000, cost: 500, stock: 1, minStock: 5 });
+    const b = saveItem({ name: 'B', price: 1000, cost: 500, stock: 10, minStock: 5 });
+    const reorder = getReorderList('main').map(r => r.item.id);
+    expect(reorder).toContain(a.id);
+    expect(reorder).not.toContain(b.id);
+    setItemsActive([a.id], false);
+    expect(getItemById(a.id).active).toBe(false);
+    expect(getReorderList('main').map(r => r.item.id)).not.toContain(a.id);
+    setItemsCategory([b.id], 'Minuman');
+    expect(getItemById(b.id).category).toBe('Minuman');
   });
 });
 

@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.55.0';
+const APP_VERSION = '1.56.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -967,6 +967,13 @@ function bindEvents() {
     refreshStockPage();
   });
   document.getElementById('stockPageList')?.addEventListener('click', (e) => {
+    const th = e.target.closest('th[data-sort]');
+    if (th) {
+      const k = th.dataset.sort;
+      stockSort = (stockSort && stockSort.key === k) ? { key: k, dir: stockSort.dir === 'asc' ? 'desc' : 'asc' } : { key: k, dir: 'asc' };
+      refreshStockPage();
+      return;
+    }
     const chip = e.target.closest('.stock-chip');
     const jual = e.target.closest('.stock-page-jual');
     const restock = e.target.closest('.stock-page-restock');
@@ -975,6 +982,36 @@ function bindEvents() {
     else if (jual) UI.openSale();
     else if (restock) handleStockRestockGroup(restock.dataset.key);
     else if (hist) handleStockHistoryGroup(hist.dataset.key);
+  });
+  document.getElementById('stockPageList')?.addEventListener('change', (e) => {
+    if (e.target.id === 'stockSelectAll') {
+      document.querySelectorAll('#stockPageList .stock-row-check').forEach(c => { c.checked = e.target.checked; });
+      renderBulkBar();
+    } else if (e.target.classList.contains('stock-row-check')) renderBulkBar();
+  });
+  document.getElementById('stockViewToggle')?.addEventListener('click', (e) => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    stockView = c.dataset.v === 'table' ? 'table' : 'cards';
+    safeLocalSet('wynara_stockView', stockView);
+    refreshStockPage();
+  });
+  document.getElementById('reorderBtn')?.addEventListener('click', handleReorderReport);
+  document.getElementById('stockShowInactive')?.addEventListener('change', (e) => { stockShowInactive = e.target.checked; refreshStockPage(); });
+  document.getElementById('bulkActivate')?.addEventListener('click', () => bulkSetActive(true));
+  document.getElementById('bulkArchive')?.addEventListener('click', () => bulkSetActive(false));
+  document.getElementById('bulkCategory')?.addEventListener('change', (e) => {
+    const cat = e.target.value; if (!cat) return;
+    const ids = selectedStockIds(); if (!ids.length) return;
+    Storage.setItemsCategory(ids, cat);
+    UI.showSuccess(`${ids.length} produk diset kategori “${cat}”`);
+    refreshStock();
+    e.target.value = '';
+    queueMirror();
+  });
+  document.getElementById('bulkExport')?.addEventListener('click', bulkExportCsv);
+  document.getElementById('bulkCancel')?.addEventListener('click', () => {
+    document.querySelectorAll('#stockPageList .stock-row-check').forEach(c => { c.checked = false; });
+    renderBulkBar();
   });
   document.getElementById('stockPageSearch')?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
@@ -3052,14 +3089,72 @@ function refreshStock() {
   refreshStockPage();
 }
 let stockPageFilter = 'all';
+let stockView = safeLocalGet('wynara_stockView') === 'table' ? 'table' : 'cards';
+let stockSort = null;
+let stockShowInactive = false;
 function refreshStockPage() {
   const term = document.getElementById('stockPageSearch')?.value || '';
   const shopId = Storage.getActiveShopId();
   const shopName = (Storage.getShops().find(s => s.id === shopId) || {}).name || '';
   renderShopSelect();
-  UI.renderStockPage(Storage.getStockGroups(), { term, filter: stockPageFilter, shopId, shopName });
+  const viewToggle = document.getElementById('stockViewToggle');
+  if (viewToggle) viewToggle.querySelectorAll('.chip').forEach(c => c.classList.toggle('selected', c.dataset.v === stockView));
+  UI.renderStockPage(Storage.getStockGroups(), { term, filter: stockPageFilter, shopId, shopName, view: stockView, sort: stockSort, showInactive: stockShowInactive });
   const qtyLabel = document.getElementById('stockQtyLabel');
   if (qtyLabel) qtyLabel.textContent = `Punya berapa? (${shopName})`;
+  renderBulkBar();
+}
+function selectedStockIds() {
+  return [...document.querySelectorAll('#stockPageList .stock-row-check:checked')].map(c => c.dataset.id);
+}
+function renderBulkBar() {
+  const bar = document.getElementById('stockBulkBar');
+  const ids = selectedStockIds();
+  if (bar) bar.hidden = ids.length === 0;
+  const cnt = document.getElementById('stockBulkCount');
+  if (cnt) cnt.textContent = `${ids.length} dipilih`;
+  const catSel = document.getElementById('bulkCategory');
+  if (catSel && catSel.options.length <= 1) {
+    const cats = [...new Set(Storage.getAllItems().map(i => i.category).filter(Boolean))].sort();
+    cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); });
+  }
+}
+function handleReorderReport() {
+  const shopId = Storage.getActiveShopId();
+  const shopName = (Storage.getShops().find(s => s.id === shopId) || {}).name || '';
+  const rows = Storage.getReorderList(shopId);
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const totalCost = rows.reduce((s, r) => s + r.suggest * (Number(r.item.cost) || 0), 0);
+  const body = rows.length
+    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">Toko <b>${escapeHtml(shopName)}</b> — ${rows.length} varian ≤ titik pesan ulang • perkiraan biaya restock <b>${fmt(totalCost)}</b></div>
+       <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Produk</th><th>SKU</th><th class="amount-col">Stok</th><th class="amount-col">Min</th><th class="amount-col">Saran</th></tr></thead><tbody>
+       ${rows.slice(0, 200).map(r => `<tr><td style="font-size:12px">${escapeHtml(r.item.name)}${[r.item.size, r.item.color].filter(Boolean).length ? ' ' + escapeHtml([r.item.size, r.item.color].filter(Boolean).join('/')) : ''}</td><td style="font-size:11px">${escapeHtml(r.item.sku || '—')}</td><td class="amount-col ${r.stock <= r.min ? 'expense' : ''}">${r.stock}</td><td class="amount-col">${r.min}</td><td class="amount-col"><b>${r.suggest}</b></td></tr>`).join('')}
+       </tbody></table></div>`
+    : '<p style="color:#64748b">Tidak ada varian yang menipis di toko ini. 🎉</p>';
+  UI.openInfoModal('📋 Perlu Restock', body);
+}
+function bulkSetActive(active) {
+  const ids = selectedStockIds();
+  if (!ids.length) return;
+  try {
+    Storage.setItemsActive(ids, active);
+    UI.showSuccess(`${ids.length} produk ${active ? 'diaktifkan' : 'dinonaktifkan'}`);
+    refreshStock();
+    queueMirror();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal'); }
+}
+function bulkExportCsv() {
+  const ids = selectedStockIds();
+  if (!ids.length) return;
+  const rows = [['Nama', 'Varian', 'SKU', 'Barcode', 'Kategori', 'Satuan', 'Stok', 'Harga', 'Modal']];
+  Storage.getAllItems().filter(i => ids.includes(i.id)).forEach(i => rows.push([i.name, [i.size, i.color].filter(Boolean).join('/'), i.sku || '', i.barcode || '', i.category || '', i.unit || '', i.stock, i.price, i.cost]));
+  const csv = '\uFEFF' + rows.map(r => r.join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `wynara-produk-${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  UI.showSuccess(`${rows.length - 1} produk diekspor`);
 }
 function renderShopSelect() {
   const sel = document.getElementById('shopSelect');

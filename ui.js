@@ -1305,7 +1305,7 @@ export function handleCategoryChange(category) {
 
 function getItemList() {
   if (typeof window.__getItems === 'function') {
-    try { return window.__getItems() || []; } catch { return []; }
+    try { return (window.__getItems() || []).filter(i => i.active !== false); } catch { return []; }
   }
   return [];
 }
@@ -3371,16 +3371,16 @@ export function renderStock(items) {
   }).join('');
 }
 // Halaman Stok: kartu produk dikelompokkan, varian sebagai chip + stok.
-export function renderStockPage(groups, { term = '', filter = 'all', shopId = '', shopName = '' } = {}) {
+export function renderStockPage(groups, { term = '', filter = 'all', shopId = '', shopName = '', view = 'cards', sort = null, showInactive = false } = {}) {
   const list = document.getElementById('stockPageList');
   if (!list) return;
   const gs0 = Array.isArray(groups) ? groups : [];
   const shopQty = (it) => (shopId && it && it.stocks && typeof it.stocks === 'object') ? Math.max(Math.floor(Number(it.stocks[shopId]) || 0), 0) : (Number(it && it.stock) || 0);
   const t = String(term || '').trim().toLowerCase();
   let gs = gs0.map(g => {
-    const variants = g.variants.map(v => ({ ...v, _shopStock: shopQty(v) }));
+    const variants = g.variants.filter(v => showInactive || v.active !== false).map(v => ({ ...v, _shopStock: shopQty(v) }));
     return { ...g, variants, shopStock: variants.reduce((s, v) => s + v._shopStock, 0) };
-  });
+  }).filter(g => g.variants.length);
   if (filter === 'low') gs = gs.filter(g => g.variants.some(v => (Number(v.minStock) || 0) > 0 && v._shopStock <= Number(v.minStock)));
   if (t) gs = gs.filter(g => (`${g.name} ${g.sku} ${g.variants.map(v => `${v.name} ${v.size || ''} ${v.color || ''} ${v.sku || ''} ${v.barcode || ''} ${v.category || ''}`).join(' ')}`).toLowerCase().includes(t));
   const sub = document.getElementById('stockPageSubtitle');
@@ -3397,6 +3397,44 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
   if (!gs.length) { list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:32px">Tidak ada produk yang cocok.</p>'; return; }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const esc = (s) => escapeHtml(String(s == null ? '' : s));
+  if (view === 'table') {
+    const rows = [];
+    gs.forEach(g => g.variants.forEach(v => rows.push({
+      g, v, q: v._shopStock,
+      low: (Number(v.minStock) || 0) > 0 && v._shopStock <= Number(v.minStock),
+      net: itemNetPrice(v), value: v._shopStock * (Number(v.cost) || 0),
+    })));
+    if (sort && sort.key) {
+      const dir = sort.dir === 'asc' ? 1 : -1;
+      const val = (r) => ({ name: r.g.name, size: r.v.size || '', sku: r.v.sku || '', category: r.v.category || '', stock: r.q, price: r.net, cost: Number(r.v.cost) || 0, value: r.value }[sort.key]);
+      rows.sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number') ? (x - y) * dir : String(x).localeCompare(String(y)) * dir; });
+    }
+    const arrow = (k) => sort && sort.key === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    list.innerHTML = `<div style="overflow-x:auto"><table class="report-table" id="stockTable"><thead><tr>
+      <th style="width:28px"><input type="checkbox" id="stockSelectAll" aria-label="Pilih semua"></th>
+      <th data-sort="name" style="cursor:pointer">Produk${arrow('name')}</th>
+      <th data-sort="size" style="cursor:pointer">Varian${arrow('size')}</th>
+      <th data-sort="sku" style="cursor:pointer">SKU${arrow('sku')}</th>
+      <th data-sort="category" style="cursor:pointer">Kategori${arrow('category')}</th>
+      <th data-sort="stock" style="cursor:pointer;text-align:right">Stok${shopName ? ' ' + esc(shopName) : ''}${arrow('stock')}</th>
+      <th data-sort="price" style="cursor:pointer;text-align:right">Harga${arrow('price')}</th>
+      <th data-sort="cost" style="cursor:pointer;text-align:right">Modal${arrow('cost')}</th>
+      <th data-sort="value" style="cursor:pointer;text-align:right">Nilai${arrow('value')}</th>
+      <th>Status</th></tr></thead><tbody>
+      ${rows.map(r => `<tr data-id="${r.v.id}">
+        <td><input type="checkbox" class="stock-row-check" data-id="${r.v.id}" aria-label="Pilih ${esc(r.g.name)}"></td>
+        <td style="font-size:12px">${esc(r.g.name)}</td>
+        <td style="font-size:12px">${esc([r.v.size, r.v.color].filter(Boolean).join('/') || 'Default')}</td>
+        <td style="font-size:11px">${esc(r.v.sku || '—')}</td>
+        <td style="font-size:11px">${esc(r.v.category || '—')}</td>
+        <td class="amount-col ${r.low ? 'expense' : ''}"><b>${r.q}</b>${r.low ? ' ⚠' : ''}</td>
+        <td class="amount-col">${fmt(r.net)}</td>
+        <td class="amount-col">${fmt(Number(r.v.cost) || 0)}</td>
+        <td class="amount-col">${fmt(r.value)}</td>
+        <td>${r.v.active === false ? '<span class="chip" style="font-size:10px">Arsip</span>' : 'Aktif'}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    return;
+  }
   list.innerHTML = gs.map(g => {
     const priceTxt = g.minPrice === g.maxPrice ? fmt(g.minPrice) : `${fmt(g.minPrice)}–${fmt(g.maxPrice)}`;
     const lowV = g.variants.filter(v => (Number(v.minStock) || 0) > 0 && v._shopStock <= Number(v.minStock)).length;

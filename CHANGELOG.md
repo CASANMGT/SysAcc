@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.56.0] - 2026-09-13
+
+### Added — Tampilan tabel, aksi massal & laporan restock
+- Halaman Stok: toggle **🃏 Kartu ⇄ 📋 Tabel** (tersimpan); tabel **sortable** (klik header: Produk/Varian/SKU/Kategori/Stok/Harga/Modal/Nilai)
+- **Aksi massal** (centang baris): **Aktifkan / Nonaktifkan (arsip)**, **Set kategori**, **⬇️ Export CSV**
+- Produk **nonaktif** disembunyikan dari penjualan & tabel; muncul via **Tampilkan arsip**
+- Tombol **📋 Perlu restock**: varian ≤ titik pesan ulang + saran qty + perkiraan biaya restock
+- +1 test; 262/262 tests ✓
+
+---
+
 ## [1.55.0] - 2026-09-13
 
 ### Added — Fase 2: dokumen stok (penyesuaian & transfer)

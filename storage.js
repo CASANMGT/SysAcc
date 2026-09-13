@@ -1972,6 +1972,7 @@ export function saveItem(item) {
     color: String(item.color || '').slice(0, 20),
     discountPct,
     stocks, stock, cost, price, minStock,
+    active: item.active !== false,
     updatedAt: new Date().toISOString()
   };
   if (item.groupId) rec.groupId = String(item.groupId).slice(0, 40);
@@ -2722,6 +2723,39 @@ export function transferStock(itemId, { fromShop, toShop, qty } = {}) {
   }
   logAudit('create', 'stock-transfer', itemId, null, { qty: q, from: fromShop, to: toShop });
   return getItemById(itemId);
+}
+
+// ===== Aksi massal & laporan restock =====
+export function setItemsActive(ids, active) {
+  requireCap('ledger');
+  const set = new Set(ids || []);
+  if (!set.size) return 0;
+  const items = getItems().map(i => set.has(i.id) ? { ...i, active: !!active, updatedAt: new Date().toISOString() } : i);
+  localStorage.setItem(ITEM_KEY, JSON.stringify(items));
+  logAudit('update', 'item-bulk', '', null, { active: !!active, count: set.size });
+  return set.size;
+}
+export function setItemsCategory(ids, category) {
+  requireCap('ledger');
+  const set = new Set(ids || []);
+  if (!set.size) return 0;
+  const cat = String(category || '').slice(0, 30);
+  const items = getItems().map(i => set.has(i.id) ? { ...i, category: cat, updatedAt: new Date().toISOString() } : i);
+  localStorage.setItem(ITEM_KEY, JSON.stringify(items));
+  logAudit('update', 'item-bulk', '', null, { category: cat, count: set.size });
+  return set.size;
+}
+export function getReorderList(shopId) {
+  const sid = shopId || getActiveShopId();
+  const out = [];
+  getAllItems().forEach(it => {
+    if (it.active === false) return;
+    const min = Number(it.minStock) || 0;
+    if (min <= 0) return;
+    const q = shopStockOf(it, sid);
+    if (q <= min) out.push({ item: it, stock: q, min, suggest: Math.max(min * 2 - q, 1) });
+  });
+  return out.sort((a, b) => (a.stock - a.min) - (b.stock - b.min));
 }
 
 // ===== Aset tetap & penyusutan =====
