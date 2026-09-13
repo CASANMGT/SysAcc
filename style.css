@@ -119,6 +119,9 @@ body {
   min-height: 100vh;
   font-size: var(--text-base);
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -moz-osx-font-smoothing: grayscale;
 }
 
@@ -1023,6 +1026,7 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
 .modal-content {
   display: flex;
   flex-direction: column;
+  max-height: 90vh;
 }
 
 .modal-header {
@@ -1068,6 +1072,7 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
 
 .modal-body {
   padding: var(--space-5);
+  overflow-y: auto;
 }
 
 .form-group {
@@ -1804,13 +1809,6 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
     display: none;
   }
 
-  th:nth-child(3),
-  td:nth-child(3),
-  th:nth-child(4),
-  td:nth-child(4) {
-    display: none;
-  }
-
   .report-tabs {
     justify-content: center;
   }
@@ -1830,12 +1828,6 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
 
 @media (max-width: 480px) {
   .dashboard-cards, .dashboard-cards-new { grid-template-columns: 1fr; }
-  th:nth-child(3),
-  td:nth-child(3),
-  th:nth-child(4),
-  td:nth-child(4) {
-    display: none;
-  }
 }
 
 /* Button group / grid selection */
@@ -3241,12 +3233,12 @@ tr:hover .table-row-actions {
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 280px;
+  width: min(280px, 84vw);
   background: white;
   border-right: 1px solid rgba(226,232,240,0.8);
   display: flex;
   flex-direction: column;
-  z-index: 40;
+  z-index: 70;
   transition: transform 300ms ease;
 }
 .sidebar-overlay {
@@ -3254,7 +3246,7 @@ tr:hover .table-row-actions {
   inset: 0;
   background: rgba(15,23,42,0.2);
   backdrop-filter: blur(4px);
-  z-index: 30;
+  z-index: 65;
 }
 .sidebar-head { height: 64px; padding: 0 24px; display: flex; align-items: center; border-bottom: 1px solid #f1f5f9; }
 .sidebar-logo { display: flex; align-items: center; gap: 12px; }
@@ -3416,7 +3408,7 @@ tr:hover .table-row-actions {
 
 /* Dashboard main */
 .dashboard-main { padding: 24px 32px; max-width: 1440px; margin: 0 auto; width: 100%; }
-.dashboard-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.dashboard-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
 .dashboard-head h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 .dashboard-head p { font-size: 14px; color: #64748b; margin-top: 4px; }
 .dashboard-cards-new {
@@ -3727,7 +3719,7 @@ body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
   }
   .bn-item {
     flex: 1; background: none; border: none; display: flex; flex-direction: column;
-    align-items: center; gap: 2px; font-size: 10px; color: #64748b; cursor: pointer;
+    align-items: center; gap: 2px; font-size: 11px; color: #64748b; cursor: pointer;
     padding: 4px 0; border-radius: 10px; font-family: inherit;
   }
   .bn-item span { font-size: 18px; }
@@ -3741,6 +3733,34 @@ body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
   .dark-mode .bottomnav { background: #1e293b; border-color: #334155; }
   .dark-mode .bn-item { color: #94a3b8; }
   .dark-mode .bn-item.active { color: #93c5fd; }
+}
+
+/* ===== F8 mobile: rapikan chrome & target sentuh di HP ===== */
+@media (max-width: 640px) {
+  .topbar { padding: 0 12px; gap: 8px; }
+  .dashboard-main { padding: 16px 12px; }
+  .toast-container { bottom: 88px; left: 16px; right: 16px; }
+  .toast { min-width: 0; max-width: none; width: auto; }
+  .tx-footer { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .chart-stats { grid-template-columns: 1fr 1fr; }
+  #backupDot, #cloudDot { display: none; }
+}
+/* Grid 2-kolom inline → 1 kolom di layar kecil */
+@media (max-width: 480px) {
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:2fr 1fr"],
+  [style*="grid-template-columns: 2fr 1fr"],
+  [style*="grid-template-columns:1fr 2fr"],
+  [style*="grid-template-columns: 1fr 2fr"] { grid-template-columns: 1fr !important; }
+}
+/* Target sentuh nyaman (layar sentuh) */
+@media (pointer: coarse) {
+  .modal-close, .tx-close, .topbar-burger, .topbar-icon-btn, .dash-panel-icon, .tx-search-toggle { min-width: 44px; min-height: 44px; }
+  .sidebar-item { min-height: 44px; }
+  .report-tab, .page-report-tab, .select-btn { min-height: 44px; }
+  .chip { min-height: 38px; }
+  .table-pager button, .pager-active { min-width: 40px; min-height: 40px; }
 }
 
 /* ===== Mode kasir: sembunyikan akses pemilik ===== */

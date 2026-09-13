@@ -6,6 +6,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.29.0] - 2026-09-13
+
+### Fixed — F8 mobile (layout & tap targets di HP)
+- **Hapus aturan global `th/td:nth-child(3,4){display:none}`** — sebelumnya menyembunyikan kolom Debit/Kredit & lainnya di SEMUA tabel saat ≤480px (data hilang di HP)
+- Tabel Saldo Awal kini bisa di-scroll horizontal (tak lagi meluber dari modal)
+- Sidebar/drawer di atas bottom-nav (z 70/65 vs 60); lebar sidebar `min(280px, 84vw)`
+- `viewport-fit=cover`, `text-size-adjust:100%`, `overflow-x: clip` (guard)
+- ≤640px: padding topbar & konten lebih rapat, toast di atas nav + muat layar, footer entri hormati safe-area, chart-stat 2 kolom, dot topbar disembunyikan
+- Modal: `max-height:90vh` + body bisa scroll (Pengaturan/karyawan muat di 360px); `.dashboard-head` wrap
+- `@media (pointer:coarse)`: target ikon ≥44px, tab/select lebih tinggi; grid 2-kolom inline → 1 kolom ≤480px
+- Label bottom-nav 11px; +3 test statis anti-regresi; 209/209 tests ✓
+
+---
+
 ## [1.28.0] - 2026-09-13
 
 ### Added — Tautkan kontak "Orang" ↔ "Karyawan" (kasbon eksplisit)
