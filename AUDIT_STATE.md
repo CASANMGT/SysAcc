@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.45.0** · Production **v1.45.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.45.0, sw=wynara-v1-45-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.49.0** · Production **v1.49.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.49.0, sw=wynara-v1-49-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,8 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ still requires every axis ≥85. Lowest: F4 82, F2 83, F9 83, F8 84
-— four axes below 85 (F3 86, F7 87, F6 90, F1 90, F5 92). Keep working correctness; do not chase cosmetics.
+A+ still requires every axis ≥85 **and** overall ≥95. Lowest: **F4 84** — the ONLY axis below 85 now (F2/F8/F9 85, F3 86, F7 87, F6/F1 90, F5 92). Overall 87.22 still <95.
 ```
 
 ---
@@ -26,20 +25,20 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
 | F1 Core ledger | 15 | 86 | **90** | 13.50 | + halaman stok bergrup, restock + jurnal Dr Persediaan/Cr Kas |
-| F2 Tax conformance | 12 | 76 | **83** | 9.96 | OQ2 selesai + ambang PPh Final + **CSV SPT Masa PPN 1111 + rekap PPh 23/4(2)** |
+| F2 Tax conformance | 12 | 76 | **85** | 10.20 | OQ2 + ambang PPh Final + CSV PPN 1111 / PPh 23/4(2) / PPh 21 + pengingat tenggat |
 | F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
-| F4 Data durability | 15 | 52 | **82** | 12.30 | Supabase LIVE + RLS + tautkan email + uji backup + **peran Akuntan/HRD (PIN + requireCap)** |
+| F4 Data durability | 15 | 52 | **84** | 12.60 | Supabase + RLS + tautkan email + uji backup + peran Akuntan/HRD + **uji koneksi & status konflik** |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **90** | 10.80 | Halaman stok (cari/filter/restock) + import marketplace/WA |
 | F7 Cognitive load | 10 | 80 | **87** | 8.70 | Harga/modal per ukuran + warna premium; stok per varian; import marketplace/WA |
-| F8 Mobile | 7 | 82 | **84** | 5.88 | Audit mobile + safe-area + HP kecil ≤400px (toolbar tumpuk, kartu 1 kolom) |
-| F9 Accessibility | 7 | 68 | **83** | 5.81 | + scope/caption/alt/hierarki + aria-current nav + prefers-contrast |
-| **OVERALL** | | ~~90~~ | | **86.47** | batch F2/F3/F8/F9; arithmetic di bawah |
+| F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
+| F9 Accessibility | 7 | 68 | **85** | 5.95 | Scope/caption/alt/hierarki + aria-current + prefers-contrast + kontras teks redup (var) |
+| **OVERALL** | | ~~90~~ | | **87.22** | batch F4/F2/F8/F9; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 90×15 + 83×12 + 86×12 + 82×15 + 92×10 + 90×12 + 87×10 + 84×7 + 83×7
-= 1350 + 996 + 1032 + 1230 + 920 + 1080 + 870 + 588 + 581 = **8647 / 100 = 86.47**. Baseline 59.7 → **+26.77**.
+Aritmetika (wajib tampil): 90×15 + 85×12 + 86×12 + 84×15 + 92×10 + 90×12 + 87×10 + 85×7 + 85×7
+= 1350 + 1020 + 1032 + 1260 + 920 + 1080 + 870 + 595 + 595 = **8722 / 100 = 87.22**. Baseline 59.7 → **+27.52**.
 
-Four of nine axes below 85: F4 82, F2 83, F9 83, F8 84 (F3 86, F7 87, F6 90, F1 90, F5 92 ≥85). Stop condition not met on either clause.
+ONE axis below 85: **F4 84** (semua lain ≥85: F2 85, F8 85, F9 85, F3 86, F7 87, F6 90, F1 90, F5 92). Overall masih <95.
 
 ---
 
@@ -164,6 +163,14 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.44.0 (F8)**: HP kecil ≤400px — toolbar tumpuk, kartu pinjaman 1 kolom, tombol aksi stok penuh, padding rapat. **→ F8 83→84.** 248/248 ✓.
 
 - **v1.45.0 (F3)**: **kalkulator Pesangon/PHK PP 35/2021** (UP/UPMK per masa kerja, pengali per alasan, UPH 15%, sisa cuti) + UI di halaman Gaji (auto-isi dari karyawan). **→ F3 84→86.** +3 test. 251/251 ✓.
+
+- **v1.46.0 (F4)**: **🔌 Uji koneksi** cloud (ping REST 1 baris → cek sesi + RLS) + status sinkron menampilkan **jumlah konflik**. **→ F4 82→84.** +1 test. 252/252 ✓.
+
+- **v1.47.0 (F2)**: **CSV rekap PPh 21** (e-SPT 21) + banner **⏰ Tenggat terdekat** di laporan Pajak. **→ F2 83→85.** 252/252 ✓.
+
+- **v1.48.0 (F9)**: 22 warna `#94a3b8` inline → `var(--text-muted)` (kontras + adaptif tema). **→ F9 83→85.** 253/253 ✓.
+
+- **v1.49.0 (F8)**: HP kecil — `img max-width`, bulan grafik & legenda donut wrap di ≤480px, judul kartu stok patah kata. **→ F8 84→85.** 253/253 ✓.
 
 > Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
