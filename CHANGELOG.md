@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.54.0] - 2026-09-13
+
+### Added — Fase 2: penjualan gaya POS
+- **Scan/kotak cari**: ketik barcode / SKU / nama lalu **Enter** → barang masuk keranjang (atau qty bertambah bila sudah ada)
+- Tombol **qty − / ＋**; baris keranjang hingga 20
+- **Diskon nota (Rp)**: ringkasan Subtotal − Diskon → PPN → Total + estimasi untung
+- Stok dicek **per toko aktif** saat menyimpan; sale menyimpan `subtotal` & `discount`
+- 259/259 tests ✓
+
+---
+
 ## [1.53.0] - 2026-09-13
 
 ### Added — Phase 1 stok: SKU/barcode, satuan, kategori & nilai persediaan

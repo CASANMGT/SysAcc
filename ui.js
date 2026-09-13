@@ -3944,12 +3944,15 @@ export function openSale() {
   document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('saleNote').value = '';
   document.getElementById('salePPN').checked = false;
+  const disc = document.getElementById('saleDiscount'); if (disc) disc.value = '';
+  const srch = document.getElementById('saleSearch'); if (srch) srch.value = '';
   document.getElementById('saleRows').innerHTML = '';
   addSaleRow();
   addSaleRow();
   recalcSale();
   if (!m.open) { try { m.showModal(); } catch {} }
   trapFocus(m);
+  setTimeout(() => { try { srch && srch.focus(); } catch {} }, 60);
 }
 export function closeSale() {
   const m = document.getElementById('saleModal');
@@ -3957,7 +3960,7 @@ export function closeSale() {
   releaseFocus(m);
   if (m.open) { try { m.close(); } catch {} }
 }
-export function addSaleRow() {
+export function addSaleRow(preselectId) {
   const box = document.getElementById('saleRows');
   if (!box) return;
   const items = getItemList();
@@ -3969,10 +3972,14 @@ export function addSaleRow() {
       <option value="">— Pilih barang —</option>
       ${items.map(i => { const v = itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${i.stock})</option>`; }).join('')}
     </select>
-    <input type="number" class="sale-qty" min="1" step="1" value="1" title="Berapa pcs?" style="flex:0 0 64px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px">
+      <button type="button" class="btn btn-ghost sale-minus" aria-label="Kurangi" style="font-size:14px;padding:2px 8px">−</button>
+      <input type="number" class="sale-qty" min="1" step="1" value="1" title="Berapa pcs?" style="width:56px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 6px;font-size:13px;text-align:center">
+      <button type="button" class="btn btn-ghost sale-plus" aria-label="Tambah" style="font-size:14px;padding:2px 8px">＋</button>
+    </div>
     <input type="text" class="sale-price" placeholder="Rp/pcs" inputmode="decimal" title="Harga per pcs (boleh ubah)" style="flex:1;min-width:100px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
     <span class="sale-sub" style="flex:1;min-width:80px;font-size:12px;font-weight:700;text-align:right"></span>
-    <button type="button" class="btn btn-ghost sale-del" style="font-size:12px;padding:4px 8px;color:#ef4444">✕</button>`;
+    <button type="button" class="btn btn-ghost sale-del" aria-label="Hapus baris" style="font-size:12px;padding:4px 8px;color:#ef4444">✕</button>`;
   const sel = row.querySelector('.sale-item');
   const qty = row.querySelector('.sale-qty');
   const price = row.querySelector('.sale-price');
@@ -3983,16 +3990,19 @@ export function addSaleRow() {
   };
   const maybeAutoAdd = () => {
     // Multi-baris lancar: baris baru muncul otomatis saat baris terakhir terisi lengkap
-    if (sel.value && Number(qty.value) > 0 && box.querySelectorAll('.sale-row').length < 8 && row === box.lastElementChild) addSaleRow();
+    if (sel.value && Number(qty.value) > 0 && box.querySelectorAll('.sale-row').length < 20 && row === box.lastElementChild) addSaleRow();
   };
   sel.addEventListener('change', () => { price.dataset.touched = ''; syncPrice(); maybeAutoAdd(); });
   price.addEventListener('input', () => { price.dataset.touched = '1'; });
   price.addEventListener('focus', () => { price.value = parseIdrInput(price.value); try { price.select(); } catch {} });
   price.addEventListener('blur', () => { const v = parseIdrInput(price.value); price.value = v ? formatIdrInput(v) : ''; recalcSale(); });
+  row.querySelector('.sale-minus').addEventListener('click', () => { qty.value = String(Math.max((parseInt(qty.value, 10) || 1) - 1, 1)); recalcSale(); });
+  row.querySelector('.sale-plus').addEventListener('click', () => { qty.value = String((parseInt(qty.value, 10) || 0) + 1); recalcSale(); });
   [qty, price].forEach(el => el.addEventListener('input', () => { recalcSale(); maybeAutoAdd(); }));
   row.querySelector('.sale-del').addEventListener('click', () => { row.remove(); recalcSale(); });
   box.appendChild(row);
   bindRupiah(price);
+  if (preselectId) { sel.value = preselectId; price.dataset.touched = ''; }
   syncPrice();
 }
 export function recalcSale() {
@@ -4003,9 +4013,9 @@ export function recalcSale() {
     const sub = row.querySelector('.sale-sub');
     if (sub) sub.textContent = data.lines[i] ? formatCurrency(data.lines[i].qty * data.lines[i].price) : '';
   });
-  // Ringkasan live: uang masuk kas, PPN, estimasi untung
   const sum = document.getElementById('saleSummary');
   if (!sum) return;
+  if (data.total <= 0) { sum.innerHTML = '<span style="color:var(--text-muted)">Pilih barang, isi qty & harga.</span>'; return; }
   const ppn = !!document.getElementById('salePPN')?.checked;
   const P_RATE = getPpn().rate;
   const dpp = ppn ? data.total / (1 + P_RATE) : data.total;
@@ -4013,10 +4023,9 @@ export function recalcSale() {
   const items = getItemList();
   const untung = data.lines.reduce((s, l) => { const it = items.find(x => x.id === l.itemId); const c = it ? Number(it.cost) || 0 : 0; return s + l.qty * (l.price - c); }, 0);
   const good = untung >= 0;
-  if (data.total <= 0) { sum.innerHTML = '<span style="color:#94a3b8">Pilih barang, isi qty & harga.</span>'; return; }
   sum.innerHTML = `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>Masuk kas</span><b style="font-size:14px">${formatCurrency(data.total)}</b>
-    ${ppn ? `<span style="opacity:.7">(DPP ${formatCurrency(Math.round(dpp))} + PPN ${(P_RATE * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}% ${formatCurrency(Math.round(ppnAmt))})</span>` : ''}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:#475569"><span>Subtotal <b>${formatCurrency(data.subtotal)}</b></span>${data.discount > 0 ? `<span style="color:#b45309">Diskon −<b>${formatCurrency(data.discount)}</b></span>` : ''}${ppn ? `<span>PPN ${(P_RATE * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}% <b>${formatCurrency(Math.round(ppnAmt))}</b> (DPP ${formatCurrency(Math.round(dpp))})</span>` : ''}</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px"><span>Masuk kas</span><b style="font-size:14px">${formatCurrency(data.total)}</b></div>
     <div style="font-size:11px;color:${good ? '#059669' : '#dc2626'};font-weight:600;margin-top:2px">${good ? '📈' : '📉'} Estimasi untung ${formatCurrency(Math.round(untung))}</div>
   </div>`;
 }
@@ -4032,17 +4041,20 @@ function readSaleRows() {
       lines.push({ itemId, qty, price, name: it ? (it.name + (v ? ' ' + v : '')) : '' });
     }
   });
-  return { lines, total: lines.reduce((s, l) => s + l.qty * l.price, 0) };
+  const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
+  const rawDisc = Math.round(Number(parseIdrInput(document.getElementById('saleDiscount')?.value || '')) || 0);
+  const discount = Math.min(Math.max(rawDisc, 0), subtotal);
+  return { lines, subtotal, discount, total: subtotal - discount };
 }
 export function getSaleData() {
-  const { lines, total } = readSaleRows();
+  const { lines, subtotal, discount, total } = readSaleRows();
   return {
     customer: document.getElementById('saleCustomer')?.value.trim() || '',
     date: document.getElementById('saleDate')?.value || new Date().toISOString().split('T')[0],
     payment: document.getElementById('salePayment')?.value || 'transfer',
     note: document.getElementById('saleNote')?.value.trim() || '',
     ppn: !!document.getElementById('salePPN')?.checked,
-    lines, total
+    subtotal, discount, total, lines
   };
 }
 export function bindSale(onSave) {
@@ -4050,8 +4062,39 @@ export function bindSale(onSave) {
   document.getElementById('saleCancel')?.addEventListener('click', closeSale);
   document.getElementById('saleModal')?.addEventListener('click', (e) => { if (e.target.id === 'saleModal') closeSale(); });
   document.getElementById('saleAddRow')?.addEventListener('click', () => { addSaleRow(); });
+  document.getElementById('saleDiscount')?.addEventListener('input', recalcSale);
   document.getElementById('saleSave')?.addEventListener('click', onSave);
   document.getElementById('salePPN')?.addEventListener('change', recalcSale);
+  // POS: scan/kode/nama + Enter → tambah atau tambah qty
+  document.getElementById('saleSearch')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const q = String(e.target.value || '').trim().toLowerCase();
+    if (!q) return;
+    const all = getItemList();
+    const it = all.find(i => String(i.barcode || '').toLowerCase() === q)
+      || all.find(i => String(i.sku || '').toLowerCase() === q)
+      || all.find(i => String(i.name || '').toLowerCase().includes(q));
+    if (!it) { showError('Barang tidak ditemukan: ' + q); return; }
+    // sudah ada di keranjang? tambah qty
+    let found = false;
+    document.querySelectorAll('#saleRows .sale-row').forEach(row => {
+      const sel = row.querySelector('.sale-item');
+      if (!found && sel && sel.value === it.id) {
+        const qEl = row.querySelector('.sale-qty');
+        qEl.value = String((parseInt(qEl.value, 10) || 0) + 1);
+        found = true;
+      }
+    });
+    if (!found) {
+      const emptyRow = [...document.querySelectorAll('#saleRows .sale-row')].find(r => !r.querySelector('.sale-item').value);
+      if (emptyRow) { const sel = emptyRow.querySelector('.sale-item'); sel.value = it.id; sel.dispatchEvent(new Event('change')); }
+      else addSaleRow(it.id);
+    }
+    e.target.value = '';
+    recalcSale();
+    try { e.target.focus(); } catch {}
+  });
 }
 
 /* ===== Beli ke supplier ===== */

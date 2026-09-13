@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.53.0';
+const APP_VERSION = '1.54.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3794,23 +3794,26 @@ function handleSaleSave() {
   if (!d.lines.length) return UI.showError('Pilih dulu barang + isi qty dan harga');
   if (!d.date) return UI.showError('Tanggal wajib diisi');
   if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
-  // Cek stok dulu biar pesan jelas sekaligus
+  // Cek stok dulu biar pesan jelas sekaligus (per toko aktif)
   const items = Storage.getAllItems();
+  const shopId = Storage.getActiveShopId();
   for (const l of d.lines) {
     const it = items.find(x => x.id === l.itemId);
     if (!it) return UI.showError('Ada barang yang tidak dikenal — pilih ulang');
-    if (l.qty > it.stock) return UI.showError(`Stok ${it.name} kurang (sisa ${it.stock}, mau ${l.qty})`);
+    const avail = Storage.shopStockOf(it, shopId);
+    if (l.qty > avail) return UI.showError(`Stok ${it.name} di toko ini kurang (sisa ${avail}, mau ${l.qty})`);
   }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
-  const desc = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
+  const descBase = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
+  const desc = d.discount > 0 ? `${descBase} • diskon ${fmt(d.discount)}` : descBase;
   try {
     const entry = Storage.createEntry({
       date: d.date, type: 'income', category: 'jualan', payment: d.payment,
       description: desc.slice(0, 120), amount: d.total,
       person: d.customer, ppn: d.ppn,
-      sale: { lines: d.lines.map(l => ({ itemId: l.itemId, qty: l.qty, price: l.price })), total: d.total }
+      sale: { lines: d.lines.map(l => ({ itemId: l.itemId, qty: l.qty, price: l.price })), total: d.total, subtotal: d.subtotal, discount: d.discount }
     });
-    Storage.logAudit('create', 'sale', entry.id, null, { total: d.total, lines: d.lines.length });
+    Storage.logAudit('create', 'sale', entry.id, null, { total: d.total, discount: d.discount, lines: d.lines.length });
     UI.closeSale();
     UI.showSuccess(`Penjualan ${fmt(d.total)} tersimpan — stok berkurang`);
     UI.openReceipt(entry);
