@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.42.0] - 2026-09-13
+
+### Added — F2: CSV SPT Masa PPN 1111 + rekap PPh 23/4(2)
+- Laporan **PPN** kini punya tombol **⬇️ Unduh CSV SPT Masa PPN 1111** (per bulan: DPP & PPN Keluaran/Masukan, Kurang/(Lebih) Bayar)
+- Tab baru **PPh 23/4(2)**: rekap bulanan dari akun **2107** (dipotong / disetor / sisa terutang) + unduh CSV
+- Total tab laporan jadi 17; 247/247 tests ✓
+
+---
+
 ## [1.41.0] - 2026-09-13
 
 ### Added — F4 peran Akuntan & HRD (PIN per peran + matriks izin)

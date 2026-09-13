@@ -1858,6 +1858,8 @@ export function reportHTMLFor(type, data) {
       return renderPPNReport(data);
     case 'pph21':
       return renderPPh21Report(data);
+    case 'pph23':
+      return renderPPh23Report(data);
     default:
       return renderMonthlyReport(data);
   }
@@ -2478,7 +2480,7 @@ function renderPPNReport(d) {
       <div class="report-summary-item"><span class="label">Kurang / (Lebih) Bayar</span><span class="value ${netGood ? 'expense' : 'income'}">${netGood ? 'Kurang bayar' : 'Lebih bayar'} ${fmt(Math.abs(d.net))}</span></div>
       <div class="report-summary-item"><span class="label">Tahun</span><span class="value">${d.year}</span></div>
     </div>
-    <p style="font-size:11px;color:#64748b">PPN dihitung dari akun: <b>2105 PPN Keluaran</b> (penjualan) dan <b>1401 PPN Masukan</b> (pembelian). DPP perkiraan (PPN ÷ ${(getPpn().rate * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%). Ubah tarif di Pengaturan bila tarif resmi berubah. Lampirkan ke SPT Masa PPN (1111); pastikan sudah terdaftar sebagai Pengusaha Kena Pajak (PKP) bila omzet &gt; Rp4,8M.</p>
+    <p style="font-size:11px;color:#64748b">PPN dihitung dari akun: <b>2105 PPN Keluaran</b> (penjualan) dan <b>1401 PPN Masukan</b> (pembelian). DPP perkiraan (PPN ÷ ${(getPpn().rate * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%). Ubah tarif di Pengaturan bila tarif resmi berubah. Lampirkan ke SPT Masa PPN (1111); pastikan sudah terdaftar sebagai Pengusaha Kena Pajak (PKP) bila omzet &gt; Rp4,8M. <button type="button" onclick="document.dispatchEvent(new CustomEvent('wynara:ppn-csv'))" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer">⬇️ Unduh CSV SPT Masa PPN 1111</button></p>
     <table class="report-table">
       <thead><tr><th>Bulan</th><th class="amount-col">Penjualan (DPP)</th><th class="amount-col">PPN Keluar</th><th class="amount-col">Pembelian (DPP)</th><th class="amount-col">PPN Masuk</th><th class="amount-col">Kurang/(Lebih)</th></tr></thead>
       <tbody>${d.months.length ? d.months.map(m => `<tr><td>${m.month}</td><td class="amount-col">${fmt(m.keluarDPP)}</td><td class="amount-col expense">${fmt(m.keluarPPN)}</td><td class="amount-col">${fmt(m.masukDPP)}</td><td class="amount-col income">${fmt(m.masukPPN)}</td><td class="amount-col ${m.net >= 0 ? 'expense' : 'income'}">${fmt(m.net)}</td></tr>`).join('') : '<tr><td colspan="6">Belum ada transaksi PPN</td></tr>'}</tbody>
@@ -2500,6 +2502,25 @@ function renderPPh21Report(d) {
     <table class="report-table">
       <thead><tr><th>Bulan</th><th class="amount-col">Gaji bersih (THP)</th><th class="amount-col">PPh 21 terpotong</th><th class="amount-col">Karyawan</th></tr></thead>
       <tbody>${d.rows.length ? d.rows.map(m => `<tr><td>${m.month}</td><td class="amount-col">${fmt(m.thp)}</td><td class="amount-col expense">${fmt(m.pph)}</td><td class="amount-col">${m.count}</td></tr>`).join('') : '<tr><td colspan="4">Belum ada data gaji</td></tr>'}</tbody>
+    </table>`;
+}
+
+// Rekap PPh 23 / 4(2) per bulan (akun 2107) — untuk e-Bupot/unifikasi
+function renderPPh23Report(d) {
+  if (!d) return '';
+  const fmt = (v) => formatCurrency(Math.round(Number(v) || 0));
+  const owed = d.outstanding >= 0;
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Total dipotong (23/4-2)</span><span class="value expense">${fmt(d.totalDipotong)}</span></div>
+      <div class="report-summary-item"><span class="label">Total disetor</span><span class="value income">${fmt(d.totalDisetor)}</span></div>
+      <div class="report-summary-item"><span class="label">Sisa terutang</span><span class="value ${owed ? 'expense' : 'income'}">${fmt(d.outstanding)}</span></div>
+      <div class="report-summary-item"><span class="label">Tahun</span><span class="value">${d.year}</span></div>
+    </div>
+    <p style="font-size:11px;color:#64748b">Diambil dari akun <b>2107 PPh Dipotong (23 / 4-2)</b>. Kredit = dipotong saat membayar jasa/sewa; debit = disetor ke kas negara. <button type="button" onclick="document.dispatchEvent(new CustomEvent('wynara:pph23-csv'))" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer">⬇️ Unduh CSV rekap PPh 23/4(2)</button></p>
+    <table class="report-table">
+      <thead><tr><th>Bulan</th><th class="amount-col">Dipotong</th><th class="amount-col">Disetor</th><th class="amount-col">Sisa</th></tr></thead>
+      <tbody>${d.months.length ? d.months.map(m => `<tr><td>${m.month}</td><td class="amount-col expense">${fmt(m.dipotong)}</td><td class="amount-col income">${fmt(m.disetor)}</td><td class="amount-col">${fmt(m.net)}</td></tr>`).join('') : '<tr><td colspan="4">Belum ada pemotongan PPh 23/4(2)</td></tr>'}</tbody>
     </table>`;
 }
 

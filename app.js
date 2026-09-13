@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.41.0';
+const APP_VERSION = '1.42.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -988,6 +988,31 @@ function bindEvents() {
     UI.showSuccess(`CSV pajak ${d.year} diunduh — siap untuk DJP/e-Bupot`);
   };
   document.addEventListener('wynara:tax-csv', buildTaxCsv);
+  const dlCsv = (name, rows) => {
+    const csv = '\uFEFF' + rows.map(r => r.join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  document.addEventListener('wynara:ppn-csv', () => {
+    const d = buildPPNReport();
+    const rows = [['Bulan', 'DPP Keluaran', 'PPN Keluar', 'DPP Masukan', 'PPN Masuk', 'Kurang/(Lebih)']];
+    (d.months || []).forEach(m => rows.push([m.month, m.keluarDPP, m.keluarPPN, m.masukDPP, m.masukPPN, m.net]));
+    rows.push(['TOTAL', '', d.totalKeluar, '', d.totalMasuk, d.net]);
+    dlCsv(`wynara-ppn-1111-${d.year}.csv`, rows);
+    UI.showSuccess('CSV SPT Masa PPN 1111 diunduh');
+  });
+  document.addEventListener('wynara:pph23-csv', () => {
+    const d = buildPPh23Report();
+    const rows = [['Bulan', 'Dipotong', 'Disetor', 'Sisa']];
+    (d.months || []).forEach(m => rows.push([m.month, m.dipotong, m.disetor, m.net]));
+    rows.push(['TOTAL', d.totalDipotong, d.totalDisetor, d.outstanding]);
+    dlCsv(`wynara-pph23-4-2-${d.year}.csv`, rows);
+    UI.showSuccess('CSV rekap PPh 23/4(2) diunduh');
+  });
   document.addEventListener('wynara:expense-filter', (ev) => {
     const det = ev.detail || {};
     if (det.kind === 'cat') expenseCatFilter = det.value || 'all';
@@ -2292,6 +2317,8 @@ function computeReportData(type) {
       return buildPPNReport();
     case 'pph21':
       return buildPPh21Report();
+    case 'pph23':
+      return buildPPh23Report();
     default:
       return Reports.computeMonthlySummary(filtered);
   }
@@ -2367,6 +2394,26 @@ function buildPPh21Report() {
   const totalPph = rows.reduce((s, x) => s + x.pph, 0);
   const totalThp = rows.reduce((s, x) => s + x.thp, 0);
   return { rows, totalPph, totalThp, year: new Date().getFullYear() };
+}
+
+// Rekap PPh 23 / 4(2) per bulan (akun 2107)
+function buildPPh23Report() {
+  const by = {};
+  Storage.getAllJournals().forEach(j => {
+    const m = String(j.date || '').slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(m)) return;
+    if (!by[m]) by[m] = { month: m, dipotong: 0, disetor: 0 };
+    (j.lines || []).forEach(l => {
+      if (l.account !== '2107') return;
+      by[m].dipotong += Number(l.credit) || 0;
+      by[m].disetor += Number(l.debit) || 0;
+    });
+  });
+  const months = Object.values(by).sort((a, b) => a.month.localeCompare(b.month))
+    .map(x => ({ ...x, dipotong: Math.round(x.dipotong), disetor: Math.round(x.disetor), net: Math.round(x.dipotong - x.disetor) }));
+  const totalDipotong = months.reduce((s, x) => s + x.dipotong, 0);
+  const totalDisetor = months.reduce((s, x) => s + x.disetor, 0);
+  return { months, totalDipotong, totalDisetor, outstanding: totalDipotong - totalDisetor, year: new Date().getFullYear() };
 }
 
 // Laporan produk terlaris — dari entri penjualan (sale.lines)

@@ -22,7 +22,7 @@ describe('halaman Laporan', () => {
     const sec = document.getElementById('viewLaporan');
     expect(sec.classList.contains('hidden')).toBe(false);
     expect(sec.querySelector('h1').textContent).toMatch(/Laporan/);
-    expect(document.querySelectorAll('.page-report-tab').length).toBe(16);
+    expect(document.querySelectorAll('.page-report-tab').length).toBe(17);
     expect(document.getElementById('pageReportContent').innerHTML.trim().length).toBeGreaterThan(0);
   });
   it('semua 16 tab render konten tanpa error', () => {
