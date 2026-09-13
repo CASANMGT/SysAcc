@@ -103,8 +103,12 @@ Live: `https://sysacc-three.vercel.app` — login `admin / admin` (pertama kali;
 2. Project Settings → API → salin **`anon` / `publishable` key** (JANGAN `service_role` — tidak pernah dibutuhkan aplikasi ini)
 3. SQL Editor → New query → tempel isi `supabase/schema.sql` → Run (membuat 2 tabel + RLS: user hanya bisa baca/tulis datanya sendiri)
 
-**2. Hubungkan aplikasi**
-Pengaturan → *Sinkron Online* → isi URL + anon key + email + kata sandi → **Hubungkan & Masuk**. Sinkron pertama mengunggah data HP ini; dot ☁️ di topbar menunjukkan status (abu = mati, hijau = aktif, merah = gagal — arahkan kursor untuk detail).
+**2. Hubungkan aplikasi** (pilih salah satu)
+Pengaturan → *Sinkron Online* → tempel **URL + anon key**, lalu:
+- **👻 Masuk tanpa email** — tanpa daftar, langsung jalan. Syarat: di Supabase Dashboard → Authentication → Providers → nyalakan *Allow anonymous sign-ins*. Catatan jujur: sesi anonim terikat browser ini; tautkan email nanti bila ganti HP.
+- **📝 Daftar akun baru** / **🔌 Hubungkan & Masuk** — pakai email + kata sandi (bila provider minta konfirmasi, cek email dulu).
+
+Sinkron pertama mengunggah data HP ini; dot ☁️ di topbar menunjukkan status (abu = mati, hijau = aktif, merah = gagal — arahkan kursor untuk detail).
 
 **Aturan main:** local-first — localStorage sumber utama; konflik gabung last-write-wins per baris (seri → lokal menang); hapus dilacak 30 hari agar tak hidup lagi. Auth terpisah dari login kasir lokal (disatukan di iter peran/B3).
 

@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.22.2] - 2026-09-11
+
+### Added — Masuk Supabase tanpa email (anonim)
+- Tombol **👻 Masuk tanpa email** di Sinkron Online: identitas anonim resmi (tetap user_id → RLS + mesin sync tak berubah); pesan jelas bila toggle dashboard belum dinyalakan
+- Syarat: *Allow anonymous sign-ins* ON di Authentication → Providers; diedukasi + di-README bahwa sesi terikat browser ini
+- 2 test endpoint-shape (fetch di-stub, tanpa network)
+
+---
+
 ## [1.22.1] - 2026-09-11
 
 ### Added — Tombol daftar akun Supabase

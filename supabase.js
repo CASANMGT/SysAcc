@@ -83,6 +83,28 @@ export async function cloudSignIn(email, password) {
   const j = await authCall('/auth/v1/token?grant_type=password', { email: String(email || '').trim(), password: String(password || '') });
   return storeSession(j);
 }
+// Masuk anonim TANPA email/kata sandi — identitas tetap user_id asli sehingga
+// RLS + sync tak berubah. Syarat: "Allow anonymous sign-ins" ON di dashboard.
+// Catatan jujur: sesi anonim terikat browser ini; tautkan email nanti agar
+// akses tak hilang bila data browser dibersihkan.
+export async function cloudSignInAnonymously() {
+  const cfg = getCloudConfig();
+  if (!cfg) throw new Error('Isi URL + anon key Supabase dulu');
+  const r = await fetch(cfg.url + '/auth/v1/authorize', {
+    method: 'POST',
+    headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json', 'X-Supabase-Api-Version': '2024-01-01' },
+    body: JSON.stringify({ data: { client: 'wynara' } }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = j.msg || j.message || j.error_description || '';
+    if (/anonymous|disabled|provider|enabled/i.test(msg)) {
+      throw new Error('Nyalakan "Allow anonymous sign-ins" di Supabase → Authentication → Providers, lalu coba lagi');
+    }
+    throw new Error(msg || ('Masuk anonim gagal (' + r.status + ')'));
+  }
+  return storeSession(j.session || j);
+}
 function storeSession(j) {
   if (!j.access_token) throw new Error('Respons auth tanpa token');
   const s = {
