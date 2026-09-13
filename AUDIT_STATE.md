@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.29.0** · Production **v1.29.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.29.0, sw=wynara-v1-29-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.31.0** · Production **v1.31.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.31.0, sw=wynara-v1-31-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,8 +13,8 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ still requires every axis ≥85. Lowest: F4 71, F9 75, F2 76
-— three axes below 85 (F3 81, F7 83, F8 81). Keep working correctness; do not chase cosmetics.
+A+ still requires every axis ≥85. Lowest: F4 74, F2 76, F9 80
+— three axes below 85 (F3 81, F8 81, F7 83). Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -28,16 +28,16 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F1 Core ledger | 15 | 86 | **86** | 12.90 | V3 4 lubang lock ditutup (ditegakkan di storage) + B7 bunga pinjaman kini masuk Laba/Rugi |
 | F2 Tax conformance | 12 | 76 | **76** | 9.12 | Faktur/NITKU open; PPN position open |
 | F3 Payroll & HR | 12 | 73 | **81** | 9.72 | Dec recon + 1721-A1 + **kasbon karyawan** (potong gaji otomatis + jeda). Lembur/cuti/UMP → iter 20 |
-| F4 Data durability | 15 | 52 | **71** | 10.65 | Supabase LIVE + RLS verified; peran ditegakkan di storage + actor audit (B3 subset). Gap: OQ4 matriks Akuntan/HRD, sesi anonim terikat browser |
+| F4 Data durability | 15 | 52 | **74** | 11.10 | Supabase LIVE + RLS; peran+actor; **tautkan sesi anonim→email + uji-diri backup**. Gap: OQ4 matriks Akuntan/HRD |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **86** | 10.32 | Benchmarks tracked honestly |
 | F7 Cognitive load | 10 | 80 | **83** | 8.30 | Form Pinjaman disederhanakan + kontak **Karyawan** eksplisit (picker kasbon) |
 | F8 Mobile | 7 | 82 | **81** | 5.67 | Audit mobile: hapus hide-kolom global (data hilang di HP), safe-area, drawer di atas nav, target sentuh, modal scroll |
-| F9 Accessibility | 7 | 68 | **75** | 5.25 | Label/dialog/focus/contrast/reduced-motion pass (WCAG audit). Sisa: caption/scope tabel, alt chart, hierarki heading |
-| **OVERALL** | | ~~90~~ | | **81.13** | F8 74→81 (mobile); arithmetic di bawah |
+| F9 Accessibility | 7 | 68 | **80** | 5.60 | Label/dialog/focus/contrast + **scope/caption tabel, alt grafik, hierarki heading** |
+| **OVERALL** | | ~~90~~ | | **81.93** | F4 71→74, F9 75→80; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 86×15 + 76×12 + 81×12 + 71×15 + 92×10 + 86×12 + 83×10 + 81×7 + 75×7
-= 1290 + 912 + 972 + 1065 + 920 + 1032 + 830 + 567 + 525 = **8113 / 100 = 81.13**. Baseline 59.7 → **+21.43**.
+Aritmetika (wajib tampil): 86×15 + 76×12 + 81×12 + 74×15 + 92×10 + 86×12 + 83×10 + 81×7 + 80×7
+= 1290 + 912 + 972 + 1110 + 920 + 1032 + 830 + 567 + 560 = **8193 / 100 = 81.93**. Baseline 59.7 → **+22.23**.
 
 Three of nine axes below 85. Stop condition not met on either clause.
 
@@ -132,6 +132,10 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.28.0 (F7 — tautkan kontak Karyawan)**: toggle kontak form Pinjaman **Orang / 👷 Karyawan / Perusahaan**; pilih Karyawan → picker karyawan (datalist + chip sisa kasbon) + validasi nama; simpan `contactType:"karyawan"` + `employeeId`; ikon 👷 di kartu/Kontak + Excel-CSV. **→ F7 82→83.** +2 test. 206/206 ✓.
 
 - **v1.29.0 (F8 — mobile)**: audit responsif → hapus aturan global `th/td:nth-child(3,4){display:none}` (menyembunyikan Debit/Kredit di HP = data hilang); tabel Saldo Awal scroll; drawer di atas bottom-nav (z 70/65); `viewport-fit=cover` + `text-size-adjust` + `overflow-x:clip`; padding topbar/konten ≤640; toast di atas nav; modal `max-height:90vh` + body scroll; `.dashboard-head` wrap; grid 2-kolom inline → 1 kolom ≤480; target sentuh `pointer:coarse` ≥44px. **→ F8 74→81.** +3 test statis (12 file). 209/209 ✓.
+
+- **v1.30.0 (F4 — durability)**: **tautkan sesi anonim ke email** (`PUT /auth/v1/user`, user_id tetap) → data bisa diakses dari HP lain; **uji-diri backup** (snapshot→JSON→parse→validasi skema) via tombol 🧪 + audit. **→ F4 71→74.** +4 test. 212/212 ✓.
+
+- **v1.31.0 (F9 lanjutan)**: `scope="col"` + `<caption>` tersembunyi otomatis untuk semua tabel (termasuk dinamis); grafik arus kas & donut `role="img"` + `aria-label`; h3/h4 dashboard diberi `aria-level` (h1→h2→h3). **→ F9 75→80.** +3 test. 215/215 ✓.
 
 - **iter 19 (v1.21.0): B4a Dec PPh 21 + 1721-A1.** `decRecon` (progresif tahunan UU 36/2008 jo. UU HPP 7/2021, cited+isolated, floor 0, NPWP +20%), `pphOverride` di computeSlip + flag, panel Des (Jan–Nov aktual + draf Des, TER vs rekonsiliasi, Terapkan + A1), snapshot `recon` + deskripsi, slip detail transparan. Tarif tahunan menunggu konfirmasi konsultan (OQ tetap terbuka). Test menangkap cacat desain pra-produksi (pemisahan Jan–Nov/Des). Visual gate headless lulus (angka + kedua tombol ter-paint). Tests 162/162 ✓. → F3 66→76.
 
