@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.49.0';
+const APP_VERSION = '1.50.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -942,6 +942,7 @@ function bindEvents() {
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
   document.getElementById('backupShareBtn')?.addEventListener('click', handleBackupShare);
   document.getElementById('backupSelfTestBtn')?.addEventListener('click', handleBackupSelfTest);
+  document.getElementById('dataHealthBtn')?.addEventListener('click', handleDataHealth);
   document.getElementById('importSalesBtn')?.addEventListener('click', () => openImport('sales'));
   document.getElementById('importProductsBtn')?.addEventListener('click', () => openImport('products'));
   document.getElementById('importClose')?.addEventListener('click', closeImport);
@@ -4598,6 +4599,21 @@ function refreshCloudLabel() {
     return;
   }
   label.textContent = 'Terhubung sebagai ' + (ses.user_id || '').slice(0, 8) + '… — ' + (st.detail || st.state);
+}
+function handleDataHealth() {
+  const r = Storage.dataHealthCheck();
+  const head = r.ok
+    ? '<div style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:6px">✅ Tidak ada masalah kritis</div>'
+    : '<div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px">⚠️ Ada masalah yang perlu diperhatikan</div>';
+  const body = r.issues.length
+    ? `<ul style="font-size:12px;padding-left:18px;margin:0">${r.issues.map(i => `<li style="margin:4px 0">${i.level === 'error' ? '🔴' : '🟡'} ${escapeHtml(i.label)}${i.detail ? ` <span style="color:#64748b">(${escapeHtml(i.detail)})</span>` : ''}</li>`).join('')}</ul>`
+    : '<p style="color:#64748b;font-size:12px">Semua pemeriksaan lulus: jurnal seimbang, akun dikenal, stok sehat, backup segar.</p>';
+  let cloud = '';
+  try {
+    const s = Cloud.getCloudSession();
+    cloud = `<div style="font-size:11px;color:#64748b;margin-top:8px">Cloud: ${Cloud.isCloudConfigured() ? (s ? 'terkonfigurasi & terhubung' : 'terkonfigurasi, belum masuk') : 'tidak dipakai'}</div>`;
+  } catch {}
+  UI.openInfoModal('🩺 Kesehatan Data', head + body + cloud);
 }
 async function handleBackupSelfTest() {
   try {

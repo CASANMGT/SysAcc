@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, itemNetPrice, itemVariantLabel, importItemsBulk, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -193,6 +193,20 @@ describe('updateLoan', () => {
     const loan = createLoan({ direction: 'given', person: 'Ani', amount: 1000000, date: '2026-08-01' });
     updateLoan(loan.id, { status: 'paid' });
     expect(getLoanById(loan.id).status).toBe('paid');
+  });
+});
+
+describe('kesehatan data (F4)', () => {
+  it('data bersih (backup baru) → ok tanpa isu', () => {
+    localStorage.setItem('wynara_lastBackup', new Date().toISOString());
+    const r = dataHealthCheck();
+    expect(r.ok).toBe(true);
+    expect(r.issues.length).toBe(0);
+  });
+  it('akun tak dikenal di jurnal → peringatan', () => {
+    postJournal({ id: 'JX', date: '2026-08-01', memo: 'uji', lines: [{ account: '9999', debit: 1000, credit: 0, memo: 'x' }, { account: '1101', debit: 0, credit: 1000, memo: 'x' }] });
+    const r = dataHealthCheck();
+    expect(r.issues.some(i => /tak dikenal/.test(i.label))).toBe(true);
   });
 });
 

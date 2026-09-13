@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.49.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.50.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.49.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.50.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1657,6 +1657,7 @@
             <button type="button" class="btn btn-ghost" id="backupShareBtn">📤 Kirim via WA/Email</button>
             <button type="button" class="btn btn-ghost" id="importJsonBtn">⬆️ Restore JSON</button>
             <button type="button" class="btn btn-ghost" id="backupSelfTestBtn" title="Cek file backup benar-benar bisa dipulihkan">🧪 Uji backup</button>
+            <button type="button" class="btn btn-ghost" id="dataHealthBtn" title="Periksa integritas data (jurnal, stok, backup)">🩺 Kesehatan data</button>
             <input type="file" id="importJsonFile" accept=".json" hidden>
           </div>
           <div style="font-size:11px;color:#64748b;margin-top:4px" id="lastBackupLabel">Belum pernah backup</div>
@@ -1981,7 +1982,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.49.0';
+    window.__htmlVersion = '1.50.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

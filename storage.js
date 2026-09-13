@@ -1,6 +1,7 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, findUnbalanced } from './journals.js';
+import { getAccounts } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -1542,6 +1543,38 @@ export function backupSelfTest() {
 }
 export function getLastSelfTest() {
   try { return JSON.parse(localStorage.getItem('wynara_lastSelfTest') || 'null'); } catch { return null; }
+}
+
+// ===== Kesehatan data (uji-diri integritas) =====
+// Cek jurnal tak seimbang, akun tak dikenal, stok negatif, kesegaran backup,
+// dan hasil uji backup terakhir. Return { ok, issues[], at }.
+export function dataHealthCheck() {
+  const issues = [];
+  try {
+    const ub = findUnbalanced(getJournals());
+    if (ub.length) issues.push({ level: 'error', label: `${ub.length} jurnal tidak seimbang`, detail: ub.slice(0, 5).join(', ') });
+  } catch {}
+  try {
+    const known = new Set(getAccounts().map(a => a.code));
+    const bad = new Set();
+    getJournals().forEach(j => (j.lines || []).forEach(l => { if (l && l.account && !known.has(String(l.account))) bad.add(String(l.account)); }));
+    if (bad.size) issues.push({ level: 'warn', label: `${bad.size} akun tak dikenal di jurnal`, detail: [...bad].slice(0, 8).join(', ') });
+  } catch {}
+  try {
+    const neg = getItems().filter(i => Number(i.stock) < 0);
+    if (neg.length) issues.push({ level: 'error', label: `${neg.length} barang stok negatif`, detail: neg.slice(0, 5).map(i => i.name).join(', ') });
+  } catch {}
+  try {
+    const last = localStorage.getItem('wynara_lastBackup');
+    if (!last) issues.push({ level: 'warn', label: 'Belum pernah backup', detail: 'Lakukan JSON Backup di Pengaturan' });
+    else {
+      const days = Math.floor((Date.now() - Date.parse(last)) / 86400000);
+      if (days >= 7) issues.push({ level: 'warn', label: `Backup terakhir ${days} hari lalu`, detail: 'Segera backup lagi' });
+    }
+  } catch {}
+  const st = getLastSelfTest();
+  if (st && !st.ok) issues.push({ level: 'error', label: 'Uji backup terakhir gagal', detail: '' });
+  return { ok: !issues.some(x => x.level === 'error'), issues, at: new Date().toISOString() };
 }
 
 // Kembalikan snapshot (dari file backup / IDB). Semua baris disanitasi.

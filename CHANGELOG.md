@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.50.0] - 2026-09-13
+
+### Added — F4: Kesehatan Data (uji-diri integritas)
+- Tombol **🩺 Kesehatan data** di Backup & Restore: memeriksa **jurnal tak seimbang**, **akun tak dikenal** di jurnal, **stok negatif**, kesegaran **backup** (peringatan bila >7 hari / belum pernah), dan hasil uji backup terakhir + status cloud
+- `storage.js`: `dataHealthCheck()` murni (bisa di-test)
+- +2 test; 255/255 tests ✓
+
+---
+
 ## [1.49.0] - 2026-09-13
 
 ### Changed — F8: HP kecil (grafik & gambar)
