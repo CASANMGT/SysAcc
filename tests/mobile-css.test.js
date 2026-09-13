@@ -23,5 +23,6 @@ describe('F8 mobile regressions', () => {
     expect(css).toMatch(/@media \(pointer: coarse\)/);
     expect(css).toMatch(/min\(280px, 84vw\)/);
     expect(css).toMatch(/\.dashboard-main \{ padding: 16px 12px; \}/);
+    expect(css).toMatch(/@media \(max-width: 400px\)/);
   });
 });

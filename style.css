@@ -3763,6 +3763,17 @@ body[data-mode="sederhana"] .page-report-tab[data-report="trial"] {
   [style*="grid-template-columns:1fr 2fr"],
   [style*="grid-template-columns: 1fr 2fr"] { grid-template-columns: 1fr !important; }
 }
+/* HP kecil (≤400px): rapatkan & tumpuk agar tak sempit */
+@media (max-width: 400px) {
+  .dashboard-main { padding: 12px 10px; }
+  .view-header h1 { font-size: 20px; }
+  .transaksi-toolbar .search-wrap { flex: 1 1 100%; min-width: 0; }
+  .transaksi-toolbar select { flex: 1 1 46%; }
+  .tx-loan-type-grid { grid-template-columns: 1fr; }
+  .stock-card-actions { width: 100%; }
+  .stock-card-actions .btn { flex: 1; }
+}
+
 /* Target sentuh nyaman (layar sentuh) */
 @media (pointer: coarse) {
   .modal-close, .tx-close, .topbar-burger, .topbar-icon-btn, .dash-panel-icon, .tx-search-toggle { min-width: 44px; min-height: 44px; }

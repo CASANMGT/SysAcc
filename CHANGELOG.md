@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.44.0] - 2026-09-13
+
+### Changed — F8 mobile HP kecil (≤400px)
+- Padding dashboard lebih rapat, judul view lebih kecil
+- Toolbar transaksi menumpuk (pencarian penuh, filter 2 kolom)
+- Kartu pilihan pinjaman jadi 1 kolom; tombol aksi kartu stok jadi penuh
+- +1 guard test; 248/248 tests ✓
+
+---
+
 ## [1.43.0] - 2026-09-13
 
 ### Changed — F9 aksesibilitas (lanjutan)
