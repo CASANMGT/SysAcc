@@ -1964,13 +1964,23 @@ export function shopStockOf(item, shopId) {
   return Math.max(Math.floor(Number(item && item.stock) || 0), 0);
 }
 
+// Buat SKU otomatis dari nama (inisial + nomor urut) yang unik.
+export function autoSku(name, list) {
+  const items = Array.isArray(list) ? list : getItems();
+  const base = String(name || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 3) || 'BRG';
+  const used = new Set(items.map(i => String(i.sku || '').toUpperCase()));
+  let n = 1, sku;
+  do { sku = `${base}-${String(n).padStart(3, '0')}`; n++; } while (used.has(sku));
+  return sku;
+}
+
 export function saveItem(item) {
   requireCap('ledger');
   const list = getItems();
   const name = String(item.name || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
   if (!name) throw new Error('Nama barang wajib');
-  const skuV = String(item.sku || '').trim().slice(0, 30);
-  const barV = String(item.barcode || '').trim().slice(0, 40);
+  const skuV = String(item.sku || '').trim().slice(0, 30) || autoSku(name, list);
+  const barV = String(item.barcode || '').trim().slice(0, 40) || skuV;
   const selfId = item.id || '';
   if (skuV) {
     const d = list.find(i => i.id !== selfId && String(i.sku || '').trim().toLowerCase() === skuV.toLowerCase());

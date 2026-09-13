@@ -3437,6 +3437,7 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
     const arrow = (k) => sort && sort.key === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
     list.innerHTML = `<div style="overflow-x:auto"><table class="report-table" id="stockTable"><thead><tr>
       <th style="width:28px"><input type="checkbox" id="stockSelectAll" aria-label="Pilih semua"></th>
+      <th>Foto</th>
       <th data-sort="name" style="cursor:pointer">Produk${arrow('name')}</th>
       <th data-sort="size" style="cursor:pointer">Varian${arrow('size')}</th>
       <th data-sort="sku" style="cursor:pointer">SKU${arrow('sku')}</th>
@@ -3445,9 +3446,10 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
       <th data-sort="price" style="cursor:pointer;text-align:right">Harga${arrow('price')}</th>
       <th data-sort="cost" style="cursor:pointer;text-align:right">Modal${arrow('cost')}</th>
       <th data-sort="value" style="cursor:pointer;text-align:right">Nilai${arrow('value')}</th>
-      <th>Status</th></tr></thead><tbody>
+      <th>Status</th><th>Aksi</th></tr></thead><tbody>
       ${rows.map(r => `<tr data-id="${r.v.id}">
         <td><input type="checkbox" class="stock-row-check" data-id="${r.v.id}" aria-label="Pilih ${esc(r.g.name)}"></td>
+        <td>${r.v.image ? `<img src="${r.v.image}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0">` : '<span style="color:#cbd5e1">—</span>'}</td>
         <td style="font-size:12px">${esc(r.g.name)}</td>
         <td style="font-size:12px">${esc([r.v.size, r.v.color].filter(Boolean).join('/') || 'Default')}</td>
         <td style="font-size:11px">${esc(r.v.sku || '—')}</td>
@@ -3456,7 +3458,8 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
         <td class="amount-col">${fmt(r.net)}</td>
         <td class="amount-col">${fmt(Number(r.v.cost) || 0)}</td>
         <td class="amount-col">${fmt(r.value)}</td>
-        <td>${r.v.active === false ? '<span class="chip" style="font-size:10px">Arsip</span>' : 'Aktif'}</td></tr>`).join('')}
+        <td>${r.v.active === false ? '<span class="chip" style="font-size:10px">Arsip</span>' : 'Aktif'}</td>
+        <td style="white-space:nowrap"><button type="button" class="btn btn-ghost stock-row-edit" data-id="${r.v.id}" aria-label="Edit ${esc(r.g.name)}" title="Edit" style="font-size:11px;padding:2px 8px">✎</button> <button type="button" class="btn btn-ghost stock-row-qr" data-id="${r.v.id}" aria-label="Barcode ${esc(r.g.name)}" title="Barcode" style="font-size:11px;padding:2px 8px">🏷️</button></td></tr>`).join('')}
       </tbody></table></div>`;
     return;
   }

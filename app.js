@@ -9,6 +9,7 @@ import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransf
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
+import { code128Svg } from './barcode.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -37,7 +38,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.63.0';
+const APP_VERSION = '1.64.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -979,7 +980,11 @@ function bindEvents() {
     const jual = e.target.closest('.stock-page-jual');
     const restock = e.target.closest('.stock-page-restock');
     const hist = e.target.closest('.stock-page-history');
+    const rowEdit = e.target.closest('.stock-row-edit');
+    const rowQr = e.target.closest('.stock-row-qr');
     if (chip) openStockActionSheet(chip.dataset.id);
+    else if (rowEdit) { const it = Storage.getItemById(rowEdit.dataset.id); if (it) { UI.fillStockForm(it); UI.openStock(); } }
+    else if (rowQr) openBarcode(rowQr.dataset.id);
     else if (jual) UI.openSale();
     else if (restock) handleStockRestockGroup(restock.dataset.key);
     else if (hist) handleStockHistoryGroup(hist.dataset.key);
@@ -999,6 +1004,10 @@ function bindEvents() {
   document.getElementById('saJual')?.addEventListener('click', () => { closeStockActionSheet(); UI.openSale(); });
   document.getElementById('saEdit')?.addEventListener('click', () => { const id = stockActionId; const it = Storage.getItemById(id); closeStockActionSheet(); if (it) { UI.fillStockForm(it); UI.openStock(); } });
   document.getElementById('saDelete')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); handleStockDelete(id); });
+  document.getElementById('saBarcode')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); openBarcode(id); });
+  document.getElementById('barcodeClose')?.addEventListener('click', closeBarcode);
+  document.getElementById('barcodeCloseBtn')?.addEventListener('click', closeBarcode);
+  document.getElementById('barcodePrint')?.addEventListener('click', printBarcode);
   document.getElementById('stockPageList')?.addEventListener('change', (e) => {
     if (e.target.id === 'stockSelectAll') {
       document.querySelectorAll('#stockPageList .stock-row-check').forEach(c => { c.checked = e.target.checked; });
@@ -3538,6 +3547,37 @@ function openRestockForItem(itemId) {
   const q = document.getElementById('restockQty'); if (q) q.value = '';
   const c = document.getElementById('restockCost'); if (c) c.value = it.cost ? String(Math.round(it.cost)) : '';
   const m = document.getElementById('restockModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+
+/* ===== Barcode produk (Code128) ===== */
+let barcodeItemId = '';
+function openBarcode(itemId) {
+  const it = Storage.getItemById(itemId);
+  if (!it) return;
+  barcodeItemId = itemId;
+  const code = it.barcode || it.sku || it.id;
+  const title = document.getElementById('barcodeTitle');
+  if (title) title.textContent = '🏷️ ' + it.name;
+  const info = document.getElementById('barcodeInfo');
+  if (info) info.textContent = `${[it.size, it.color].filter(Boolean).join(' / ') || 'Produk'} • SKU ${it.sku || '—'}`;
+  const box = document.getElementById('barcodeSvg');
+  if (box) box.innerHTML = code128Svg(code, { height: 72 });
+  const txt = document.getElementById('barcodeText');
+  if (txt) txt.textContent = code;
+  const m = document.getElementById('barcodeModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function closeBarcode() { const m = document.getElementById('barcodeModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function printBarcode() {
+  const it = Storage.getItemById(barcodeItemId);
+  if (!it) return;
+  const code = it.barcode || it.sku || it.id;
+  const svg = code128Svg(code, { height: 72 });
+  const w = window.open('', '_blank', 'width=440,height=340');
+  if (!w) { UI.showError('Izinkan pop-up untuk mencetak barcode'); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Barcode ${escapeHtml(it.name)}</title></head><body style="font-family:sans-serif;text-align:center;padding:16px">${svg}<div style="font-family:ui-monospace,monospace;letter-spacing:1px;margin-top:6px">${escapeHtml(code)}</div><div style="font-size:12px;margin-top:4px">${escapeHtml(it.name)}</div></body></html>`);
+  w.document.close(); w.focus();
+  try { w.print(); } catch {}
 }
 
 /* ===== Import produk & penjualan (marketplace / WhatsApp) ===== */

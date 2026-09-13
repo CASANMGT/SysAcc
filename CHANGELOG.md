@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.64.0] - 2026-09-14
+
+### Added — SKU & barcode otomatis, label cetak, foto di tabel, edit per baris
+- **SKU otomatis**: bila Kode dikosongkan, dibuat otomatis (inisial nama + nomor urut, unik) — mis. `KOP-001`
+- **Barcode otomatis** (bila kosong = SKU) + **label barcode Code128** bisa **dicetak** (🖨️ Cetak) — tanpa dependensi, offline
+- Tombol **🏷️ Barcode** di lembar aksi cepat + kolom **Aksi (✎ Edit / 🏷️)** di tampilan tabel
+- **Foto produk tampil di tampilan tabel** (thumbnail 32px) — selain di kartu
+- Modul baru `barcode.js` (Code128 subset B → SVG); service worker menyertakan `barcode.js`, `marketplace.js`, `supabase.js`
+- +6 test (14 file); 283/283 tests ✓
+
+---
+
 ## [1.63.0] - 2026-09-14
 
 ### Changed — Harga per-varian + info produk lebih lengkap, wizard 2 langkah

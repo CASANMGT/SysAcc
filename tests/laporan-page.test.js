@@ -153,6 +153,11 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
   it('produk punya field foto + berat/dimensi kirim', () => {
     ['stockImage', 'stockWeight', 'stockLength', 'stockWidth', 'stockHeight'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
   });
+  it('ada modal barcode + tombol barcode di lembar aksi', () => {
+    expect(document.getElementById('barcodeModal')).toBeTruthy();
+    expect(document.getElementById('barcodeSvg')).toBeTruthy();
+    expect(document.getElementById('saBarcode')).toBeTruthy();
+  });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
     expect(seg.length).toBeGreaterThan(0);
