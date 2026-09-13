@@ -237,6 +237,12 @@ describe('kasbon karyawan (storage)', () => {
     expect(loan.employeeId).toBe(emp.id);
     expect(getKasbonLoans(emp.id, 'Budi Santoso').some(l => l.id === loan.id)).toBe(true);
   });
+  it('kontak "karyawan" dipertahankan saat create (bukan dipaksa jadi person)', () => {
+    const emp = saveEmployee({ name: 'Karyawan Dua', baseSalary: 5000000 });
+    const loan = createLoan({ direction: 'given', person: 'Karyawan Dua', contactType: 'karyawan', amount: 500000, date: '2026-08-01' });
+    expect(loan.contactType).toBe('karyawan');
+    expect(loan.employeeId).toBe(emp.id);
+  });
   it('applyPayrollKasbon mengurangi sisa + jurnal Dr Beban Gaji Cr Piutang', () => {
     const emp = saveEmployee({ name: 'Ani Kasbon', baseSalary: 4000000 });
     const loan = createLoan({ direction: 'given', person: 'Ani Kasbon', amount: 1000000, date: '2026-08-01' });

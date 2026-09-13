@@ -305,7 +305,7 @@ export function exportExcel() {
   const loans = getLoans().map(l => ({
     Tanggal: l.date,
     Direksi: l.direction === 'given' ? 'Piutang' : 'Hutang',
-    'Tipe Kontak': l.contactType === 'perusahaan' ? 'Perusahaan' : 'Orang',
+    'Tipe Kontak': l.contactType === 'perusahaan' ? 'Perusahaan' : l.contactType === 'karyawan' ? 'Karyawan' : 'Orang',
     Nama: l.person,
     Jumlah: l.amount,
     'Tipe Pinjaman': l.loanType === 'cicilan' ? 'Cicilan' : 'Lunas (1x)',
@@ -333,7 +333,7 @@ export function exportExcel() {
 
   const people = getPeopleList().map(p => ({
     Nama: p.name,
-    Tipe: p.type === 'perusahaan' ? 'Perusahaan' : 'Orang'
+    Tipe: p.type === 'perusahaan' ? 'Perusahaan' : p.type === 'karyawan' ? 'Karyawan' : 'Orang'
   }));
   const wsPeople = XLSX.utils.json_to_sheet(people);
   XLSX.utils.book_append_sheet(wb, wsPeople, 'Kontak');
@@ -419,7 +419,7 @@ export function exportCSV() {
     rows.push([
       l.date,
       l.direction === 'given' ? 'Piutang' : 'Hutang',
-      l.contactType === 'perusahaan' ? 'Perusahaan' : 'Orang',
+      l.contactType === 'perusahaan' ? 'Perusahaan' : l.contactType === 'karyawan' ? 'Karyawan' : 'Orang',
       l.person,
       l.amount,
       l.loanType === 'cicilan' ? 'Cicilan' : 'Lunas (1x)',
@@ -509,7 +509,7 @@ export function importExcel(file) {
           const loans = rows.map(r => ({
             id: generateId(),
             direction: r.Direksi === 'Piutang' ? 'given' : 'taken',
-            contactType: r['Tipe Kontak'] === 'Perusahaan' ? 'perusahaan' : 'person',
+            contactType: r['Tipe Kontak'] === 'Perusahaan' ? 'perusahaan' : r['Tipe Kontak'] === 'Karyawan' ? 'karyawan' : 'person',
             person: String(r.Nama || '').trim(),
             amount: Number(r.Jumlah),
             loanType: r['Tipe Pinjaman'] === 'Cicilan' ? 'cicilan' : 'lunas',
@@ -567,7 +567,7 @@ export function importExcel(file) {
           let added = 0;
           rows.forEach(r => {
             const name = String(r.Nama || '').trim();
-            const type = r.Tipe === 'Perusahaan' ? 'perusahaan' : 'person';
+            const type = r.Tipe === 'Perusahaan' ? 'perusahaan' : r.Tipe === 'Karyawan' ? 'karyawan' : 'person';
             if (name) {
               const before = getPeopleList().length;
               savePerson(name, type);
@@ -628,11 +628,12 @@ function sanitizeLoan(l) {
   return {
     id: String(l.id || generateId()).slice(0, 60),
     direction: l.direction === 'taken' ? 'taken' : 'given',
-    contactType: l.contactType === 'perusahaan' ? 'perusahaan' : 'person',
+    contactType: l.contactType === 'perusahaan' ? 'perusahaan' : l.contactType === 'karyawan' ? 'karyawan' : 'person',
     loanType: l.loanType === 'cicilan' ? 'cicilan' : 'lunas',
     installmentAmount: Math.max(Number(l.installmentAmount) || 0, 0),
     interestRate: clampInterestRate(l.interestRate),
     invoiceNo: String(l.invoiceNo || '').slice(0, 30),
+    employeeId: l.employeeId ? String(l.employeeId).slice(0, 60) : undefined,
     person, amount, date,
     dueDate: isValidDateStr(l.dueDate) ? String(l.dueDate).slice(0, 10) : '',
     description: String(l.description || '').slice(0, 120),

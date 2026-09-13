@@ -36,7 +36,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.27.0';
+const APP_VERSION = '1.28.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1184,6 +1184,17 @@ function renderChangelogMd(t) {
     });
     return result;
   };
+  window.__getAllPeople = () => Storage.getAllPeople();
+  window.__getActiveEmployees = () => {
+    const repayments = Storage.getAllRepayments();
+    return Storage.getAllEmployees()
+      .filter(e => e.active !== false)
+      .map(e => {
+        const loans = Storage.getKasbonLoans(e.id, e.name);
+        const kasbon = loans.reduce((s, l) => s + Math.max(totalOwed(l) - paidOf(repayments.filter(r => r.loanId === l.id)), 0), 0);
+        return { id: e.id, name: e.name, role: e.role || '', kasbon: Math.round(kasbon) };
+      });
+  };
   const buildOutstanding = (direction) => {
     const loans = Storage.getAllLoans().filter(l => l.direction === direction && l.status !== 'paid');
     const repayments = Storage.getAllRepayments();
@@ -1317,6 +1328,13 @@ function submitFormData(data) {
     } else {
       const direction = data.category === 'Piutang' ? 'given' : 'taken';
       if (!data.person) { UI.showError(data.category === 'Hutang' ? 'Tulis dulu dari siapa ambil loan' : 'Tulis dulu ke siapa kasih pinjam'); return false; }
+      // Kontak "Karyawan" → resolve & validasi ke data karyawan (kasbon)
+      let employeeId = '';
+      if (data.contactType === 'karyawan') {
+        const emp = Storage.getAllEmployees().find(e => String(e.name || '').trim().toLowerCase() === String(data.person || '').trim().toLowerCase());
+        if (!emp) { UI.showError('Karyawan tidak ditemukan — pilih dari daftar karyawan di kolom nama'); return false; }
+        employeeId = emp.id;
+      }
 
       if (data.id) {
         const existing = Storage.getEntryById(data.id);
@@ -1333,7 +1351,8 @@ function submitFormData(data) {
             dueDate: data.loanDue,
             description: data.description,
             payment: data.payment,
-            paymentDetail: data.paymentDetail
+            paymentDetail: data.paymentDetail,
+            employeeId: employeeId || undefined
           });
         } else {
           Storage.updateEntry(data.id, data);
@@ -1355,7 +1374,8 @@ function submitFormData(data) {
           description: data.description,
           payment: data.payment,
           paymentDetail: data.paymentDetail,
-          invoiceNo: data.invoiceNo
+          invoiceNo: data.invoiceNo,
+          employeeId
         });
         UI.showSuccess(data.category === 'Hutang' ? `Oke, kamu pinjam ${Reports.formatCurrency(data.amount)} dari ${data.person} 💰` : `Kasih pinjam ${Reports.formatCurrency(data.amount)} ke ${data.person} 📤${data.invoiceNo ? ` • ${data.invoiceNo}` : ''}`);
       }

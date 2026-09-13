@@ -4,6 +4,10 @@ import { accountLabel } from './coa.js';
 import { computeSlip, thrAmount, DEFAULT_RATES, RATE_LIMITS } from './payroll.js';
 import { getPpn } from './storage.js';
 
+// Ikon & label tipe kontak (orang / karyawan / perusahaan)
+function contactIcon(type) { return type === 'perusahaan' ? '🏢' : type === 'karyawan' ? '👷' : '👤'; }
+function contactTypeLabel(type) { return type === 'perusahaan' ? 'Perusahaan' : type === 'karyawan' ? 'Karyawan' : 'Orang'; }
+
 const elements = {
   entriesBody: document.getElementById('entriesBody'),
   emptyState: document.getElementById('emptyState'),
@@ -466,6 +470,50 @@ function updateTxContactSelected() {
   const btn = document.getElementById('txContactChangeBtn');
   if (btn) btn.addEventListener('click', () => { input.value = ''; input.focus(); updateTxContactSelected(); document.getElementById('quickSelectPiutang')?.classList.remove('hidden'); });
 }
+
+// Picker khusus karyawan (mode kontak = "Karyawan") — datalist + chip dari data karyawan.
+function renderEmployeesForPicker() {
+  const emps = window.__getActiveEmployees ? window.__getActiveEmployees() : [];
+  const dl = document.getElementById('peopleList');
+  if (dl) dl.innerHTML = emps.map(e => `<option value="${escapeHtml(e.name)}"></option>`).join('');
+  const qs = document.getElementById('quickSelectPiutang');
+  if (qs) qs.classList.remove('hidden');
+  const chips = document.getElementById('quickSelectChips');
+  if (chips) {
+    chips.innerHTML = emps.length
+      ? emps.map(e => `<button type="button" class="quick-select-chip" data-name="${escapeHtml(e.name)}" data-type="karyawan">👷 ${escapeHtml(e.name)}${e.kasbon > 0 ? ` · ${formatCurrency(e.kasbon)}` : ''}</button>`).join('')
+      : '<span style="font-size:0.75rem;color:var(--text-muted);">Belum ada karyawan. Tambah di menu Gaji → Data Karyawan.</span>';
+    chips.querySelectorAll('.quick-select-chip').forEach(chip => chip.addEventListener('click', () => {
+      elements.entryLoanPerson.value = chip.dataset.name;
+      elements.entryContactType.value = 'karyawan';
+      setSelected(elements.contactTypeGroup, 'karyawan');
+      updateTxContactSelected();
+      updateTxMetaBar();
+    }));
+  }
+}
+export function applyContactTypeMode(value) {
+  const mode = value || 'person';
+  const label = document.getElementById('loanPersonLabel');
+  const hint = document.getElementById('quickSelectHint');
+  const qsLabel = document.getElementById('quickSelectLabel');
+  const input = elements.entryLoanPerson;
+  if (mode === 'karyawan') {
+    if (label) label.textContent = 'Pilih karyawan';
+    if (hint) hint.textContent = 'Kasbon karyawan — otomatis dipotong dari gaji tiap bulan (bisa dijeda)';
+    if (qsLabel) qsLabel.textContent = 'Pilih karyawan:';
+    if (input) input.placeholder = 'Cari karyawan...';
+    renderEmployeesForPicker();
+  } else {
+    const company = mode === 'perusahaan';
+    if (label) label.textContent = company ? 'Nama perusahaan' : 'Kasih pinjam ke siapa?';
+    if (hint) hint.textContent = company ? 'Ketik nama perusahaan' : 'Ketik nama temanmu';
+    if (qsLabel) qsLabel.textContent = 'Pilih dari kontak tersimpan:';
+    if (input) input.placeholder = company ? 'Cari atau tambah perusahaan...' : 'Cari atau tambah penerima...';
+    try { renderPeopleDatalist(window.__getAllPeople ? window.__getAllPeople() : []); } catch {}
+    populateQuickSelectPiutang();
+  }
+}
 export function readBungaRate() {
   const el = document.getElementById('entryInterestRate');
   if (!el) return 0;
@@ -725,7 +773,7 @@ function populateTxContactDropdown() {
     return;
   }
   dd.innerHTML = `<div class="tx-dd-header">Kontak tersimpan • ${people.length}</div><div style="max-height:240px;overflow:auto;padding:8px">` + people.map(p => {
-    const icon = p.type === 'perusahaan' ? '🏢' : '👤';
+    const icon = contactIcon(p.type);
     const sisa = p.hasLoan ? ` · ${formatCurrency(p.outstanding)}` : '';
     const initial = p.name[0]?.toUpperCase() || '?';
     return `<button type="button" class="tx-dd-item" data-name="${escapeHtml(p.name)}" data-type="${p.type}"><span class="tx-dd-avatar">${escapeHtml(initial)}</span><span style="flex:1;text-align:left"><span style="font-weight:600;color:#0f172a">${escapeHtml(p.name)}</span><span style="font-size:11.5px;color:#64748b;display:block">${icon} ${p.type}${sisa}</span></span></button>`;
@@ -1071,6 +1119,7 @@ export function bindTypeButtons(handler) {
       btn.addEventListener('click', () => {
         setSelected(elements.contactTypeGroup, btn.dataset.value);
         elements.entryContactType.value = btn.dataset.value;
+        applyContactTypeMode(btn.dataset.value);
       });
     });
   }
@@ -1205,6 +1254,7 @@ function applyLoanMode(category) {
   updateBungaHint();
   updateTxTenorInfo();
   updateTxMetaBar();
+  applyContactTypeMode(elements.entryContactType.value || 'person');
 }
 
 export function handleCategoryChange(category) {
@@ -1424,7 +1474,7 @@ function populateQuickSelectPiutang() {
       return;
     }
     chipsContainer.innerHTML = people.map(p => {
-      const icon = p.type === 'perusahaan' ? '🏢' : '👤';
+      const icon = contactIcon(p.type);
       const loanTag = p.hasLoan ? ` · ${formatCurrency(p.outstanding)}` : '';
       return `<button type="button" class="quick-select-chip" data-name="${escapeHtml(p.name)}" data-type="${p.type}">${icon} ${escapeHtml(p.name)}${loanTag}</button>`;
     }).join('');
@@ -2829,7 +2879,7 @@ export function renderLoans(loans, repayments, summary, allLoans, people) {
       <div class="${cardClass}" data-id="${l.id}">
         <div class="loan-top">
           <div>
-            <div class="loan-person">${l.contactType === 'perusahaan' ? '🏢' : '👤'} ${escapeHtml(l.person)}</div>
+            <div class="loan-person">${contactIcon(l.contactType)} ${escapeHtml(l.person)}</div>
             <span class="loan-direction ${dirClass}">${dirLabel}</span>
             <span class="loan-type-badge">${isCicilan ? `📅 Cicilan${tenor ? ` ${tenor} bln` : ''}` : '💵 Lunas (1x)'}</span>
         ${isOverdue ? '<span class="loan-overdue-badge">⚠️ Terlambat</span>' : ''}
@@ -3214,12 +3264,12 @@ export function renderContacts(people, loans) {
     const activeCount = personLoans.filter(l => l.status !== 'paid').length;
     const totalCount = personLoans.length;
     const totalAmount = personLoans.reduce((s, l) => s + l.amount, 0);
-    const typeLabel = p.type === 'perusahaan' ? '🏢 Perusahaan' : '👤 Orang';
+    const typeLabel = contactIcon(p.type) + ' ' + contactTypeLabel(p.type);
 
     return `
       <div class="contact-card">
         <div class="contact-info">
-          <div class="contact-name">${p.type === 'perusahaan' ? '🏢' : '👤'} ${escapeHtml(p.name)} <span class="contact-type-badge">${typeLabel}</span></div>
+          <div class="contact-name">${contactIcon(p.type)} ${escapeHtml(p.name)} <span class="contact-type-badge">${typeLabel}</span></div>
           ${p.phone ? `<div class="contact-meta">📱 ${escapeHtml(p.phone)}</div>` : ''}
           <div class="contact-meta">
             ${totalCount} pinjaman${activeCount > 0 ? ` (${activeCount} aktif)` : ''}

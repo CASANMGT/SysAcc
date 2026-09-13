@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.27.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.28.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.27.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.28.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -799,11 +799,13 @@
                   <div class="quick-select-hint" id="hutangPickerHint">Hanya yang aktif dengan sisa &gt; 0</div>
                 </div>
                 <div class="tx-piutang-field" id="loanContactTypeField">
-                  <label class="tx-piutang-label">Kontak / Perusahaan?</label>
+                  <label class="tx-piutang-label">Kontak ini siapa?</label>
                   <div id="contactTypeGroup" class="tx-pill-group">
                     <button type="button" class="select-btn selected" data-value="person">👤 Orang</button>
+                    <button type="button" class="select-btn" data-value="karyawan">👷 Karyawan</button>
                     <button type="button" class="select-btn" data-value="perusahaan">🏢 Perusahaan</button>
                   </div>
+                  <p class="tx-field-hint" id="contactTypeHint">Karyawan = kasbon, otomatis dipotong dari gaji (bisa dijeda).</p>
                 </div>
                 <div class="tx-piutang-field" id="loanPersonField">
                   <label for="entryLoanPerson" id="loanPersonLabel" class="tx-piutang-label">Ke siapa?</label>
@@ -1544,6 +1546,7 @@
           <label>Tipe</label>
           <div class="btn-group" id="contactTypeFormGroup">
             <button type="button" class="select-btn selected" data-value="person">👤 Orang</button>
+            <button type="button" class="select-btn" data-value="karyawan">👷 Karyawan</button>
             <button type="button" class="select-btn" data-value="perusahaan">🏢 Perusahaan</button>
           </div>
           <input type="hidden" id="contactFormType" value="person">
@@ -1825,7 +1828,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.27.0';
+    window.__htmlVersion = '1.28.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

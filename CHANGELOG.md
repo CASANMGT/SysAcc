@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.28.0] - 2026-09-13
+
+### Added — Tautkan kontak "Orang" ↔ "Karyawan" (kasbon eksplisit)
+- Toggle kontak di form Pinjaman kini **Orang / 👷 Karyawan / Perusahaan**
+- Pilih **Karyawan** → kolom nama jadi picker karyawan (datalist + chip, menampilkan sisa kasbon), plus hint "otomatis dipotong dari gaji (bisa dijeda)"
+- Simpan: divalidasi ke data karyawan, disimpan `contactType:"karyawan"` + `employeeId` → dikenali kasbon oleh penggajian
+- Ikon/label 👷 di kartu pinjaman, Kontak, serta ekspor/impor Excel-CSV (Tipe Kontak "Karyawan")
+- +2 test (preserve contactType karyawan); 206/206 tests ✓
+
+---
+
 ## [1.27.0] - 2026-09-13
 
 ### Added — Kasbon karyawan: potong otomatis dari gaji + jeda
