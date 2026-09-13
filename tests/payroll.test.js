@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { terCategory, terRate, tenureMonths, thrAmount, computeSlip, KES_CAP, JP_CAP, annualPPh21, ptkpAnnual, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, OVERTIME_DIVISOR } from '../payroll.js';
+import { terCategory, terRate, tenureMonths, thrAmount, computeSlip, KES_CAP, JP_CAP, annualPPh21, ptkpAnnual, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, OVERTIME_DIVISOR, severanceMonths, serviceAwardMonths, severancePay } from '../payroll.js';
 
 describe('terCategory', () => {
   it('TK/0, TK/1, K/0 → A', () => {
@@ -202,6 +202,33 @@ describe('PPh 21 tahunan — SUMBER: UU PPh 36/2008 jo. UU HPP 7/2021 (wajib kon
     expect(s.pphOverridden).toBe(true);
     const s2 = computeSlip({ baseSalary: 4000000, allowance: 1000000, ptkp: 'TK/0', npwp: '1' }, { pph: true });
     expect(s2.pphOverridden).toBe(false);
+  });
+});
+
+describe('pesangon/PHK (PP 35/2021)', () => {
+  it('tabel UP & UPMK menurut masa kerja', () => {
+    expect(severanceMonths(6)).toBe(1);
+    expect(severanceMonths(12)).toBe(2);
+    expect(severanceMonths(90)).toBe(8);
+    expect(severanceMonths(120)).toBe(9);
+    expect(serviceAwardMonths(24)).toBe(0);
+    expect(serviceAwardMonths(48)).toBe(2);
+    expect(serviceAwardMonths(120)).toBe(4);
+    expect(serviceAwardMonths(300)).toBe(10);
+  });
+  it('severancePay normal (UP+UPMK+UPH 15%)', () => {
+    const r = severancePay({ wage: 5000000, tenureMonths: 60, reason: 'normal' });
+    expect(r.upMonths).toBe(6);
+    expect(r.up).toBe(6 * 5000000);
+    expect(r.upmk).toBe(2 * 5000000);
+    expect(r.uph).toBe(Math.round((30000000 + 10000000) * 0.15));
+    expect(r.total).toBe(r.up + r.upmk + r.uph);
+  });
+  it('efisiensi = ½ UP; resign tanpa UP', () => {
+    expect(severancePay({ wage: 5000000, tenureMonths: 60, reason: 'efisiensi' }).up).toBe(Math.round(30000000 * 0.5));
+    const rs = severancePay({ wage: 5000000, tenureMonths: 60, reason: 'resign' });
+    expect(rs.up).toBe(0);
+    expect(rs.upmk).toBe(10000000);
   });
 });
 

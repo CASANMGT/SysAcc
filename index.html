@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.44.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.45.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -478,7 +478,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.44.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.45.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -568,6 +568,9 @@
             <div>
               <h1>Karyawan & Gaji</h1>
               <p>Kelola data tim dan komponen penggajian.</p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost" id="severanceBtn" title="Hitung pesangon/PHK (PP 35/2021)">📄 Kalkulator Pesangon/PHK</button>
             </div>
           </div>
           <div class="chip-group" id="payrollTabs" role="tablist" aria-label="Tab gaji" style="margin-bottom:12px">
@@ -1882,6 +1885,29 @@
   </div>
 </dialog>
 
+<dialog id="severanceModal" class="modal">
+    <div class="modal-content" style="max-width:540px">
+      <header class="modal-header">
+        <h2>📄 Pesangon / PHK (PP 35/2021)</h2>
+        <button type="button" class="modal-close" id="severanceClose" aria-label="Tutup">×</button>
+      </header>
+      <div class="modal-body">
+        <label style="font-size:12px;display:block;margin-bottom:8px">Karyawan<select id="sevEmp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"><option value="">— pilih (opsional) —</option></select></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label style="font-size:12px">Upah sebulan (pokok+tunj)<input type="text" id="sevWage" inputmode="decimal" placeholder="Rp" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+          <label style="font-size:12px">Masa kerja (bulan)<input type="number" id="sevTenure" min="0" step="1" placeholder="0" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+          <label style="font-size:12px">Alasan PHK<select id="sevReason" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"><option value="normal">PHK (alasan lain)</option><option value="efisiensi">Efisiensi / penutupan / merger</option><option value="pensiun">Pensiun</option><option value="resign">Mengundurkan diri</option><option value="pelanggaran">Pelanggaran berat</option></select></label>
+          <label style="font-size:12px">Sisa cuti (hari)<input type="number" id="sevLeave" min="0" step="1" placeholder="0" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+          <label style="font-size:12px">Nilai cuti / hari<input type="text" id="sevLeaveVal" inputmode="decimal" placeholder="Rp" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+          <label style="font-size:12px">Penggantian lain (Rp)<input type="text" id="sevExtra" inputmode="decimal" placeholder="Rp" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        </div>
+        <button type="button" class="btn btn-primary" id="sevCalc" style="margin-top:12px">Hitung</button>
+        <div id="sevResult" style="margin-top:12px"></div>
+        <p style="font-size:11px;color:#94a3b8;margin-top:8px">Mengacu PP 35/2021 (turunan UU 11/2020). Angka &amp; pengali per alasan PHK bisa berubah — minta konfirmasi konsultan sebelum pembayaran.</p>
+      </div>
+    </div>
+  </dialog>
+
 <dialog id="restockModal" class="modal">
     <div class="modal-content" style="max-width:420px">
       <header class="modal-header">
@@ -1954,7 +1980,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.44.0';
+    window.__htmlVersion = '1.45.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

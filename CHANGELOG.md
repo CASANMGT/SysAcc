@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.45.0] - 2026-09-13
+
+### Added — F3: Kalkulator Pesangon / PHK (PP 35/2021)
+- `payroll.js`: `severanceMonths` (UP), `serviceAwardMonths` (UPMK), `severancePay` dengan pengali per alasan (normal / efisiensi / pensiun / resign / pelanggaran) + UPH 15% + sisa cuti
+- Tombol **📄 Kalkulator Pesangon/PHK** di halaman Karyawan & Gaji: pilih karyawan → upah, masa kerja, sisa cuti terisi otomatis; hasil UP/UPMK/UPH/Total; tercatat di audit
+- Mengacu PP 35/2021 (turunan UU 11/2020) — **konfirmasi konsultan sebelum pembayaran**
+- +3 test; 251/251 tests ✓
+
+---
+
 ## [1.44.0] - 2026-09-13
 
 ### Changed — F8 mobile HP kecil (≤400px)

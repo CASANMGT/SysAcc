@@ -195,6 +195,55 @@ export function umpCheck(wage, ump) {
   return { ok: w >= u, shortfall: Math.max(u - w, 0) };
 }
 
+// ===== Pesangon / PHK (PP 35/2021) =====
+// SUMBER: PP 35/2021 (turunan UU 11/2020 Cipta Kerja). Upah acuan = gaji pokok +
+// tunjangan tetap. Angka bisa berubah lewat PP baru — minta konfirmasi konsultan.
+// Uang Pesangon (UP) — bulan upah menurut masa kerja (tahun penuh).
+export function severanceMonths(tenureMonthsInput) {
+  const y = Math.floor(Math.max(Number(tenureMonthsInput) || 0, 0) / 12);
+  if (y < 1) return 1;
+  if (y < 2) return 2;
+  if (y < 3) return 3;
+  if (y < 4) return 4;
+  if (y < 5) return 5;
+  if (y < 6) return 6;
+  if (y < 7) return 7;
+  if (y < 8) return 8;
+  return 9;
+}
+// Uang Penghargaan Masa Kerja (UPMK) — bulan upah.
+export function serviceAwardMonths(tenureMonthsInput) {
+  const y = Math.floor(Math.max(Number(tenureMonthsInput) || 0, 0) / 12);
+  if (y < 3) return 0;
+  if (y < 6) return 2;
+  if (y < 9) return 3;
+  if (y < 12) return 4;
+  if (y < 15) return 5;
+  if (y < 18) return 6;
+  if (y < 21) return 7;
+  if (y < 24) return 8;
+  return 10;
+}
+// Pengali menurut alasan PHK (PP 35/2021 Ps.40 dst). Default konservatif.
+export const SEVERANCE_REASONS = {
+  normal: { label: 'PHK (alasan lain)', up: 1, upmk: 1 },
+  efisiensi: { label: 'Efisiensi / penutupan / merger (Ps.43)', up: 0.5, upmk: 1 },
+  pensiun: { label: 'Pensiun (Ps.56)', up: 1.75, upmk: 1 },
+  resign: { label: 'Mengundurkan diri (Ps.50)', up: 0, upmk: 1 },
+  pelanggaran: { label: 'Pelanggaran berat (Ps.54)', up: 0.5, upmk: 0.5 },
+};
+// Hitung pesangon. uphPct = uang penggantian hak (default 15% dari UP+UPMK).
+export function severancePay({ wage, tenureMonths: tm, reason, uphPct = 0.15, remainingLeaveDays = 0, leaveDayValue = 0, extra = 0 } = {}) {
+  const w = Math.max(Number(wage) || 0, 0);
+  const R = SEVERANCE_REASONS[reason] || SEVERANCE_REASONS.normal;
+  const upM = severanceMonths(tm);
+  const upmkM = serviceAwardMonths(tm);
+  const up = Math.round(upM * w * R.up);
+  const upmk = Math.round(upmkM * w * R.upmk);
+  const uph = Math.round((up + upmk) * uphPct) + Math.round(Math.max(Number(remainingLeaveDays) || 0, 0) * Math.max(Number(leaveDayValue) || 0, 0)) + Math.round(Number(extra) || 0);
+  return { up, upmk, uph, total: up + upmk + uph, upMonths: upM, upmkMonths: upmkM, reasonLabel: R.label };
+}
+
 function rupiah(n) {
   return Math.round(Number(n) || 0);
 }

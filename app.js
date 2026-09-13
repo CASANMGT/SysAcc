@@ -6,7 +6,7 @@ import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath
 import * as Charts from './charts.js';
 import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
-import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck } from './payroll.js';
+import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 
@@ -37,7 +37,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.44.0';
+const APP_VERSION = '1.45.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -971,6 +971,10 @@ function bindEvents() {
   document.getElementById('restockClose')?.addEventListener('click', closeRestock);
   document.getElementById('restockCancel')?.addEventListener('click', closeRestock);
   document.getElementById('restockSave')?.addEventListener('click', handleRestockSubmit);
+  document.getElementById('severanceBtn')?.addEventListener('click', openSeverance);
+  document.getElementById('severanceClose')?.addEventListener('click', () => { const m = document.getElementById('severanceModal'); if (m && m.open) { try { m.close(); } catch {} } });
+  document.getElementById('sevEmp')?.addEventListener('change', sevFillFromEmp);
+  document.getElementById('sevCalc')?.addEventListener('click', handleSeveranceCalc);
   document.getElementById('cloudAnonBtn')?.addEventListener('click', handleCloudAnon);
   document.getElementById('cloudLinkBtn')?.addEventListener('click', handleCloudLinkEmail);
   document.getElementById('cloudSyncBtn')?.addEventListener('click', handleCloudSyncNow);
@@ -3447,6 +3451,51 @@ function handlePayrollRun() {
   UI.showSuccess(ok ? `Gaji ${monthLabel}: ${ok} karyawan diproses (THP)` : 'Tidak ada yang diproses');
   refreshPayroll();
   refresh();
+}
+/* ===== Kalkulator Pesangon / PHK (PP 35/2021) ===== */
+function openSeverance() {
+  const sel = document.getElementById('sevEmp');
+  if (sel) {
+    const emps = Storage.getAllEmployees().filter(e => e.active !== false);
+    sel.innerHTML = '<option value="">— pilih (opsional) —</option>' + emps.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+  }
+  const m = document.getElementById('severanceModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function sevFillFromEmp() {
+  const id = document.getElementById('sevEmp')?.value;
+  if (!id) return;
+  const e = Storage.getAllEmployees().find(x => x.id === id);
+  if (!e) return;
+  const wage = (Number(e.baseSalary) || 0) + (Number(e.allowance) || 0);
+  const tm = tenureMonths(e.startDate, new Date());
+  const lv = Storage.getLeave(e.id, new Date().getFullYear());
+  const bal = leaveBalance(lv.entitled, lv.taken, lv.comp);
+  const set = (id2, v) => { const el = document.getElementById(id2); if (el) el.value = v; };
+  set('sevWage', String(wage));
+  set('sevTenure', String(tm));
+  set('sevLeave', String(bal));
+  set('sevLeaveVal', String(Math.round(wage / 30)));
+}
+function handleSeveranceCalc() {
+  const wage = Math.round(Number(UI.parseIdrInput(document.getElementById('sevWage')?.value || '')) || 0);
+  const tm = Math.max(parseInt(document.getElementById('sevTenure')?.value || '0', 10) || 0, 0);
+  const reason = document.getElementById('sevReason')?.value || 'normal';
+  const remainingLeaveDays = Math.max(Number(document.getElementById('sevLeave')?.value) || 0, 0);
+  const leaveDayValue = Math.round(Number(UI.parseIdrInput(document.getElementById('sevLeaveVal')?.value || '')) || 0);
+  const extra = Math.round(Number(UI.parseIdrInput(document.getElementById('sevExtra')?.value || '')) || 0);
+  const r = severancePay({ wage, tenureMonths: tm, reason, remainingLeaveDays, leaveDayValue, extra });
+  const fmt = (v) => 'Rp' + Math.round(v).toLocaleString('id-ID');
+  const out = document.getElementById('sevResult');
+  if (!out) return;
+  out.innerHTML = `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px">
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">${escapeHtml(r.reasonLabel)} • masa kerja ${Math.floor(tm / 12)} th ${tm % 12} bln</div>
+    <div>Uang Pesangon (${r.upMonths} bln): <b>${fmt(r.up)}</b></div>
+    <div>Uang Penghargaan Masa Kerja (${r.upmkMonths} bln): <b>${fmt(r.upmk)}</b></div>
+    <div>Uang Penggantian Hak (+cuti/lain): <b>${fmt(r.uph)}</b></div>
+    <div style="border-top:1px solid #e2e8f0;margin-top:6px;padding-top:6px;font-size:14px">Total: <b>${fmt(r.total)}</b></div>
+  </div>`;
+  Storage.logAudit('create', 'severance-calc', '', null, { reason, tenure: tm, total: r.total });
 }
 function handleEmpSlip(id) {
   const e = Storage.getAllEmployees().find(x => x.id === id);
