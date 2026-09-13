@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.41.0** · Production **v1.41.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.41.0, sw=wynara-v1-41-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
+Repo **v1.45.0** · Production **v1.45.0 VERIFIED 2026-09-13** (check-prod PASS: index=1.45.0, sw=wynara-v1-45-0). Backend Supabase **LIVE** — first-sync + RLS terverifikasi server-side.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,8 +13,8 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ still requires every axis ≥85. Lowest: F2 80, F4 82, F9 82, F8 83, F3 84
-— five axes below 85 (F7 87, F6 90, F1 90, F5 92). Keep working correctness; do not chase cosmetics.
+A+ still requires every axis ≥85. Lowest: F4 82, F2 83, F9 83, F8 84
+— four axes below 85 (F3 86, F7 87, F6 90, F1 90, F5 92). Keep working correctness; do not chase cosmetics.
 ```
 
 ---
@@ -26,20 +26,20 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
 | F1 Core ledger | 15 | 86 | **90** | 13.50 | + halaman stok bergrup, restock + jurnal Dr Persediaan/Cr Kas |
-| F2 Tax conformance | 12 | 76 | **80** | 9.60 | OQ2 selesai (PPN 11% configurable, non-PKP); PPh Final PP23/2018 ambang Rp4,8M + peringatan |
-| F3 Payroll & HR | 12 | 73 | **84** | 10.08 | Dec recon + 1721-A1 + kasbon + **lembur KEP-102, cuti UU13/2003, ganti cuti, validasi UMP** |
+| F2 Tax conformance | 12 | 76 | **83** | 9.96 | OQ2 selesai + ambang PPh Final + **CSV SPT Masa PPN 1111 + rekap PPh 23/4(2)** |
+| F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
 | F4 Data durability | 15 | 52 | **82** | 12.30 | Supabase LIVE + RLS + tautkan email + uji backup + **peran Akuntan/HRD (PIN + requireCap)** |
 | F5 Reporting | 10 | 94 | **92** | 9.20 | Genuinely excellent |
 | F6 Task efficiency | 12 | 86 | **90** | 10.80 | Halaman stok (cari/filter/restock) + import marketplace/WA |
 | F7 Cognitive load | 10 | 80 | **87** | 8.70 | Harga/modal per ukuran + warna premium; stok per varian; import marketplace/WA |
-| F8 Mobile | 7 | 82 | **83** | 5.81 | Audit mobile + lanjutan: safe-area footer entri, font ≥11px, modal scroll-x, target sentuh |
-| F9 Accessibility | 7 | 68 | **82** | 5.74 | Label/dialog/focus/contrast + scope/caption/alt/hierarki + nama nav bersih (tanpa emoji) |
-| **OVERALL** | | ~~90~~ | | **85.73** | F4 74→82 (peran Akuntan/HRD); arithmetic di bawah |
+| F8 Mobile | 7 | 82 | **84** | 5.88 | Audit mobile + safe-area + HP kecil ≤400px (toolbar tumpuk, kartu 1 kolom) |
+| F9 Accessibility | 7 | 68 | **83** | 5.81 | + scope/caption/alt/hierarki + aria-current nav + prefers-contrast |
+| **OVERALL** | | ~~90~~ | | **86.47** | batch F2/F3/F8/F9; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 90×15 + 80×12 + 84×12 + 82×15 + 92×10 + 90×12 + 87×10 + 83×7 + 82×7
-= 1350 + 960 + 1008 + 1230 + 920 + 1080 + 870 + 581 + 574 = **8573 / 100 = 85.73**. Baseline 59.7 → **+26.03**.
+Aritmetika (wajib tampil): 90×15 + 83×12 + 86×12 + 82×15 + 92×10 + 90×12 + 87×10 + 84×7 + 83×7
+= 1350 + 996 + 1032 + 1230 + 920 + 1080 + 870 + 588 + 581 = **8647 / 100 = 86.47**. Baseline 59.7 → **+26.77**.
 
-Five of nine axes below 85. Stop condition not met on either clause.
+Four of nine axes below 85: F4 82, F2 83, F9 83, F8 84 (F3 86, F7 87, F6 90, F1 90, F5 92 ≥85). Stop condition not met on either clause.
 
 ---
 
@@ -156,6 +156,14 @@ UI work is frozen until iteration 22. Sixteen iterations of polish shipped ahead
 - **v1.40.0 (F1/F6)**: **halaman Stok** — produk dikelompokkan (SKU) dengan varian sebagai chip + stok; filter stok menipis; **Restock cepat** per varian (jurnal Dr Persediaan / Cr Kas); aksi Jual/Restock/Edit per produk; varian simpan `groupId`/`baseName`. **→ F1 89→90, F6 88→90.** +2 test. 244/244 ✓.
 
 - **v1.41.0 (F4)**: **peran Akuntan & HRD** — login username + PIN per peran (seperti kasir), diatur pemilik di Pengaturan; matriks izin OQ4 via `requireCap()` (ledger/payroll/data/settings) dengan ~24 guard dipetakan; HRD hanya Ringkasan/Transaksi/Gaji; owner-only untuk keamanan/PIN. **→ F4 74→82.** +3 test. 247/247 ✓.
+
+- **v1.42.0 (F2)**: laporan **PPN** dapat **unduh CSV SPT Masa PPN 1111** (bulanan DPP/PPN keluar-masuk, kurang/lebih) + tab baru **PPh 23/4(2)** (rekap bulanan akun 2107 + CSV). **→ F2 80→83.** 247/247 ✓ (17 tab).
+
+- **v1.43.0 (F9)**: `aria-current="page"` pada nav aktif; chip mode import ber-`aria-pressed`; dukung `prefers-contrast: more`. **→ F9 82→83.** 248/248 ✓.
+
+- **v1.44.0 (F8)**: HP kecil ≤400px — toolbar tumpuk, kartu pinjaman 1 kolom, tombol aksi stok penuh, padding rapat. **→ F8 83→84.** 248/248 ✓.
+
+- **v1.45.0 (F3)**: **kalkulator Pesangon/PHK PP 35/2021** (UP/UPMK per masa kerja, pengali per alasan, UPH 15%, sisa cuti) + UI di halaman Gaji (auto-isi dari karyawan). **→ F3 84→86.** +3 test. 251/251 ✓.
 
 > Catatan sisa (audit stok): **retur penjualan sebagian** belum ada (bisa pakai hapus transaksi = void penuh); harga rata-rata saat hapus pembelian & snapshot HPP historis belum dibetulkan.
 
