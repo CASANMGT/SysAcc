@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { suggestMatches, reconSummary, entryDirection } from '../bankmatch.js';
-import { upsertBankStatement, getBankStatement, updateBankStatement, getBankRules, addBankRule, deleteBankRule, matchBankRule, getBankEndBalances, setBankEndBalance } from '../storage.js';
+import { upsertBankStatement, getBankStatement, updateBankStatement, getBankRules, addBankRule, deleteBankRule, updateBankRule, matchBankRule, getBankEndBalances, setBankEndBalance } from '../storage.js';
 
 const ENTRIES = [
   { id: 'e1', date: '2026-09-10', type: 'income', amount: 100000, description: 'Setoran' },
@@ -86,6 +86,13 @@ describe('aturan bank & saldo akhir', () => {
     addBankRule('grabfood', '5103');
     expect(matchBankRule('GRABFOOD ORDER', 'out')).toBe('5103');
     expect(matchBankRule('GRAB CAR', 'out')).toBe('5104');
+  });
+  it('updateBankRule mengubah akun & arah (inline edit)', () => {
+    const list = addBankRule('gojek', '5104');
+    updateBankRule(list[0].id, { code: '5103', direction: 'out' });
+    const r = getBankRules()[0];
+    expect(r.code).toBe('5103');
+    expect(r.direction).toBe('out');
   });
   it('saldo akhir tersimpan; 0 menghapus', () => {
     setBankEndBalance('1102', 5000000);

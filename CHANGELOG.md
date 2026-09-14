@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.76.0] - 2026-09-14
+
+### Improved — UX kelola Aturan Bank & Kas & Bank
+- **Modal Aturan Bank dirapikan**: form "Tambah aturan" dalam kartu, **pencarian** aturan/contoh, **daftar aturan dalam tabel** yang bisa **diedit langsung** (ubah akun & arah lewat dropdown), tombol **✕** hapus
+- Tombol **⚡ Pakai semua contoh** (seed seluruh preset sekali klik) & **🗑 Hapus semua**
+- **Jumlah aturan** tampil di judul modal & dekat tombol ⚙️ di panel
+- Panel Rekonsiliasi: tombol **⚡ Isi akun dari aturan** — mengisi ulang akun baris mutasi yang belum diposting memakai aturan/saran
+- **Kas & Bank**: daftar dompet dikelompokkan **💵 Tunai · 🏦 Bank · 📱 E-Wallet/QRIS** dengan subtotal per kelompok
+- +1 test; 314/314 tests ✓
+
+---
+
 ## [1.75.0] - 2026-09-14
 
 ### Improved — Aturan bank mudah diakses + COA e-wallet + preset aturan

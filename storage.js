@@ -2498,6 +2498,20 @@ export function addBankRule(keyword, code, direction) {
 export function deleteBankRule(id) {
   return saveBankRules(getBankRules().filter(r => r.id !== id));
 }
+export function updateBankRule(id, patch) {
+  const list = getBankRules();
+  const i = list.findIndex(r => r.id === id);
+  if (i < 0) return null;
+  const p = patch || {};
+  const next = { ...list[i] };
+  if (p.keyword !== undefined) { const k = String(p.keyword).trim().toLowerCase().slice(0, 40); if (k) next.keyword = k; }
+  if (p.code !== undefined && /^\d{4}$/.test(String(p.code))) next.code = String(p.code);
+  if (p.direction !== undefined) next.direction = (p.direction === 'in' || p.direction === 'out') ? p.direction : '';
+  list[i] = next;
+  saveBankRules(list);
+  return next;
+}
+export function clearBankRules() { return saveBankRules([]); }
 // Cari akun dari aturan (substring kata kunci; kata kunci terpanjang menang). Null bila tidak ada.
 export function matchBankRule(desc, direction) {
   const s = String(desc || '').toLowerCase();
