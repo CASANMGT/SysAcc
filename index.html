@@ -130,10 +130,10 @@
 
         <form id="loginForm" class="login-form-new">
           <div class="form-group">
-            <label for="loginUser">Username</label>
+            <label for="loginUser">Email</label>
             <div class="login-input-wrap">
-              <span class="login-input-icon" aria-hidden="true">👤</span>
-              <input type="text" id="loginUser" placeholder="Masukkan username" required autocomplete="username">
+              <span class="login-input-icon" aria-hidden="true">✉️</span>
+              <input type="email" id="loginUser" placeholder="nama@email.com" required autocomplete="username">
             </div>
           </div>
           <div class="form-group">
@@ -148,10 +148,11 @@
             <label class="login-check"><input type="checkbox" id="loginRemember" checked> Ingat saya</label>
             <a href="#" class="login-forgot">Lupa kata sandi?</a>
           </div>
-          <div id="loginError" class="login-error hidden" role="alert">Username atau kata sandi salah</div>
+          <div id="loginError" class="login-error hidden" role="alert">Email atau kata sandi salah</div>
           <button type="submit" class="btn btn-primary login-btn-new">Masuk <span>→</span></button>
         </form>
-        <p class="login-hint" id="loginHint">Masuk dengan akun yang diberikan pemilik</p>
+        <p class="login-hint" id="loginHint">Masuk dengan <b>email &amp; kata sandi</b>. Data disimpan di server — buka dari perangkat mana pun, data tetap sama.</p>
+        <p style="text-align:center;font-size:12px;margin-top:8px">Belum punya akun? <a href="#" id="loginSignup" style="color:#2563eb">Daftar dengan email</a></p>
       </div>
       <p class="login-terms">Syarat layanan &nbsp;•&nbsp; Kebijakan privasi</p>
     </div>
@@ -198,7 +199,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.73.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.74.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -520,7 +521,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.73.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.74.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2365,7 +2366,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.73.0';
+    window.__htmlVersion = '1.74.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

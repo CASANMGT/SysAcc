@@ -93,7 +93,8 @@ describe('saveCloudConfig', () => {  it('menolak URL aneh dan key pendek', () =>
     saveCloudConfig('https://abc.supabase.co', 'x'.repeat(40));
     expect(getCloudConfig().url).toBe('https://abc.supabase.co');
     clearCloudConfig();
-    expect(getCloudConfig()).toBe(null);
+    expect(getCloudConfig().url).toMatch(/supabase\.co$/);
+    expect(getCloudConfig().url).not.toBe('https://abc.supabase.co');
   });
 });
 
@@ -176,5 +177,47 @@ describe('tautkan email sesi anonim (durability)', () => {
     globalThis.fetch = async () => ({ ok: true, json: async () => ({ access_token: 'a', refresh_token: 'r', expires_in: 3600, user: { id: 'u1' } }) });
     await cloudSignInAnonymously();
     await expect(cloudLinkEmail('a@b.com', '123')).rejects.toThrow(/minimal 6/);
+  });
+});
+
+describe('pullAll (server-authoritative, fetch di-stub)', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => { globalThis.fetch = realFetch; try { localStorage.clear(); } catch {} });
+  function stubServer(records) {
+    return async (url, opts) => {
+      const u = String(url);
+      if (u.includes('/auth/v1/signup') || u.includes('grant_type')) {
+        return { ok: true, json: async () => ({ access_token: 'a', refresh_token: 'r', expires_in: 3600, user: { id: 'u1' } }) };
+      }
+      if (opts && opts.method === 'DELETE') return { ok: true, status: 204, text: async () => '' };
+      if (opts && opts.method === 'POST') return { ok: true, text: async () => '[]' };
+      if (u.includes('kind=eq.entry')) return { ok: true, text: async () => JSON.stringify(records) };
+      return { ok: true, text: async () => '[]' };
+    };
+  }
+  it('server kosong + lokal ada data -> unggah ke server, JANGAN hapus lokal', async () => {
+    const m = await import('../supabase.js');
+    m.saveCloudConfig('https://abc.supabase.co', 'x'.repeat(40));
+    localStorage.setItem('ledger_entries', JSON.stringify([{ id: 'e1', amount: 100 }]));
+    let posted = 0;
+    globalThis.fetch = async (url, opts) => {
+      const base = await stubServer([])(url, opts);
+      if (opts && opts.method === 'POST') posted++;
+      return base;
+    };
+    await m.cloudSignInAnonymously();
+    const res = await m.pullAll();
+    expect(res.seeded).toBe(true);
+    expect(posted).toBeGreaterThan(0);
+    expect(JSON.parse(localStorage.getItem('ledger_entries')).length).toBe(1);
+  });
+  it('server berisi data -> cache lokal diganti (server menang)', async () => {
+    const m = await import('../supabase.js');
+    m.saveCloudConfig('https://abc.supabase.co', 'x'.repeat(40));
+    localStorage.setItem('ledger_entries', JSON.stringify([{ id: 'local' }]));
+    globalThis.fetch = stubServer([{ kind: 'entry', id: 's1', data: { id: 's1', amount: 5 }, updated_at: '2026-09-01T00:00:00.000Z' }]);
+    await m.cloudSignInAnonymously();
+    await m.pullAll();
+    expect(JSON.parse(localStorage.getItem('ledger_entries')).map(x => x.id)).toEqual(['s1']);
   });
 });

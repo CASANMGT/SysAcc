@@ -1,11 +1,17 @@
-// supabase.js — Sinkronisasi online (Supabase) untuk Wynara. LOCAL-FIRST:
-// localStorage tetap sumber utama; modul ini hanya cermin + gabung.
+// supabase.js — Backend server-authoritative untuk Wynara.
+// Server (Supabase) = SUMBER KEBENARAN. localStorage hanya cache cepat.
+// - pullAll(): muat semua data dari server saat boot (server menang).
+// - pushNow(): tulis-langsung (write-through) tiap ada perubahan.
 // Tanpa dependensi (REST murni via fetch) agar aturan no-build terjaga.
-// Semantik gabung: last-write-wins per baris berdasar updated_at; seri → lokal
-// menang (deterministik). Hapus dilacak via tombstone agar tak hidup lagi.
 const CFG_KEY = 'wynara_cloud_cfg';
 const SES_KEY = 'wynara_cloud_session';
 const META_KEY = 'wynara_cloud_meta';
+
+// Config bawaan (publishable/anon key aman untuk client) agar app langsung jalan.
+const DEFAULT_CLOUD = {
+  url: 'https://tqrhgkewildkxivcaujf.supabase.co',
+  anonKey: 'sb_publishable_QVJ4JXW9DOrIKyLwp6nOtA_3ztQb3Ij',
+};
 
 // key localStorage -> kind remote.
 export const RECORD_TABLES = {
@@ -18,12 +24,15 @@ export const RECORD_TABLES = {
   wynara_employees: 'employee',
   wynara_purchases: 'purchase',
   wynara_assets: 'asset',
+  wynara_bank_statement: 'bank_stmt',
+  wynara_bank_rules: 'bank_rule',
 };
 // Blob singleton (disimpan utuh per kunci).
 export const KV_KEYS = [
   'wynara_locks', 'wynara_budget', 'wynara_equity', 'wynara_recurring',
   'wynara_catBudget', 'wynara_ppn', 'wynara_opening', 'wynara_coa_custom',
   'wynara_counters', 'wynara_leave', 'wynara_ump', 'wynara_shops', 'wynara_sale_returns',
+  'wynara_bank_endbal',
 ];
 export const DRAFT_KEY = 'wynara_payroll_drafts'; // dipecah per bulan: draft:YYYY-MM
 export const TOMB_PREFIX = 'tomb:';
@@ -35,7 +44,7 @@ export function getCloudConfig() {
     const o = JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
     if (o && o.url && o.anonKey) return { url: String(o.url).replace(/\/$/, ''), anonKey: String(o.anonKey) };
   } catch {}
-  return null;
+  return { ...DEFAULT_CLOUD }; // config bawaan → app langsung terhubung
 }
 export function saveCloudConfig(url, anonKey) {
   url = String(url || '').trim().replace(/\/$/, '');
@@ -397,3 +406,106 @@ export async function syncNow(opts = {}) {
   }
 }
 export function isCloudSyncing() { return syncing; }
+
+// ================= SERVER-AUTHORITATIVE =================
+export function isCloudReady() {
+  const s = readSession();
+  return !!(s && s.access_token);
+}
+
+// Muat SEMUA data dari server → ganti cache lokal (server menang). Dipanggil saat boot.
+// MIGRASI AMAN: bila server masih kosong tapi lokal ada data, unggah lokal ke server
+// (jangan menghapus data yang belum pernah tersimpan di server).
+export async function pullAll() {
+  if (!isCloudConfigured()) throw new Error('Supabase belum dikonfigurasi');
+  await ensureToken();
+  setCloudStatus('syncing', 'memuat dari server…');
+  const fetched = {};
+  let total = 0;
+  for (const [lsKey, kind] of Object.entries(RECORD_TABLES)) {
+    const rows = await pullRows('wynara_records', null, `kind=eq.${encodeURIComponent(kind)}`);
+    fetched[lsKey] = rows.map(r => r.data || {});
+    total += fetched[lsKey].length;
+  }
+  const kv = await pullRows('wynara_kv', null);
+  total += kv.length;
+  if (total === 0 && localHasData()) {
+    setCloudStatus('syncing', 'unggah data lokal ke server (pertama kali)…');
+    const res = await pushNow();
+    setCloudStatus('ready', 'data lokal tersimpan ke server');
+    return { seeded: true, pushed: (res && res.pushed) || 0 };
+  }
+  const summary = { records: 0, kv: 0 };
+  for (const [lsKey, kind] of Object.entries(RECORD_TABLES)) {
+    if (fetched[lsKey] === undefined) { const rows = await pullRows('wynara_records', null, `kind=eq.${encodeURIComponent(kind)}`); fetched[lsKey] = rows.map(r => r.data || {}); }
+    writeJsonKey(lsKey, fetched[lsKey]);
+    summary.records += fetched[lsKey].length;
+  }
+  const byKey = {};
+  kv.forEach(r => { byKey[r.key] = r.value; });
+  const drafts = {};
+  Object.keys(byKey).forEach(k => { if (k.startsWith('draft:')) drafts[k.slice(6)] = byKey[k]; });
+  KV_KEYS.forEach(k => { writeJsonKey(k, Object.prototype.hasOwnProperty.call(byKey, k) ? byKey[k] : null); });
+  writeJsonKey(DRAFT_KEY, drafts);
+  summary.kv = kv.length;
+  const meta = readMeta();
+  meta.lastPush = {}; meta.snapshots = {}; meta.lastSync = Date.now(); meta.tombs = {};
+  writeMeta(meta);
+  setCloudStatus('ready', `dimuat dari server • ${summary.records} baris`);
+  cloudStatus.lastSync = meta.lastSync;
+  return summary;
+}
+
+function localHasData() {
+  for (const lsKey of Object.keys(RECORD_TABLES)) {
+    const a = readJsonKey(lsKey, []);
+    if (Array.isArray(a) && a.length) return true;
+  }
+  for (const k of KV_KEYS) {
+    const v = readJsonKey(k, null);
+    if (v === null || v === undefined) continue;
+    if (Array.isArray(v) && v.length === 0) continue;
+    if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) continue;
+    return true;
+  }
+  return false;
+}
+
+// Tulis-langsung: ganti isi server per kind agar server == cache lokal (termasuk hapus).
+let pushing = false;
+export async function pushNow() {
+  if (pushing) return { skipped: true };
+  if (!isCloudConfigured() || !isCloudReady()) return { error: 'off' };
+  pushing = true;
+  setCloudStatus('syncing', 'menyimpan ke server…');
+  const summary = { pushed: 0 };
+  try {
+    const s = await ensureToken();
+    for (const [lsKey, kind] of Object.entries(RECORD_TABLES)) {
+      const arr = readJsonKey(lsKey, []);
+      const list = Array.isArray(arr) ? arr : [];
+      try { await rest('DELETE', `/rest/v1/wynara_records?user_id=eq.${encodeURIComponent(s.user_id)}&kind=eq.${encodeURIComponent(kind)}`); } catch {}
+      const payload = list
+        .map(r => ({ r, id: r && (r.id != null ? String(r.id) : (r.key != null ? String(r.key) : null)) }))
+        .filter(x => x.id)
+        .map(x => ({ user_id: s.user_id, kind, id: x.id, data: x.r, updated_at: new Date().toISOString() }));
+      if (payload.length) {
+        await rest('POST', '/rest/v1/wynara_records', payload, 'resolution=merge-duplicates');
+        summary.pushed += payload.length;
+      }
+    }
+    const kvPairs = KV_KEYS.map(k => [k, readJsonKey(k, null)]);
+    const drafts = readJsonKey(DRAFT_KEY, {});
+    Object.keys(drafts || {}).forEach(m => kvPairs.push(['draft:' + m, drafts[m]]));
+    const kvPayload = kvPairs.filter(([, v]) => v !== null && v !== undefined)
+      .map(([k, v]) => ({ user_id: s.user_id, key: k, value: v, updated_at: new Date().toISOString() }));
+    if (kvPayload.length) { await rest('POST', '/rest/v1/wynara_kv', kvPayload, 'resolution=merge-duplicates'); summary.pushed += kvPayload.length; }
+    setCloudStatus('ready', `tersimpan ke server • ${new Date().toLocaleTimeString('id-ID')}`);
+    return summary;
+  } catch (e) {
+    setCloudStatus('error', (e && e.message) || 'gagal menyimpan ke server');
+    return { error: (e && e.message) || 'gagal menyimpan' };
+  } finally {
+    pushing = false;
+  }
+}

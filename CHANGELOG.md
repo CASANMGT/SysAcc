@@ -6,6 +6,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.74.0] - 2026-09-14
+
+### Changed — Backend server-authoritative (database = sumber kebenaran)
+- **Supabase jadi sumber kebenaran**; localStorage hanya **cache cepat**. Buka dari perangkat mana pun → data sama.
+- **Login wajib email + kata sandi** (akun online). Sesi anonim kini bukan jalur utama. Ada tautan **Daftar dengan email** di layar masuk.
+- **Config Supabase bawaan** (URL + publishable key) sehingga app langsung terhubung tanpa setup.
+- **Boot**: tarik data server dulu (`pullAll`) baru tampilkan app.
+- **Write-through**: setiap perubahan disimpan ke server (`pushNow`, debounce ±1,2 dtk) — bukan lagi tiap 60 dtk bergaya mirror.
+- **Migrasi aman**: bila server masih kosong tapi data masih di browser → **unggah lokal ke server** (tidak menghapus data lama).
+- Fallback akun lokal `admin` tetap ada bila bukan email.
+- +2 test (seed & server-menang); 309/309 tests ✓
+
+> Catatan: butuh schema Supabase (`wynara_records`, `wynara_kv`) + RLS `auth.uid() = user_id` + **Email auth aktif**. Satu akun = satu workspace; edit bersamaan antar perangkat: yang terakhir menang.
+
+---
+
 ## [1.73.0] - 2026-09-14
 
 ### Added — Aturan bank, cocokkan semua saran, indikator selisih

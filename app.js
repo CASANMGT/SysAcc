@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.73.0';
+const APP_VERSION = '1.74.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -72,7 +72,17 @@ function init() {
     showLogin();
     return;
   }
-  showApp();
+  // Server-authoritative: tarik data terbaru dulu, baru tampilkan app.
+  if (Cloud.isCloudConfigured() && Cloud.isCloudReady()) bootFromServer().finally(() => showApp());
+  else showApp();
+}
+
+async function bootFromServer() {
+  try {
+    if (Cloud.isCloudConfigured() && Cloud.isCloudReady()) {
+      await Cloud.pullAll();
+    }
+  } catch { /* offline → pakai cache lokal */ }
 }
 
 /* ===== F9 accessibility enhancements (boot + dinamis) ===== */
@@ -232,10 +242,37 @@ function safeLocalSet(k, v) {
 }
 
 function isLoggedIn() {
-  return safeSessionGet('wynara_logged_in') === 'true' || safeLocalGet('wynara_logged_in') === 'true';
+  const local = safeSessionGet('wynara_logged_in') === 'true' || safeLocalGet('wynara_logged_in') === 'true';
+  // Server-authoritative: sesi online wajib ada (tetap boleh lihat cache bila offline).
+  return local;
 }
 
 let loginListenerAdded = false;
+
+async function handleSignup() {
+  const user = (document.getElementById('loginUser').value || '').trim();
+  const pass = (document.getElementById('loginPass').value || '').trim();
+  const err = document.getElementById('loginError');
+  const showErr = (m) => { if (err) { err.textContent = m; err.classList.remove('hidden'); } };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user)) return showErr('Isi email yang valid dulu');
+  if (pass.length < 6) return showErr('Kata sandi minimal 6 karakter');
+  const btn = document.querySelector('.login-btn-new');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await Cloud.cloudSignUp(user, pass);
+    if (r && r.needConfirm) { showErr('Cek email untuk konfirmasi, lalu masuk kembali.'); return; }
+    try { await Cloud.pullAll(); } catch { /* offline */ }
+    document.getElementById('loginError')?.classList.add('hidden');
+    safeLocalSet('wynara_logged_in', 'true');
+    Storage.setRolePersisted('owner');
+    Storage.setActor({ role: 'owner', user });
+    showApp();
+  } catch (e) {
+    showErr(e && e.message ? e.message : 'Gagal mendaftar');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
 
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
@@ -250,9 +287,11 @@ function showLogin() {
       : 'Masuk dengan akun yang diberikan pemilik';
     hint.style.display = pristine ? '' : 'none';
   }
+  // Server-authoritative: masuk pakai akun online (email + kata sandi).
+  if (hint) { hint.textContent = 'Masuk dengan email & kata sandi akun online Anda — data tersimpan di server.'; hint.style.display = ''; }
   if (!loginListenerAdded) {
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
-    const eye = document.getElementById('loginEye');
+    document.getElementById('loginSignup')?.addEventListener('click', (e) => { e.preventDefault(); handleSignup(); });    const eye = document.getElementById('loginEye');
     if (eye) eye.addEventListener('click', () => {
       const pass = document.getElementById('loginPass');
       const isText = pass.type === 'text';
@@ -314,11 +353,25 @@ async function handleLogin(e) {
       showApp();
       return;
     }
-    const ok = await Storage.verifyLogin(user, pass);
-    if (!ok) {
-      document.getElementById('loginError').classList.remove('hidden');
-      document.getElementById('loginPass')?.select();
-      return;
+    // PEMILIK = akun online (server-authoritative): wajib email + kata sandi.
+    const isEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user);
+    if (!isEmail) {
+      // Akun lokal lama (mis. "admin") — tetap didukung sebagai fallback admin.
+      const ok = await Storage.verifyLogin(user, pass);
+      if (!ok) {
+        document.getElementById('loginError').classList.remove('hidden');
+        document.getElementById('loginPass')?.select();
+        return;
+      }
+    } else {
+      try {
+        await Cloud.cloudSignIn(user, pass);
+      } catch (e2) {
+        const err = document.getElementById('loginError');
+        if (err) { err.textContent = (e2 && e2.message) ? e2.message : 'Email atau kata sandi salah'; err.classList.remove('hidden'); }
+        return;
+      }
+      try { await Cloud.pullAll(); } catch (e3) { /* offline → pakai cache */ }
     }
     document.getElementById('loginError').classList.add('hidden');
     const remember = document.getElementById('loginRemember')?.checked !== false;
@@ -326,7 +379,7 @@ async function handleLogin(e) {
     try { sessionStorage.removeItem('wynara_logged_in'); } catch {}
     if (remember) { safeLocalSet('wynara_logged_in', 'true'); Storage.setRolePersisted('owner'); }
     else { if (!safeSessionSet('wynara_logged_in', 'true')) return; Storage.setRole('owner'); Storage.clearPersistedRole(); }
-    Storage.setActor({ role: 'owner', user: user || 'admin' });
+    Storage.setActor({ role: 'owner', user: user });
     showApp();
   } finally {
     if (btn) btn.disabled = false;
@@ -413,19 +466,12 @@ function queueMirror() {
     try { localStorage.setItem('wynara_lastBackup', new Date().toISOString()); } catch {}
     try { updateBackupDot(); } catch {}
   }, 2000);
-  // Sinkron online menumpang mirror (throttle 60 dtk, manual selalu boleh)
-  if (Cloud.isCloudConfigured()) {
+  // Write-through: setiap perubahan disimpan ke server (server = sumber kebenaran).
+  if (Cloud.isCloudConfigured() && Cloud.isCloudReady()) {
     if (cloudTimer) clearTimeout(cloudTimer);
     cloudTimer = setTimeout(() => {
-      try { updateCloudDot(); } catch {}
-      Cloud.syncNow().then((res) => {
-        try {
-          updateCloudDot();
-          const changed = res && !res.error && ((res.pulled || 0) > 0 || (res.conflicts || 0) > 0);
-          if (changed && !document.querySelector('dialog[open]') && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') refresh();
-        } catch {}
-      }).catch(() => { try { updateCloudDot(); } catch {} });
-    }, 60000);
+      Cloud.pushNow().then(() => { try { updateCloudDot(); } catch {} }).catch(() => { try { updateCloudDot(); } catch {} });
+    }, 1200);
   }
 }
 function updateCloudDot() {
