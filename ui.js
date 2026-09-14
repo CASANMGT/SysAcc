@@ -3585,6 +3585,12 @@ export function renderVariantTable() {
   const box = document.getElementById('variantTable');
   if (!box) return;
   if (stockVariantMode !== 'variant') { box.innerHTML = ''; return; }
+  // Simpan nilai yang sudah diisi agar tidak hilang saat tabel digambar ulang.
+  const prev = {};
+  box.querySelectorAll('input[data-s]').forEach(inp => {
+    const cls = inp.classList[0];
+    if (inp.value !== '') prev[`${cls}:${inp.dataset.s}:${inp.dataset.c}`] = inp.value;
+  });
   const { S, C } = variantCombos();
   const rows = [];
   S.forEach((sz, si) => C.forEach((cl, ci) => {
@@ -3599,6 +3605,13 @@ export function renderVariantTable() {
   }));
   box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Varian</th><th>Harga jual</th><th>Modal</th><th>Disc %</th><th>Stok</th><th>SKU</th><th>Barcode</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
     <div id="variantTotal" style="font-size:12px;color:#334155;margin-top:6px;font-weight:600"></div>`;
+  Object.entries(prev).forEach(([k, v]) => {
+    const i = k.indexOf(':');
+    const cls = k.slice(0, i);
+    const rest = k.slice(i + 1).split(':');
+    const el = box.querySelector(`.${cls}[data-s="${rest[0]}"][data-c="${rest[1]}"]`);
+    if (el) el.value = v;
+  });
   bindVariantRupiah();
   updateVariantTotal();
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -348,6 +348,86 @@ describe('perbaikan stok v1.60 (kebenaran)', () => {
     saveItem({ id: it.id, name: 'Frz', stock: 10, cost: 9000, price: 5000 });
     const r = returnSale(e.id, [{ itemId: it.id, qty: 1 }], { date: '2026-09-02', payment: 'cash' });
     expect(r.costBack).toBe(1000);
+  });
+});
+
+describe('perbaikan bug (audit)', () => {
+  it('saveItem dengan peta stocks (restore backup) tidak mengkolaps stok per-toko', () => {
+    saveShops([{ id: 'main', name: 'A' }, { id: 'b', name: 'B' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'Multi', price: 1000, stocks: { main: 4, b: 7 }, stock: 11 });
+    expect(shopStockOf(it, 'main')).toBe(4);
+    expect(shopStockOf(it, 'b')).toBe(7);
+    expect(it.stock).toBe(11);
+  });
+  it('importItemsBulk tidak menghapus SKU/barcode lama saat kolom kosong', () => {
+    importItemsBulk([{ name: 'Kaos', sku: 'K-9', barcode: '999', price: 100000, stock: 1 }]);
+    importItemsBulk([{ name: 'Kaos', sku: '', barcode: '', price: 120000 }]);
+    const it = getAllItems().find(x => x.name === 'Kaos');
+    expect(it.sku).toBe('K-9');
+    expect(it.barcode).toBe('999');
+    expect(it.price).toBe(120000);
+  });
+  it('restore tidak menggandakan stok dari pembelian', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'R', price: 1000, cost: 500, stock: 0 });
+    createPurchase({ supplier: 'S', date: '2026-08-01', lines: [{ itemId: it.id, qty: 10, unitCost: 500 }] });
+    expect(getItemById(it.id).stock).toBe(10);
+    const snap = JSON.parse(JSON.stringify(snapshotAll()));
+    localStorage.clear();
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    restoreAll(snap);
+    expect(getItemById(it.id).stock).toBe(10);
+  });
+  it('restore mempertahankan baris penjualan & flag PPN', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'P', price: 5000, cost: 2000, stock: 5 });
+    const e = createEntry({ date: '2026-09-01', type: 'income', category: 'jualan', amount: 5000, ppn: true, sale: { lines: [{ itemId: it.id, qty: 1, price: 5000 }], total: 5000, subtotal: 5000, discount: 0 } });
+    const snap = JSON.parse(JSON.stringify(snapshotAll()));
+    localStorage.clear();
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    restoreAll(snap);
+    const got = getEntryById(e.id);
+    expect(got.ppn).toBe(true);
+    expect(got.sale && got.sale.lines.length).toBe(1);
+    expect(got.sale.lines[0].itemId).toBe(it.id);
+  });
+  it('retur memperhitungkan diskon nota', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'D', price: 100000, cost: 60000, stock: 5 });
+    const e = createEntry({ date: '2026-09-01', type: 'income', category: 'jualan', amount: 90000, sale: { lines: [{ itemId: it.id, qty: 1, price: 100000 }], total: 90000, subtotal: 100000, discount: 10000 } });
+    const r = returnSale(e.id, [{ itemId: it.id, qty: 1 }], { date: '2026-09-02', payment: 'cash' });
+    expect(r.refund).toBe(90000);
+  });
+  it('hapus penjualan setelah retur sebagian mengembalikan stok dengan benar', () => {
+    saveShops([{ id: 'main', name: 'A' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'H', price: 10000, cost: 5000, stock: 10 });
+    const e = createEntry({ date: '2026-09-01', type: 'income', category: 'jualan', amount: 20000, sale: { lines: [{ itemId: it.id, qty: 2, price: 10000 }], total: 20000, subtotal: 20000, discount: 0 } });
+    expect(getItemById(it.id).stock).toBe(8);
+    returnSale(e.id, [{ itemId: it.id, qty: 1 }], { date: '2026-09-02' });
+    expect(getItemById(it.id).stock).toBe(9);
+    deleteEntry(e.id);
+    expect(getItemById(it.id).stock).toBe(10);
+  });
+  it('pembatalan penjualan mengembalikan stok ke toko asal (multi-toko)', () => {
+    saveShops([{ id: 'main', name: 'A' }, { id: 'b', name: 'B' }]);
+    setActiveShopId('main');
+    const it = saveItem({ name: 'MS', price: 10000, cost: 5000, stock: 5 });
+    const e = createEntry({ date: '2026-09-01', type: 'income', category: 'jualan', amount: 20000, sale: { lines: [{ itemId: it.id, qty: 2, price: 10000 }], total: 20000, subtotal: 20000, discount: 0 } });
+    expect(shopStockOf(getItemById(it.id), 'main')).toBe(3);
+    setActiveShopId('b');
+    deleteEntry(e.id);
+    expect(shopStockOf(getItemById(it.id), 'main')).toBe(5);
+    expect(shopStockOf(getItemById(it.id), 'b')).toBe(0);
+  });
+  it('akun custom tidak boleh memakai kode akun bawaan', () => {
+    expect(() => saveCustomAccount({ code: '4101', name: 'X', type: 'asset' })).toThrow(/bawaan|dipakai/);
   });
 });
 

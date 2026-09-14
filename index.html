@@ -184,7 +184,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.68.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.69.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -506,7 +506,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.68.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.69.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -634,7 +634,7 @@
               <button class="btn btn-primary" id="stockAddBtn">＋ Tambah produk</button>
               <button class="btn btn-ghost" id="stockImportPageBtn">📥 Import produk</button>
               <button class="btn btn-ghost" id="supplierOpenBtn" title="Belanja / hutang ke supplier">🧾 Supplier</button>
-              <button class="btn btn-ghost" id="adjustOpenBtn" title="Penyesuaian stok (selisih/rusak/hilang)">⚖️ Penyesuaian</button>
+              <button class="btn btn-ghost" id="stockAdjustOpenBtn" title="Penyesuaian stok (selisih/rusak/hilang)">⚖️ Penyesuaian</button>
               <button class="btn btn-ghost" id="transferOpenBtn" title="Pindah stok antar toko">🔁 Transfer</button>
             </div>
           </div>
@@ -1774,6 +1774,9 @@
           <label class="login-check"><input type="checkbox" id="settingNotif" checked> Notifikasi pinjaman jatuh tempo</label>
         </div>
         <div class="form-group">
+          <label class="login-check"><input type="checkbox" id="settingTheme"> Mode gelap (dark mode)</label>
+        </div>
+        <div class="form-group">
           <label>Tarif PPN (%) — ubah bila tarif berubah</label>
           <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
             <input type="text" id="ppnRateInput" placeholder="mis. 11" inputmode="decimal" style="flex:1;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
@@ -1790,9 +1793,6 @@
         <div class="form-group">
           <label class="login-check"><input type="checkbox" id="settingModeSederhana"> 🎭 Mode Sederhana (sembunyikan jurnal/kertas kerja akuntan)</label>
           <div style="font-size:11px;color:#64748b;margin-top:4px">Untuk pemilik tanpa latar akuntansi: tab Jurnal/Buku Besar/Neraca Saldo & tombol Penutupan disembunyikan. LR & Neraca tetap ada.</div>
-        </div>
-        <div class="form-group">
-          <label class="login-check"><input type="checkbox" id="settingNotif"> Notifikasi pinjaman jatuh tempo</label>
         </div>
         <div class="form-group">
           <label>Backup &amp; Restore</label>
@@ -2239,7 +2239,7 @@
           <label style="font-size:12px;color:#475569">Tempel data (untuk pesanan/produk) atau pilih file CSV/Excel:</label>
           <textarea id="importText" rows="5" placeholder="Tempel di sini… (mis. baris WhatsApp: 2x Kopi 15000)" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font-size:12px;font-family:ui-monospace,monospace;margin-top:4px"></textarea>
           <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="file" id="importFile" accept=".csv,.txt,.tsv,.xlsx,.xls">
+            <input type="file" id="importModalFile" accept=".csv,.txt,.tsv,.xlsx,.xls">
             <button type="button" class="btn btn-ghost" id="importParseBtn" style="font-size:12px">🔎 Baca &amp; pratinjau</button>
             <span style="font-size:11px;color:var(--text-muted)">Shopee: Seller Centre → Pesanan → Export. Boleh tempel langsung.</span>
           </div>
@@ -2273,7 +2273,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.68.0';
+    window.__htmlVersion = '1.69.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

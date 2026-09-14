@@ -1,7 +1,7 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, findUnbalanced } from './journals.js';
-import { getAccounts } from './coa.js';
+import { getAccounts, ACCOUNTS } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -79,6 +79,10 @@ export function createEntry(entry) {
   if (entry.loanType) newEntry.loanType = entry.loanType;
   if (entry.installmentAmount) newEntry.installmentAmount = Number(entry.installmentAmount) || 0;
   if (entry.contactType) newEntry.contactType = entry.contactType;
+  // Simpan toko asal agar pembatalan/edit/retur mengembalikan stok ke toko yang benar.
+  if ((newEntry.itemId && newEntry.qty > 0) || (newEntry.sale && Array.isArray(newEntry.sale.lines) && newEntry.sale.lines.length)) {
+    newEntry.shop = entry.shop ? String(entry.shop).slice(0, 40) : getActiveShopId();
+  }
   // Bekukan HPP per baris saat penjualan dibuat (agar COGS tidak bergeser bila modal berubah).
   if (newEntry.sale && Array.isArray(newEntry.sale.lines)) {
     newEntry.sale.lines = newEntry.sale.lines.map(l => {
@@ -119,12 +123,12 @@ function stockMovesFor(entry) {
     moves.push({
       itemId: entry.itemId, qty: entry.qty,
       dir: entry.type === 'income' ? 'out' : 'in',
-      unitCost: entry.unitCost
+      unitCost: entry.unitCost, shop: entry.shop
     });
   }
   if (entry.type === 'income' && entry.sale && Array.isArray(entry.sale.lines)) {
     entry.sale.lines.forEach(l => {
-      if (l && l.itemId && l.qty > 0) moves.push({ itemId: l.itemId, qty: l.qty, dir: 'out' });
+      if (l && l.itemId && l.qty > 0) moves.push({ itemId: l.itemId, qty: l.qty, dir: 'out', shop: entry.shop });
     });
   }
   return moves;
@@ -154,16 +158,16 @@ function journalOptsFor(entry) {
 
 function applyStockMoveForEntry(entry) {
   stockMovesFor(entry).forEach(m => {
-    if (m.dir === 'out') applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id, type: 'sale' });
-    else applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: m.unitCost || 0, ref: entry.id, type: 'purchase' });
+    if (m.dir === 'out') applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id, type: 'sale', shop: m.shop });
+    else applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: m.unitCost || 0, ref: entry.id, type: 'purchase', shop: m.shop });
   });
 }
 
 function reverseStockMoveForEntry(entry) {
   // JANGAN telan error: kegagalan balik stok harus terlihat (cek stok kurang).
   stockMovesFor(entry).forEach(m => {
-    if (m.dir === 'out') applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: 0, keepCost: true, ref: entry.id, note: 'reversal', type: 'reversal' });
-    else applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id, note: 'reversal', type: 'reversal' });
+    if (m.dir === 'out') applyStockMove(m.itemId, { qtyIn: m.qty, unitCost: 0, keepCost: true, ref: entry.id, note: 'reversal', type: 'reversal', shop: m.shop });
+    else applyStockMove(m.itemId, { qtyOut: m.qty, ref: entry.id, note: 'reversal', type: 'reversal', shop: m.shop });
   });
 }
 
@@ -172,6 +176,10 @@ export function updateEntry(id, updates) {
   const index = entries.findIndex(e => e.id === id);
   if (index === -1) return null;
   const before = { ...entries[index] };
+  if (!before.loanId) {
+    assertUnlocked(before.date);
+    if (updates && updates.date) assertUnlocked(updates.date);
+  }
   const safe = { ...updates };
   delete safe.id;
   delete safe.loanId;
@@ -209,11 +217,14 @@ export function updateEntry(id, updates) {
         throw err;
       }
     }
-    deleteJournalsByRef('entry', id);
-    try {
-      const j = buildEntryJournal(entries[index], journalOptsFor(entries[index]));
-      if (j) { j.refId = id; postJournal(j); }
-    } catch {}
+    // Bangun jurnal baru DULU; hanya hapus yang lama bila yang baru valid (jangan tinggalkan tanpa jurnal).
+    let newJournal = null;
+    try { newJournal = buildEntryJournal(entries[index], journalOptsFor(entries[index])); } catch { newJournal = null; }
+    if (newJournal) {
+      deleteJournalsByRef('entry', id);
+      newJournal.refId = id;
+      try { postJournal(newJournal); } catch {}
+    }
     logAudit('update', 'entry', id, { amount: before.amount, category: before.category }, { amount: entries[index].amount, category: entries[index].category });
   }
   return entries[index];
@@ -224,8 +235,21 @@ export function deleteEntry(id) {
   const entries = getEntries();
   const target = entries.find(e => e.id === id);
   if (!target) return false;
-  // Balik stok DULU — bila gagal, batalkan (jangan hapus tanpa restore).
-  if (!target.loanId) reverseStockMoveForEntry(target);
+  // Balik stok DULU (net dari yang sudah diretur) — bila gagal, batalkan.
+  if (!target.loanId) {
+    const returned = returnedQtyFor(id);
+    stockMovesFor(target).forEach(m => {
+      const net = Math.max((Number(m.qty) || 0) - (returned[m.itemId] || 0), 0);
+      if (net <= 0) return;
+      if (m.dir === 'out') applyStockMove(m.itemId, { qtyIn: net, unitCost: 0, keepCost: true, ref: id, note: 'reversal', type: 'reversal', shop: m.shop });
+      else applyStockMove(m.itemId, { qtyOut: net, ref: id, note: 'reversal', type: 'reversal', shop: m.shop });
+    });
+    // Hapus retur penjualan terkait + jurnalnya agar tidak menggantung.
+    if (getSaleReturns(id).length) {
+      saveSaleReturns(getSaleReturns().filter(r => r.saleId !== id));
+      deleteJournalsByRef('sale-return', id);
+    }
+  }
   saveEntries(entries.filter(e => e.id !== id));
   if (!target.loanId) {
     deleteJournalsByRef('entry', id);
@@ -279,7 +303,9 @@ export function clearAllData() {
   [
     STORAGE_KEY, LOAN_KEY, REPAY_KEY, JOURN_KEY, AUDIT_KEY,
     'wynara_recurring', 'wynara_budget', 'wynara_catBudget',
-    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY, DRAFT_KEY
+    ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY, DRAFT_KEY,
+    SALE_RET_KEY, MOVE_KEY, 'wynara_assets', SHOP_KEY, ACTIVE_SHOP_KEY,
+    'wynara_leave', 'wynara_ump', 'wynara_selfTest', 'wynara_ppn', 'wynara_payroll_rates'
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -484,14 +510,17 @@ export function exportCSV() {
 }
 
 function dedupEntries(existing, incoming) {
-  const seen = new Set(existing.map(e => `${e.date}|${e.category}|${e.amount}|${e.description}`));
+  // Duplikat bila id sama (restore) ATAU konten sama (impor CSV berulang).
+  const contentKey = (e) => `${e.date}|${e.type || ''}|${e.category}|${e.amount}|${e.payment || ''}|${e.description || ''}|${e.person || ''}`;
+  const ids = new Set(existing.filter(e => e.id).map(e => e.id));
+  const keys = new Set(existing.map(contentKey));
   const out = [];
   for (const e of incoming) {
-    const key = `${e.date}|${e.category}|${e.amount}|${e.description}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(e);
-    }
+    const dup = (e.id && ids.has(e.id)) || keys.has(contentKey(e));
+    if (dup) continue;
+    if (e.id) ids.add(e.id);
+    keys.add(contentKey(e));
+    out.push(e);
   }
   return out;
 }
@@ -628,7 +657,7 @@ function sanitizeEntry(ent) {
   const category = sanitizeCategory(ent.category);
   if (!isValidDateStr(date) || !type || !category || !isFinite(amount) || amount <= 0) return null;
   const payment = VALID_PAYMENTS.includes(ent.payment) ? ent.payment : 'cash';
-  return {
+  const rec = {
     id: String(ent.id || generateId()).slice(0, 60),
     date, type, category, payment,
     paymentDetail: String(ent.paymentDetail || '').slice(0, 60),
@@ -637,6 +666,26 @@ function sanitizeEntry(ent) {
     person: String(ent.person || '').slice(0, 60),
     loanId: ent.loanId ? String(ent.loanId).slice(0, 60) : null
   };
+  // Jangan buang data penting saat restore/import: PPN, barang, baris penjualan, payroll, pinjaman.
+  if (ent.ppn) rec.ppn = true;
+  if (ent.shop) rec.shop = String(ent.shop).slice(0, 40);
+  if (ent.itemId) rec.itemId = String(ent.itemId).slice(0, 60);
+  if (Number(ent.qty) > 0) rec.qty = Math.floor(Number(ent.qty));
+  if (ent.unitCost !== undefined) rec.unitCost = Math.max(Number(ent.unitCost) || 0, 0);
+  if (ent.sale && typeof ent.sale === 'object') {
+    const lines = Array.isArray(ent.sale.lines) ? ent.sale.lines.filter(l => l && l.itemId && Number(l.qty) > 0).map(l => ({
+      itemId: String(l.itemId).slice(0, 60), qty: Math.floor(Number(l.qty)) || 0,
+      price: Math.max(Number(l.price) || 0, 0), avgCost: l.avgCost != null ? Math.max(Number(l.avgCost) || 0, 0) : undefined,
+    })) : [];
+    rec.sale = { lines, total: Math.max(Number(ent.sale.total) || 0, 0), subtotal: Math.max(Number(ent.sale.subtotal) || 0, 0), discount: Math.max(Number(ent.sale.discount) || 0, 0) };
+  }
+  if (ent.payroll && typeof ent.payroll === 'object') rec.payroll = ent.payroll;
+  if (ent.loanDue) rec.loanDue = String(ent.loanDue).slice(0, 10);
+  if (ent.loanType) rec.loanType = ent.loanType;
+  if (ent.installmentAmount) rec.installmentAmount = Number(ent.installmentAmount) || 0;
+  if (ent.contactType) rec.contactType = ent.contactType;
+  if (ent.createdAt) rec.createdAt = ent.createdAt;
+  return rec;
 }
 
 function clampInterestRate(r) {
@@ -795,19 +844,27 @@ function importJSONFile(file) {
             skipped += data.journals.length - toAdd.length;
           }
           if (Array.isArray(data.items)) {
+            const have = new Set(getItems().map(i => i.id));
             data.items.forEach(it => {
+              if (!it || typeof it !== 'object') { skipped++; return; }
+              if (it.id && have.has(it.id)) { skipped++; return; }
               try {
                 const before = getItems().length;
-                saveItem({ ...it, id: undefined });
+                saveItem({ ...it });
+                if (it.id) have.add(it.id);
                 if (getItems().length > before) cI++; else skipped++;
               } catch { skipped++; }
             });
           }
           if (Array.isArray(data.employees)) {
+            const have = new Set(getAllEmployees().map(e => e.id));
             data.employees.forEach(em => {
+              if (!em || typeof em !== 'object') { skipped++; return; }
+              if (em.id && have.has(em.id)) { skipped++; return; }
               try {
                 const before = getAllEmployees().length;
-                saveEmployee({ ...em, id: undefined });
+                saveEmployee({ ...em });
+                if (em.id) have.add(em.id);
                 if (getAllEmployees().length > before) cM++; else skipped++;
               } catch { skipped++; }
             });
@@ -850,11 +907,7 @@ function importJSONFile(file) {
             if (toAdd.length) {
               savePurchases(getPurchases().concat(toAdd));
               cB = toAdd.length;
-              toAdd.forEach(p => {
-                (p.lines || []).forEach(l => {
-                  try { applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost }); } catch {}
-                });
-              });
+              // Item sudah diimpor dengan stok terkini — jangan terapkan qty pembelian lagi (gandakan stok).
             }
           }
         }
@@ -923,9 +976,10 @@ function importCSVFile(file) {
           type: cols[1] === 'Pemasukan' ? 'income' : 'expense',
           category: sanitizeCategory(cols[2]),
           payment: cols[3] || 'cash',
-          description: cols[4] || '',
-          amount: Number(cols[5]),
-          person: cols[6] || '',
+          paymentDetail: cols[4] || '',
+          description: cols[5] || '',
+          amount: Number(cols[6]),
+          person: cols[7] || '',
           loanId: null
         })).filter(en => en.date && en.category && isFinite(en.amount) && en.amount > 0);
         const deduped = dedupEntries(getEntries(), entries);
@@ -1621,7 +1675,8 @@ export function restoreAll(snap) {
   }
   if (Array.isArray(snap.repayments)) {
     const existing = getRepayments();
-    const toAdd = snap.repayments.map(r => sanitizeRepayment(r, knownLoanIds)).filter(Boolean);
+    const have = new Set(existing.map(r => r.id));
+    const toAdd = snap.repayments.map(r => sanitizeRepayment(r, knownLoanIds)).filter(r => r && !have.has(r.id));
     if (toAdd.length) { saveRepayments(existing.concat(toAdd)); cR = toAdd.length; }
   }
   if (Array.isArray(snap.people)) {
@@ -1646,10 +1701,14 @@ export function restoreAll(snap) {
     if (toAdd.length) { saveJournals(getJournals().concat(toAdd)); cJ = toAdd.length; }
   }
   if (Array.isArray(snap.items)) {
+    const have = new Set(getItems().map(i => i.id));
     snap.items.forEach(it => {
+      if (!it || typeof it !== 'object') return;
+      if (it.id && have.has(it.id)) return;
       try {
         const before = getItems().length;
-        saveItem({ ...(it && typeof it === 'object' ? it : {}), id: undefined });
+        saveItem({ ...it }); // pertahankan id agar baris penjualan/pembelian tetap terhubung
+        if (it.id) have.add(it.id);
         if (getItems().length > before) cI++;
       } catch {}
     });
@@ -1658,7 +1717,7 @@ export function restoreAll(snap) {
     snap.employees.forEach(e => {
       try {
         const before = getAllEmployees().length;
-        saveEmployee({ ...(e && typeof e === 'object' ? e : {}), id: undefined });
+        saveEmployee({ ...(e && typeof e === 'object' ? e : {}) }); // pertahankan id (tautan payroll/kasbon)
         if (getAllEmployees().length > before) cM++;
       } catch {}
     });
@@ -1704,12 +1763,8 @@ export function restoreAll(snap) {
     if (toAdd.length) {
       savePurchases(getPurchases().concat(toAdd));
       cB = toAdd.length;
-      // Stok ikut dipulihkan (jurnalnya sudah ada di backup, jangan posting ulang)
-      toAdd.forEach(p => {
-        (p.lines || []).forEach(l => {
-          try { applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: l.unitCost, keepCost: false }); } catch {}
-        });
-      });
+      // JANGAN terapkan stok lagi: item sudah dipulihkan beserta stok terkini
+      // (menerapkan ulang qty pembelian akan menggandakan stok).
     }
   }
   return { entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ, items: cI, employees: cM, purchases: cB };
@@ -1792,7 +1847,7 @@ export function backfillJournals(builders) {
   getEntries().forEach(e => {
     if (e.loanId || existing.has(`entry:${e.id}`)) return;
     try {
-      const j = buildEntryJournal(e, { ppn: !!e.ppn });
+      const j = buildEntryJournal(e, journalOptsFor(e));
       if (j) { made.push(j); existing.add(`entry:${e.id}`); }
     } catch {}
   });
@@ -1992,8 +2047,12 @@ export function saveItem(item) {
   }
   const shopId = getActiveShopId();
   const prevItem = list.find(i => i.id === (item.id || ''));
-  const stocks = (prevItem && prevItem.stocks && typeof prevItem.stocks === 'object') ? { ...prevItem.stocks } : {};
-  stocks[shopId] = Math.max(Math.floor(Number(item.stock) || 0), 0);
+  // Bila diberi peta `stocks` (mis. restore backup), pakai apa adanya agar stok per-toko tidak kolaps.
+  const hasStocksMap = item.stocks && typeof item.stocks === 'object' && !Array.isArray(item.stocks);
+  const stocks = hasStocksMap
+    ? { ...item.stocks }
+    : ((prevItem && prevItem.stocks && typeof prevItem.stocks === 'object') ? { ...prevItem.stocks } : {});
+  if (!hasStocksMap) stocks[shopId] = Math.max(Math.floor(Number(item.stock) || 0), 0);
   const stock = Object.values(stocks).reduce((s, n) => s + Math.max(Math.floor(Number(n) || 0), 0), 0);
   const cost = Math.max(Number(item.cost) || 0, 0);
   const price = Math.max(Number(item.price) || 0, 0);
@@ -2027,7 +2086,7 @@ export function saveItem(item) {
   // Catat perubahan qty sebagai gerakan stok (kartu stok) — jangan ubah rata-rata modal.
   const prevShopQty = prevItem ? Math.max(Math.floor(Number((prevItem.stocks || {})[shopId]) || 0), 0) : 0;
   const newShopQty = Math.max(Math.floor(Number(stocks[shopId]) || 0), 0);
-  if (newShopQty !== prevShopQty) {
+  if (!hasStocksMap && newShopQty !== prevShopQty) {
     try {
       recordStockMove({
         itemId: rec.id,
@@ -2121,20 +2180,22 @@ export function importItemsBulk(list) {
     const name = String((raw && raw.name) || '').trim().replace(/[<>"'&]/g, '').slice(0, 60);
     if (!name) { skipped++; return; }
     const sku = String((raw && raw.sku) || '').trim().slice(0, 30);
+    const barcode = String((raw && raw.barcode) || '').trim().slice(0, 40);
     const rec = {
-      name, sku,
+      name,
       price: Math.max(Number(raw.price) || 0, 0),
       cost: Math.max(Number(raw.cost) || 0, 0),
       minStock: Math.max(Math.floor(Number(raw.minStock) || 0), 0),
       updatedAt: new Date().toISOString(),
     };
-    // Kolom opsional: hanya ubah bila memang disediakan (jangan hapus data lama).
+    // Kolom opsional: hanya ubah bila memang diisi (jangan kosongkan data lama).
+    if (sku) rec.sku = sku;
+    if (barcode) rec.barcode = barcode;
     if (raw && raw.size !== undefined) rec.size = String(raw.size || '').trim().slice(0, 20);
     if (raw && raw.color !== undefined) rec.color = String(raw.color || '').trim().slice(0, 20);
     if (raw && raw.discountPct !== undefined) rec.discountPct = Math.min(Math.max(Number(raw.discountPct) || 0, 0), 100);
     if (raw && raw.unit !== undefined) rec.unit = String(raw.unit || '').trim().slice(0, 12);
     if (raw && raw.category !== undefined) rec.category = String(raw.category || '').trim().slice(0, 30);
-    if (raw && raw.barcode !== undefined) rec.barcode = String(raw.barcode || '').trim().slice(0, 40);
     const idx = items.findIndex(i => (sku && String(i.sku || '').toLowerCase() === sku.toLowerCase())
       || (!sku && String(i.name || '').toLowerCase() === name.toLowerCase()));
     const prev = idx === -1 ? null : items[idx];
@@ -2298,6 +2359,7 @@ export function saveCustomAccount(acc) {
   const name = String(acc.name || '').replace(/[<>"'&]/g, '').trim().slice(0, 60);
   if (!name) throw new Error('Nama akun wajib');
   const list = getCustomAccounts();
+  if (ACCOUNTS.some(a => a.code === code)) throw new Error(`Kode ${code} sudah dipakai akun bawaan`);
   if (list.some(a => a.code === code)) throw new Error(`Kode ${code} sudah dipakai`);
   const rec = {
     code, name, type,
@@ -2773,6 +2835,10 @@ export function returnSale(saleId, items, { date, payment } = {}) {
   const sale = getEntryById(saleId);
   if (!sale || !sale.sale || !Array.isArray(sale.sale.lines)) throw new Error('Bukan penjualan barang');
   const returned = returnedQtyFor(saleId);
+  // Faktor diskon nota: harga baris belum memperhitungkan diskon nota.
+  const sub = sale.sale.lines.reduce((s, l) => s + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
+  const invDisc = Math.min(Math.max(Number(sale.sale.discount) || 0, 0), sub);
+  const discFactor = sub > 0 ? (sub - invDisc) / sub : 1;
   const lines = [];
   let refund = 0, costBack = 0;
   (Array.isArray(items) ? items : []).forEach(it => {
@@ -2782,7 +2848,7 @@ export function returnSale(saleId, items, { date, payment } = {}) {
     if (q <= 0) return;
     const remaining = (Number(orig.qty) || 0) - (returned[it.itemId] || 0);
     if (q > remaining) throw new Error(`Melebihi jumlah jual (sisa bisa diretur ${Math.max(remaining, 0)})`);
-    const price = Number(orig.price) || 0;
+    const price = Math.round((Number(orig.price) || 0) * discFactor);
     const item = getItemById(it.itemId);
     const cost = (orig.avgCost != null) ? Number(orig.avgCost) || 0 : (item ? Number(item.cost) || 0 : 0);
     refund += price * q; costBack += cost * q;
@@ -2791,7 +2857,7 @@ export function returnSale(saleId, items, { date, payment } = {}) {
   if (!lines.length) throw new Error('Tidak ada baris untuk diretur');
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
-  const shopId = getActiveShopId();
+  const shopId = sale.shop || getActiveShopId();
   const rate = getPpn().rate;
   const dpp = sale.ppn ? Math.round(refund / (1 + rate)) : refund;
   const ppn = sale.ppn ? refund - dpp : 0;
@@ -2801,7 +2867,7 @@ export function returnSale(saleId, items, { date, payment } = {}) {
       amount: refund, dpp, ppn, cost: costBack, date: d, payment: payment || sale.payment,
       memo: `Retur ${sale.person || ''}: ${lines.map(l => `${l.qty}× ${(getItemById(l.itemId) || {}).name || ''}`).join(', ')}`,
     });
-    if (j) postJournal(j);
+    if (j) { j.refId = saleId; postJournal(j); }
   } catch {}
   const rec = { id: generateId(), saleId, date: d, payment: payment || sale.payment || 'transfer', lines, refund, dpp, ppn, costBack, createdAt: new Date().toISOString() };
   saveSaleReturns(getSaleReturns().concat(rec));

@@ -6,6 +6,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.69.0] - 2026-09-14
+
+### Fixed — Audit bug besar (akuntansi, data, UI)
+**Akuntansi / data:**
+- **Saldo awal**: baris **kredit hilang** saat posting (jurnal jadi tidak seimbang & hutang/modal salah) — diperbaiki
+- **Restore/import**: item & karyawan **mempertahankan ID** (dulu diganti → baris penjualan/pembelian menggantung); `sanitizeEntry` **tidak lagi membuang** `sale`, `ppn`, `itemId/qty/unitCost`, `payroll`
+- **Restore tidak lagi menggandakan stok** dari pembelian; **repayment di-dedupe** (dulu bisa dobel)
+- **Retur memakai faktor diskon nota** (dulu refund kelebihan); **hapus penjualan** membalik stok **net retur** + menghapus retur & jurnalnya
+- **Pembatalan/edit penjualan** kembali ke **toko asal** (dulu ke toko aktif → stok per-toko rusak)
+- **Pembelian barang + PPN** kini Dr **Persediaan** (bukan beban); `updateEntry` menghormati **bulan terkunci** & tidak menghapus jurnal bila gagal; **backfill** ikut memakai opsi jurnal benar
+- **Impor CSV** kolom diperbaiki (dulu 0 baris terbaca); **dedup** menyertakan type/payment + id
+- **Clear total** kini membersihkan retur, kartu stok, aset, toko, dll; **akun custom** tak boleh menabrak kode akun bawaan
+
+**UI:**
+- **ID duplikat** diperbaiki: tombol Penyesuaian stok vs Jurnal penyesuaian; **input file Import** (dulu file tak terbaca); toggle **Notifikasi**; **Mode gelap** kembali ada di Pengaturan
+- Filter **Jenis** di halaman Transaksi kini berfungsi; **Cetak** tahan popup diblokir; slip **print/WA** menyertakan lembur (jam), ganti-cuti & PPh Desember
+- `journalDateRange`/kuartal pakai tanggal **lokal** (dulu geser 1 hari di WIB)
+
+- +8 test; **294/294 tests ✓**
+
+---
+
 ## [1.68.0] - 2026-09-14
 
 ### Added — Laporan Laba Kotor + ekspor/cetak halaman Penjualan

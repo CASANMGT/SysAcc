@@ -59,21 +59,18 @@ export function buildEntryJournal(entry, opts = {}) {
     }
   } else {
     const exp = expenseAccountFor(entry.category);
-    if (opts.ppn) {
+    if (opts.item && opts.item.qty > 0 && opts.item.unitCost > 0) {
+      // Beli barang → persediaan (bukan beban). Sisa (mis. PPN Masukan) tidak dibebankan.
+      const cost = Math.min(Math.round(opts.item.qty * opts.item.unitCost), amt);
+      const rest = amt - cost;
+      lines.push({ account: INVENTORY_ACCOUNT, debit: cost, credit: 0, memo: `Beli ${opts.item.name || ''}`.trim() });
+      if (rest > 0) lines.push({ account: opts.ppn ? PPN_IN : exp, debit: rest, credit: 0, memo });
+      lines.push({ account: cash, debit: 0, credit: amt, memo });
+    } else if (opts.ppn) {
       const { dpp, ppn } = splitPPN(amt, opts.ppnRate);
       lines.push({ account: exp, debit: dpp, credit: 0, memo });
       lines.push({ account: PPN_IN, debit: ppn, credit: 0, memo });
       lines.push({ account: cash, debit: 0, credit: amt, memo });
-    } else if (opts.item && opts.item.qty > 0 && opts.item.unitCost > 0) {
-      // Beli barang → persediaan (bukan beban)
-      const cost = Math.round(opts.item.qty * opts.item.unitCost);
-      lines.push({ account: INVENTORY_ACCOUNT, debit: cost, credit: 0, memo: `Beli ${opts.item.name || ''}`.trim() });
-      lines.push({ account: cash, debit: 0, credit: cost, memo });
-      const rest = amt - cost;
-      if (rest > 0) {
-        lines.push({ account: exp, debit: rest, credit: 0, memo });
-        lines.push({ account: cash, debit: 0, credit: rest, memo });
-      }
     } else {
       lines.push({ account: exp, debit: amt, credit: 0, memo });
       lines.push({ account: cash, debit: 0, credit: amt, memo });

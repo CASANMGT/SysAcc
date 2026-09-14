@@ -38,7 +38,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.68.0';
+const APP_VERSION = '1.69.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -924,7 +924,7 @@ function bindEvents() {
       const pq = q === 0 ? { y: now.getFullYear() - 1, q: 3 } : { y: now.getFullYear(), q: q - 1 };
       const s = new Date(pq.y, pq.q * 3, 1);
       const en = new Date(pq.y, pq.q * 3 + 3, 0);
-      const iso = (d) => d.toISOString().split('T')[0];
+      const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       startDate = iso(s); endDate = iso(en);
       period = 'custom';
     }
@@ -1071,7 +1071,7 @@ function bindEvents() {
   document.getElementById('returnCancel')?.addEventListener('click', closeReturn);
   document.getElementById('returnSave')?.addEventListener('click', handleReturnSubmit);
   document.getElementById('returnRows')?.addEventListener('input', updateReturnTotal);
-  document.getElementById('adjustOpenBtn')?.addEventListener('click', openStockAdjust);
+  document.getElementById('stockAdjustOpenBtn')?.addEventListener('click', openStockAdjust);
   document.getElementById('stockAdjustClose')?.addEventListener('click', closeStockAdjust);
   document.getElementById('stockAdjustCancel')?.addEventListener('click', closeStockAdjust);
   document.getElementById('stockAdjustSave')?.addEventListener('click', handleStockAdjustSubmit);
@@ -1359,7 +1359,8 @@ function renderChangelogMd(t) {
     else { currentPage = 1; transaksiPage = 1; render(); renderFullTransaksi(); }
   });
   document.getElementById('transaksiFilterJenis')?.addEventListener('change', (e) => {
-    const val = e.target.value === 'Pemasukan' ? 'income' : e.target.value === 'Pengeluaran' ? 'expense' : 'all';
+    const v = e.target.value;
+    const val = (v === 'income' || v === 'expense') ? v : 'all';
     currentFilters.type = val;
     const hidden = document.querySelector(`#typeGroupFilter .chip[data-value="${val}"]`);
     if (hidden) {
@@ -2179,9 +2180,9 @@ function renderSalesDailyChart(entries) {
   Charts.renderSalesDailyChart(entries, { days: 14 });
 }
 function renderTopProducts(entries) {
-  renderTopProductsInto('topProductsList', entries);
+  renderTopProductsInto('topProductsList', entries, currentFilters);
 }
-function renderTopProductsInto(containerId, entries) {
+function renderTopProductsInto(containerId, entries, returnFilter) {
   const box = document.getElementById(containerId);
   if (!box) return;
   const byItem = {};
@@ -2189,16 +2190,27 @@ function renderTopProductsInto(containerId, entries) {
   try { Storage.getAllItems().forEach(i => { items[i.id] = i; }); } catch {}
   (entries || []).forEach(e => {
     if (e.category !== 'jualan' || !e.sale || !Array.isArray(e.sale.lines)) return;
-    e.sale.lines.forEach(l => {
+    const lines = e.sale.lines;
+    const sub = lines.reduce((s, l) => s + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
+    const disc = Math.min(Math.max(Number(e.sale.discount) || 0, 0), sub);
+    const factor = sub > 0 ? (sub - disc) / sub : 1;
+    lines.forEach(l => {
       const q = Number(l.qty) || 0;
       if (!q) return;
       const key = l.itemId || l.name || '—';
       if (!byItem[key]) byItem[key] = { name: l.name || (items[key] && items[key].name) || '(barang terhapus)', qty: 0, omzet: 0 };
       byItem[key].qty += q;
-      byItem[key].omzet += (Number(l.price) || 0) * q;
+      byItem[key].omzet += (Number(l.price) || 0) * q * factor;
     });
   });
-  const rows = Object.values(byItem).sort((a, b) => b.qty - a.qty).slice(0, 10);
+  // Kurangi barang yang diretur pada periode yang sama.
+  (returnFilter ? periodReturns(returnFilter) : []).forEach(r => (r.lines || []).forEach(l => {
+    const key = l.itemId || l.name || '—';
+    if (!byItem[key]) return;
+    byItem[key].qty -= Number(l.qty) || 0;
+    byItem[key].omzet -= (Number(l.price) || 0) * (Number(l.qty) || 0);
+  }));
+  const rows = Object.values(byItem).filter(r => r.qty > 0 || r.omzet > 0).sort((a, b) => b.qty - a.qty).slice(0, 10);
   if (!rows.length) {
     box.innerHTML = '<p style="color:var(--text-muted);font-size:12px;padding:12px 0;text-align:center">Belum ada penjualan barang pada periode ini.</p>';
     return;
@@ -2218,6 +2230,12 @@ function renderTopProductsInto(containerId, entries) {
 /* ===== Halaman Penjualan (gabungan semua laporan penjualan) ===== */
 let salesPeriodValue = 'this-month';
 const PAY_LABEL = { cash: '💵 Tunai', transfer: '🏦 Transfer', qris: '📱 QRIS', ewallet: '📲 E-Wallet', debit: '💳 Debit', other: '📦 Lainnya' };
+// Retur penjualan (bukan entry) difilter seperti entry: bungkus dgn type/category agar filterEntries bekerja.
+function periodReturns(filter) {
+  if (!filter) return [];
+  const pseudo = Storage.getSaleReturns().map(r => ({ ...r, type: 'income', category: 'jualan' }));
+  return Reports.filterEntries(pseudo, filter);
+}
 function salesEntries() {
   return Reports.filterEntries(Storage.getAllEntries(), { period: salesPeriodValue, type: 'income', category: 'jualan' });
 }
@@ -2225,18 +2243,33 @@ function computeSales(entries) {
   const items = {};
   try { Storage.getAllItems().forEach(i => { items[i.id] = i; }); } catch {}
   const byItem = {};
-  entries.forEach(e => (e.sale && Array.isArray(e.sale.lines) ? e.sale.lines : []).forEach(l => {
-    const q = Number(l.qty) || 0;
-    if (!q) return;
-    const it = items[l.itemId] || {};
-    const cost = (l.avgCost != null) ? Number(l.avgCost) || 0 : Number(it.cost) || 0;
-    if (!byItem[l.itemId]) byItem[l.itemId] = { name: l.name || it.name || '(barang terhapus)', qty: 0, omzet: 0, hpp: 0 };
-    byItem[l.itemId].qty += q;
-    byItem[l.itemId].omzet += (Number(l.price) || 0) * q;
-    byItem[l.itemId].hpp += cost * q;
+  entries.forEach(e => {
+    const lines = (e.sale && Array.isArray(e.sale.lines)) ? e.sale.lines : [];
+    const sub = lines.reduce((s, l) => s + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
+    const disc = Math.min(Math.max(Number(e.sale && e.sale.discount) || 0, 0), sub);
+    const factor = sub > 0 ? (sub - disc) / sub : 1;
+    lines.forEach(l => {
+      const q = Number(l.qty) || 0;
+      if (!q) return;
+      const it = items[l.itemId] || {};
+      const cost = (l.avgCost != null) ? Number(l.avgCost) || 0 : Number(it.cost) || 0;
+      if (!byItem[l.itemId]) byItem[l.itemId] = { name: l.name || it.name || '(barang terhapus)', qty: 0, omzet: 0, hpp: 0 };
+      byItem[l.itemId].qty += q;
+      byItem[l.itemId].omzet += (Number(l.price) || 0) * q * factor;
+      byItem[l.itemId].hpp += cost * q;
+    });
+  });
+  // Net retur periode berjalan (kurangi qty/omzet/HPP).
+  const rets = periodReturns({ period: salesPeriodValue, type: 'income', category: 'jualan' });
+  rets.forEach(r => (r.lines || []).forEach(l => {
+    const key = l.itemId || l.name || '—';
+    if (!byItem[key]) byItem[key] = { name: l.name || (items[l.itemId] && items[l.itemId].name) || '(barang terhapus)', qty: 0, omzet: 0, hpp: 0 };
+    byItem[key].qty -= Number(l.qty) || 0;
+    byItem[key].omzet -= (Number(l.price) || 0) * (Number(l.qty) || 0);
+    byItem[key].hpp -= (Number(l.cost) || 0) * (Number(l.qty) || 0);
   }));
-  const rows = Object.values(byItem).map(x => ({ ...x, margin: x.omzet - x.hpp, marginPct: x.omzet > 0 ? ((x.omzet - x.hpp) / x.omzet) * 100 : 0 })).sort((a, b) => b.omzet - a.omzet);
-  const omzet = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const rows = Object.values(byItem).filter(x => x.qty !== 0 || x.omzet !== 0).map(x => ({ ...x, margin: x.omzet - x.hpp, marginPct: x.omzet > 0 ? ((x.omzet - x.hpp) / x.omzet) * 100 : 0 })).sort((a, b) => b.omzet - a.omzet);
+  const omzet = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0) - rets.reduce((s, r) => s + (Number(r.refund) || 0), 0);
   const hpp = rows.reduce((s, x) => s + x.hpp, 0);
   const qty = rows.reduce((s, x) => s + x.qty, 0);
   return { entries, rows, omzet, hpp, qty, laba: omzet - hpp, orders: entries.length, avgOrder: entries.length ? omzet / entries.length : 0 };
@@ -2256,7 +2289,7 @@ function renderSalesPage() {
   }
   // Grafik + terlaris (pakai data periode terpilih)
   Charts.renderSalesDailyChart(entries, { days: 14, ids: { svg: 'salesPageChart', labels: 'salesPageLabels', total: 'salesPageTotal', avg: 'salesPageAvg', best: 'salesPageBest' } });
-  renderTopProductsInto('salesTopList', entries);
+  renderTopProductsInto('salesTopList', entries, { period: salesPeriodValue, type: 'income', category: 'jualan' });
   // Tabel per produk
   const tbl = document.getElementById('salesProductTable');
   if (tbl) {
@@ -2786,7 +2819,11 @@ function buildProductsReport() {
   try {
     Reports.filterEntries(Storage.getAllEntries(), currentFilters).forEach(e => {
       if (e.category !== 'jualan' || !e.sale || !Array.isArray(e.sale.lines)) return;
-      e.sale.lines.forEach(l => {
+      const lines = e.sale.lines;
+      const sub = lines.reduce((s, l) => s + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
+      const disc = Math.min(Math.max(Number(e.sale.discount) || 0, 0), sub);
+      const factor = sub > 0 ? (sub - disc) / sub : 1;
+      lines.forEach(l => {
         const qty = Number(l.qty) || 0;
         if (!qty) return;
         const it = itemById[l.itemId] || {};
@@ -2794,15 +2831,23 @@ function buildProductsReport() {
         const cost = (l.avgCost != null) ? Number(l.avgCost) || 0 : Number(it.cost) || 0;
         if (!byItem[l.itemId]) byItem[l.itemId] = { name: l.name || it.name || '(barang terhapus)', qty: 0, omzet: 0, hpp: 0 };
         byItem[l.itemId].qty += qty;
-        byItem[l.itemId].omzet += (Number(l.price) || 0) * qty;
+        byItem[l.itemId].omzet += (Number(l.price) || 0) * qty * factor;
         byItem[l.itemId].hpp += cost * qty;
       });
     });
   } catch {}
+  // Net retur periode berjalan
+  periodReturns(currentFilters).forEach(r => (r.lines || []).forEach(l => {
+    const it = itemById[l.itemId] || {};
+    if (!byItem[l.itemId]) byItem[l.itemId] = { name: l.name || it.name || '(barang terhapus)', qty: 0, omzet: 0, hpp: 0 };
+    byItem[l.itemId].qty -= Number(l.qty) || 0;
+    byItem[l.itemId].omzet -= (Number(l.price) || 0) * (Number(l.qty) || 0);
+    byItem[l.itemId].hpp -= (Number(l.cost) || 0) * (Number(l.qty) || 0);
+  }));
   const total = Object.values(byItem).reduce((s, x) => s + x.omzet, 0);
   const totalQty = Object.values(byItem).reduce((s, x) => s + x.qty, 0);
   const totalHpp = Object.values(byItem).reduce((s, x) => s + x.hpp, 0);
-  const rows = Object.keys(byItem).map(id => {
+  const rows = Object.keys(byItem).filter(id => byItem[id].qty !== 0 || byItem[id].omzet !== 0).map(id => {
     const x = byItem[id];
     const margin = x.omzet - x.hpp;
     return { name: x.name, qty: x.qty, omzet: x.omzet, hpp: x.hpp, margin, marginPct: x.omzet > 0 ? (margin / x.omzet) * 100 : 0, share: total > 0 ? (x.omzet / total) * 100 : 0 };
@@ -2827,6 +2872,14 @@ function buildGrossProfitReport() {
       const cost = (l.avgCost != null) ? Number(l.avgCost) || 0 : Number(it.cost) || 0;
       byMonth[m].hpp += cost * (Number(l.qty) || 0);
     });
+  });
+  // Net retur per bulan.
+  periodReturns(currentFilters).forEach(r => {
+    const m = String(r.date || '').slice(0, 7);
+    if (!m) return;
+    if (!byMonth[m]) byMonth[m] = { month: m, omzet: 0, hpp: 0, orders: 0 };
+    byMonth[m].omzet -= Number(r.refund) || 0;
+    byMonth[m].hpp -= Number(r.costBack) || 0;
   });
   const rows = Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month)).map(x => ({
     ...x, laba: x.omzet - x.hpp, marginPct: x.omzet > 0 ? ((x.omzet - x.hpp) / x.omzet) * 100 : 0,
@@ -2881,7 +2934,7 @@ function renderPageHealth() {
 function journalDateRange() {
   const p = currentFilters.period;
   const now = new Date();
-  const iso = (d) => d.toISOString().split('T')[0];
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   if (p === 'this-month') return { start: iso(new Date(now.getFullYear(), now.getMonth(), 1)), end: iso(now) };
   if (p === 'last-month') {
     const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -3145,6 +3198,7 @@ function handlePrint() {
 </body></html>`;
 
   const w = window.open('', '_blank');
+  if (!w) { UI.showError('Izinkan pop-up untuk mencetak'); return; }
   w.document.write(html);
   w.document.close();
   w.focus();
@@ -3784,7 +3838,8 @@ function openImport(mode) {
   document.querySelectorAll('#importIntro .chip').forEach(c => c.classList.toggle('selected', c.dataset.mode === importMode));
   const ta = document.getElementById('importText');
   if (ta) { ta.value = ''; ta.placeholder = importMode === 'wa' ? 'Contoh:\n2x Kopi 15000\n1 Teh @8000\nKopi Susu 3x 20000' : 'Tempel data CSV/Excel di sini…'; }
-  const f = document.getElementById('importFile'); if (f) f.value = '';
+  const f = document.getElementById('importModalFile'); if (f) f.value = '';
+  const f2 = document.getElementById('importFile'); if (f2) f2.value = '';
   const mapWrap = document.getElementById('importMapWrap'); if (mapWrap) { mapWrap.hidden = true; mapWrap.innerHTML = ''; }
   const prev = document.getElementById('importPreview'); if (prev) prev.innerHTML = '';
   const commit = document.getElementById('importCommitBtn'); if (commit) { commit.disabled = true; commit.textContent = 'Import'; }
@@ -3792,7 +3847,7 @@ function openImport(mode) {
 }
 function closeImport() { const m = document.getElementById('importModal'); if (m && m.open) { try { m.close(); } catch {} } }
 async function readImportSource() {
-  const fileEl = document.getElementById('importFile');
+  const fileEl = document.getElementById('importModalFile') || document.getElementById('importFile');
   const file = fileEl && fileEl.files && fileEl.files[0];
   if (file) {
     if (/\.(xlsx|xls)$/i.test(file.name) && window.XLSX) {
@@ -4789,7 +4844,7 @@ function handlePayrollPrintSlip(empId) {
   if (!emp || !c) return;
   const ref = payrollMonthEnd(payrollViewMonth);
   const kb = employeeKasbonDue(emp, c);
-  const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+  const slip = computeSlip(emp, { overtime: rowOvertime(emp, c), overtimeHours: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
   const label = payrollMonthLabel(payrollViewMonth);
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID', { minimumFractionDigits: 2 });
   const R = slip.rates || {};
@@ -4851,7 +4906,7 @@ function handlePayrollSlipWa(empId) {
   if (phone.startsWith('0')) phone = '62' + phone.slice(1);
   const ref = payrollMonthEnd(payrollViewMonth);
   const kb = employeeKasbonDue(emp, c);
-  const slip = computeSlip(emp, { overtime: c.overtime, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates });
+  const slip = computeSlip(emp, { overtime: rowOvertime(emp, c), overtimeHours: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
   const label = payrollMonthLabel(payrollViewMonth);
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const lines = [
@@ -5410,7 +5465,7 @@ function handleOpeningPost() {
     if (v <= 0) return;
     rows[code] = rows[code] || { debit: 0, credit: 0 };
     if (inp.classList.contains('opening-deb')) { rows[code].debit = v; lines.push({ account: code, debit: v, credit: 0 }); }
-    else { rows[code].credit = v; lines.push({ account: code, credit: 0, debit: 0 }); }
+    else { rows[code].credit = v; lines.push({ account: code, credit: v, debit: 0 }); }
   });
   if (!lines.length) return UI.showInfo('Belum ada nilai yang diisi');
   const deb = lines.reduce((s, l) => s + l.debit, 0);
