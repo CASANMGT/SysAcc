@@ -4045,6 +4045,12 @@ export function bindBank(onFile, onImport) {
     const row = bankRows.find(r => r.key === sel.dataset.key);
     if (row) row.counterAccount = sel.value;
   });
+  document.getElementById('bankPreview')?.addEventListener('click', (e) => {
+    const s = e.target.closest('.bank-suggest-use');
+    if (!s) return;
+    const row = bankRows.find(r => r.key === s.dataset.key);
+    if (row && !row.matched) { row.counterAccount = s.dataset.code; renderBankPreview(); }
+  });
 }
 function renderBankPreview() {
   const box = document.getElementById('bankPreview');
@@ -4075,7 +4081,7 @@ function renderBankPreview() {
       <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.desc)}">${escapeHtml(r.desc)}</td>
       <td class="amount-col" style="color:#059669">${r.in > 0 ? fmt(r.in) : ''}</td>
       <td class="amount-col" style="color:#dc2626">${r.out > 0 ? fmt(r.out) : ''}</td>
-      <td>${r.matched ? '<small style="color:#94a3b8">—</small>' : `<select class="bank-coa" data-key="${r.key}" style="max-width:210px;height:32px;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;font-size:11px">${opts}</select>`}</td>
+      <td>${r.matched ? '<small style="color:#94a3b8">—</small>' : `<select class="bank-coa" data-key="${r.key}" style="max-width:210px;height:32px;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;font-size:11px">${opts}</select>${r.suggestCode && r.suggestCode !== r.counterAccount ? ` <button type="button" class="bank-suggest-use" data-key="${r.key}" data-code="${r.suggestCode}" title="Pakai saran" style="font-size:10px;border:1px dashed #cbd5e1;background:#fff;border-radius:8px;padding:2px 6px;color:#2563eb;cursor:pointer">💡 ${r.suggestCode}</button>` : ''}`}</td>
       <td style="font-size:11px">${r.matched ? '✅ cocok' : 'baru'}</td>
     </tr>`; }).join('') + `</tbody></table>`;
 }

@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.78.0';
+const APP_VERSION = '1.79.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -821,10 +821,17 @@ function bindEvents() {
     const d = e.target.closest('.asset-delete');
     if (d) handleAssetDelete(d.dataset.id);
   });
-  document.getElementById('coaOpenBtn')?.addEventListener('click', () => { refreshCoa(); UI.openCoa(); });
+  document.getElementById('coaOpenBtn')?.addEventListener('click', openCoaModal);
+  document.getElementById('coaSearch')?.addEventListener('input', refreshCoa);
+  document.getElementById('coaTypeFilter')?.addEventListener('change', refreshCoa);
+  document.getElementById('coaType')?.addEventListener('change', (e) => {
+    const codeEl = document.getElementById('coaCode');
+    if (codeEl) codeEl.value = suggestCoaCode(e.target.value);
+  });
   UI.bindPayroll(handleEmpSave, handleEmpEdit, handleEmpDelete, handleEmpSlip, handlePayrollRun);
   UI.bindKas(handleTransfer, handleRecon);
   UI.bindBank(handleBankFile, handleBankImport);
+  document.getElementById('bankApplySuggestBtn')?.addEventListener('click', bankApplySuggest);
   document.addEventListener('wynara:stock-search', refreshStock);
   document.getElementById('themeToggleSidebar')?.addEventListener('click', handleThemeToggle);
   function showView(viewId) {
@@ -868,7 +875,7 @@ function bindEvents() {
   document.getElementById('pembelianBtnSidebar')?.addEventListener('click', () => showView('viewPembelian'));
   document.getElementById('biayaBtnSidebar')?.addEventListener('click', () => showView('viewBiaya'));
   document.getElementById('assetBtnSidebar')?.addEventListener('click', () => openAssets());
-  document.getElementById('coaBtnSidebar')?.addEventListener('click', () => { refreshCoa(); UI.openCoa(); });
+  document.getElementById('coaBtnSidebar')?.addEventListener('click', openCoaModal);
   document.getElementById('kasPageAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
   document.getElementById('kasPageKasBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
   document.getElementById('kasPageBankBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
@@ -3859,9 +3866,28 @@ function handleContactFormSubmit() {
 }
 
 /* ===== COA ===== */
+function suggestCoaCode(type) {
+  const base = { asset: 1000, liability: 2000, equity: 3000, revenue: 4000, expense: 5000 }[type] || 5000;
+  const used = new Set(getAccounts().map(a => a.code));
+  for (let n = base; n < base + 1000; n++) {
+    const code = String(n);
+    if (/^\d{4}$/.test(code) && !used.has(code)) return code;
+  }
+  return '';
+}
 function refreshCoa() {
   try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
-  UI.renderCoa(getAccounts(), balances(Storage.getAllJournals()));
+  const q = String(document.getElementById('coaSearch')?.value || '').trim().toLowerCase();
+  const tf = document.getElementById('coaTypeFilter')?.value || 'all';
+  const list = getAccounts().filter(a =>
+    (!q || a.code.includes(q) || String(a.name || '').toLowerCase().includes(q)) && (tf === 'all' || a.type === tf));
+  UI.renderCoa(list, balances(Storage.getAllJournals()));
+}
+function openCoaModal() {
+  refreshCoa();
+  const codeEl = document.getElementById('coaCode');
+  if (codeEl && !codeEl.value.trim()) codeEl.value = suggestCoaCode(document.getElementById('coaType')?.value || 'expense');
+  UI.openCoa();
 }
 function handleCoaSave() {
   const d = UI.getCoaFormData();
@@ -4873,10 +4899,11 @@ function handleBankFile(file) {
         } else continue;
         if (masuk <= 0 && keluar <= 0) continue;
         const direction = masuk > 0 ? 'in' : 'out';
+        const acct = bankAccountSuggestion(desc, direction);
         rows.push({
           key: `${date}|${desc}|${masuk}|${keluar}|${i}`, date, desc: desc.slice(0, 100),
           in: masuk, out: keluar, direction, amount: masuk > 0 ? masuk : keluar,
-          counterAccount: bankAccountSuggestion(desc, direction),
+          counterAccount: acct, suggestCode: acct,
           bankAccount: document.getElementById('bankAccount')?.value || '1102',
           selected: true, matched: false,
         });
@@ -4908,6 +4935,7 @@ function handleBankFile(file) {
         if (r.matched) r.selected = false;
       });
       Storage.upsertBankStatement(rows);
+      bankImportRows = rows;
       UI.setBankRows(rows);
       const fresh = rows.filter(r => !r.matched).length;
       UI.showInfo(`${rows.length} baris terbaca, ${fresh} baru`);
@@ -4917,6 +4945,19 @@ function handleBankFile(file) {
   };
   reader.onerror = () => UI.showError('Gagal membaca file');
   reader.readAsText(file);
+}
+let bankImportRows = [];
+function bankApplySuggest() {
+  if (!bankImportRows.length) return UI.showInfo('Belum ada file mutasi');
+  let n = 0;
+  bankImportRows.forEach(r => {
+    if (r.matched) return;
+    const acct = bankAccountSuggestion(r.desc, r.direction);
+    if (acct !== r.counterAccount) { r.counterAccount = acct; r.selected = true; n++; }
+  });
+  UI.setBankRows(bankImportRows);
+  Storage.upsertBankStatement(bankImportRows);
+  UI.showSuccess(n ? `Saran diterapkan ke ${n} baris` : 'Semua baris sudah sesuai saran');
 }
 function handleBankImport() {
   const rows = UI.getBankSelected();
@@ -4930,6 +4971,7 @@ function handleBankImport() {
   rows.forEach(r => Storage.updateBankStatement(r.key, { posted: true }));
   UI.showSuccess(`${res.ok} mutasi direkonsiliasi ke COA${res.locked ? ` • ${res.locked} bulan terkunci dilewati` : ''}${res.skipped ? ` • ${res.skipped} tanpa akun` : ''}`);
   UI.setBankRows([]);
+  bankImportRows = [];
   refresh();
 }
 

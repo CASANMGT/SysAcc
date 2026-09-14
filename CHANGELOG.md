@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.79.0] - 2026-09-14
+
+### Improved — Kelola COA & sinkronisasi bank jadi lebih mudah
+- **Daftar Akun**: pencarian (kode/nama) + filter jenis; kode baru **disarankan otomatis** sesuai jenis (Aset→1xxx, Beban→5xxx, dst) & terisi saat buka/tambah
+- **Import mutasi bank**: tombol **⚡ Terapkan saran ke semua** (isi COA seluruh baris sekaligus) + **💡 chip saran** per baris bila akun berbeda dari saran — klik untuk kembalikan
+- Per baris tetap bisa ubah akun COA via dropdown; saran disimpan sebagai `suggestCode`
+- +0 test (id baru); 315/315 tests ✓
+
+---
+
 ## [1.78.0] - 2026-09-14
 
 ### Added — COA di daftar transaksi bank + mesin saran COA lebih pintar
