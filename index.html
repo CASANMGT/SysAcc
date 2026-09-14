@@ -86,45 +86,71 @@
   <!-- LOGIN - new two-column layout matching uploaded design -->
   <div id="loginScreen" class="login-screen-new">
     <div class="login-left">
-      <div class="login-left-bg"></div>
-      <div class="login-left-deco"></div>
-      <div class="login-left-card">
-        <div class="login-left-card-bars">
-          <div class="login-bar login-bar-blue"></div>
-          <div class="login-bar login-bar-slate"></div>
-        </div>
-        <div class="login-bar-full"></div>
-        <div class="login-bar-half"></div>
-        <div class="login-left-card-footer">
-          <div class="login-card-icon" aria-hidden="true">↗</div>
-          <div class="login-card-text"><span>Total</span><strong>Rp 6.000.000</strong></div>
-        </div>
-      </div>
+      <div class="login-left-glow" aria-hidden="true"></div>
       <div class="login-left-top">
-        <div class="login-logo"><img class="login-logo-icon" src="icons/w-logo.svg" alt="Wynara" width="40" height="40"><span>Wynara</span><span class="login-logo-sub">Accounting</span></div>
+        <div class="login-logo">
+          <span class="login-logo-badge">W</span>
+          <span class="login-logo-text">Wynara<small>Accounting</small></span>
+        </div>
       </div>
 
       <div class="login-hero">
         <h1>Keuangan tertata.<br>Bisnis lebih tenang.</h1>
         <p>Kelola transaksi, pantau arus kas, dan siapkan laporan dalam satu tempat.</p>
-        <div class="login-features">
-          <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">🧾</span><div><strong>Transaksi</strong><span>Catat dengan mudah</span></div></div>
-          <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">📈</span><div><strong>Arus kas</strong><span>Pantau real-time</span></div></div>
-          <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">📊</span><div><strong>Laporan</strong><span>Dukung keputusan</span></div></div>
+      </div>
+
+      <div class="login-mock" aria-hidden="true">
+        <div class="login-mock-card">
+          <div class="login-mock-head">
+            <div><span>Contoh tampilan</span><strong>Ringkasan keuangan</strong></div>
+            <span class="login-mock-pill">Bulan ini ▾</span>
+          </div>
+          <div class="login-mock-tiles">
+            <div class="login-mock-tile">
+              <span class="login-mock-ic up">↗</span>
+              <div><small>Pemasukan</small><b>Rp24.500.000</b><em class="up">↑ +12%</em></div>
+            </div>
+            <div class="login-mock-tile">
+              <span class="login-mock-ic down">↘</span>
+              <div><small>Pengeluaran</small><b>Rp8.320.000</b><em class="down">↓ -8%</em></div>
+            </div>
+          </div>
+          <svg class="login-mock-chart" viewBox="0 0 320 96" preserveAspectRatio="none">
+            <g fill="#2563eb">
+              <rect x="10" y="46" width="12" height="42" rx="3"/><rect x="52" y="30" width="12" height="58" rx="3"/>
+              <rect x="94" y="40" width="12" height="48" rx="3"/><rect x="136" y="22" width="12" height="66" rx="3"/>
+              <rect x="178" y="52" width="12" height="36" rx="3"/><rect x="220" y="34" width="12" height="54" rx="3"/>
+              <rect x="262" y="44" width="12" height="44" rx="3"/><rect x="298" y="18" width="12" height="70" rx="3"/>
+            </g>
+            <g fill="#93c5fd">
+              <rect x="26" y="66" width="12" height="22" rx="3"/><rect x="68" y="58" width="12" height="30" rx="3"/>
+              <rect x="110" y="62" width="12" height="26" rx="3"/><rect x="152" y="50" width="12" height="38" rx="3"/>
+              <rect x="194" y="68" width="12" height="20" rx="3"/><rect x="236" y="56" width="12" height="32" rx="3"/>
+              <rect x="278" y="64" width="12" height="24" rx="3"/>
+            </g>
+          </svg>
+        </div>
+        <div class="login-mock-invoice">
+          <div class="login-mock-lines"><i></i><i></i><i></i></div>
+          <span class="login-mock-check">✓</span>
         </div>
       </div>
 
-      <div class="login-left-footer">
-        <span>© 2026 Wynara</span><span>Privasi</span><span>Syarat</span>
+      <div class="login-features">
+        <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">🧾</span><div><strong>Transaksi</strong><span>Catat dengan mudah</span></div></div>
+        <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">📈</span><div><strong>Arus kas</strong><span>Pantau real-time</span></div></div>
+        <div class="login-feature"><span class="login-feature-icon" aria-hidden="true">📊</span><div><strong>Laporan</strong><span>Dukung keputusan</span></div></div>
       </div>
     </div>
 
     <div class="login-right">
-      <div class="login-top-links"><a href="#" id="loginHelp">ⓘ Bantuan</a></div>
+      <div class="login-top-links">
+        <div class="login-lang" role="group" aria-label="Bahasa"><button type="button" class="active">ID</button><button type="button">EN</button></div>
+        <span class="login-top-sep" aria-hidden="true"></span>
+        <a href="#" id="loginHelp">❓ Bantuan</a>
+      </div>
       <div class="login-card-new">
-        <div class="login-card-head">
-          <div class="login-card-logo"><img src="icons/w-logo.svg" alt="Wynara" width="40" height="40"><span>Wynara</span></div>
-        </div>
+        <div class="login-card-badge">W</div>
         <h2>Selamat datang kembali</h2>
         <p class="login-card-sub">Masuk ke akun Wynara Accounting Anda</p>
 
@@ -199,7 +225,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.76.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.77.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -521,7 +547,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.76.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.77.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2398,7 +2424,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.76.0';
+    window.__htmlVersion = '1.77.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

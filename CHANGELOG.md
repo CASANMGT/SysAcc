@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.77.0] - 2026-09-14
+
+### Improved — Redesign halaman login (sesuai desain)
+- Panel kiri **biru navy** dengan logo badge, hero "Keuangan tertata. Bisnis lebih tenang.", **mockup Ringkasan keuangan** (Pemasukan/Pengeluaran + grafik batang + kartu faktur) dan baris fitur **Transaksi · Arus kas · Laporan**
+- Panel kanan bersih: **logo badge**, judul besar, toggle bahasa **ID/EN**, tautan **Bantuan**
+- Input lebih lega (46px) — **input email kini ikut ter-styling** (sebelumnya hanya text/password)
+- Responsif (panel kiri disembunyikan ≤1024px) + perbaikan dark mode
+- 314/314 tests ✓
+
+---
+
 ## [1.76.0] - 2026-09-14
 
 ### Improved — UX kelola Aturan Bank & Kas & Bank

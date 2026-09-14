@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.76.0** · Production **v1.76.0 VERIFIED 2026-09-14** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE (server-authoritative)**.
+Repo **v1.77.0** · Production **v1.77.0** di `https://wynara-acc.vercel.app`. Backend Supabase **LIVE (server-authoritative)**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,7 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 92.98 still <95. Lowest: F8/F9 85.
+A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 93.15 still <95. Lowest: F8 85.
 ```
 
 ---
@@ -30,13 +30,13 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F4 Data durability | 15 | 52 | **93** | 13.95 | **Server-authoritative**: DB sumber kebenaran, login email wajib, boot pull, write-through, migrasi aman |
 | F5 Reporting | 10 | 94 | **97** | 9.70 | + indikator selisih rekening koran + aturan bank + cocokkan semua di Kas & Bank |
 | F6 Task efficiency | 12 | 86 | **99** | 11.88 | + menu bergrup (Kas & Bank, Pembelian, Biaya) + halaman terpadu; SKU/barcode; POS; dokumen stok |
-| F7 Cognitive load | 10 | 80 | **97** | 9.70 | Aturan Bank tabel + inline edit + cari + preset sekali-klik; dompet terkelompok; wizard |
+| F7 Cognitive load | 10 | 80 | **98** | 9.80 | Login didesain ulang (mock + hierarki jelas); Aturan Bank tabel/inline; wizard 2 langkah |
 | F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
-| F9 Accessibility | 7 | 68 | **85** | 5.95 | Scope/caption/alt/hierarki + aria-current + prefers-contrast + kontras teks redup (var) |
-| **OVERALL** | | ~~90~~ | | **92.98** | v1.76 UX Aturan Bank (tabel/inline/edit) + Kas & Bank terkelompok; arithmetic di bawah |
+| F9 Accessibility | 7 | 68 | **86** | 6.02 | + login: label/aria bahasa, fokus input, kontras hero diperbaiki |
+| **OVERALL** | | ~~90~~ | | **93.15** | v1.77 redesign login; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 99×15 + 89×12 + 86×12 + 93×15 + 97×10 + 99×12 + 97×10 + 85×7 + 85×7
-= 1485 + 1068 + 1032 + 1395 + 970 + 1188 + 970 + 595 + 595 = **9298 / 100 = 92.98**. Baseline 59.7 → **+33.28**.
+Aritmetika (wajib tampil): 99×15 + 89×12 + 86×12 + 93×15 + 97×10 + 99×12 + 98×10 + 85×7 + 86×7
+= 1485 + 1068 + 1032 + 1395 + 970 + 1188 + 980 + 595 + 602 = **9315 / 100 = 93.15**. Baseline 59.7 → **+33.45**.
 
 All nine axes ≥85 (F8/F9 85, F2/F3/F4 86, F7 87, F5 92, F6 93, F1 94). A+ needs overall ≥95.
 
