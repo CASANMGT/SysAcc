@@ -1854,6 +1854,8 @@ export function reportHTMLFor(type, data) {
       return renderPayrollReport(data);
     case 'products':
       return renderProductsReport(data);
+    case 'grossprofit':
+      return renderGrossProfitReport(data);
     case 'pengeluaran':
       return renderExpenseReport(data);
     case 'trial':
@@ -2434,6 +2436,36 @@ function renderProductsReport(d) {
           <td class="amount-col">${(r.marginPct || 0).toFixed(1)}%</td>
           <td class="amount-col">${r.share.toFixed(1)}%</td>
         </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// Laba Kotor per bulan — omzet − HPP.
+function renderGrossProfitReport(d) {
+  if (!d || !d.rows.length) {
+    return '<p style="text-align:center;color:var(--text-muted);padding:40px;">Belum ada penjualan barang pada periode ini.</p>';
+  }
+  const fmt = (v) => formatCurrency(Math.round(v || 0));
+  const monthLabel = (m) => { try { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }); } catch { return m; } };
+  return `
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Omzet penjualan</span><span class="value">${fmt(d.omzet)}</span></div>
+      <div class="report-summary-item"><span class="label">HPP</span><span class="value">${fmt(d.hpp)}</span></div>
+      <div class="report-summary-item"><span class="label">Laba kotor</span><span class="value income">${fmt(d.laba)}</span></div>
+      <div class="report-summary-item"><span class="label">Margin kotor</span><span class="value">${d.omzet > 0 ? ((d.laba / d.omzet) * 100).toFixed(1) : '0.0'}%</span></div>
+    </div>
+    <p style="font-size:11px;color:#64748b">HPP memakai modal yang dibekukan saat penjualan (baris lama memakai modal rata-rata terakhir). Omzet = nilai kas penjualan (termasuk PPN bila ada).</p>
+    <table class="report-table">
+      <thead><tr><th>Bulan</th><th class="amount-col">Struk</th><th class="amount-col">Omzet</th><th class="amount-col">HPP</th><th class="amount-col">Laba kotor</th><th class="amount-col">Margin</th></tr></thead>
+      <tbody>
+        ${d.rows.map(r => `<tr>
+          <td>${escapeHtml(monthLabel(r.month))}</td>
+          <td class="amount-col">${r.orders}</td>
+          <td class="amount-col income">${fmt(r.omzet)}</td>
+          <td class="amount-col">${fmt(r.hpp)}</td>
+          <td class="amount-col ${r.laba >= 0 ? 'income' : 'expense'}">${fmt(r.laba)}</td>
+          <td class="amount-col">${r.marginPct.toFixed(1)}%</td></tr>`).join('')}
+        <tr style="background:#f8fafc;font-weight:700"><td>Total</td><td class="amount-col">${d.orders}</td><td class="amount-col">${fmt(d.omzet)}</td><td class="amount-col">${fmt(d.hpp)}</td><td class="amount-col">${fmt(d.laba)}</td><td class="amount-col">${d.omzet > 0 ? ((d.laba / d.omzet) * 100).toFixed(1) : '0.0'}%</td></tr>
       </tbody>
     </table>`;
 }

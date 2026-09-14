@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.68.0] - 2026-09-14
+
+### Added — Laporan Laba Kotor + ekspor/cetak halaman Penjualan
+- **Tab Laporan → 💹 Laba Kotor**: laba kotor **per bulan** (Struk · Omzet · HPP · Laba kotor · Margin) + total, memakai HPP yang dibekukan saat penjualan
+- Tab Laporan lama "🛒 Penjualan Produk" diganti tombol pintas **🛒 Halaman Penjualan →** (langsung ke halaman Penjualan baru)
+- Halaman Penjualan: tombol **⬇️ Excel** (semua tabel → .xlsx) dan **🖨️ Cetak** (Simpan PDF)
+- Widget Produk Terlaris kini menuju halaman Penjualan
+- +1 test; 286/286 tests ✓
+
+---
+
 ## [1.67.0] - 2026-09-14
 
 ### Added — Halaman 🛒 Penjualan khusus (gabungan semua laporan penjualan)

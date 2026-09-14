@@ -184,7 +184,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.67.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.68.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -506,7 +506,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.67.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.68.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -581,8 +581,11 @@
                 <option value="all">Semua</option>
               </select>
               <button class="btn btn-primary" id="salesNewBtn">＋ Jual</button>
+              <button class="btn btn-ghost" id="salesExcel" title="Unduh tabel penjualan ke Excel">⬇️ Excel</button>
+              <button class="btn btn-secondary" id="salesPrint" title="Cetak / simpan PDF">🖨️ Cetak</button>
             </div>
           </div>
+          <div id="salesContent">
           <div id="salesKpi" class="stock-kpi" aria-label="Ringkasan penjualan"></div>
           <div class="dashboard-grid">
             <div class="dash-panel dash-panel-chart">
@@ -616,6 +619,7 @@
               <h3 style="margin-bottom:8px">🧾 Struk Terbaru</h3>
               <div id="salesRecentList"></div>
             </div>
+          </div>
           </div>
         </div>
 
@@ -866,7 +870,8 @@
             <button type="button" class="chip page-report-tab" data-report="cashflow">Arus Kas</button>
             <button type="button" class="chip page-report-tab" data-report="top-expenses">Top Pengeluaran</button>
             <button type="button" class="chip page-report-tab" data-report="pengeluaran">Pengeluaran</button>
-            <button type="button" class="chip page-report-tab" data-report="products">🛒 Penjualan Produk</button>
+            <button type="button" class="chip page-report-tab" data-report="grossprofit">💹 Laba Kotor</button>
+            <button type="button" class="chip" id="reportJumpSales">🛒 Halaman Penjualan →</button>
           </div>
           <div class="chip-group" role="group" aria-label="Laporan resmi" style="margin-bottom:8px">
             <div style="font-size:10px;font-weight:700;color:var(--text-muted);flex-basis:100%">LAPORAN RESMI</div>
@@ -2268,7 +2273,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.67.0';
+    window.__htmlVersion = '1.68.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

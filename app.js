@@ -38,7 +38,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.67.0';
+const APP_VERSION = '1.68.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -815,6 +815,8 @@ function bindEvents() {
   document.getElementById('sidebarTransaksi')?.addEventListener('click', () => showView('viewTransaksi'));
   document.getElementById('salesBtnSidebar')?.addEventListener('click', () => showView('viewSales'));
   document.getElementById('salesNewBtn')?.addEventListener('click', () => UI.openSale());
+  document.getElementById('salesExcel')?.addEventListener('click', exportSalesExcel);
+  document.getElementById('salesPrint')?.addEventListener('click', printSalesPage);
   document.getElementById('salesPeriod')?.addEventListener('change', (e) => { salesPeriodValue = e.target.value; renderSalesPage(); });
   document.getElementById('lihatSemua')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewTransaksi'); });
   // Bottom nav mobile
@@ -887,12 +889,8 @@ function bindEvents() {
   document.getElementById('aksiTambahKontak')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
   document.getElementById('aksiLaporan')?.addEventListener('click', () => showView('viewLaporan'));
   document.getElementById('ownerToReports')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewLaporan'); });
-  document.getElementById('topProductsMore')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    showView('viewLaporan');
-    const tab = document.querySelector('.page-report-tab[data-report="products"]');
-    if (tab) tab.click(); else renderReport();
-  });
+  document.getElementById('topProductsMore')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewSales'); });
+  document.getElementById('reportJumpSales')?.addEventListener('click', () => showView('viewSales'));
   // Tab laporan halaman: delegasi body (tab kini terbagi 3 grup chip)
   if (!document.body.dataset.pagereportWired) {
     document.body.dataset.pagereportWired = '1';
@@ -2296,6 +2294,25 @@ function renderSalesPage() {
     }).join('') : '<p style="color:var(--text-muted)">Belum ada struk.</p>';
   }
 }
+function printSalesPage() {
+  const src = document.getElementById('salesContent');
+  const label = document.getElementById('salesPeriod')?.selectedOptions?.[0]?.textContent || '';
+  const ok = UI.printReportHTML('Laporan Penjualan', src ? src.innerHTML : '', 'Periode: ' + label);
+  if (!ok) UI.showError('Izinkan pop-up untuk mencetak');
+}
+function exportSalesExcel() {
+  try {
+    if (typeof window.XLSX === 'undefined') { UI.showError('Library Excel belum termuat — coba muat ulang halaman'); return; }
+    const box = document.getElementById('salesContent');
+    if (!box) return;
+    const tables = [...box.querySelectorAll('table.report-table')];
+    if (!tables.length) { UI.showError('Belum ada tabel untuk diunduh'); return; }
+    const wb = XLSX.utils.book_new();
+    tables.forEach((t, i) => XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(t), ('Penjualan ' + (i + 1)).slice(0, 31)));
+    XLSX.writeFile(wb, `wynara-penjualan-${new Date().toISOString().split('T')[0]}.xlsx`);
+    UI.showSuccess(`${tables.length} tabel diekspor ke Excel`);
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal mengekspor'); }
+}
 
 function updateTableCount(filtered, total, shown) {
   const el = document.getElementById('tableCount');
@@ -2617,6 +2634,8 @@ function computeReportData(type) {
       return buildPayrollReport();
     case 'products':
       return buildProductsReport();
+    case 'grossprofit':
+      return buildGrossProfitReport();
     case 'pengeluaran':
       return buildExpenseReport();
     case 'trial':
@@ -2791,10 +2810,34 @@ function buildProductsReport() {
   return { rows, total, totalQty, totalHpp };
 }
 
+// Laba kotor per bulan: omzet − HPP (modal dibekukan saat penjualan).
+function buildGrossProfitReport() {
+  const items = {};
+  try { Storage.getAllItems().forEach(i => { items[i.id] = i; }); } catch {}
+  const byMonth = {};
+  Reports.filterEntries(Storage.getAllEntries(), currentFilters).forEach(e => {
+    if (e.category !== 'jualan') return;
+    const m = String(e.date || '').slice(0, 7);
+    if (!m) return;
+    if (!byMonth[m]) byMonth[m] = { month: m, omzet: 0, hpp: 0, orders: 0 };
+    byMonth[m].omzet += Number(e.amount) || 0;
+    byMonth[m].orders += 1;
+    (e.sale && Array.isArray(e.sale.lines) ? e.sale.lines : []).forEach(l => {
+      const it = items[l.itemId] || {};
+      const cost = (l.avgCost != null) ? Number(l.avgCost) || 0 : Number(it.cost) || 0;
+      byMonth[m].hpp += cost * (Number(l.qty) || 0);
+    });
+  });
+  const rows = Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month)).map(x => ({
+    ...x, laba: x.omzet - x.hpp, marginPct: x.omzet > 0 ? ((x.omzet - x.hpp) / x.omzet) * 100 : 0,
+  }));
+  const total = rows.reduce((s, x) => ({ omzet: s.omzet + x.omzet, hpp: s.hpp + x.hpp, laba: s.laba + x.laba, orders: s.orders + x.orders }), { omzet: 0, hpp: 0, laba: 0, orders: 0 });
+  return { rows, ...total };
+}
+
 function renderReport() {
   UI.renderReport(currentReportType, computeReportData(currentReportType));
 }
-
 let pageReportPeriodUi = 'all';
 function renderPageReport() {
   if (!document.getElementById('pageReportContent')) return;

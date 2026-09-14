@@ -158,10 +158,11 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(document.getElementById('barcodeSvg')).toBeTruthy();
     expect(document.getElementById('saBarcode')).toBeTruthy();
   });
-  it('ada tab laporan Penjualan Produk (qty terjual per produk)', () => {
-    const tab = document.querySelector('.page-report-tab[data-report="products"]');
-    expect(tab).toBeTruthy();
-    expect(tab.textContent).toMatch(/Penjualan Produk/);
+  it('ada tab Laba Kotor + tombol pintas ke halaman Penjualan', () => {
+    const gp = document.querySelector('.page-report-tab[data-report="grossprofit"]');
+    expect(gp).toBeTruthy();
+    expect(gp.textContent).toMatch(/Laba Kotor/);
+    expect(document.getElementById('reportJumpSales')).toBeTruthy();
   });
   it('dashboard: widget penjualan harian + produk terlaris', () => {
     expect(document.getElementById('salesDailyChart')).toBeTruthy();
