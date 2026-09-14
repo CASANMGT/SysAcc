@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.73.0** · Production **v1.73.0** di `https://wynara-acc.vercel.app`. Backend Supabase **LIVE**.
+Repo **v1.73.0** · Production **v1.73.0 VERIFIED 2026-09-14** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
