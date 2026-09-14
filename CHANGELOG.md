@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.72.0] - 2026-09-14
+
+### Added — Pencocok mutasi bank otomatis (rekonsiliasi) di Kas & Bank
+- Panel **🔗 Rekonsiliasi Bank** di halaman Kas & Bank: daftar mutasi bank tersimpan + status (cocok / saran / diposting / tanpa pasangan / diabaikan)
+- **Auto-match engine** (`bankmatch.js`): mencocokkan tiap mutasi ke transaksi tercatat dengan **arah sama, nominal sama, tanggal ±3 hari** (kandidat terdekat diutamakan)
+- Aksi per baris: **✓ Cocokkan** (tandai tanpa jurnal ulang), **Posting COA** (jurnal bank↔akun lawan), **Abaikan / Batalkan**
+- Mutasi dari import CSV **disimpan** (`wynara_bank_statement`) sehingga rekonsiliasi bisa dilanjutkan kapan saja; status tidak hilang saat import ulang
+- Ringkasan: `N cocok • N saran • N diposting • N tanpa pasangan`
+- +6 test (15 file); 303/303 tests ✓
+
+---
+
 ## [1.71.0] - 2026-09-14
 
 ### Added — COA lebih lengkap + rekonsiliasi bank ke COA

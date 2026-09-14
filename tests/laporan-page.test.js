@@ -182,6 +182,8 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     ['kasBtnSidebar', 'pembelianBtnSidebar', 'biayaBtnSidebar', 'assetBtnSidebar', 'coaBtnSidebar'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
     ['viewKas', 'viewPembelian', 'viewBiaya'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
     ['kasKpi', 'kasWalletList', 'kasRecentList', 'pembelianKpi', 'pembelianList', 'biayaKpi', 'biayaCats', 'biayaList'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
+    expect(document.getElementById('kasReconList')).toBeTruthy();
+    expect(document.getElementById('kasReconSummary')).toBeTruthy();
   });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');

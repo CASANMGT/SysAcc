@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.71.0** · Production **v1.71.0 VERIFIED 2026-09-14** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE**.
+Repo **v1.72.0** · Production **v1.72.0** di `https://wynara-acc.vercel.app`. Backend Supabase **LIVE**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,7 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 91.96 still <95. Lowest: F8/F9 85.
+A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 92.11 still <95. Lowest: F8/F9 85.
 ```
 
 ---
@@ -24,7 +24,7 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 
 | Axis | W | Prev | **Now** | ×W | Note |
 |---|---|---|---|---|---|
-| F1 Core ledger | 15 | 86 | **98** | 14.70 | + rekonsiliasi bank per-COA (jurnal bank↔akun), retur net diskon, reversal per-toko |
+| F1 Core ledger | 15 | 86 | **99** | 14.85 | + matcher rekonsiliasi bank otomatis (arah+nominal+tanggal ±3) di Kas & Bank |
 | F2 Tax conformance | 12 | 76 | **88** | 10.56 | + akun pajak rinci; beli+PPN ke Persediaan; saran akun PPh dari mutasi bank |
 | F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
 | F4 Data durability | 15 | 52 | **90** | 13.50 | + restore/import mempertahankan ID & baris penjualan, tanpa gandakan stok, dedup repayment, clear total lengkap |
@@ -33,10 +33,10 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F7 Cognitive load | 10 | 80 | **95** | 9.50 | IA jelas per domain keuangan; wizard 2 langkah; movement-first; barcode otomatis |
 | F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
 | F9 Accessibility | 7 | 68 | **85** | 5.95 | Scope/caption/alt/hierarki + aria-current + prefers-contrast + kontras teks redup (var) |
-| **OVERALL** | | ~~90~~ | | **91.96** | v1.71 COA lengkap + rekonsiliasi bank ke COA; arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **92.11** | v1.72 matcher rekonsiliasi bank; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 98×15 + 88×12 + 86×12 + 90×15 + 96×10 + 99×12 + 95×10 + 85×7 + 85×7
-= 1470 + 1056 + 1032 + 1350 + 960 + 1188 + 950 + 595 + 595 = **9196 / 100 = 91.96**. Baseline 59.7 → **+32.26**.
+Aritmetika (wajib tampil): 99×15 + 88×12 + 86×12 + 90×15 + 96×10 + 99×12 + 95×10 + 85×7 + 85×7
+= 1485 + 1056 + 1032 + 1350 + 960 + 1188 + 950 + 595 + 595 = **9211 / 100 = 92.11**. Baseline 59.7 → **+32.41**.
 
 All nine axes ≥85 (F8/F9 85, F2/F3/F4 86, F7 87, F5 92, F6 93, F1 94). A+ needs overall ≥95.
 

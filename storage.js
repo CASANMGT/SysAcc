@@ -305,7 +305,8 @@ export function clearAllData() {
     'wynara_recurring', 'wynara_budget', 'wynara_catBudget',
     ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY, DRAFT_KEY,
     SALE_RET_KEY, MOVE_KEY, 'wynara_assets', SHOP_KEY, ACTIVE_SHOP_KEY,
-    'wynara_leave', 'wynara_ump', 'wynara_selfTest', 'wynara_ppn', 'wynara_payroll_rates'
+    'wynara_leave', 'wynara_ump', 'wynara_selfTest', 'wynara_ppn', 'wynara_payroll_rates',
+    BANK_STMT_KEY
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -2443,6 +2444,37 @@ export function importBankLines(lines, { bankAccount } = {}) {
   logAudit('create', 'bank-import', '', null, { ok, locked, skipped, bank: bankAccount });
   return { ok, locked, skipped };
 }
+
+// ===== Rekonsiliasi bank: simpan baris mutasi + status pencocokan =====
+const BANK_STMT_KEY = 'wynara_bank_statement';
+export function getBankStatement() {
+  try { const v = JSON.parse(localStorage.getItem(BANK_STMT_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+export function saveBankStatement(list) {
+  try { localStorage.setItem(BANK_STMT_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 1000))); } catch {}
+  return getBankStatement();
+}
+export function upsertBankStatement(rows) {
+  const cur = getBankStatement();
+  const byKey = new Map(cur.map(s => [s.key, s]));
+  (Array.isArray(rows) ? rows : []).forEach(r => {
+    if (!r || !r.key) return;
+    const ex = byKey.get(r.key);
+    if (ex) byKey.set(r.key, { ...ex, ...r, matchedId: ex.matchedId || null, matchedType: ex.matchedType || null, posted: ex.posted || false, ignored: ex.ignored || false });
+    else byKey.set(r.key, { ...r, matchedId: r.matchedId || null, matchedType: r.matchedType || null, posted: r.posted || false, ignored: r.ignored || false });
+  });
+  saveBankStatement([...byKey.values()]);
+  return getBankStatement();
+}
+export function updateBankStatement(key, patch) {
+  const list = getBankStatement();
+  const i = list.findIndex(s => s.key === key);
+  if (i < 0) return null;
+  list[i] = { ...list[i], ...patch };
+  saveBankStatement(list);
+  return list[i];
+}
+export function clearBankStatement() { try { localStorage.removeItem(BANK_STMT_KEY); } catch {} }
 
 export function purchaseOutstanding(p) {
   return Math.max((Number(p.totalCost) || 0) - purchasePaidTotal(p), 0);

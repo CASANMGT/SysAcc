@@ -10,6 +10,7 @@ import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimeP
 import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 import { code128Svg } from './barcode.js';
+import { suggestMatches, reconSummary } from './bankmatch.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -38,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.71.0';
+const APP_VERSION = '1.72.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -825,6 +826,17 @@ function bindEvents() {
   document.getElementById('kasPageAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
   document.getElementById('kasPageKasBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
   document.getElementById('kasPageBankBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
+  document.getElementById('kasReconImportBtn')?.addEventListener('click', () => { refreshKas(); UI.openBank(); });
+  document.getElementById('kasReconList')?.addEventListener('click', (e) => {
+    const m = e.target.closest('.recon-match');
+    const p = e.target.closest('.recon-post');
+    const ig = e.target.closest('.recon-ignore');
+    const ui = e.target.closest('.recon-unignore');
+    if (m) bankReconMatch(m.dataset.key, m.dataset.entry);
+    else if (p) bankReconPost(p.dataset.key);
+    else if (ig) bankReconIgnore(ig.dataset.key);
+    else if (ui) bankReconUnignore(ui.dataset.key);
+  });
   document.getElementById('pembelianBuyBtn')?.addEventListener('click', () => UI.openBuy());
   document.getElementById('pembelianSupplierBtn')?.addEventListener('click', () => UI.openSupplier());
   document.getElementById('biayaAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); setTimeout(() => { const b = document.querySelector('#typeGroup .select-btn[data-value="expense"], #typeGroup .chip[data-value="expense"]'); if (b) b.click(); }, 30); });
@@ -2412,6 +2424,84 @@ function renderKasPage() {
         <b style="font-size:12px;white-space:nowrap;color:${amt < 0 ? '#ef4444' : '#0f172a'}">${fmt(amt)}</b></div>`;
     }).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi kas/bank.</p>';
   }
+  renderBankRecon();
+}
+
+/* ===== Rekonsiliasi bank (cocokkan mutasi ↔ transaksi) ===== */
+function renderBankRecon() {
+  const box = document.getElementById('kasReconList');
+  if (!box) return;
+  const stmts = Storage.getBankStatement();
+  const sumEl = document.getElementById('kasReconSummary');
+  if (!stmts.length) {
+    if (sumEl) sumEl.textContent = '';
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi bank. Klik 📂 Import mutasi untuk meng-upload CSV — sistem akan otomatis mencocokkan dengan transaksi yang sudah dicatat.</p>';
+    return;
+  }
+  const results = suggestMatches(stmts, Storage.getAllEntries(), { days: 3 });
+  const s = reconSummary(results);
+  if (sumEl) sumEl.textContent = `${s.matched} cocok • ${s.pending} saran • ${s.posted} diposting • ${s.unmatched} tanpa pasangan`;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const rows = results.map(r => {
+    const st = r.stmt;
+    const pair = r.match;
+    const cands = r.candidates || [];
+    let status, actions = '';
+    if (st.matchedId) {
+      status = `✅ <span style="font-size:11px">${pair ? escapeHtml(pair.description || pair.category || 'transaksi') + ' • ' + escapeHtml(pair.date) : 'cocok'}</span>`;
+    } else if (st.posted) {
+      status = '<small style="color:#64748b">📘 diposting ke COA</small>';
+    } else if (st.ignored) {
+      status = '<small style="color:#94a3b8">— diabaikan</small>';
+      actions = `<button class="btn btn-ghost recon-unignore" data-key="${st.key}" style="font-size:11px;padding:2px 8px">Batalkan</button>`;
+    } else if (cands.length) {
+      status = `<span style="font-size:11px;color:#b45309">↔ saran: ${escapeHtml(cands[0].description || cands[0].category || 'transaksi')} • ${escapeHtml(cands[0].date)}</span>`;
+      actions = `<button class="btn btn-primary recon-match" data-key="${st.key}" data-entry="${cands[0].id}" style="font-size:11px;padding:3px 10px">✓ Cocokkan</button>
+        <button class="btn btn-ghost recon-post" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Posting COA</button>
+        <button class="btn btn-ghost recon-ignore" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Abaikan</button>`;
+    } else {
+      status = '<small style="color:#94a3b8">tidak ada pasangan</small>';
+      actions = `<button class="btn btn-ghost recon-post" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Posting COA</button>
+        <button class="btn btn-ghost recon-ignore" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Abaikan</button>`;
+    }
+    const acct = (getAccounts().find(a => a.code === st.counterAccount) || {});
+    return `<tr style="${st.ignored ? 'opacity:0.55' : ''}">
+      <td style="white-space:nowrap;font-size:12px">${escapeHtml(st.date)}</td>
+      <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(st.desc || '')}">${escapeHtml(st.desc || '')}</td>
+      <td class="amount-col" style="color:#059669">${st.direction === 'in' ? fmt(st.amount) : ''}</td>
+      <td class="amount-col" style="color:#dc2626">${st.direction === 'out' ? fmt(st.amount) : ''}</td>
+      <td style="font-size:11px;color:#64748b">${acct.code ? escapeHtml(acct.code + ' ' + acct.name) : '—'}</td>
+      <td>${status}</td>
+      <td style="white-space:nowrap">${actions}</td>
+    </tr>`;
+  }).join('');
+  box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+    <th>Tanggal</th><th>Keterangan</th><th class="amount-col">Masuk</th><th class="amount-col">Keluar</th>
+    <th>Akun lawan</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p style="font-size:11px;color:#64748b;margin-top:6px">Cocok = mutasi sama dengan transaksi tercatat (tak perlu dijurnal ulang). Posting COA = buat jurnal bank↔akun untuk mutasi yang belum tercatat.</p>`;
+}
+function bankReconMatch(key, entryId) {
+  Storage.updateBankStatement(key, { matchedId: entryId, matchedType: 'entry' });
+  UI.showSuccess('Mutasi dicocokkan dengan transaksi');
+  renderBankRecon();
+}
+function bankReconPost(key) {
+  const st = Storage.getBankStatement().find(s => s.key === key);
+  if (!st) return;
+  try {
+    const res = Storage.importBankLines([{ date: st.date, amount: st.amount, direction: st.direction, counterAccount: st.counterAccount, memo: st.desc }], { bankAccount: st.bankAccount || '1102' });
+    if (res.ok) { Storage.updateBankStatement(key, { posted: true }); UI.showSuccess('Mutasi diposting ke COA'); }
+    else UI.showError('Gagal posting — bulan terkunci atau akun lawan belum dipilih');
+    renderBankRecon(); refresh();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal posting'); }
+}
+function bankReconIgnore(key) {
+  Storage.updateBankStatement(key, { ignored: true });
+  renderBankRecon();
+}
+function bankReconUnignore(key) {
+  Storage.updateBankStatement(key, { ignored: false });
+  renderBankRecon();
 }
 
 /* ===== Halaman Pembelian ===== */
@@ -4507,6 +4597,7 @@ function handleBankFile(file) {
           key: `${date}|${desc}|${masuk}|${keluar}|${i}`, date, desc: desc.slice(0, 100),
           in: masuk, out: keluar, direction, amount: masuk > 0 ? masuk : keluar,
           counterAccount: suggestBankAccount(desc, direction),
+          bankAccount: document.getElementById('bankAccount')?.value || '1102',
           selected: true, matched: false,
         });
       }
@@ -4518,7 +4609,7 @@ function handleBankFile(file) {
         const amt = r.in > 0 ? r.in : r.out;
         const type = r.in > 0 ? 'income' : 'expense';
         const d = new Date(r.date);
-        const nearEntry = existing.some(e => {
+        const hitEntry = existing.find(e => {
           if (e.type !== type) return false;
           if (Math.round(Number(e.amount) || 0) !== amt) return false;
           const ed = new Date(e.date);
@@ -4532,9 +4623,11 @@ function handleBankFile(file) {
           const jd = new Date(j.date);
           return !isNaN(jd) && Math.abs((jd - d) / 86400000) <= 3;
         });
-        r.matched = nearEntry || nearBank;
+        r.matchedEntryId = hitEntry ? hitEntry.id : null;
+        r.matched = !!hitEntry || nearBank;
         if (r.matched) r.selected = false;
       });
+      Storage.upsertBankStatement(rows);
       UI.setBankRows(rows);
       const fresh = rows.filter(r => !r.matched).length;
       UI.showInfo(`${rows.length} baris terbaca, ${fresh} baru`);
@@ -4554,6 +4647,7 @@ function handleBankImport() {
     counterAccount: r.counterAccount, memo: r.desc || 'Mutasi bank',
   }));
   const res = Storage.importBankLines(lines, { bankAccount });
+  rows.forEach(r => Storage.updateBankStatement(r.key, { posted: true }));
   UI.showSuccess(`${res.ok} mutasi direkonsiliasi ke COA${res.locked ? ` • ${res.locked} bulan terkunci dilewati` : ''}${res.skipped ? ` • ${res.skipped} tanpa akun` : ''}`);
   UI.setBankRows([]);
   refresh();

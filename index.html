@@ -198,7 +198,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.71.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.72.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -520,7 +520,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.71.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.72.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -647,6 +647,14 @@
             </div>
           </div>
           <div id="kasKpi" class="stock-kpi" aria-label="Ringkasan kas dan bank"></div>
+          <div class="dash-panel" style="padding:16px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+              <h3 style="flex:1;margin:0">🔗 Rekonsiliasi Bank</h3>
+              <span id="kasReconSummary" style="font-size:11px;color:#64748b"></span>
+              <button class="btn btn-ghost" id="kasReconImportBtn" style="font-size:12px;padding:4px 10px">📂 Import mutasi</button>
+            </div>
+            <div id="kasReconList"></div>
+          </div>
           <div class="dashboard-grid">
             <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">💼 Saldo per Dompet</h3><div id="kasWalletList"></div></div>
             <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">🧾 Mutasi Kas &amp; Bank Terbaru</h3><div id="kasRecentList"></div></div>
@@ -2338,7 +2346,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.71.0';
+    window.__htmlVersion = '1.72.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
