@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   accountForPayment, expenseAccountFor, getAccounts, setCustomAccounts,
-  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD
+  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD, suggestBankAccount
 } from '../coa.js';
 import {
   buildEntryJournal, buildLoanJournal, buildRepaymentJournal,
@@ -40,14 +40,25 @@ describe('coa maps', () => {
   });
 });
 
+describe('saran akun COA untuk mutasi bank', () => {
+  it('memetakan keterangan ke akun yang masuk akal', () => {
+    expect(suggestBankAccount('BUNGA TABUNGAN', 'in')).toBe('4102');
+    expect(suggestBankAccount('BIAYA ADM BANK', 'out')).toBe('5114');
+    expect(suggestBankAccount('TARIK TUNAI ATM', 'out')).toBe('1101');
+    expect(suggestBankAccount('PEMBAYARAN QRIS SETTLEMENT', 'in')).toBe('4101');
+    expect(suggestBankAccount('SESUATU TAK DIKENAL', 'out')).toBe('5199');
+    expect(suggestBankAccount('SESUATU TAK DIKENAL', 'in')).toBe('4190');
+  });
+});
+
 describe('custom COA', () => {
   it('gabung + kategori custom kepakai', () => {
-    setCustomAccounts([{ code: '5120', name: 'Beban Iklan', type: 'expense', category: 'iklan' }]);
-    expect(getAccounts().some(a => a.code === '5120')).toBe(true);
-    expect(expenseAccountFor('iklan')).toBe('5120');
+    setCustomAccounts([{ code: '5180', name: 'Beban Iklan', type: 'expense', category: 'iklan_adv' }]);
+    expect(getAccounts().some(a => a.code === '5180')).toBe(true);
+    expect(expenseAccountFor('iklan_adv')).toBe('5180');
     expect(expenseAccountFor('makanan')).toBe('5103');
     setCustomAccounts([]);
-    expect(getAccounts().some(a => a.code === '5120')).toBe(false);
+    expect(getAccounts().some(a => a.code === '5180')).toBe(false);
   });
 });
 

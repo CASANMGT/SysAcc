@@ -1,6 +1,6 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, findUnbalanced } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, findUnbalanced } from './journals.js';
 import { getAccounts, ACCOUNTS } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
@@ -2421,6 +2421,27 @@ export function getPurchaseById(id) {
 
 export function purchasePaidTotal(p) {
   return (Array.isArray(p.payments) ? p.payments : []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+}
+
+// ===== Rekonsiliasi bank: posting mutasi langsung ke COA =====
+export function importBankLines(lines, { bankAccount } = {}) {
+  requireCap('ledger');
+  let ok = 0, locked = 0, skipped = 0;
+  (Array.isArray(lines) ? lines : []).forEach(l => {
+    if (!l || !l.date || !l.counterAccount || !(Number(l.amount) > 0)) { skipped++; return; }
+    try {
+      assertUnlocked(l.date);
+      const j = buildBankLineJournal({
+        date: l.date, amount: l.amount, direction: l.direction === 'in' ? 'in' : 'out',
+        bankAccount, counterAccount: l.counterAccount, memo: l.memo || l.desc || 'Mutasi bank',
+      });
+      if (!j) { skipped++; return; }
+      postJournal(j);
+      ok++;
+    } catch { locked++; }
+  });
+  logAudit('create', 'bank-import', '', null, { ok, locked, skipped, bank: bankAccount });
+  return { ok, locked, skipped };
 }
 
 export function purchaseOutstanding(p) {

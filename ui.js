@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
-import { accountLabel } from './coa.js';
+import { accountLabel, getAccounts } from './coa.js';
 import { computeSlip, thrAmount, DEFAULT_RATES, RATE_LIMITS } from './payroll.js';
 import { getPpn, itemNetPrice, itemVariantLabel, shopStockOf, getActiveShopId, getShops } from './storage.js';
 
@@ -3970,7 +3970,10 @@ export function renderKas(rows) {
   fill('transferFrom', opts);
   fill('transferTo', opts);
   fill('reconAccount', opts);
-  fill('bankAccount', opts);
+  // Bank yang direkonsiliasi = akun COA kas/bank (kode 11xx), bukan jenis pembayaran.
+  const bankOpts = getAccounts().filter(a => a.type === 'asset' && /^11/.test(a.code))
+    .map(a => ({ value: a.code, label: `${a.code} ${a.name}` }));
+  fill('bankAccount', bankOpts);
   const toEl = document.getElementById('transferTo');
   if (toEl && toEl.options.length > 1 && toEl.selectedIndex === 0) toEl.selectedIndex = 1;
 }
@@ -4036,6 +4039,12 @@ export function bindBank(onFile, onImport) {
       renderBankPreview();
     }
   });
+  document.getElementById('bankPreview')?.addEventListener('change', (e) => {
+    const sel = e.target.closest('.bank-coa');
+    if (!sel) return;
+    const row = bankRows.find(r => r.key === sel.dataset.key);
+    if (row) row.counterAccount = sel.value;
+  });
 }
 function renderBankPreview() {
   const box = document.getElementById('bankPreview');
@@ -4050,15 +4059,25 @@ function renderBankPreview() {
     return;
   }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
-  box.innerHTML = `<table class="report-table"><thead><tr><th></th><th>Tanggal</th><th>Keterangan</th><th class="amount-col">Masuk</th><th class="amount-col">Keluar</th><th>Status</th></tr></thead><tbody>` +
-    bankRows.map(r => `<tr style="${r.matched ? 'opacity:0.55' : ''}">
+  const accts = getAccounts();
+  const TYPE = { asset: 'Aset', liability: 'Kewajiban', equity: 'Modal', revenue: 'Pendapatan', expense: 'Beban' };
+  const optgroups = ['asset', 'liability', 'equity', 'revenue', 'expense'].map(t => {
+    const opts = accts.filter(a => a.type === t).map(a => `<option value="${a.code}">${a.code} ${escapeHtml(a.name)}</option>`).join('');
+    return `<optgroup label="${TYPE[t]}">${opts}</optgroup>`;
+  }).join('');
+  box.innerHTML = `<table class="report-table"><thead><tr><th></th><th>Tanggal</th><th>Keterangan</th><th class="amount-col">Masuk</th><th class="amount-col">Keluar</th><th>Akun lawan (COA)</th><th>Status</th></tr></thead><tbody>` +
+    bankRows.map(r => {
+      const selected = String(r.counterAccount || '');
+      const opts = optgroups.replace(`value="${selected}"`, `value="${selected}" selected`);
+      return `<tr style="${r.matched ? 'opacity:0.55' : ''}">
       <td>${r.matched ? '' : `<input type="checkbox" class="bank-pick" data-key="${r.key}" ${r.selected ? 'checked' : ''}>`}</td>
       <td style="white-space:nowrap;font-size:12px">${escapeHtml(r.date)}</td>
-      <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.desc)}">${escapeHtml(r.desc)}</td>
+      <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.desc)}">${escapeHtml(r.desc)}</td>
       <td class="amount-col" style="color:#059669">${r.in > 0 ? fmt(r.in) : ''}</td>
       <td class="amount-col" style="color:#dc2626">${r.out > 0 ? fmt(r.out) : ''}</td>
+      <td>${r.matched ? '<small style="color:#94a3b8">—</small>' : `<select class="bank-coa" data-key="${r.key}" style="max-width:210px;height:32px;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;font-size:11px">${opts}</select>`}</td>
       <td style="font-size:11px">${r.matched ? '✅ cocok' : 'baru'}</td>
-    </tr>`).join('') + `</tbody></table>`;
+    </tr>`; }).join('') + `</tbody></table>`;
 }
 
 /* ===== COA ===== */

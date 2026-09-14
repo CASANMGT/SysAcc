@@ -8,14 +8,24 @@ export const ACCOUNTS = [
   { code: '1103', name: 'QRIS', type: 'asset', payment: 'qris' },
   { code: '1104', name: 'E-Wallet', type: 'asset', payment: 'ewallet' },
   { code: '1105', name: 'Kartu Debit', type: 'asset', payment: 'debit' },
+  { code: '1106', name: 'Bank BCA', type: 'asset' },
+  { code: '1107', name: 'Bank Mandiri', type: 'asset' },
+  { code: '1108', name: 'Bank BRI', type: 'asset' },
   { code: '1109', name: 'Kas Lainnya', type: 'asset', payment: 'other' },
-  // Piutang & persediaan
+  { code: '1110', name: 'Deposito / Tabungan Berjangka', type: 'asset' },
+  // Piutang, persediaan & perlengkapan
   { code: '1201', name: 'Piutang Usaha', type: 'asset' },
+  { code: '1202', name: 'Piutang Karyawan (Kasbon)', type: 'asset' },
+  { code: '1203', name: 'Piutang Lain-lain', type: 'asset' },
   { code: '1301', name: 'Persediaan Barang', type: 'asset' },
+  { code: '1302', name: 'Perlengkapan (Supplies)', type: 'asset' },
   { code: '1401', name: 'PPN Masukan', type: 'asset' },
   // Aset tetap & akumulasi penyusutan (kontra-aset, tampil minus di Neraca)
   { code: '1510', name: 'Aset Tetap', type: 'asset' },
   { code: '1519', name: 'Akumulasi Penyusutan', type: 'asset' },
+  { code: '1520', name: 'Peralatan & Mesin', type: 'asset' },
+  { code: '1521', name: 'Kendaraan', type: 'asset' },
+  { code: '1522', name: 'Bangunan', type: 'asset' },
   // Kewajiban
   { code: '2101', name: 'Hutang Kartu Kredit', type: 'liability', payment: 'credit' },
   { code: '2102', name: 'Hutang Paylater', type: 'liability', payment: 'paylater' },
@@ -25,12 +35,17 @@ export const ACCOUNTS = [
   { code: '2106', name: 'PPh Final Terutang', type: 'liability' },
   { code: '2107', name: 'PPh Dipotong (23 / 4-2)', type: 'liability' },
   { code: '2110', name: 'Hutang BPJS', type: 'liability' },
+  { code: '2201', name: 'Hutang Pajak Lainnya', type: 'liability' },
+  { code: '2202', name: 'Hutang Lain-lain', type: 'liability' },
   // Modal
   { code: '3101', name: 'Modal Awal', type: 'equity' },
   { code: '3102', name: 'Laba Ditahan', type: 'equity' },
+  { code: '3103', name: 'Prive / Penarikan Pemilik', type: 'equity' },
   // Pendapatan
   { code: '4101', name: 'Pendapatan Usaha', type: 'revenue' },
   { code: '4102', name: 'Pendapatan Bunga', type: 'revenue' },
+  { code: '4103', name: 'Pendapatan Jasa', type: 'revenue' },
+  { code: '4190', name: 'Pendapatan Lainnya', type: 'revenue' },
   // Beban
   { code: '5101', name: 'Beban Sewa', type: 'expense', category: 'kos' },
   { code: '5102', name: 'Beban Utilitas', type: 'expense', category: 'utilitas' },
@@ -45,6 +60,16 @@ export const ACCOUNTS = [
   { code: '5111', name: 'Beban Pajak Final', type: 'expense' },
   { code: '5112', name: 'Beban BPJS Perusahaan', type: 'expense' },
   { code: '5113', name: 'Beban Bunga', type: 'expense' },
+  { code: '5114', name: 'Beban Administrasi Bank', type: 'expense', category: 'adm_bank' },
+  { code: '5115', name: 'Beban Bunga Bank', type: 'expense', category: 'bunga_bank' },
+  { code: '5116', name: 'Beban Iklan & Promosi', type: 'expense', category: 'iklan' },
+  { code: '5117', name: 'Beban Perlengkapan', type: 'expense', category: 'perlengkapan' },
+  { code: '5118', name: 'Beban Komunikasi & Internet', type: 'expense', category: 'komunikasi' },
+  { code: '5119', name: 'Beban Asuransi', type: 'expense', category: 'asuransi' },
+  { code: '5120', name: 'Beban Pemeliharaan', type: 'expense', category: 'pemeliharaan' },
+  { code: '5121', name: 'Beban Jasa Profesional', type: 'expense', category: 'jasa' },
+  { code: '5122', name: 'Beban Pajak & Retribusi', type: 'expense', category: 'pajak' },
+  { code: '5123', name: 'Beban Sumbangan', type: 'expense', category: 'sumbangan' },
   { code: '5129', name: 'Beban Penyusutan', type: 'expense' },
   { code: '5199', name: 'Beban Lainnya', type: 'expense' },
 ];
@@ -107,6 +132,31 @@ export const INTEREST_EXPENSE = '5113';
 export const PPN_RATE = 0.11;
 export const PPH_FINAL_RATE = 0.005;
 export const PPH_THRESHOLD = 4800000000;
+
+// Saran akun lawan untuk mutasi bank dari keterangan (auto-mapping sederhana).
+export function suggestBankAccount(desc, direction) {
+  const s = String(desc || '').toLowerCase();
+  const out = direction === 'out';
+  const rules = [
+    [/(bunga|interest)/, out ? '5115' : '4102'],
+    [/(adm|admin|biaya bank|biaya adm|by adm|materai|provisi|fee)/, '5114'],
+    [/(pph|pajak|tax|setor pajak)/, '2201'],
+    [/(gaji|payroll|upah|honor)/, '5110'],
+    [/(listrik|pln|pdam|\bair\b|telkom|internet|indihome|wifi|token)/, '5118'],
+    [/(sewa|rent)/, '5101'],
+    [/(iklan|ads|promosi|marketing)/, '5116'],
+    [/(asuransi|insurance)/, '5119'],
+    [/(perbaikan|servis|service|pemeliharaan|maintenance)/, '5120'],
+    [/(konsultan|notaris|akuntan|pengacara|legal|jasa profesional)/, '5121'],
+    [/(qris|edc|settlement|penjualan|sales|omzet|marketplace|shopee|tokopedia|tiktok)/, '4101'],
+    [/(tarik tunai|setor tunai|tunai|atm|cash)/, '1101'],
+    [/(modal|investasi|setoran modal)/, '3101'],
+    [/(prive|penarikan pemilik|dividen)/, '3103'],
+    [/(transfer|pindah buku|internal)/, out ? '1101' : '4101'],
+  ];
+  for (const [re, code] of rules) if (re.test(s)) return code;
+  return out ? '5199' : '4190';
+}
 
 // PPh Final UMKM (PP 23/2018): 0,5% dari omzet bruto bila omzet setahun ≤ Rp4,8 M.
 // Di atas plafon → tidak berhak; wajib tarif umum (konsultasi konsultan pajak).

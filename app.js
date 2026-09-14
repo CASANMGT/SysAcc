@@ -4,7 +4,7 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccount } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
@@ -38,7 +38,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.70.0';
+const APP_VERSION = '1.71.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2372,8 +2372,8 @@ function exportSalesExcel() {
 /* ===== Halaman Kas & Bank ===== */
 function cashAccountRows() {
   const bal = balances(Storage.getAllJournals(), {});
-  return ACCOUNTS.filter(a => a.payment && a.type === 'asset')
-    .map(a => ({ code: a.code, name: a.name, payment: a.payment, net: (bal[a.code]?.debit || 0) - (bal[a.code]?.credit || 0) }))
+  return ACCOUNTS.filter(a => a.type === 'asset' && /^11/.test(a.code))
+    .map(a => ({ code: a.code, name: a.name, payment: a.payment || '', net: (bal[a.code]?.debit || 0) - (bal[a.code]?.credit || 0) }))
     .filter(x => Math.abs(x.net) > 0.005)
     .sort((a, b) => b.net - a.net);
 }
@@ -2393,7 +2393,7 @@ function renderKasPage() {
   const box = document.getElementById('kasWalletList');
   if (box) {
     box.innerHTML = rows.length ? rows.map(x => {
-      const icon = (Reports.PAYMENT_OPTIONS || []).find(p => p.value === x.payment)?.icon || '📦';
+      const icon = x.payment ? ((Reports.PAYMENT_OPTIONS || []).find(p => p.value === x.payment)?.icon || '📦') : '🏦';
       return `<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px solid #f1f5f9">
         <span>${icon}</span><span style="flex:1">${escapeHtml(x.name)}<br><small style="color:#94a3b8">${x.code}</small></span>
         <b style="color:${x.net < 0 ? '#ef4444' : '#0f172a'}">${fmt(x.net)}</b></div>`;
@@ -2401,7 +2401,7 @@ function renderKasPage() {
   }
   const recent = document.getElementById('kasRecentList');
   if (recent) {
-    const codes = new Set(ACCOUNTS.filter(a => a.payment && a.type === 'asset').map(a => a.code));
+    const codes = new Set(ACCOUNTS.filter(a => a.type === 'asset' && /^11/.test(a.code)).map(a => a.code));
     const list = Storage.getAllJournals()
       .filter(j => (j.lines || []).some(l => codes.has(l.account)))
       .slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 15);
@@ -4502,22 +4502,37 @@ function handleBankFile(file) {
           if (v >= 0) masuk = v; else keluar = -v;
         } else continue;
         if (masuk <= 0 && keluar <= 0) continue;
-        rows.push({ key: `${date}|${desc}|${masuk}|${keluar}|${i}`, date, desc: desc.slice(0, 100), in: masuk, out: keluar, selected: true, matched: false });
+        const direction = masuk > 0 ? 'in' : 'out';
+        rows.push({
+          key: `${date}|${desc}|${masuk}|${keluar}|${i}`, date, desc: desc.slice(0, 100),
+          in: masuk, out: keluar, direction, amount: masuk > 0 ? masuk : keluar,
+          counterAccount: suggestBankAccount(desc, direction),
+          selected: true, matched: false,
+        });
       }
       if (!rows.length) throw new Error('Tidak ada baris mutasi terbaca');
       // cocokkan dengan transaksi ada (nominal sama + tanggal ±3 hari + arah sama)
       const existing = currentEntries;
+      const bankJs = Storage.getAllJournals().filter(j => (j.ref || '') === 'bank');
       rows.forEach(r => {
         const amt = r.in > 0 ? r.in : r.out;
         const type = r.in > 0 ? 'income' : 'expense';
         const d = new Date(r.date);
-        r.matched = existing.some(e => {
+        const nearEntry = existing.some(e => {
           if (e.type !== type) return false;
           if (Math.round(Number(e.amount) || 0) !== amt) return false;
           const ed = new Date(e.date);
           if (isNaN(ed)) return false;
           return Math.abs((ed - d) / 86400000) <= 3;
         });
+        // Sudah pernah direkonsiliasi (jurnal ref 'bank') → tandai cocok.
+        const nearBank = bankJs.some(j => {
+          const t = (j.lines || []).reduce((s, l) => s + (Number(l.debit) || 0), 0);
+          if (Math.round(t) !== amt) return false;
+          const jd = new Date(j.date);
+          return !isNaN(jd) && Math.abs((jd - d) / 86400000) <= 3;
+        });
+        r.matched = nearEntry || nearBank;
         if (r.matched) r.selected = false;
       });
       UI.setBankRows(rows);
@@ -4533,20 +4548,13 @@ function handleBankFile(file) {
 function handleBankImport() {
   const rows = UI.getBankSelected();
   if (!rows.length) return UI.showInfo('Tidak ada baris terpilih');
-  const payment = document.getElementById('bankAccount')?.value || 'transfer';
-  let ok = 0, locked = 0;
-  rows.forEach(r => {
-    if (Storage.isMonthLocked(r.date)) { locked++; return; }
-    try {
-      Storage.createEntry({
-        date: r.date, type: r.in > 0 ? 'income' : 'expense',
-        category: 'lainnya', payment, description: r.desc || 'Mutasi bank',
-        amount: r.in > 0 ? r.in : r.out
-      });
-      ok++;
-    } catch {}
-  });
-  UI.showSuccess(`${ok} mutasi diimport${locked ? ` (${locked} bulan terkunci dilewati)` : ''}`);
+  const bankAccount = document.getElementById('bankAccount')?.value || '1102';
+  const lines = rows.map(r => ({
+    date: r.date, amount: r.in > 0 ? r.in : r.out, direction: r.in > 0 ? 'in' : 'out',
+    counterAccount: r.counterAccount, memo: r.desc || 'Mutasi bank',
+  }));
+  const res = Storage.importBankLines(lines, { bankAccount });
+  UI.showSuccess(`${res.ok} mutasi direkonsiliasi ke COA${res.locked ? ` • ${res.locked} bulan terkunci dilewati` : ''}${res.skipped ? ` • ${res.skipped} tanpa akun` : ''}`);
   UI.setBankRows([]);
   refresh();
 }

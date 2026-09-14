@@ -277,3 +277,22 @@ export function findUnbalanced(journals) {
   });
   return bad;
 }
+
+// Mutasi bank (rekonsiliasi dengan COA):
+// uang MASUK → Dr <bank> / Cr <akun lawan>; uang KELUAR → Dr <akun lawan> / Cr <bank>.
+export function buildBankLineJournal({ date, amount, direction, bankAccount, counterAccount, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0 || !bankAccount || !counterAccount || bankAccount === counterAccount) return null;
+  const m = memo || 'Mutasi bank';
+  const lines = direction === 'in'
+    ? [
+      { account: bankAccount, debit: amt, credit: 0, memo: m },
+      { account: counterAccount, debit: 0, credit: amt, memo: m },
+    ]
+    : [
+      { account: counterAccount, debit: amt, credit: 0, memo: m },
+      { account: bankAccount, debit: 0, credit: amt, memo: m },
+    ];
+  const j = { id: jid('J'), date, memo: m, ref: 'bank', refId: null, lines };
+  return balanced(lines) ? j : null;
+}

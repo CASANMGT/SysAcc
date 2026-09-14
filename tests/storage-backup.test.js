@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -114,17 +114,17 @@ describe('penegakan kunci periode di lapisan storage (V3)', () => {
 
 describe('custom COA storage', () => {
   it('tambah + tolak duplikat + hapus', () => {
-    saveCustomAccount({ code: '5120', name: 'Beban Iklan', type: 'expense', category: 'iklan' });
-    expect(getCustomAccounts().some(a => a.code === '5120')).toBe(true);
-    expect(() => saveCustomAccount({ code: '5120', name: 'X', type: 'expense' })).toThrow();
+    saveCustomAccount({ code: '5180', name: 'Beban Iklan', type: 'expense', category: 'iklan_adv' });
+    expect(getCustomAccounts().some(a => a.code === '5180')).toBe(true);
+    expect(() => saveCustomAccount({ code: '5180', name: 'X', type: 'expense' })).toThrow();
     expect(() => saveCustomAccount({ code: '12', name: 'X', type: 'expense' })).toThrow();
-    deleteCustomAccount('5120', {});
-    expect(getCustomAccounts().some(a => a.code === '5120')).toBe(false);
+    deleteCustomAccount('5180', {});
+    expect(getCustomAccounts().some(a => a.code === '5180')).toBe(false);
   });
   it('tak bisa hapus akun bermutasi', () => {
-    saveCustomAccount({ code: '5121', name: 'Y', type: 'expense' });
-    expect(() => deleteCustomAccount('5121', { 5121: { debit: 100, credit: 0 } })).toThrow();
-    deleteCustomAccount('5121', {});
+    saveCustomAccount({ code: '5181', name: 'Y', type: 'expense' });
+    expect(() => deleteCustomAccount('5181', { 5181: { debit: 100, credit: 0 } })).toThrow();
+    deleteCustomAccount('5181', {});
   });
 });
 
@@ -428,6 +428,14 @@ describe('perbaikan bug (audit)', () => {
   });
   it('akun custom tidak boleh memakai kode akun bawaan', () => {
     expect(() => saveCustomAccount({ code: '4101', name: 'X', type: 'asset' })).toThrow(/bawaan|dipakai/);
+  });
+  it('importBankLines memposting jurnal bank↔COA (balance)', () => {
+    const res = importBankLines([{ date: '2026-09-01', amount: 15000, direction: 'out', counterAccount: '5114', memo: 'Biaya adm' }], { bankAccount: '1102' });
+    expect(res.ok).toBe(1);
+    const j = getAllJournals().find(x => x.ref === 'bank');
+    expect(j).toBeTruthy();
+    expect(j.lines.find(l => l.account === '5114').debit).toBe(15000);
+    expect(j.lines.find(l => l.account === '1102').credit).toBe(15000);
   });
 });
 

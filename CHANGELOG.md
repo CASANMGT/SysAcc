@@ -6,6 +6,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.71.0] - 2026-09-14
+
+### Added — COA lebih lengkap + rekonsiliasi bank ke COA
+- **COA diperluas** (dari 37 → 60+ akun): bank terpisah (BCA/Mandiri/BRI/Deposito), piutang karyawan & lain-lain, perlengkapan, peralatan/kendaraan/bangunan, hutang pajak & lain-lain, prive, pendapatan jasa & lain-lain, serta beban rinci (adm bank, bunga bank, iklan, perlengkapan, komunikasi, asuransi, pemeliharaan, jasa profesional, pajak, sumbangan)
+- **Rekonsiliasi bank kini per-COA**: setiap baris CSV punya **pemilih akun lawan (COA)** — disarankan otomatis dari keterangan (bunga→4102, biaya adm→5114, tarik tunai/ATM→1101, QRIS/settlement→4101, PPh→2201, dll)
+- Import memposting **jurnal bank↔akun** (Dr bank/Cr akun untuk masuk; Dr akun/Cr bank untuk keluar) — bukan lagi transaksi generik "lainnya"
+- Deteksi "sudah cocok" juga mengenali mutasi yang pernah direkonsiliasi (jurnal ref `bank`) agar tidak dobel
+- Akun bank terpilih kini dari **COA 11xx** (bukan jenis pembayaran); halaman Kas & Bank menampilkan semua akun kas/bank
+- +2 test; 297/297 tests ✓
+
+---
+
 ## [1.70.0] - 2026-09-14
 
 ### Added — Menu baru bergaya Jurnal.id + halaman Kas & Bank, Pembelian, Biaya
