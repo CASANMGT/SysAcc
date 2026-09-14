@@ -3844,6 +3844,7 @@ img { max-width: 100%; height: auto; }
 #appRoot[data-role="hrd"] [data-owner-only],
 #appRoot[data-role="hrd"] #reportBtnSidebar,
 #appRoot[data-role="hrd"] #stockBtnSidebar,
+#appRoot[data-role="hrd"] #salesBtnSidebar,
 #appRoot[data-role="hrd"] #loanBtnSidebar,
 #appRoot[data-role="hrd"] #contactsBtnSidebar,
 #appRoot[data-role="hrd"] [data-bnav="reports"],

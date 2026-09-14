@@ -150,11 +150,13 @@ export function renderDonut(categories) {
 // Grafik batang penjualan harian (kategori 'jualan') untuk N hari terakhir.
 export function renderSalesDailyChart(entries, opts) {
   const days = (opts && opts.days) || 14;
-  const svg = document.getElementById('salesDailyChart');
-  const labelsEl = document.getElementById('salesDailyLabels');
-  const totalEl = document.getElementById('salesDailyTotal');
-  const avgEl = document.getElementById('salesDailyAvg');
-  const bestEl = document.getElementById('salesDailyBest');
+  const ids = (opts && opts.ids) || {};
+  const byId = (key, fallback) => document.getElementById(ids[key] || fallback);
+  const svg = byId('svg', 'salesDailyChart');
+  const labelsEl = byId('labels', 'salesDailyLabels');
+  const totalEl = byId('total', 'salesDailyTotal');
+  const avgEl = byId('avg', 'salesDailyAvg');
+  const bestEl = byId('best', 'salesDailyBest');
   if (!svg) return;
   const pad2 = (n) => String(n).padStart(2, '0');
   const dayKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;

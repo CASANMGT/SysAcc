@@ -168,6 +168,7 @@
         <nav class="sidebar-nav">
           <button class="sidebar-item active" data-nav="ringkasan">📊 Ringkasan</button>
           <button class="sidebar-item" id="sidebarTransaksi">🧾 Transaksi</button>
+          <button class="sidebar-item" id="salesBtnSidebar">🛒 Penjualan</button>
           <button class="sidebar-item" id="reportBtnSidebar">📄 Laporan</button>
           <button class="sidebar-item" id="contactsBtnSidebar">👥 Kontak</button>
           <button class="sidebar-item" id="loanBtnSidebar">🤝 Pinjemin</button>
@@ -183,7 +184,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.66.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.67.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -505,7 +506,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.66.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.67.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -562,6 +563,58 @@
                 <span id="transaksiSaldo" style="font-weight:600">Total saldo: Rp 0,00</span>
                 <div class="table-pager" style="display:flex;gap:4px"><button type="button" id="transaksiPrev" aria-label="Halaman sebelumnya" disabled>‹</button><span class="pager-active" id="transaksiPagerNum">1</span><button type="button" id="transaksiNext" aria-label="Halaman berikutnya" disabled>›</button></div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="viewSales" class="view-section hidden">
+          <div class="view-header">
+            <div>
+              <h1>🛒 Penjualan</h1>
+              <p id="salesSubtitle">Semua laporan penjualan dalam satu halaman</p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select id="salesPeriod" title="Periode" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;background:white">
+                <option value="this-month">Bulan ini</option>
+                <option value="last-month">Bulan lalu</option>
+                <option value="this-year">Tahun ini</option>
+                <option value="all">Semua</option>
+              </select>
+              <button class="btn btn-primary" id="salesNewBtn">＋ Jual</button>
+            </div>
+          </div>
+          <div id="salesKpi" class="stock-kpi" aria-label="Ringkasan penjualan"></div>
+          <div class="dashboard-grid">
+            <div class="dash-panel dash-panel-chart">
+              <div class="dash-panel-head"><div><h3>Penjualan Harian</h3><p>14 hari terakhir</p></div></div>
+              <div class="dash-panel-legend"><span class="legend-dot emerald"></span> Penjualan</div>
+              <div class="chart-wrap">
+                <svg id="salesPageChart" viewBox="0 0 600 180" class="chart-svg" role="img" aria-label="Grafik penjualan harian"></svg>
+                <div class="chart-months" id="salesPageLabels"></div>
+              </div>
+              <div class="chart-stats">
+                <div class="chart-stat"><span>Total 14 hari</span><strong id="salesPageTotal">Rp 0</strong></div>
+                <div class="chart-stat"><span>Rata-rata/hari</span><strong id="salesPageAvg">Rp 0</strong></div>
+                <div class="chart-stat highlight"><span>Hari terbaik</span><strong id="salesPageBest">—</strong></div>
+              </div>
+            </div>
+            <div class="dash-panel dash-panel-top">
+              <div class="dash-panel-head"><h3>🏆 Produk Terlaris</h3></div>
+              <div id="salesTopList"></div>
+            </div>
+          </div>
+          <div class="dash-panel" style="padding:16px;overflow-x:auto;margin-bottom:16px">
+            <h3 style="margin-bottom:8px">📦 Penjualan per Produk</h3>
+            <div id="salesProductTable"></div>
+          </div>
+          <div class="dashboard-grid">
+            <div class="dash-panel" style="padding:16px">
+              <h3 style="margin-bottom:8px">💳 Metode Pembayaran</h3>
+              <div id="salesPayTable"></div>
+            </div>
+            <div class="dash-panel" style="padding:16px">
+              <h3 style="margin-bottom:8px">🧾 Struk Terbaru</h3>
+              <div id="salesRecentList"></div>
             </div>
           </div>
         </div>
@@ -2215,7 +2268,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.66.0';
+    window.__htmlVersion = '1.67.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

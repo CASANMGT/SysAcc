@@ -169,6 +169,14 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(document.getElementById('salesDailyTotal')).toBeTruthy();
     expect(document.getElementById('topProductsMore')).toBeTruthy();
   });
+  it('halaman Penjualan ada di sidebar + gabungan laporan', () => {
+    expect(document.getElementById('salesBtnSidebar')).toBeTruthy();
+    const v = document.getElementById('viewSales');
+    expect(v).toBeTruthy();
+    ['salesKpi', 'salesPageChart', 'salesTopList', 'salesProductTable', 'salesPayTable', 'salesRecentList'].forEach(id => {
+      expect(v.querySelector('#' + id) || document.getElementById(id)).toBeTruthy();
+    });
+  });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
     expect(seg.length).toBeGreaterThan(0);

@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.67.0] - 2026-09-14
+
+### Added — Halaman 🛒 Penjualan khusus (gabungan semua laporan penjualan)
+- Menu sidebar baru **🛒 Penjualan** (`#viewSales`) dengan pemilih **periode** (Bulan ini / Bulan lalu / Tahun ini / Semua) + tombol **＋ Jual**
+- Isi satu halaman: **KPI** (Omzet · Barang terjual · HPP · Laba kotor · Rata-rata/struk), **grafik Penjualan Harian 14 hari**, **🏆 Produk Terlaris**, **tabel Penjualan per Produk** (qty/omzet/HPP/laba/margin + baris total), **Metode Pembayaran**, dan **Struk Terbaru**
+- Masuk juga lewat bottom-nav **Lainnya → Penjualan**; disembunyikan untuk peran HRD
+- +1 test; 286/286 tests ✓
+
+---
+
 ## [1.66.0] - 2026-09-14
 
 ### Added — Widget penjualan di dashboard (Ringkasan)
