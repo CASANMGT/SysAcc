@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCategoryLabel, getCategoryIcon, CATEGORY_OPTIONS, getPaymentLabel, getPaymentIcon } from './reports.js';
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
-import { accountLabel, getAccounts } from './coa.js';
+import { accountLabel, getAccounts, expenseAccountFor, REVENUE_ACCOUNT } from './coa.js';
 import { computeSlip, thrAmount, DEFAULT_RATES, RATE_LIMITS } from './payroll.js';
 import { getPpn, itemNetPrice, itemVariantLabel, shopStockOf, getActiveShopId, getShops } from './storage.js';
 
@@ -200,6 +200,8 @@ export function renderEntries(entries) {
   const body = elements.entriesBody;
   const empty = elements.emptyState;
   if (!body || !empty) return;
+  const accountOf = (e) => e.loanId ? '1201' : (e.type === 'income' ? REVENUE_ACCOUNT : expenseAccountFor(e.category));
+  const accName = (code) => (getAccounts().find(a => a.code === code) || {}).name || '';
   if (entries.length === 0) {
     const term = getSearchTerm();
     body.innerHTML = '';
@@ -234,12 +236,14 @@ export function renderEntries(entries) {
     const desc = e.description || (isLoan && e.person ? `→ ${e.person}` : '-');
     const rowClass = isLoan ? 'loan-row' : (isIncome ? 'tr-income' : 'tr-expense');
     const payDetail = e.paymentDetail ? `<span class="pay-sub" title="${escapeHtml(e.paymentDetail)}">${escapeHtml(e.paymentDetail)}</span>` : '';
+    const code = accountOf(e);
     return `
       <tr data-id="${e.id}" class="${rowClass}">
         <td style="white-space:nowrap;width:34px"><input type="checkbox" class="row-select" data-id="${e.id}" ${checked} ${checkDisabled} aria-label="Pilih transaksi"></td>
         <td style="white-space:nowrap">${formatDate(e.date)}</td>
         <td><span class="category-tag">${getCategoryIcon(e.category)} ${escapeHtml(getCategoryLabel(e.category))}</span></td>
         <td title="${escapeHtml(desc)}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(desc)}</td>
+        <td style="white-space:nowrap" title="${escapeHtml(accountLabel(code))}"><span style="font-family:var(--font-mono);font-size:11px;color:#475569">${code}</span> <span style="color:var(--text-muted);font-size:11px">${escapeHtml(accName(code))}</span></td>
         <td><span class="payment-tag" title="${escapeHtml(e.paymentDetail || getPaymentLabel(e.payment))}">${getPaymentIcon(e.payment)} ${getPaymentLabel(e.payment)}</span></td>
         <td><span class="type-badge ${isIncome ? 'income' : 'expense'}" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap">${isIncome ? '📥 Masuk' : '📤 Keluar'}</span></td>
         <td class="amount-col ${isIncome ? 'income' : 'expense'}" style="white-space:nowrap;text-align:right;font-weight:700;font-size:13px">${sign} ${amtStr}${payDetail}</td>

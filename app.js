@@ -4,7 +4,7 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS, expenseAccountFor, REVENUE_ACCOUNT } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.79.0';
+const APP_VERSION = '1.80.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3114,10 +3114,13 @@ function renderFullTransaksi() {
     const ikon = Reports.getCategoryIcon(e.category);
     const kontak = e.person ? escapeHtml(e.person) : '—';
     const cara = `${Reports.getPaymentIcon(e.payment)} ${Reports.getPaymentLabel(e.payment)}${e.paymentDetail ? ' • ' + escapeHtml(e.paymentDetail) : ''}`;
+    const acctCode = e.loanId ? '1201' : (e.type === 'income' ? REVENUE_ACCOUNT : expenseAccountFor(e.category));
+    const acctName = (getAccounts().find(a => a.code === acctCode) || {}).name || '';
     return `<tr style="border-bottom:1px solid #f8fafc">
       <td style="padding:12px;white-space:nowrap;font-size:13px">${Reports.formatDate(e.date)}</td>
       <td style="padding:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:9999px;background:#f1f5f9;font-size:12px">${ikon} ${escapeHtml(kategori)}</span></td>
       <td style="padding:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description||'')}">${escapeHtml(e.description||'-')}</td>
+      <td style="padding:12px;white-space:nowrap" title="${escapeHtml(acctCode + ' ' + acctName)}"><span style="font-family:monospace;font-size:11px;color:#475569">${acctCode}</span> <span style="color:var(--text-muted);font-size:11px">${escapeHtml(acctName)}</span></td>
       <td style="padding:12px;white-space:nowrap;font-size:13px">${kontak}</td>
       <td style="padding:12px;white-space:nowrap;font-size:12px"><span style="background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:9999px">${cara}</span></td>
       <td style="padding:12px"><span style="background:${isIncome?'#ecfdf5':'#fff1f2'};color:${isIncome?'#047857':'#be123c'};padding:2px 8px;border-radius:9999px;font-size:11px">${isIncome?'📥 Masuk':'📤 Keluar'}</span></td>

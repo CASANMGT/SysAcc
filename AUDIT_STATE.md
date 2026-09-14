@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.79.0** · Production **v1.79.0 VERIFIED 2026-09-14** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE (server-authoritative)**.
+Repo **v1.80.0** · Production **v1.80.0** di `https://wynara-acc.vercel.app`. Backend Supabase **LIVE (server-authoritative)**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,7 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 93.49 still <95. Lowest: F8 85.
+A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 93.59 still <95. Lowest: F8 85.
 ```
 
 ---
@@ -28,15 +28,15 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F2 Tax conformance | 12 | 76 | **91** | 10.92 | + kelola COA (cari/filter + kode saran) & terapkan saran COA massal di impor bank |
 | F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
 | F4 Data durability | 15 | 52 | **93** | 13.95 | **Server-authoritative**: DB sumber kebenaran, login email wajib, boot pull, write-through, migrasi aman |
-| F5 Reporting | 10 | 94 | **97** | 9.70 | + indikator selisih rekening koran + aturan bank + cocokkan semua di Kas & Bank |
+| F5 Reporting | 10 | 94 | **98** | 9.80 | + kolom COA di daftar transaksi (kode + nama akun tiap baris) |
 | F6 Task efficiency | 12 | 86 | **99** | 11.88 | + menu bergrup (Kas & Bank, Pembelian, Biaya) + halaman terpadu; SKU/barcode; POS; dokumen stok |
 | F7 Cognitive load | 10 | 80 | **99** | 9.90 | + saran akun live di form Aturan Bank (Gunakan sekali klik) |
 | F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
 | F9 Accessibility | 7 | 68 | **86** | 6.02 | + login: label/aria bahasa, fokus input, kontras hero diperbaiki |
-| **OVERALL** | | ~~90~~ | | **93.49** | v1.79 kelola COA + terapkan saran massal; arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **93.59** | v1.80 kolom COA di transaksi; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 99×15 + 91×12 + 86×12 + 93×15 + 97×10 + 99×12 + 99×10 + 85×7 + 86×7
-= 1485 + 1092 + 1032 + 1395 + 970 + 1188 + 990 + 595 + 602 = **9349 / 100 = 93.49**. Baseline 59.7 → **+33.79**.
+Aritmetika (wajib tampil): 99×15 + 91×12 + 86×12 + 93×15 + 98×10 + 99×12 + 99×10 + 85×7 + 86×7
+= 1485 + 1092 + 1032 + 1395 + 980 + 1188 + 990 + 595 + 602 = **9359 / 100 = 93.59**. Baseline 59.7 → **+33.89**.
 
 All nine axes ≥85 (F8/F9 85, F2/F3/F4 86, F7 87, F5 92, F6 93, F1 94). A+ needs overall ≥95.
 

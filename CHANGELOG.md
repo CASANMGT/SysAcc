@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.80.0] - 2026-09-14
+
+### Added — Kolom COA di daftar transaksi
+- Tabel transaksi (dashboard **Transaksi Terbaru** & halaman **Transaksi**) kini punya kolom **AKUN (COA)**: kode akun (mono) + nama, sesuai arah — pendapatan → 4101, beban → akun sesuai kategori, pinjaman → 1201 Piutang
+- Membantu melihat pemetaan akuntansi tiap baris sekilas
+- 315/315 tests ✓
+
+---
+
 ## [1.79.0] - 2026-09-14
 
 ### Improved — Kelola COA & sinkronisasi bank jadi lebih mudah
