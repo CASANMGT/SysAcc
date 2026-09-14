@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.70.0] - 2026-09-14
+
+### Added — Menu baru bergaya Jurnal.id + halaman Kas & Bank, Pembelian, Biaya
+- **Sidebar dikelompokkan**: MENU (Ringkasan, Transaksi) · KEUANGAN (**Kas & Bank**, Penjualan, **Pembelian**, **Biaya**, Aset Tetap) · DATA (Kontak, Produk, Pinjemin, Karyawan & Gaji, Daftar Akun) · LAINNYA (Laporan, Pengaturan)
+- **💳 Kas & Bank**: KPI (Total · Tunai · Bank/QRIS/E-wallet), **saldo per dompet** (dari jurnal, kumulatif), **mutasi kas/bank terbaru**, tombol Transaksi / Kas & Transfer / Mutasi Bank
+- **🧺 Pembelian**: KPI (hutang usaha · jatuh tempo/terlambat · faktur belum lunas · total pembelian), **daftar pembelian + umur hutang (aging)**, tombol Beli & Hutang/Bayar
+- **💸 Biaya**: periode, KPI (total · transaksi · kategori · terbesar), **biaya per kategori (bar)**, daftar transaksi biaya, tombol Catat Biaya (langsung mode pengeluaran)
+- Aset Tetap & Daftar Akun kini punya entri menu sendiri (buat dari sidebar)
+- Bottom-nav "Lainnya" menambah **Pembelian & Biaya**; peran HRD disembunyikan dari Kas/Biaya/Pembelian, kasir dari Pembelian
+- +1 test; 295/295 tests ✓
+
+---
+
 ## [1.69.0] - 2026-09-14
 
 ### Fixed — Audit bug besar (akuntansi, data, UI)

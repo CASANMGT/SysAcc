@@ -178,6 +178,11 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
       expect(v.querySelector('#' + id) || document.getElementById(id)).toBeTruthy();
     });
   });
+  it('menu restruktur: Kas & Bank, Pembelian, Biaya (+Aset, Daftar Akun)', () => {
+    ['kasBtnSidebar', 'pembelianBtnSidebar', 'biayaBtnSidebar', 'assetBtnSidebar', 'coaBtnSidebar'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
+    ['viewKas', 'viewPembelian', 'viewBiaya'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
+    ['kasKpi', 'kasWalletList', 'kasRecentList', 'pembelianKpi', 'pembelianList', 'biayaKpi', 'biayaCats', 'biayaList'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
+  });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
     expect(seg.length).toBeGreaterThan(0);

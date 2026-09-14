@@ -4400,8 +4400,8 @@ export function bindBuy(onSave) {
   document.getElementById('buySave')?.addEventListener('click', onSave);
   document.getElementById('buyOpenBtn')?.addEventListener('click', openBuy);
 }
-export function renderSuppliers(purchases) {
-  const box = document.getElementById('supplierList');
+export function renderSuppliers(purchases, containerId = 'supplierList') {
+  const box = document.getElementById(containerId);
   if (!box) return;
   if (!purchases.length) {
     box.innerHTML = '<p style="color:#94a3b8;font-size:12px">Belum ada hutang supplier. Klik ＋ Beli.</p>';

@@ -168,12 +168,26 @@
         <nav class="sidebar-nav">
           <button class="sidebar-item active" data-nav="ringkasan">📊 Ringkasan</button>
           <button class="sidebar-item" id="sidebarTransaksi">🧾 Transaksi</button>
+        </nav>
+        <div class="sidebar-label">KEUANGAN</div>
+        <nav class="sidebar-nav">
+          <button class="sidebar-item" id="kasBtnSidebar">💳 Kas &amp; Bank</button>
           <button class="sidebar-item" id="salesBtnSidebar">🛒 Penjualan</button>
-          <button class="sidebar-item" id="reportBtnSidebar">📄 Laporan</button>
+          <button class="sidebar-item" id="pembelianBtnSidebar">🧺 Pembelian</button>
+          <button class="sidebar-item" id="biayaBtnSidebar">💸 Biaya</button>
+          <button class="sidebar-item" id="assetBtnSidebar">🏢 Aset Tetap</button>
+        </nav>
+        <div class="sidebar-label">DATA</div>
+        <nav class="sidebar-nav">
           <button class="sidebar-item" id="contactsBtnSidebar">👥 Kontak</button>
+          <button class="sidebar-item" id="stockBtnSidebar">📦 Produk</button>
           <button class="sidebar-item" id="loanBtnSidebar">🤝 Pinjemin</button>
-          <button class="sidebar-item" id="stockBtnSidebar">📦 Stok</button>
-          <button class="sidebar-item" id="payrollBtnSidebar">👥 Karyawan & Gaji</button>
+          <button class="sidebar-item" id="payrollBtnSidebar">🤵 Karyawan &amp; Gaji</button>
+          <button class="sidebar-item" id="coaBtnSidebar">📒 Daftar Akun</button>
+        </nav>
+        <div class="sidebar-label">LAINNYA</div>
+        <nav class="sidebar-nav">
+          <button class="sidebar-item" id="reportBtnSidebar">📄 Laporan</button>
           <button class="sidebar-item" id="themeToggleSidebar">⚙️ Pengaturan</button>
         </nav>
         <div class="sidebar-help">
@@ -184,7 +198,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.69.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.70.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -506,7 +520,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.69.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.70.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -620,6 +634,57 @@
               <div id="salesRecentList"></div>
             </div>
           </div>
+          </div>
+        </div>
+
+        <div id="viewKas" class="view-section hidden">
+          <div class="view-header">
+            <div><h1>💳 Kas &amp; Bank</h1><p id="kasSubtitle">Saldo dompet, transfer, dan rekonsiliasi bank</p></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="kasPageAddBtn">＋ Transaksi</button>
+              <button class="btn btn-ghost" id="kasPageKasBtn">⇄ Kas &amp; Transfer</button>
+              <button class="btn btn-ghost" id="kasPageBankBtn">🏦 Mutasi Bank</button>
+            </div>
+          </div>
+          <div id="kasKpi" class="stock-kpi" aria-label="Ringkasan kas dan bank"></div>
+          <div class="dashboard-grid">
+            <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">💼 Saldo per Dompet</h3><div id="kasWalletList"></div></div>
+            <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">🧾 Mutasi Kas &amp; Bank Terbaru</h3><div id="kasRecentList"></div></div>
+          </div>
+        </div>
+
+        <div id="viewPembelian" class="view-section hidden">
+          <div class="view-header">
+            <div><h1>🧺 Pembelian</h1><p id="pembelianSubtitle">Pembelian ke supplier &amp; hutang usaha</p></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="pembelianBuyBtn">＋ Beli</button>
+              <button class="btn btn-ghost" id="pembelianSupplierBtn">🧾 Hutang &amp; Bayar</button>
+            </div>
+          </div>
+          <div id="pembelianKpi" class="stock-kpi" aria-label="Ringkasan pembelian"></div>
+          <div class="dash-panel" style="padding:16px">
+            <h3 style="margin-bottom:8px">📥 Daftar Pembelian / Hutang Supplier</h3>
+            <div id="pembelianList"></div>
+          </div>
+        </div>
+
+        <div id="viewBiaya" class="view-section hidden">
+          <div class="view-header">
+            <div><h1>💸 Biaya</h1><p id="biayaSubtitle">Pengeluaran operasional usaha</p></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select id="biayaPeriod" title="Periode" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;background:white">
+                <option value="this-month">Bulan ini</option>
+                <option value="last-month">Bulan lalu</option>
+                <option value="this-year">Tahun ini</option>
+                <option value="all">Semua</option>
+              </select>
+              <button class="btn btn-primary" id="biayaAddBtn">＋ Catat Biaya</button>
+            </div>
+          </div>
+          <div id="biayaKpi" class="stock-kpi" aria-label="Ringkasan biaya"></div>
+          <div class="dashboard-grid">
+            <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">📊 Biaya per Kategori</h3><div id="biayaCats"></div></div>
+            <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">🧾 Transaksi Biaya</h3><div id="biayaList"></div></div>
           </div>
         </div>
 
@@ -2273,7 +2338,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.69.0';
+    window.__htmlVersion = '1.70.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

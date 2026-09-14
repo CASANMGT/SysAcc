@@ -38,7 +38,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.69.0';
+const APP_VERSION = '1.70.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -790,7 +790,7 @@ function bindEvents() {
     const target = document.getElementById(viewId) || document.getElementById('viewRingkasan');
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewSales: '#salesBtnSidebar', viewPayroll: '#payrollBtnSidebar', viewStock: '#stockBtnSidebar', viewLaporan: '#reportBtnSidebar', viewChangelog: '#changelogLink' };
+    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewSales: '#salesBtnSidebar', viewKas: '#kasBtnSidebar', viewPembelian: '#pembelianBtnSidebar', viewBiaya: '#biayaBtnSidebar', viewPayroll: '#payrollBtnSidebar', viewStock: '#stockBtnSidebar', viewLaporan: '#reportBtnSidebar', viewChangelog: '#changelogLink' };
     const sel = map[viewId];
     if (sel) document.querySelector(sel)?.classList.add('active');
     document.querySelectorAll('.sidebar-item').forEach(b => b.removeAttribute('aria-current'));
@@ -805,6 +805,9 @@ function bindEvents() {
     overlay?.classList.add('hidden');
     if (viewId === 'viewTransaksi') renderFullTransaksi();
     if (viewId === 'viewSales') renderSalesPage();
+    if (viewId === 'viewKas') renderKasPage();
+    if (viewId === 'viewPembelian') renderPembelianPage();
+    if (viewId === 'viewBiaya') renderBiayaPage();
     if (viewId === 'viewPayroll') renderPayrollView();
     if (viewId === 'viewStock') refreshStockPage();
     if (viewId === 'viewLaporan') { refresh(); renderPageReport(); }
@@ -814,6 +817,18 @@ function bindEvents() {
   document.querySelector('[data-nav="ringkasan"]')?.addEventListener('click', () => showView('viewRingkasan'));
   document.getElementById('sidebarTransaksi')?.addEventListener('click', () => showView('viewTransaksi'));
   document.getElementById('salesBtnSidebar')?.addEventListener('click', () => showView('viewSales'));
+  document.getElementById('kasBtnSidebar')?.addEventListener('click', () => showView('viewKas'));
+  document.getElementById('pembelianBtnSidebar')?.addEventListener('click', () => showView('viewPembelian'));
+  document.getElementById('biayaBtnSidebar')?.addEventListener('click', () => showView('viewBiaya'));
+  document.getElementById('assetBtnSidebar')?.addEventListener('click', () => openAssets());
+  document.getElementById('coaBtnSidebar')?.addEventListener('click', () => { refreshCoa(); UI.openCoa(); });
+  document.getElementById('kasPageAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
+  document.getElementById('kasPageKasBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
+  document.getElementById('kasPageBankBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
+  document.getElementById('pembelianBuyBtn')?.addEventListener('click', () => UI.openBuy());
+  document.getElementById('pembelianSupplierBtn')?.addEventListener('click', () => UI.openSupplier());
+  document.getElementById('biayaAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); setTimeout(() => { const b = document.querySelector('#typeGroup .select-btn[data-value="expense"], #typeGroup .chip[data-value="expense"]'); if (b) b.click(); }, 30); });
+  document.getElementById('biayaPeriod')?.addEventListener('change', (e) => { biayaPeriodValue = e.target.value; renderBiayaPage(); });
   document.getElementById('salesNewBtn')?.addEventListener('click', () => UI.openSale());
   document.getElementById('salesExcel')?.addEventListener('click', exportSalesExcel);
   document.getElementById('salesPrint')?.addEventListener('click', printSalesPage);
@@ -833,8 +848,10 @@ function bindEvents() {
       const links = [
         { goto: 'contacts', icon: '👥', label: 'Kontak', aria: 'Kontak' },
         { goto: 'loans', icon: '🤝', label: 'Pinjemin', aria: 'Pinjemin' },
-        { goto: 'stock', icon: '📦', label: 'Stok', aria: 'Stok barang' },
+        { goto: 'stock', icon: '📦', label: 'Produk', aria: 'Produk dan stok' },
         { goto: 'sales', icon: '🛒', label: 'Penjualan', aria: 'Laporan penjualan' },
+        { goto: 'pembelian', icon: '🧺', label: 'Pembelian', aria: 'Pembelian dan hutang supplier' },
+        { goto: 'biaya', icon: '💸', label: 'Biaya', aria: 'Pengeluaran operasional' },
         { goto: 'kas', icon: '💳', label: 'Kas', aria: 'Kas dan rekonsiliasi' },
         { goto: 'bank', icon: '🏦', label: 'Mutasi bank', aria: 'Import dan cocokkan mutasi bank' },
         { goto: 'settings', icon: '⚙️', label: 'Pengaturan', aria: 'Pengaturan' },
@@ -845,7 +862,7 @@ function bindEvents() {
   });
   // keep active toggle for other sidebar items
   document.querySelectorAll('.sidebar-item').forEach(btn => {
-    if (btn.id === 'sidebarTransaksi' || btn.id === 'salesBtnSidebar' || btn.dataset.nav === 'ringkasan') return;
+    if (btn.id === 'sidebarTransaksi' || btn.id === 'salesBtnSidebar' || btn.id === 'kasBtnSidebar' || btn.id === 'pembelianBtnSidebar' || btn.id === 'biayaBtnSidebar' || btn.dataset.nav === 'ringkasan') return;
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -874,7 +891,8 @@ function bindEvents() {
     if (target === 'loans') UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople());
     else if (target === 'stock') showView('viewStock');
     else if (target === 'sales') showView('viewSales');
-    else if (target === 'contacts') UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans());
+    else if (target === 'pembelian') showView('viewPembelian');
+    else if (target === 'biaya') showView('viewBiaya');
     else if (target === 'kas') { refreshKas(); UI.openKas(); }
     else if (target === 'bank') { refreshKas(); UI.setBankRows([]); UI.openBank(); }
     else if (target === 'settings') openSettings();
@@ -2069,6 +2087,10 @@ function render() {
   }
   const salesView = document.getElementById('viewSales');
   if (salesView && !salesView.classList.contains('hidden')) renderSalesPage();
+  const vis = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
+  if (vis('viewKas')) renderKasPage();
+  if (vis('viewPembelian')) renderPembelianPage();
+  if (vis('viewBiaya')) renderBiayaPage();
 }
 
 // Label periode jujur di topbar (dulu statis "Agustus 2026" selamanya)
@@ -2345,6 +2367,106 @@ function exportSalesExcel() {
     XLSX.writeFile(wb, `wynara-penjualan-${new Date().toISOString().split('T')[0]}.xlsx`);
     UI.showSuccess(`${tables.length} tabel diekspor ke Excel`);
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal mengekspor'); }
+}
+
+/* ===== Halaman Kas & Bank ===== */
+function cashAccountRows() {
+  const bal = balances(Storage.getAllJournals(), {});
+  return ACCOUNTS.filter(a => a.payment && a.type === 'asset')
+    .map(a => ({ code: a.code, name: a.name, payment: a.payment, net: (bal[a.code]?.debit || 0) - (bal[a.code]?.credit || 0) }))
+    .filter(x => Math.abs(x.net) > 0.005)
+    .sort((a, b) => b.net - a.net);
+}
+function renderKasPage() {
+  if (!document.getElementById('viewKas')) return;
+  const rows = cashAccountRows();
+  const total = rows.reduce((s, x) => s + x.net, 0);
+  const cash = rows.filter(x => x.payment === 'cash').reduce((s, x) => s + x.net, 0);
+  const fmt = (v) => (v < 0 ? '−Rp' : 'Rp') + Math.abs(Math.round(v || 0)).toLocaleString('id-ID');
+  const kpi = document.getElementById('kasKpi');
+  if (kpi) {
+    const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
+    kpi.innerHTML = tile('Total kas & bank', fmt(total)) + tile('💵 Tunai', fmt(cash)) + tile('🏦 Bank/QRIS/E-wallet', fmt(total - cash));
+  }
+  const sub = document.getElementById('kasSubtitle');
+  if (sub) sub.textContent = `${rows.length} dompet aktif • saldo kumulatif dari jurnal`;
+  const box = document.getElementById('kasWalletList');
+  if (box) {
+    box.innerHTML = rows.length ? rows.map(x => {
+      const icon = (Reports.PAYMENT_OPTIONS || []).find(p => p.value === x.payment)?.icon || '📦';
+      return `<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+        <span>${icon}</span><span style="flex:1">${escapeHtml(x.name)}<br><small style="color:#94a3b8">${x.code}</small></span>
+        <b style="color:${x.net < 0 ? '#ef4444' : '#0f172a'}">${fmt(x.net)}</b></div>`;
+    }).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada saldo. Catat transaksi atau mutasi bank.</p>';
+  }
+  const recent = document.getElementById('kasRecentList');
+  if (recent) {
+    const codes = new Set(ACCOUNTS.filter(a => a.payment && a.type === 'asset').map(a => a.code));
+    const list = Storage.getAllJournals()
+      .filter(j => (j.lines || []).some(l => codes.has(l.account)))
+      .slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 15);
+    recent.innerHTML = list.length ? list.map(j => {
+      const amt = (j.lines || []).filter(l => codes.has(l.account)).reduce((s, l) => s + (Number(l.debit) || 0) - (Number(l.credit) || 0), 0);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+        <div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.memo || 'Jurnal')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(j.date || '')}</div></div>
+        <b style="font-size:12px;white-space:nowrap;color:${amt < 0 ? '#ef4444' : '#0f172a'}">${fmt(amt)}</b></div>`;
+    }).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi kas/bank.</p>';
+  }
+}
+
+/* ===== Halaman Pembelian ===== */
+function renderPembelianPage() {
+  if (!document.getElementById('viewPembelian')) return;
+  const purchases = Storage.getAllPurchases();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let outstanding = 0, overdue = 0, openCount = 0;
+  purchases.forEach(p => {
+    const out = Storage.purchaseOutstanding(p);
+    if (out <= 0.01) return;
+    openCount++; outstanding += out;
+    if (p.dueDate && new Date(p.dueDate + 'T00:00:00') < today) overdue += out;
+  });
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const kpi = document.getElementById('pembelianKpi');
+  if (kpi) {
+    const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
+    kpi.innerHTML = tile('Total hutang usaha', fmt(outstanding)) + tile('⏰ Jatuh tempo/terlambat', fmt(overdue)) + tile('Faktur belum lunas', openCount) + tile('Total pembelian', purchases.length);
+  }
+  const sub = document.getElementById('pembelianSubtitle');
+  if (sub) sub.textContent = `${purchases.length} pembelian • ${openCount} belum lunas • hutang ${fmt(outstanding)}`;
+  UI.renderSuppliers(purchases, 'pembelianList');
+}
+
+/* ===== Halaman Biaya ===== */
+let biayaPeriodValue = 'this-month';
+function renderBiayaPage() {
+  if (!document.getElementById('viewBiaya')) return;
+  const entries = Reports.filterEntries(Storage.getAllEntries(), { period: biayaPeriodValue, type: 'expense' });
+  const total = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const cats = (Reports.computeCategoryBreakdown(entries) || []).filter(c => c.type === 'expense').sort((a, b) => b.total - a.total);
+  const kpi = document.getElementById('biayaKpi');
+  if (kpi) {
+    const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
+    kpi.innerHTML = tile('Total biaya', fmt(total)) + tile('Transaksi', entries.length) + tile('Kategori', cats.length) + tile('Terbesar', cats[0] ? escapeHtml(Reports.getCategoryLabel(cats[0].category)) : '—');
+  }
+  const sub = document.getElementById('biayaSubtitle');
+  if (sub) sub.textContent = `${entries.length} transaksi biaya • total ${fmt(total)}`;
+  const catBox = document.getElementById('biayaCats');
+  if (catBox) {
+    const max = Math.max(1, ...cats.map(c => c.total));
+    catBox.innerHTML = cats.length ? cats.map(c => `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span>${escapeHtml(Reports.getCategoryIcon?.(c.category) || '')} ${escapeHtml(Reports.getCategoryLabel(c.category))}</span><b>${fmt(c.total)}</b></div>
+      <div style="height:6px;background:#f1f5f9;border-radius:9999px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.round((c.total / max) * 100)}%;background:#f59e0b"></div></div>
+    </div>`).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada biaya pada periode ini.</p>';
+  }
+  const list = document.getElementById('biayaList');
+  if (list) {
+    const rows = entries.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 40);
+    list.innerHTML = rows.length ? rows.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+      <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.description || Reports.getCategoryLabel(e.category))}</div><div style="font-size:10px;color:#64748b">${escapeHtml(e.date)} • ${escapeHtml(Reports.getCategoryLabel(e.category))}${e.person ? ' • ' + escapeHtml(e.person) : ''}</div></div>
+      <b style="font-size:12px;white-space:nowrap;color:#dc2626">−${fmt(e.amount)}</b></div>`).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada transaksi biaya.</p>';
+  }
 }
 
 function updateTableCount(filtered, total, shown) {
