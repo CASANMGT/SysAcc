@@ -198,7 +198,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.72.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.73.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -520,7 +520,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.72.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.73.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -651,9 +651,28 @@
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
               <h3 style="flex:1;margin:0">🔗 Rekonsiliasi Bank</h3>
               <span id="kasReconSummary" style="font-size:11px;color:#64748b"></span>
+              <button class="btn btn-ghost" id="kasReconMatchAllBtn" style="font-size:12px;padding:4px 10px">✓ Cocokkan semua saran</button>
               <button class="btn btn-ghost" id="kasReconImportBtn" style="font-size:12px;padding:4px 10px">📂 Import mutasi</button>
             </div>
             <div id="kasReconList"></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;border-top:1px solid #f1f5f9;padding-top:12px">
+              <label style="font-size:11px;color:#64748b">Akun bank
+                <select id="kasReconBankSelect" style="display:block;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px;margin-top:3px"></select>
+              </label>
+              <label style="font-size:11px;color:#64748b">Saldo akhir rekening koran (Rp)
+                <input type="text" id="kasReconEndBal" inputmode="decimal" placeholder="0" style="display:block;width:180px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 10px;font-size:12px;margin-top:3px">
+              </label>
+              <div id="kasReconDiff" style="font-size:12px;font-weight:700;padding-bottom:6px"></div>
+            </div>
+            <details style="margin-top:10px">
+              <summary style="cursor:pointer;font-size:12px;color:#64748b;user-select:none">⚙️ Aturan bank (keyword → akun COA) — auto-isi impor berikutnya</summary>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+                <input type="text" id="bankRuleKeyword" placeholder="mis. gojek / biaya adm / grab" maxlength="40" style="flex:1;min-width:150px;height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+                <select id="bankRuleCode" style="flex:1;min-width:180px;height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px"></select>
+                <button class="btn btn-primary" id="bankRuleAddBtn" style="height:36px">＋ Simpan aturan</button>
+              </div>
+              <div id="bankRulesList" style="margin-top:8px"></div>
+            </details>
           </div>
           <div class="dashboard-grid">
             <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">💼 Saldo per Dompet</h3><div id="kasWalletList"></div></div>
@@ -2346,7 +2365,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.72.0';
+    window.__htmlVersion = '1.73.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

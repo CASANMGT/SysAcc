@@ -306,7 +306,7 @@ export function clearAllData() {
     ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY, DRAFT_KEY,
     SALE_RET_KEY, MOVE_KEY, 'wynara_assets', SHOP_KEY, ACTIVE_SHOP_KEY,
     'wynara_leave', 'wynara_ump', 'wynara_selfTest', 'wynara_ppn', 'wynara_payroll_rates',
-    BANK_STMT_KEY
+    BANK_STMT_KEY, BANK_RULES_KEY, BANK_ENDBAL_KEY
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -2475,6 +2475,49 @@ export function updateBankStatement(key, patch) {
   return list[i];
 }
 export function clearBankStatement() { try { localStorage.removeItem(BANK_STMT_KEY); } catch {} }
+
+// ===== Aturan bank (keyword → akun COA) untuk auto-isi impor berikutnya =====
+const BANK_RULES_KEY = 'wynara_bank_rules';
+export function getBankRules() {
+  try { const v = JSON.parse(localStorage.getItem(BANK_RULES_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+export function saveBankRules(list) {
+  try { localStorage.setItem(BANK_RULES_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 200))); } catch {}
+  return getBankRules();
+}
+export function addBankRule(keyword, code) {
+  const k = String(keyword || '').trim().toLowerCase().slice(0, 40);
+  if (!k) throw new Error('Kata kunci wajib diisi');
+  if (!/^\d{4}$/.test(String(code || ''))) throw new Error('Akun COA tidak valid');
+  const list = getBankRules().filter(r => r.keyword !== k);
+  list.push({ id: generateId(), keyword: k, code: String(code) });
+  logAudit('create', 'bank-rule', '', null, { keyword: k, code: String(code) });
+  return saveBankRules(list);
+}
+export function deleteBankRule(id) {
+  return saveBankRules(getBankRules().filter(r => r.id !== id));
+}
+// Cari akun dari aturan (substring kata kunci). Null bila tidak ada.
+export function matchBankRule(desc) {
+  const s = String(desc || '').toLowerCase();
+  const hit = getBankRules().find(r => r.keyword && s.includes(r.keyword));
+  return hit ? hit.code : null;
+}
+
+// ===== Saldo akhir rekening koran (untuk indikator selisih) =====
+const BANK_ENDBAL_KEY = 'wynara_bank_endbal';
+export function getBankEndBalances() {
+  try { const v = JSON.parse(localStorage.getItem(BANK_ENDBAL_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+}
+export function setBankEndBalance(code, amount) {
+  const all = getBankEndBalances();
+  const c = String(code || '').slice(0, 10);
+  if (!c) return all;
+  const n = Number(amount);
+  if (!isFinite(n) || n === 0) delete all[c]; else all[c] = Math.round(n);
+  try { localStorage.setItem(BANK_ENDBAL_KEY, JSON.stringify(all)); } catch {}
+  return all;
+}
 
 export function purchaseOutstanding(p) {
   return Math.max((Number(p.totalCost) || 0) - purchasePaidTotal(p), 0);

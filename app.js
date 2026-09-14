@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.72.0';
+const APP_VERSION = '1.73.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -836,6 +836,19 @@ function bindEvents() {
     else if (p) bankReconPost(p.dataset.key);
     else if (ig) bankReconIgnore(ig.dataset.key);
     else if (ui) bankReconUnignore(ui.dataset.key);
+  });
+  document.getElementById('kasReconMatchAllBtn')?.addEventListener('click', bankReconMatchAll);
+  document.getElementById('kasReconBankSelect')?.addEventListener('change', renderKasReconDiff);
+  document.getElementById('kasReconEndBal')?.addEventListener('change', () => {
+    const code = document.getElementById('kasReconBankSelect')?.value || '1102';
+    const val = Math.round(Number(UI.parseIdrInput(document.getElementById('kasReconEndBal')?.value || '')) || 0);
+    Storage.setBankEndBalance(code, val);
+    renderKasReconDiff();
+  });
+  document.getElementById('bankRuleAddBtn')?.addEventListener('click', bankRuleAdd);
+  document.getElementById('bankRulesList')?.addEventListener('click', (e) => {
+    const d = e.target.closest('.bank-rule-del');
+    if (d) bankRuleDelete(d.dataset.id);
   });
   document.getElementById('pembelianBuyBtn')?.addEventListener('click', () => UI.openBuy());
   document.getElementById('pembelianSupplierBtn')?.addEventListener('click', () => UI.openSupplier());
@@ -2428,19 +2441,28 @@ function renderKasPage() {
 }
 
 /* ===== Rekonsiliasi bank (cocokkan mutasi ↔ transaksi) ===== */
+function bankAccountSuggestion(desc, direction) {
+  const rule = Storage.matchBankRule(desc);
+  return rule || suggestBankAccount(desc, direction);
+}
 function renderBankRecon() {
   const box = document.getElementById('kasReconList');
   if (!box) return;
+  renderBankRules();
+  renderKasReconDiff();
   const stmts = Storage.getBankStatement();
   const sumEl = document.getElementById('kasReconSummary');
+  const allBtn = document.getElementById('kasReconMatchAllBtn');
   if (!stmts.length) {
     if (sumEl) sumEl.textContent = '';
+    if (allBtn) allBtn.disabled = true;
     box.innerHTML = '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi bank. Klik 📂 Import mutasi untuk meng-upload CSV — sistem akan otomatis mencocokkan dengan transaksi yang sudah dicatat.</p>';
     return;
   }
   const results = suggestMatches(stmts, Storage.getAllEntries(), { days: 3 });
   const s = reconSummary(results);
   if (sumEl) sumEl.textContent = `${s.matched} cocok • ${s.pending} saran • ${s.posted} diposting • ${s.unmatched} tanpa pasangan`;
+  if (allBtn) allBtn.disabled = s.pending === 0;
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const rows = results.map(r => {
     const st = r.stmt;
@@ -2502,6 +2524,74 @@ function bankReconIgnore(key) {
 function bankReconUnignore(key) {
   Storage.updateBankStatement(key, { ignored: false });
   renderBankRecon();
+}
+function bankReconMatchAll() {
+  const stmts = Storage.getBankStatement();
+  const results = suggestMatches(stmts, Storage.getAllEntries(), { days: 3 });
+  let n = 0;
+  results.forEach(r => {
+    if (!r.stmt.matchedId && !r.stmt.posted && !r.stmt.ignored && r.candidates && r.candidates.length) {
+      Storage.updateBankStatement(r.stmt.key, { matchedId: r.candidates[0].id, matchedType: 'entry' });
+      n++;
+    }
+  });
+  if (n) UI.showSuccess(`${n} mutasi dicocokkan otomatis`); else UI.showInfo('Tidak ada saran untuk dicocokkan');
+  renderBankRecon();
+}
+// Indikator selisih: saldo buku (COA) vs saldo akhir rekening koran.
+function renderKasReconDiff() {
+  const sel = document.getElementById('kasReconBankSelect');
+  const inp = document.getElementById('kasReconEndBal');
+  const out = document.getElementById('kasReconDiff');
+  if (!sel || !out) return;
+  const accts = getAccounts().filter(a => a.type === 'asset' && /^11/.test(a.code));
+  if (sel.options.length !== accts.length) {
+    const cur = sel.value;
+    sel.innerHTML = accts.map(a => `<option value="${a.code}">${a.code} ${escapeHtml(a.name)}</option>`).join('');
+    if (cur && accts.some(a => a.code === cur)) sel.value = cur;
+  }
+  const code = sel.value || '1102';
+  const endBals = Storage.getBankEndBalances();
+  if (inp) inp.value = endBals[code] ? String(endBals[code]).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+  const bal = balances(Storage.getAllJournals(), {});
+  const book = (bal[code]?.debit || 0) - (bal[code]?.credit || 0);
+  const end = Number(endBals[code]) || 0;
+  const diff = end - book;
+  const fmt = (v) => 'Rp' + Math.round(v || 0).toLocaleString('id-ID');
+  out.innerHTML = `Saldo buku: <span style="color:#0f172a">${fmt(book)}</span> &nbsp;•&nbsp; Selisih: <span style="color:${Math.abs(diff) < 1 ? '#059669' : '#dc2626'}">${diff < 0 ? '−' : ''}${fmt(Math.abs(diff))}</span> ${Math.abs(diff) < 1 ? '✓ cocok' : ''}`;
+}
+function renderBankRules() {
+  const sel = document.getElementById('bankRuleCode');
+  if (sel && sel.options.length <= 1) {
+    const accts = getAccounts();
+    const TYPE = { asset: 'Aset', liability: 'Kewajiban', equity: 'Modal', revenue: 'Pendapatan', expense: 'Beban' };
+    sel.innerHTML = ['asset', 'liability', 'equity', 'revenue', 'expense'].map(t =>
+      `<optgroup label="${TYPE[t]}">${accts.filter(a => a.type === t).map(a => `<option value="${a.code}">${a.code} ${escapeHtml(a.name)}</option>`).join('')}</optgroup>`
+    ).join('');
+  }
+  const box = document.getElementById('bankRulesList');
+  if (!box) return;
+  const rules = Storage.getBankRules();
+  box.innerHTML = rules.length ? rules.map(r => {
+    const a = getAccounts().find(x => x.code === r.code) || {};
+    return `<span style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9999px;padding:3px 6px 3px 10px;font-size:11px;margin:0 6px 6px 0">
+      <b>${escapeHtml(r.keyword)}</b> → ${escapeHtml(a.code || r.code)} ${escapeHtml(a.name || '')}
+      <button class="btn btn-ghost bank-rule-del" data-id="${r.id}" aria-label="Hapus aturan" style="font-size:11px;padding:0 6px;color:#ef4444">✕</button></span>`;
+  }).join('') : '<small style="color:#94a3b8">Belum ada aturan. Contoh: kata kunci "gojek" → 5104 Beban Transportasi.</small>';
+}
+function bankRuleAdd() {
+  const kw = document.getElementById('bankRuleKeyword')?.value.trim();
+  const code = document.getElementById('bankRuleCode')?.value;
+  try {
+    Storage.addBankRule(kw, code);
+    if (document.getElementById('bankRuleKeyword')) document.getElementById('bankRuleKeyword').value = '';
+    UI.showSuccess('Aturan bank disimpan');
+    renderBankRules();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyimpan aturan'); }
+}
+function bankRuleDelete(id) {
+  Storage.deleteBankRule(id);
+  renderBankRules();
 }
 
 /* ===== Halaman Pembelian ===== */
@@ -4596,7 +4686,7 @@ function handleBankFile(file) {
         rows.push({
           key: `${date}|${desc}|${masuk}|${keluar}|${i}`, date, desc: desc.slice(0, 100),
           in: masuk, out: keluar, direction, amount: masuk > 0 ? masuk : keluar,
-          counterAccount: suggestBankAccount(desc, direction),
+          counterAccount: bankAccountSuggestion(desc, direction),
           bankAccount: document.getElementById('bankAccount')?.value || '1102',
           selected: true, matched: false,
         });

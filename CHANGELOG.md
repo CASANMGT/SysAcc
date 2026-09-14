@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.73.0] - 2026-09-14
+
+### Added — Aturan bank, cocokkan semua saran, indikator selisih
+- **Aturan bank (keyword → akun COA)**: simpan di panel Rekonsiliasi (mis. `gojek` → 5104 Beban Transportasi); impor berikutnya **auto-isi akun** berdasarkan aturan (prioritas di atas saran kata kunci bawaan). Aturan dapat dihapus.
+- **✓ Cocokkan semua saran**: satu klik mencocokkan semua mutasi yang punya kandidat transaksi (tombol nonaktif bila tidak ada saran)
+- **Indikator Selisih**: pilih akun bank + isi **saldo akhir rekening koran** → tampil **Saldo buku (COA)** dan **Selisih** (✓ hijau bila 0); saldo rekening tersimpan per akun
+- +4 test; 307/307 tests ✓
+
+---
+
 ## [1.72.0] - 2026-09-14
 
 ### Added — Pencocok mutasi bank otomatis (rekonsiliasi) di Kas & Bank

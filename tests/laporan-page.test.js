@@ -184,6 +184,7 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     ['kasKpi', 'kasWalletList', 'kasRecentList', 'pembelianKpi', 'pembelianList', 'biayaKpi', 'biayaCats', 'biayaList'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
     expect(document.getElementById('kasReconList')).toBeTruthy();
     expect(document.getElementById('kasReconSummary')).toBeTruthy();
+    ['kasReconMatchAllBtn', 'kasReconBankSelect', 'kasReconEndBal', 'kasReconDiff', 'bankRuleKeyword', 'bankRuleCode', 'bankRuleAddBtn', 'bankRulesList'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
   });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
