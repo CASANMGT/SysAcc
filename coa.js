@@ -192,13 +192,27 @@ export const BANK_RULE_PRESETS = [
 ];
 
 // Saran akun lawan untuk mutasi bank dari keterangan (dipakai bila tak ada aturan tersimpan).
-export function suggestBankAccount(desc, direction) {
+// Mesin: kata kunci terpanjang + kecocokan batas-kata menang (lebih spesifik lebih baik).
+function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function keywordScore(keyword, s) {
+  if (!s.includes(keyword)) return 0;
+  const word = new RegExp('(^|[^a-z0-9])' + escapeRegex(keyword) + '([^a-z0-9]|$)');
+  return word.test(s) ? 100 + keyword.length : 10 + keyword.length;
+}
+export function suggestBankAccountFull(desc, direction) {
   const s = String(desc || '').toLowerCase();
   const dir = direction === 'in' ? 'in' : (direction === 'out' ? 'out' : '');
-  const hit = BANK_RULE_PRESETS.find(r =>
-    s.includes(r.keyword) && (!r.direction || !dir || r.direction === dir));
-  if (hit) return hit.code;
-  return dir === 'in' ? '4190' : '5199';
+  let best = null;
+  BANK_RULE_PRESETS.forEach(p => {
+    if (!(!p.direction || !dir || p.direction === dir)) return;
+    const sc = keywordScore(p.keyword, s);
+    if (sc > 0 && (!best || sc > best.score)) best = { code: p.code, keyword: p.keyword, score: sc };
+  });
+  if (best) return { code: best.code, source: 'preset', keyword: best.keyword };
+  return { code: dir === 'in' ? '4190' : '5199', source: 'default', keyword: '' };
+}
+export function suggestBankAccount(desc, direction) {
+  return suggestBankAccountFull(desc, direction).code;
 }
 
 // PPh Final UMKM (PP 23/2018): 0,5% dari omzet bruto bila omzet setahun ≤ Rp4,8 M.

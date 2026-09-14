@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.78.0] - 2026-09-14
+
+### Added — COA di daftar transaksi bank + mesin saran COA lebih pintar
+- **Mutasi Kas & Bank Terbaru** kini menampilkan **akun COA lawan** tiap baris (mis. `1102 → 5114 Beban Administrasi Bank`)
+- **Mesin saran COA diperbaiki**: kecocokan **batas-kata** + **kata kunci terpanjang menang** (lebih spesifik) — `grabfood` → 5103 mengalahkan `grab` → 5104
+- Form **Aturan Bank**: pratinjau **"Saran akun: …"** langsung saat mengetik kata kunci (+ arah), dengan tombol **Gunakan** untuk mengisi akun otomatis; sumber saran ditampilkan (aturan tersimpan / contoh / default)
+- Saran memprioritaskan: **aturan pengguna → contoh → default**
+- +1 test; 315/315 tests ✓
+
+---
+
 ## [1.77.0] - 2026-09-14
 
 ### Improved — Redesign halaman login (sesuai desain)

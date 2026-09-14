@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   accountForPayment, expenseAccountFor, getAccounts, setCustomAccounts,
-  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD, suggestBankAccount, BANK_RULE_PRESETS
+  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD, suggestBankAccount, suggestBankAccountFull, BANK_RULE_PRESETS
 } from '../coa.js';
 import {
   buildEntryJournal, buildLoanJournal, buildRepaymentJournal,
@@ -51,6 +51,11 @@ describe('saran akun COA untuk mutasi bank', () => {
     expect(suggestBankAccount('BUNGA', 'out')).toBe('5115');
     expect(suggestBankAccount('SESUATU TAK DIKENAL', 'out')).toBe('5199');
     expect(suggestBankAccount('SESUATU TAK DIKENAL', 'in')).toBe('4190');
+  });
+  it('mesin saran: kata kunci terpanjang & batas kata menang', () => {
+    expect(suggestBankAccountFull('GRABFOOD', 'out')).toMatchObject({ code: '5103', source: 'preset' });
+    expect(suggestBankAccountFull('TRANSFER GRAB CAR', 'out').code).toBe('5104');
+    expect(suggestBankAccountFull('SESUATU TAK DIKENAL', 'out')).toMatchObject({ code: '5199', source: 'default' });
   });
 });
 

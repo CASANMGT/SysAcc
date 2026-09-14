@@ -4,7 +4,7 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccount, BANK_RULE_PRESETS } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.77.0';
+const APP_VERSION = '1.78.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -896,6 +896,12 @@ function bindEvents() {
   document.getElementById('bankRuleSeedAll')?.addEventListener('click', bankRuleSeedAll);
   document.getElementById('bankRulesClearAll')?.addEventListener('click', bankRulesClearAll);
   document.getElementById('bankRuleSearch')?.addEventListener('input', renderBankRules);
+  document.getElementById('bankRuleKeyword')?.addEventListener('input', updateBankRuleSuggestion);
+  document.getElementById('bankRuleDir')?.addEventListener('change', updateBankRuleSuggestion);
+  document.getElementById('bankRuleSuggestion')?.addEventListener('click', (e) => {
+    const b = e.target.closest('.bank-rule-use');
+    if (b) { const sel = document.getElementById('bankRuleCode'); if (sel) sel.value = b.dataset.code; updateBankRuleSuggestion(); }
+  });
   document.getElementById('bankRulePresets')?.addEventListener('click', (e) => {
     const b = e.target.closest('.bank-rule-preset');
     if (b) bankRuleAdd(b.dataset.kw, b.dataset.code, b.dataset.dir);
@@ -2523,8 +2529,10 @@ function renderKasPage() {
       .slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 15);
     recent.innerHTML = list.length ? list.map(j => {
       const amt = (j.lines || []).filter(l => codes.has(l.account)).reduce((s, l) => s + (Number(l.debit) || 0) - (Number(l.credit) || 0), 0);
+      const counterpart = (j.lines || []).find(l => !codes.has(l.account));
+      const cpLabel = counterpart ? acctLabel(counterpart.account) : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-        <div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.memo || 'Jurnal')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(j.date || '')}</div></div>
+        <div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.memo || 'Jurnal')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(j.date || '')}${cpLabel ? ' • <b style="color:#334155">' + escapeHtml(cpLabel) + '</b>' : ''}</div></div>
         <b style="font-size:12px;white-space:nowrap;color:${amt < 0 ? '#ef4444' : '#0f172a'}">${fmt(amt)}</b></div>`;
     }).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi kas/bank.</p>';
   }
@@ -2533,8 +2541,12 @@ function renderKasPage() {
 
 /* ===== Rekonsiliasi bank (cocokkan mutasi ↔ transaksi) ===== */
 function bankAccountSuggestion(desc, direction) {
+  return bankAccountSuggestionFull(desc, direction).code;
+}
+function bankAccountSuggestionFull(desc, direction) {
   const rule = Storage.matchBankRule(desc, direction);
-  return rule || suggestBankAccount(desc, direction);
+  if (rule) return { code: rule, source: 'rule' };
+  return suggestBankAccountFull(desc, direction);
 }
 function renderBankRecon() {
   const box = document.getElementById('kasReconList');
@@ -2661,6 +2673,7 @@ function openBankRules(prefillKeyword, prefillCode) {
   if (prefillCode) { const sel = document.getElementById('bankRuleCode'); if (sel) sel.value = prefillCode; }
   const dir = document.getElementById('bankRuleDir'); if (dir) dir.value = '';
   if (!m.open) { try { m.showModal(); } catch {} }
+  updateBankRuleSuggestion();
   setTimeout(() => kw?.focus(), 40);
 }
 function closeBankRules() { const m = document.getElementById('bankRulesModal'); if (m && m.open) { try { m.close(); } catch {} } }
@@ -2726,6 +2739,17 @@ function bankRuleAdd(kwArg, codeArg, dirArg) {
     UI.showSuccess('Aturan bank disimpan');
     renderBankRules();
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyimpan aturan'); }
+}
+function updateBankRuleSuggestion() {
+  const el = document.getElementById('bankRuleSuggestion');
+  if (!el) return;
+  const kw = String(document.getElementById('bankRuleKeyword')?.value || '').trim();
+  const dir = document.getElementById('bankRuleDir')?.value || '';
+  if (!kw) { el.innerHTML = ''; return; }
+  const s = bankAccountSuggestionFull(kw, dir);
+  const src = s.source === 'rule' ? 'aturan tersimpan' : (s.source === 'preset' ? 'contoh' : 'default');
+  el.innerHTML = `<span style="color:#64748b">Saran akun:</span> <b>${escapeHtml(acctLabel(s.code))}</b> <span style="color:#94a3b8">(${src})</span>
+    <button type="button" class="btn btn-ghost bank-rule-use" data-code="${s.code}" style="font-size:11px;padding:2px 8px;margin-left:6px">Gunakan</button>`;
 }
 function bankRuleSeedAll() {
   const existing = new Set(Storage.getBankRules().map(r => `${r.keyword}|${r.direction || ''}`));
