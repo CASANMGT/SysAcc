@@ -1,6 +1,6 @@
 # Audit State — Wynara Accounting
 
-Repo **v1.65.0** · Production **v1.65.0 VERIFIED 2026-09-14** di `https://wynara-acc.vercel.app` (check-prod PASS). Backend Supabase **LIVE**.
+Repo **v1.66.0** · Production **v1.66.0** di `https://wynara-acc.vercel.app`. Backend Supabase **LIVE**.
 Loop **v2** sejak iter 17. Koreksi aritmetika diterapkan: overall tanpa aritmetika terlihat = invalid.
 
 ---
@@ -13,7 +13,7 @@ sign-in working; first-sync verified server-side (INSERT 201 / READ-own 200
 with row / READ-other user → [] proving RLS / DELETE 204 / read-after-delete []).
 The former hard ceiling (93.25) is gone. No structural block remains.
 
-A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 90.48 still <95. Lowest: F8/F9 85.
+A+ requires every axis ≥85 **and** overall ≥95. ALL nine axes ≥85; overall 90.58 still <95. Lowest: F8/F9 85.
 ```
 
 ---
@@ -28,15 +28,15 @@ Recompute dari nilai v1 (F1 86, F2 76, F3 73, F4 52, F5 94, F6 86, F7 80, F8 82,
 | F2 Tax conformance | 12 | 76 | **86** | 10.32 | + PPN Keluaran dibalik pada retur |
 | F3 Payroll & HR | 12 | 73 | **86** | 10.32 | Dec recon + 1721-A1 + kasbon + lembur/cuti/ganti-cuti/UMP + **kalkulator pesangon PP 35/2021** |
 | F4 Data durability | 15 | 52 | **88** | 13.20 | + integritas import multi-toko, gerakan stok (kartu), duplikat SKU/barcode ditolak |
-| F5 Reporting | 10 | 94 | **93** | 9.30 | + Penjualan Produk (qty/omzet/HPP/laba/margin/bagian) dengan HPP akurat |
+| F5 Reporting | 10 | 94 | **94** | 9.40 | Penjualan Produk + **widget dashboard: Penjualan Harian + Produk Terlaris** |
 | F6 Task efficiency | 12 | 86 | **97** | 11.64 | SKU/barcode otomatis + label cetak + edit per baris + foto di tabel + KPI/aksi cepat + POS + dokumen stok |
 | F7 Cognitive load | 10 | 80 | **94** | 9.40 | Wizard 2 langkah; tabel harga per-varian + foto/dimensi; barcode otomatis (tak perlu pikirkan kode); movement-first |
 | F8 Mobile | 7 | 82 | **85** | 5.95 | Audit mobile + safe-area + HP kecil ≤400px + grafik/gambar tidak meluber |
 | F9 Accessibility | 7 | 68 | **85** | 5.95 | Scope/caption/alt/hierarki + aria-current + prefers-contrast + kontras teks redup (var) |
-| **OVERALL** | | ~~90~~ | | **90.48** | v1.65 tabel rapi + barcode jelas + laporan penjualan produk; arithmetic di bawah |
+| **OVERALL** | | ~~90~~ | | **90.58** | v1.66 widget penjualan harian + produk terlaris di Ringkasan; arithmetic di bawah |
 
-Aritmetika (wajib tampil): 96×15 + 86×12 + 86×12 + 88×15 + 93×10 + 97×12 + 94×10 + 85×7 + 85×7
-= 1440 + 1032 + 1032 + 1320 + 930 + 1164 + 940 + 595 + 595 = **9048 / 100 = 90.48**. Baseline 59.7 → **+30.78**.
+Aritmetika (wajib tampil): 96×15 + 86×12 + 86×12 + 88×15 + 94×10 + 97×12 + 94×10 + 85×7 + 85×7
+= 1440 + 1032 + 1032 + 1320 + 940 + 1164 + 940 + 595 + 595 = **9058 / 100 = 90.58**. Baseline 59.7 → **+30.88**.
 
 All nine axes ≥85 (F8/F9 85, F2/F3/F4 86, F7 87, F5 92, F6 93, F1 94). A+ needs overall ≥95.
 

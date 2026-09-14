@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.66.0] - 2026-09-14
+
+### Added — Widget penjualan di dashboard (Ringkasan)
+- **📈 Penjualan Harian**: grafik batang 14 hari terakhir (kategori penjualan) + **Total 14 hari · Rata-rata/hari · Hari terbaik**
+- **🏆 Produk Terlaris**: 10 produk/varian teratas menurut **qty terjual** (bar proporsi + omzet), tautan **Laporan →** ke tab Penjualan Produk
+- Keduanya mengikuti **filter periode** dashboard
+- +1 test; 285/285 tests ✓
+
+---
+
 ## [1.65.0] - 2026-09-14
 
 ### Fixed / Improved — Tabel stok rapi, barcode lebih mudah, laporan penjualan produk

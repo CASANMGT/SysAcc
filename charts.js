@@ -146,3 +146,65 @@ export function renderDonut(categories) {
     donutSvg.setAttribute('aria-label', `Pengeluaran per kategori, total ${new Intl.NumberFormat('id-ID').format(total)}; terbesar ${getCategoryLabel(top.category)}`);
   }
 }
+
+// Grafik batang penjualan harian (kategori 'jualan') untuk N hari terakhir.
+export function renderSalesDailyChart(entries, opts) {
+  const days = (opts && opts.days) || 14;
+  const svg = document.getElementById('salesDailyChart');
+  const labelsEl = document.getElementById('salesDailyLabels');
+  const totalEl = document.getElementById('salesDailyTotal');
+  const avgEl = document.getElementById('salesDailyAvg');
+  const bestEl = document.getElementById('salesDailyBest');
+  if (!svg) return;
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const dayKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const parseDay = (k) => new Date(`${k}T00:00:00`);
+  const today = new Date();
+  const keys = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+    keys.push(dayKey(d));
+  }
+  const map = new Map(keys.map(k => [k, 0]));
+  (entries || []).forEach(e => {
+    if (e.type !== 'income' || e.category !== 'jualan') return;
+    const k = String(e.date || '').slice(0, 10);
+    if (map.has(k)) map.set(k, map.get(k) + (Number(e.amount) || 0));
+  });
+  const data = keys.map(k => ({ k, v: map.get(k) || 0 }));
+  const total = data.reduce((s, d) => s + d.v, 0);
+  const fmtFull = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v);
+  if (totalEl) totalEl.textContent = fmtFull(total);
+  if (avgEl) avgEl.textContent = fmtFull(Math.round(total / days));
+  const best = data.reduce((a, b) => (b.v > a.v ? b : a), data[0]);
+  if (bestEl) bestEl.textContent = (best && best.v > 0) ? `${parseDay(best.k).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} • ${fmtCompactRp(best.v)}` : '—';
+  const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  if (labelsEl) labelsEl.innerHTML = data.map(d => `<span>${dayNames[parseDay(d.k).getDay()]}</span>`).join('');
+  if (total <= 0) {
+    svg.innerHTML = '<text x="300" y="80" text-anchor="middle" style="fill:var(--chart-axis,#94a3b8)" font-size="12">Belum ada penjualan</text><text x="300" y="100" text-anchor="middle" style="fill:var(--chart-dot-idle,#cbd5e1)" font-size="11">Catat lewat 🧾 Jual di halaman Stok</text>';
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Grafik penjualan harian: belum ada data');
+    return;
+  }
+  const W = 600, H = 180, pad = { l: 44, r: 8, t: 10, b: 20 };
+  const n = data.length;
+  const yMax = Math.max(...data.map(d => d.v), 1) * 1.15;
+  const bw = (W - pad.l - pad.r) / n;
+  const barW = Math.max(bw * 0.55, 4);
+  const y = (v) => H - pad.b - (v / yMax) * (H - pad.t - pad.b);
+  const bars = data.map((d, i) => {
+    const x = pad.l + i * bw + (bw - barW) / 2;
+    const yy = y(d.v);
+    const h = Math.max((H - pad.b) - yy, 0);
+    const tip = `${parseDay(d.k).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} • ${fmtCompactRp(d.v)}`;
+    return `<g><title>${tip}</title><rect x="${x}" y="${yy}" width="${barW}" height="${h}" rx="2" style="fill:var(--chart-income,#10b981)"><title>${tip}</title></rect></g>`;
+  }).join('');
+  const yTicks = [0, 1, 2, 3].map(i => {
+    const v = (yMax / 3) * i;
+    const yy = pad.t + (3 - i) * ((H - pad.t - pad.b) / 3);
+    return { v, yy };
+  });
+  svg.innerHTML = yTicks.map(t => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${t.yy}" y2="${t.yy}" style="stroke:var(--chart-grid,#f1f5f9)" stroke-width="1" stroke-dasharray="4 6"/><text x="${pad.l - 6}" y="${t.yy + 4}" text-anchor="end" style="fill:var(--chart-axis,#94a3b8)" font-size="9">${fmtCompactRp(Math.round(t.v))}</text>`).join('') + bars;
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', `Grafik penjualan ${days} hari terakhir: total ${fmtCompactRp(total)}`);
+}

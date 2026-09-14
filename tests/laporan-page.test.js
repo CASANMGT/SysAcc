@@ -163,6 +163,12 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     expect(tab).toBeTruthy();
     expect(tab.textContent).toMatch(/Penjualan Produk/);
   });
+  it('dashboard: widget penjualan harian + produk terlaris', () => {
+    expect(document.getElementById('salesDailyChart')).toBeTruthy();
+    expect(document.getElementById('topProductsList')).toBeTruthy();
+    expect(document.getElementById('salesDailyTotal')).toBeTruthy();
+    expect(document.getElementById('topProductsMore')).toBeTruthy();
+  });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');
     expect(seg.length).toBeGreaterThan(0);

@@ -1245,6 +1245,8 @@ tr.tr-expense td:first-child { border-left: 3px solid #ef4444; }
 #stockTable th.stock-status, #stockTable td.stock-status,
 #stockTable th.stock-actions, #stockTable td.stock-actions { border-left: 1px solid var(--border); padding-left: 14px; }
 #stockTable td.stock-actions { white-space: nowrap; }
+.dash-panel-top #topProductsList { max-height: 232px; overflow-y: auto; }
+.dash-panel-top #topProductsList > div:last-child { border-bottom: none; }
 
 /* Cashflow chart */
 .cashflow-chart {

@@ -183,7 +183,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.65.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.66.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -377,6 +377,33 @@
           </div>
         </div>
 
+        <!-- Sales insights: penjualan harian + produk terlaris -->
+        <div class="dashboard-grid">
+          <div class="dash-panel dash-panel-chart">
+            <div class="dash-panel-head">
+              <div><h3>Penjualan Harian</h3><p>14 hari terakhir</p></div>
+            </div>
+            <div class="dash-panel-legend"><span class="legend-dot emerald"></span> Penjualan</div>
+            <div class="chart-wrap">
+              <svg id="salesDailyChart" viewBox="0 0 600 180" class="chart-svg" role="img" aria-label="Grafik penjualan harian 14 hari"></svg>
+              <div class="chart-months" id="salesDailyLabels"></div>
+            </div>
+            <div class="chart-stats">
+              <div class="chart-stat"><span>Total 14 hari</span><strong id="salesDailyTotal">Rp 0</strong></div>
+              <div class="chart-stat"><span>Rata-rata/hari</span><strong id="salesDailyAvg">Rp 0</strong></div>
+              <div class="chart-stat highlight"><span>Hari terbaik</span><strong id="salesDailyBest">—</strong></div>
+            </div>
+          </div>
+
+          <div class="dash-panel dash-panel-top">
+            <div class="dash-panel-head">
+              <h3>🏆 Produk Terlaris</h3>
+              <a href="#" id="topProductsMore" class="dash-link">Laporan →</a>
+            </div>
+            <div id="topProductsList"></div>
+          </div>
+        </div>
+
         <!-- Budget -->
         <div id="budgetCard" class="budget-card">
           <div class="budget-head">
@@ -478,7 +505,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.65.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.66.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2188,7 +2215,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.65.0';
+    window.__htmlVersion = '1.66.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

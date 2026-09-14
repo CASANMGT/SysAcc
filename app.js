@@ -38,7 +38,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.65.0';
+const APP_VERSION = '1.66.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -881,6 +881,12 @@ function bindEvents() {
   document.getElementById('aksiTambahKontak')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
   document.getElementById('aksiLaporan')?.addEventListener('click', () => showView('viewLaporan'));
   document.getElementById('ownerToReports')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewLaporan'); });
+  document.getElementById('topProductsMore')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showView('viewLaporan');
+    const tab = document.querySelector('.page-report-tab[data-report="products"]');
+    if (tab) tab.click(); else renderReport();
+  });
   // Tab laporan halaman: delegasi body (tab kini terbagi 3 grup chip)
   if (!document.body.dataset.pagereportWired) {
     document.body.dataset.pagereportWired = '1';
@@ -2044,6 +2050,8 @@ function render() {
   syncTopbarPeriod();
   renderArusKasChart(searchFiltered);
   renderDonut(categories);
+  renderSalesDailyChart(searchFiltered);
+  renderTopProducts(searchFiltered);
   updateTableCount(paginated.length, filtered.length, sorted.length);
   syncTopSearch();
   renderBudget(searchFiltered);
@@ -2158,6 +2166,44 @@ function renderArusKasChart(entries) {
 
 function renderDonut(categories) {
   Charts.renderDonut(categories);
+}
+
+// Widget dashboard: tren penjualan harian + produk terlaris (ikut filter periode).
+function renderSalesDailyChart(entries) {
+  Charts.renderSalesDailyChart(entries, { days: 14 });
+}
+function renderTopProducts(entries) {
+  const box = document.getElementById('topProductsList');
+  if (!box) return;
+  const byItem = {};
+  const items = {};
+  try { Storage.getAllItems().forEach(i => { items[i.id] = i; }); } catch {}
+  (entries || []).forEach(e => {
+    if (e.category !== 'jualan' || !e.sale || !Array.isArray(e.sale.lines)) return;
+    e.sale.lines.forEach(l => {
+      const q = Number(l.qty) || 0;
+      if (!q) return;
+      const key = l.itemId || l.name || '—';
+      if (!byItem[key]) byItem[key] = { name: l.name || (items[key] && items[key].name) || '(barang terhapus)', qty: 0, omzet: 0 };
+      byItem[key].qty += q;
+      byItem[key].omzet += (Number(l.price) || 0) * q;
+    });
+  });
+  const rows = Object.values(byItem).sort((a, b) => b.qty - a.qty).slice(0, 10);
+  if (!rows.length) {
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:12px;padding:12px 0;text-align:center">Belum ada penjualan barang pada periode ini.</p>';
+    return;
+  }
+  const maxQty = rows[0].qty || 1;
+  const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Math.round(v));
+  box.innerHTML = rows.map((r, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+    <span style="width:18px;font-size:11px;color:#94a3b8;font-weight:700;text-align:right">${i + 1}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:12px;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>
+      <div style="height:6px;background:#f1f5f9;border-radius:9999px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.round((r.qty / maxQty) * 100)}%;background:#10b981"></div></div>
+    </div>
+    <div style="text-align:right;white-space:nowrap"><div style="font-size:12px;font-weight:700">${r.qty} pcs</div><div style="font-size:10px;color:#64748b">${fmt(r.omzet)}</div></div>
+  </div>`).join('');
 }
 
 function updateTableCount(filtered, total, shown) {
