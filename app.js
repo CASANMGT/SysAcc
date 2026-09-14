@@ -4,7 +4,7 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccount } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccount, BANK_RULE_PRESETS } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.74.0';
+const APP_VERSION = '1.75.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -878,12 +878,24 @@ function bindEvents() {
     const p = e.target.closest('.recon-post');
     const ig = e.target.closest('.recon-ignore');
     const ui = e.target.closest('.recon-unignore');
+    const rl = e.target.closest('.recon-rule');
     if (m) bankReconMatch(m.dataset.key, m.dataset.entry);
     else if (p) bankReconPost(p.dataset.key);
     else if (ig) bankReconIgnore(ig.dataset.key);
     else if (ui) bankReconUnignore(ui.dataset.key);
+    else if (rl) {
+      const st = Storage.getBankStatement().find(s => s.key === rl.dataset.key);
+      if (st) openBankRules(String(st.desc || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').trim().split(/\s+/).slice(0, 2).join(' '), st.counterAccount);
+    }
   });
   document.getElementById('kasReconMatchAllBtn')?.addEventListener('click', bankReconMatchAll);
+  document.getElementById('kasReconRulesBtn')?.addEventListener('click', () => openBankRules());
+  document.getElementById('bankRulesClose')?.addEventListener('click', closeBankRules);
+  document.getElementById('bankRuleAddBtn')?.addEventListener('click', () => bankRuleAdd());
+  document.getElementById('bankRulePresets')?.addEventListener('click', (e) => {
+    const b = e.target.closest('.bank-rule-preset');
+    if (b) bankRuleAdd(b.dataset.kw, b.dataset.code, b.dataset.dir);
+  });
   document.getElementById('kasReconBankSelect')?.addEventListener('change', renderKasReconDiff);
   document.getElementById('kasReconEndBal')?.addEventListener('change', () => {
     const code = document.getElementById('kasReconBankSelect')?.value || '1102';
@@ -2488,13 +2500,12 @@ function renderKasPage() {
 
 /* ===== Rekonsiliasi bank (cocokkan mutasi ↔ transaksi) ===== */
 function bankAccountSuggestion(desc, direction) {
-  const rule = Storage.matchBankRule(desc);
+  const rule = Storage.matchBankRule(desc, direction);
   return rule || suggestBankAccount(desc, direction);
 }
 function renderBankRecon() {
   const box = document.getElementById('kasReconList');
   if (!box) return;
-  renderBankRules();
   renderKasReconDiff();
   const stmts = Storage.getBankStatement();
   const sumEl = document.getElementById('kasReconSummary');
@@ -2526,10 +2537,12 @@ function renderBankRecon() {
       status = `<span style="font-size:11px;color:#b45309">↔ saran: ${escapeHtml(cands[0].description || cands[0].category || 'transaksi')} • ${escapeHtml(cands[0].date)}</span>`;
       actions = `<button class="btn btn-primary recon-match" data-key="${st.key}" data-entry="${cands[0].id}" style="font-size:11px;padding:3px 10px">✓ Cocokkan</button>
         <button class="btn btn-ghost recon-post" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Posting COA</button>
+        <button class="btn btn-ghost recon-rule" data-key="${st.key}" style="font-size:11px;padding:3px 8px" title="Simpan keterangan ini sebagai aturan">＋ Aturan</button>
         <button class="btn btn-ghost recon-ignore" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Abaikan</button>`;
     } else {
       status = '<small style="color:#94a3b8">tidak ada pasangan</small>';
       actions = `<button class="btn btn-ghost recon-post" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Posting COA</button>
+        <button class="btn btn-ghost recon-rule" data-key="${st.key}" style="font-size:11px;padding:3px 8px" title="Simpan keterangan ini sebagai aturan">＋ Aturan</button>
         <button class="btn btn-ghost recon-ignore" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Abaikan</button>`;
     }
     const acct = (getAccounts().find(a => a.code === st.counterAccount) || {});
@@ -2606,31 +2619,59 @@ function renderKasReconDiff() {
   const fmt = (v) => 'Rp' + Math.round(v || 0).toLocaleString('id-ID');
   out.innerHTML = `Saldo buku: <span style="color:#0f172a">${fmt(book)}</span> &nbsp;•&nbsp; Selisih: <span style="color:${Math.abs(diff) < 1 ? '#059669' : '#dc2626'}">${diff < 0 ? '−' : ''}${fmt(Math.abs(diff))}</span> ${Math.abs(diff) < 1 ? '✓ cocok' : ''}`;
 }
+function openBankRules(prefillKeyword, prefillCode) {
+  const m = document.getElementById('bankRulesModal');
+  if (!m) return;
+  renderBankRules();
+  const kw = document.getElementById('bankRuleKeyword');
+  if (kw) kw.value = prefillKeyword || '';
+  if (prefillCode) { const sel = document.getElementById('bankRuleCode'); if (sel) sel.value = prefillCode; }
+  const dir = document.getElementById('bankRuleDir'); if (dir) dir.value = '';
+  if (!m.open) { try { m.showModal(); } catch {} }
+  setTimeout(() => kw?.focus(), 40);
+}
+function closeBankRules() { const m = document.getElementById('bankRulesModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function bankRuleAccountOptions() {
+  const accts = getAccounts();
+  const TYPE = { asset: 'Aset', liability: 'Kewajiban', equity: 'Modal', revenue: 'Pendapatan', expense: 'Beban' };
+  return ['asset', 'liability', 'equity', 'revenue', 'expense'].map(t =>
+    `<optgroup label="${TYPE[t]}">${accts.filter(a => a.type === t).map(a => `<option value="${a.code}">${a.code} ${escapeHtml(a.name)}</option>`).join('')}</optgroup>`
+  ).join('');
+}
 function renderBankRules() {
   const sel = document.getElementById('bankRuleCode');
-  if (sel && sel.options.length <= 1) {
-    const accts = getAccounts();
-    const TYPE = { asset: 'Aset', liability: 'Kewajiban', equity: 'Modal', revenue: 'Pendapatan', expense: 'Beban' };
-    sel.innerHTML = ['asset', 'liability', 'equity', 'revenue', 'expense'].map(t =>
-      `<optgroup label="${TYPE[t]}">${accts.filter(a => a.type === t).map(a => `<option value="${a.code}">${a.code} ${escapeHtml(a.name)}</option>`).join('')}</optgroup>`
-    ).join('');
+  if (sel && sel.options.length <= 1) sel.innerHTML = bankRuleAccountOptions();
+  // Preset cepat (lewati yang sudah ada persis)
+  const presetsBox = document.getElementById('bankRulePresets');
+  const existing = new Set(Storage.getBankRules().map(r => `${r.keyword}|${r.direction || ''}`));
+  if (presetsBox) {
+    presetsBox.innerHTML = BANK_RULE_PRESETS
+      .filter(p => !existing.has(`${p.keyword}|${p.direction || ''}`))
+      .slice(0, 60)
+      .map(p => {
+        const acct = getAccounts().find(x => x.code === p.code) || {};
+        const tag = p.direction === 'in' ? ' ↓' : p.direction === 'out' ? ' ↑' : '';
+        return `<button type="button" class="bank-rule-preset" data-kw="${escapeHtml(p.keyword)}" data-code="${p.code}" data-dir="${p.direction || ''}" title="${escapeHtml(p.keyword)} → ${escapeHtml(acct.code || p.code)} ${escapeHtml(acct.name || '')}" style="font-size:11px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:9999px;padding:4px 10px;cursor:pointer">＋ ${escapeHtml(p.keyword)}${tag} → ${p.code}</button>`;
+      }).join('') || '<small style="color:#94a3b8">Semua contoh sudah ada.</small>';
   }
   const box = document.getElementById('bankRulesList');
   if (!box) return;
   const rules = Storage.getBankRules();
   box.innerHTML = rules.length ? rules.map(r => {
     const a = getAccounts().find(x => x.code === r.code) || {};
-    return `<span style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9999px;padding:3px 6px 3px 10px;font-size:11px;margin:0 6px 6px 0">
-      <b>${escapeHtml(r.keyword)}</b> → ${escapeHtml(a.code || r.code)} ${escapeHtml(a.name || '')}
+    const dirTag = r.direction === 'in' ? ' <span style="color:#059669">↓ masuk</span>' : r.direction === 'out' ? ' <span style="color:#dc2626">↑ keluar</span>' : '';
+    return `<span style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9999px;padding:4px 6px 4px 10px;font-size:11px;margin:0 6px 6px 0">
+      <b>${escapeHtml(r.keyword)}</b>${dirTag} → ${escapeHtml(a.code || r.code)} ${escapeHtml(a.name || '')}
       <button class="btn btn-ghost bank-rule-del" data-id="${r.id}" aria-label="Hapus aturan" style="font-size:11px;padding:0 6px;color:#ef4444">✕</button></span>`;
-  }).join('') : '<small style="color:#94a3b8">Belum ada aturan. Contoh: kata kunci "gojek" → 5104 Beban Transportasi.</small>';
+  }).join('') : '<small style="color:#94a3b8">Belum ada aturan. Klik salah satu contoh di atas, atau isi kata kunci + akun lalu Simpan.</small>';
 }
-function bankRuleAdd() {
-  const kw = document.getElementById('bankRuleKeyword')?.value.trim();
-  const code = document.getElementById('bankRuleCode')?.value;
+function bankRuleAdd(kwArg, codeArg, dirArg) {
+  const kw = (kwArg !== undefined ? kwArg : document.getElementById('bankRuleKeyword')?.value) || '';
+  const code = codeArg !== undefined ? codeArg : document.getElementById('bankRuleCode')?.value;
+  const dir = dirArg !== undefined ? dirArg : document.getElementById('bankRuleDir')?.value;
   try {
-    Storage.addBankRule(kw, code);
-    if (document.getElementById('bankRuleKeyword')) document.getElementById('bankRuleKeyword').value = '';
+    Storage.addBankRule(kw.trim(), code, dir);
+    const inp = document.getElementById('bankRuleKeyword'); if (inp) inp.value = '';
     UI.showSuccess('Aturan bank disimpan');
     renderBankRules();
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyimpan aturan'); }

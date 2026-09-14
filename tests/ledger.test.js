@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   accountForPayment, expenseAccountFor, getAccounts, setCustomAccounts,
-  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD, suggestBankAccount
+  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD, suggestBankAccount, BANK_RULE_PRESETS
 } from '../coa.js';
 import {
   buildEntryJournal, buildLoanJournal, buildRepaymentJournal,
@@ -42,12 +42,26 @@ describe('coa maps', () => {
 
 describe('saran akun COA untuk mutasi bank', () => {
   it('memetakan keterangan ke akun yang masuk akal', () => {
-    expect(suggestBankAccount('BUNGA TABUNGAN', 'in')).toBe('4102');
+    expect(suggestBankAccount('TRANSFER GOJEK', 'out')).toBe('5104');
+    expect(suggestBankAccount('SHOPEEFOOD', 'out')).toBe('5103');
     expect(suggestBankAccount('BIAYA ADM BANK', 'out')).toBe('5114');
     expect(suggestBankAccount('TARIK TUNAI ATM', 'out')).toBe('1101');
     expect(suggestBankAccount('PEMBAYARAN QRIS SETTLEMENT', 'in')).toBe('4101');
+    expect(suggestBankAccount('BUNGA', 'in')).toBe('4102');
+    expect(suggestBankAccount('BUNGA', 'out')).toBe('5115');
     expect(suggestBankAccount('SESUATU TAK DIKENAL', 'out')).toBe('5199');
     expect(suggestBankAccount('SESUATU TAK DIKENAL', 'in')).toBe('4190');
+  });
+});
+
+describe('COA kas/bank & preset aturan', () => {
+  it('punya akun e-wallet & bank', () => {
+    const codes = getAccounts().map(a => a.code);
+    ['1111', '1112', '1113', '1114', '1115', '1116', '1120'].forEach(c => expect(codes).toContain(c));
+  });
+  it('semua preset aturan menunjuk akun COA yang ada', () => {
+    const codes = new Set(getAccounts().map(a => a.code));
+    BANK_RULE_PRESETS.forEach(p => expect(codes.has(p.code)).toBe(true));
   });
 });
 

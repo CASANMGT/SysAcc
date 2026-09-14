@@ -11,8 +11,16 @@ export const ACCOUNTS = [
   { code: '1106', name: 'Bank BCA', type: 'asset' },
   { code: '1107', name: 'Bank Mandiri', type: 'asset' },
   { code: '1108', name: 'Bank BRI', type: 'asset' },
+  { code: '1111', name: 'Bank BNI', type: 'asset' },
+  { code: '1112', name: 'ShopeePay', type: 'asset' },
+  { code: '1113', name: 'GoPay', type: 'asset' },
+  { code: '1114', name: 'OVO', type: 'asset' },
+  { code: '1115', name: 'DANA', type: 'asset' },
+  { code: '1116', name: 'TikTok / Tokopedia (TokoWallet)', type: 'asset' },
+  { code: '1117', name: 'LinkAja', type: 'asset' },
   { code: '1109', name: 'Kas Lainnya', type: 'asset', payment: 'other' },
   { code: '1110', name: 'Deposito / Tabungan Berjangka', type: 'asset' },
+  { code: '1120', name: 'Kas Kecil (Petty Cash)', type: 'asset' },
   // Piutang, persediaan & perlengkapan
   { code: '1201', name: 'Piutang Usaha', type: 'asset' },
   { code: '1202', name: 'Piutang Karyawan (Kasbon)', type: 'asset' },
@@ -133,29 +141,64 @@ export const PPN_RATE = 0.11;
 export const PPH_FINAL_RATE = 0.005;
 export const PPH_THRESHOLD = 4800000000;
 
-// Saran akun lawan untuk mutasi bank dari keterangan (auto-mapping sederhana).
+// ===== Contoh aturan bank (keyword → akun COA) untuk auto-isi & preset UI =====
+// `direction` opsional: 'in' (masuk) / 'out' (keluar); kosong = dua arah.
+export const BANK_RULE_PRESETS = [
+  // Transportasi
+  { keyword: 'gojek', code: '5104' }, { keyword: 'grab', code: '5104' }, { keyword: 'maxim', code: '5104' },
+  { keyword: 'pertamina', code: '5104' }, { keyword: 'spbu', code: '5104' }, { keyword: 'bensin', code: '5104' },
+  { keyword: 'solar', code: '5104' }, { keyword: 'pertalite', code: '5104' },
+  { keyword: 'tol', code: '5104' }, { keyword: 'jasa marga', code: '5104' }, { keyword: 'parkir', code: '5104' },
+  { keyword: 'tiket', code: '5104' }, { keyword: 'travel', code: '5104' },
+  // Konsumsi
+  { keyword: 'gofood', code: '5103' }, { keyword: 'grabfood', code: '5103' }, { keyword: 'shopeefood', code: '5103' },
+  { keyword: 'resto', code: '5103' }, { keyword: 'restoran', code: '5103' }, { keyword: 'warteg', code: '5103' },
+  { keyword: 'kfc', code: '5103' }, { keyword: 'mcd', code: '5103' }, { keyword: 'starbucks', code: '5103' },
+  { keyword: 'kopi', code: '5103' }, { keyword: 'cafe', code: '5103' }, { keyword: 'katering', code: '5103' },
+  // Admin bank & keuangan
+  { keyword: 'biaya adm', code: '5114' }, { keyword: 'adm bank', code: '5114' }, { keyword: 'biaya admin', code: '5114' },
+  { keyword: 'materai', code: '5114' }, { keyword: 'provisi', code: '5114' }, { keyword: 'fee', code: '5114' },
+  { keyword: 'bunga', code: '4102', direction: 'in' }, { keyword: 'bunga', code: '5115', direction: 'out' },
+  { keyword: 'angsuran', code: '2202' }, { keyword: 'cicilan', code: '2202' }, { keyword: 'kredit', code: '2202' },
+  // Utilitas & komunikasi
+  { keyword: 'listrik', code: '5118' }, { keyword: 'pln', code: '5118' }, { keyword: 'token', code: '5118' },
+  { keyword: 'pdam', code: '5118' }, { keyword: 'air', code: '5118' }, { keyword: 'indihome', code: '5118' },
+  { keyword: 'telkom', code: '5118' }, { keyword: 'internet', code: '5118' }, { keyword: 'wifi', code: '5118' },
+  { keyword: 'pulsa', code: '5118' }, { keyword: 'kuota', code: '5118' }, { keyword: 'telkomsel', code: '5118' },
+  { keyword: 'indosat', code: '5118' }, { keyword: 'xl', code: '5118' }, { keyword: 'tri', code: '5118' },
+  // Sewa & operasional
+  { keyword: 'sewa', code: '5101' }, { keyword: 'rent', code: '5101' }, { keyword: 'kontrakan', code: '5101' },
+  { keyword: 'gaji', code: '5110' }, { keyword: 'payroll', code: '5110' }, { keyword: 'upah', code: '5110' }, { keyword: 'honor', code: '5110' },
+  { keyword: 'bpjs', code: '5112' },
+  { keyword: 'iklan', code: '5116' }, { keyword: 'ads', code: '5116' }, { keyword: 'google ads', code: '5116' },
+  { keyword: 'facebook', code: '5116' }, { keyword: 'promosi', code: '5116' }, { keyword: 'endorse', code: '5116' },
+  { keyword: 'asuransi', code: '5119' }, { keyword: 'insurance', code: '5119' },
+  { keyword: 'servis', code: '5120' }, { keyword: 'service', code: '5120' }, { keyword: 'perbaikan', code: '5120' }, { keyword: 'maintenance', code: '5120' },
+  { keyword: 'notaris', code: '5121' }, { keyword: 'konsultan', code: '5121' }, { keyword: 'akuntan', code: '5121' }, { keyword: 'pengacara', code: '5121' },
+  { keyword: 'percetakan', code: '5117' }, { keyword: 'fotokopi', code: '5117' }, { keyword: 'atk', code: '5117' },
+  { keyword: 'sumbangan', code: '5123' }, { keyword: 'donasi', code: '5123' }, { keyword: 'zakat', code: '5123' },
+  { keyword: 'pajak', code: '2201' }, { keyword: 'pph', code: '2201' }, { keyword: 'setor ppn', code: '2201' },
+  // Penjualan / marketplace (masuk)
+  { keyword: 'qris', code: '4101', direction: 'in' }, { keyword: 'settlement', code: '4101', direction: 'in' },
+  { keyword: 'penjualan', code: '4101', direction: 'in' }, { keyword: 'omzet', code: '4101', direction: 'in' },
+  { keyword: 'shopee', code: '4101', direction: 'in' }, { keyword: 'tokopedia', code: '4101', direction: 'in' },
+  { keyword: 'tiktok', code: '4101', direction: 'in' }, { keyword: 'lazada', code: '4101', direction: 'in' },
+  // Belanja stok (keluar)
+  { keyword: 'shopee', code: '5107', direction: 'out' }, { keyword: 'tokopedia', code: '5107', direction: 'out' },
+  { keyword: 'supplier', code: '5107' }, { keyword: 'belanja', code: '5107' },
+  // Kas & prive
+  { keyword: 'tarik tunai', code: '1101' }, { keyword: 'setor tunai', code: '1101' }, { keyword: 'atm', code: '1101' },
+  { keyword: 'prive', code: '3103' }, { keyword: 'penarikan pemilik', code: '3103' },
+];
+
+// Saran akun lawan untuk mutasi bank dari keterangan (dipakai bila tak ada aturan tersimpan).
 export function suggestBankAccount(desc, direction) {
   const s = String(desc || '').toLowerCase();
-  const out = direction === 'out';
-  const rules = [
-    [/(bunga|interest)/, out ? '5115' : '4102'],
-    [/(adm|admin|biaya bank|biaya adm|by adm|materai|provisi|fee)/, '5114'],
-    [/(pph|pajak|tax|setor pajak)/, '2201'],
-    [/(gaji|payroll|upah|honor)/, '5110'],
-    [/(listrik|pln|pdam|\bair\b|telkom|internet|indihome|wifi|token)/, '5118'],
-    [/(sewa|rent)/, '5101'],
-    [/(iklan|ads|promosi|marketing)/, '5116'],
-    [/(asuransi|insurance)/, '5119'],
-    [/(perbaikan|servis|service|pemeliharaan|maintenance)/, '5120'],
-    [/(konsultan|notaris|akuntan|pengacara|legal|jasa profesional)/, '5121'],
-    [/(qris|edc|settlement|penjualan|sales|omzet|marketplace|shopee|tokopedia|tiktok)/, '4101'],
-    [/(tarik tunai|setor tunai|tunai|atm|cash)/, '1101'],
-    [/(modal|investasi|setoran modal)/, '3101'],
-    [/(prive|penarikan pemilik|dividen)/, '3103'],
-    [/(transfer|pindah buku|internal)/, out ? '1101' : '4101'],
-  ];
-  for (const [re, code] of rules) if (re.test(s)) return code;
-  return out ? '5199' : '4190';
+  const dir = direction === 'in' ? 'in' : (direction === 'out' ? 'out' : '');
+  const hit = BANK_RULE_PRESETS.find(r =>
+    s.includes(r.keyword) && (!r.direction || !dir || r.direction === dir));
+  if (hit) return hit.code;
+  return dir === 'in' ? '4190' : '5199';
 }
 
 // PPh Final UMKM (PP 23/2018): 0,5% dari omzet bruto bila omzet setahun ≤ Rp4,8 M.

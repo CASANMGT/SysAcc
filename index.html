@@ -199,7 +199,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.74.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.75.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -521,7 +521,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.74.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.75.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -653,6 +653,7 @@
               <h3 style="flex:1;margin:0">🔗 Rekonsiliasi Bank</h3>
               <span id="kasReconSummary" style="font-size:11px;color:#64748b"></span>
               <button class="btn btn-ghost" id="kasReconMatchAllBtn" style="font-size:12px;padding:4px 10px">✓ Cocokkan semua saran</button>
+              <button class="btn btn-ghost" id="kasReconRulesBtn" style="font-size:12px;padding:4px 10px">⚙️ Aturan bank</button>
               <button class="btn btn-ghost" id="kasReconImportBtn" style="font-size:12px;padding:4px 10px">📂 Import mutasi</button>
             </div>
             <div id="kasReconList"></div>
@@ -665,15 +666,6 @@
               </label>
               <div id="kasReconDiff" style="font-size:12px;font-weight:700;padding-bottom:6px"></div>
             </div>
-            <details style="margin-top:10px">
-              <summary style="cursor:pointer;font-size:12px;color:#64748b;user-select:none">⚙️ Aturan bank (keyword → akun COA) — auto-isi impor berikutnya</summary>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
-                <input type="text" id="bankRuleKeyword" placeholder="mis. gojek / biaya adm / grab" maxlength="40" style="flex:1;min-width:150px;height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-                <select id="bankRuleCode" style="flex:1;min-width:180px;height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px"></select>
-                <button class="btn btn-primary" id="bankRuleAddBtn" style="height:36px">＋ Simpan aturan</button>
-              </div>
-              <div id="bankRulesList" style="margin-top:8px"></div>
-            </details>
           </div>
           <div class="dashboard-grid">
             <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">💼 Saldo per Dompet</h3><div id="kasWalletList"></div></div>
@@ -1621,7 +1613,33 @@
     </div>
   </dialog>
 
-  <dialog id="bankModal" class="modal">
+  <dialog id="bankRulesModal" class="modal">
+    <div class="modal-content modal-lg">
+      <header class="modal-header">
+        <h2>⚙️ Aturan Bank</h2>
+        <button type="button" class="modal-close" id="bankRulesClose" aria-label="Tutup">&times;</button>
+      </header>
+      <div class="modal-body">
+        <p style="font-size:12px;color:#64748b">Saat impor mutasi bank, akun COA diisi otomatis dari kata kunci keterangan. Kata kunci <b>terpanjang menang</b>; aturan <b>berarah</b> (masuk/keluar) lebih spesifik.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0">
+          <input type="text" id="bankRuleKeyword" placeholder="Kata kunci (mis. gojek, biaya adm)" maxlength="40" style="flex:1;min-width:150px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+          <select id="bankRuleCode" style="flex:1;min-width:190px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px"></select>
+          <select id="bankRuleDir" title="Arah" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+            <option value="">Dua arah</option>
+            <option value="out">Keluar</option>
+            <option value="in">Masuk</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="bankRuleAddBtn" style="height:38px">＋ Simpan</button>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#475569;margin:12px 0 6px">⚡ Contoh aturan cepat — klik untuk menambah</div>
+        <div id="bankRulePresets" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <div style="font-size:12px;font-weight:700;color:#475569;margin:16px 0 6px">📋 Aturan tersimpan</div>
+        <div id="bankRulesList"></div>
+      </div>
+    </div>
+  </dialog>
+
+<dialog id="bankModal" class="modal">
     <div class="modal-content modal-lg">
       <header class="modal-header">
         <h2>🏦 Import Mutasi Bank</h2>
@@ -2366,7 +2384,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.74.0';
+    window.__htmlVersion = '1.75.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

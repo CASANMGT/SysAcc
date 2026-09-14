@@ -2485,23 +2485,28 @@ export function saveBankRules(list) {
   try { localStorage.setItem(BANK_RULES_KEY, JSON.stringify((Array.isArray(list) ? list : []).slice(0, 200))); } catch {}
   return getBankRules();
 }
-export function addBankRule(keyword, code) {
+export function addBankRule(keyword, code, direction) {
   const k = String(keyword || '').trim().toLowerCase().slice(0, 40);
   if (!k) throw new Error('Kata kunci wajib diisi');
   if (!/^\d{4}$/.test(String(code || ''))) throw new Error('Akun COA tidak valid');
-  const list = getBankRules().filter(r => r.keyword !== k);
-  list.push({ id: generateId(), keyword: k, code: String(code) });
-  logAudit('create', 'bank-rule', '', null, { keyword: k, code: String(code) });
+  const dir = (direction === 'in' || direction === 'out') ? direction : '';
+  const list = getBankRules().filter(r => !(r.keyword === k && (r.direction || '') === dir));
+  list.push({ id: generateId(), keyword: k, code: String(code), direction: dir });
+  logAudit('create', 'bank-rule', '', null, { keyword: k, code: String(code), direction: dir });
   return saveBankRules(list);
 }
 export function deleteBankRule(id) {
   return saveBankRules(getBankRules().filter(r => r.id !== id));
 }
-// Cari akun dari aturan (substring kata kunci). Null bila tidak ada.
-export function matchBankRule(desc) {
+// Cari akun dari aturan (substring kata kunci; kata kunci terpanjang menang). Null bila tidak ada.
+export function matchBankRule(desc, direction) {
   const s = String(desc || '').toLowerCase();
-  const hit = getBankRules().find(r => r.keyword && s.includes(r.keyword));
-  return hit ? hit.code : null;
+  const dir = (direction === 'in' || direction === 'out') ? direction : '';
+  const hits = getBankRules().filter(r =>
+    r.keyword && s.includes(r.keyword) && (!r.direction || !dir || r.direction === dir));
+  if (!hits.length) return null;
+  hits.sort((a, b) => String(b.keyword).length - String(a.keyword).length);
+  return hits[0].code;
 }
 
 // ===== Saldo akhir rekening koran (untuk indikator selisih) =====

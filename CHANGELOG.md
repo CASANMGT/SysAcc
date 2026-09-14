@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.75.0] - 2026-09-14
+
+### Improved — Aturan bank mudah diakses + COA e-wallet + preset aturan
+- **Modal ⚙️ Aturan Bank** khusus (tombol di header panel Rekonsiliasi) — tidak lagi tersembunyi di accordion
+- **⚡ Contoh aturan cepat**: puluhan preset (gojek/grab → 5104, shopeefood/gofood → 5103, biaya adm → 5114, listrik/pln → 5118, iklan → 5116, dll) — **klik untuk menambah** sekali klik
+- Tombol **＋ Aturan** di tiap baris mutasi: simpan langsung dari keterangan + akun yang sudah dipilih
+- **Aturan berarah** (masuk/keluar) — mis. `bunga` masuk → 4102, keluar → 5115; **kata kunci terpanjang menang** (grabfood > grab)
+- **COA kas/bank diperluas**: BNI, **ShopeePay, GoPay, OVO, DANA, TikTok/Tokopedia (TokoWallet), LinkAja**, Kas Kecil
+- Preset aturan mencakup transportasi, konsumsi, utilitas, sewa, gaji, iklan, asuransi, perlengkapan, marketplace, prive, dll
+- +4 test; 313/313 tests ✓
+
+---
+
 ## [1.74.0] - 2026-09-14
 
 ### Changed — Backend server-authoritative (database = sumber kebenaran)

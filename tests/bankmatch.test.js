@@ -76,6 +76,17 @@ describe('aturan bank & saldo akhir', () => {
     deleteBankRule(list[0].id);
     expect(getBankRules().length).toBe(0);
   });
+  it('aturan berarah: hanya berlaku untuk arah yang cocok', () => {
+    addBankRule('bunga', '5115', 'out');
+    expect(matchBankRule('BUNGA TABUNGAN', 'out')).toBe('5115');
+    expect(matchBankRule('BUNGA TABUNGAN', 'in')).toBe(null);
+  });
+  it('kata kunci terpanjang menang (grabfood > grab)', () => {
+    addBankRule('grab', '5104');
+    addBankRule('grabfood', '5103');
+    expect(matchBankRule('GRABFOOD ORDER', 'out')).toBe('5103');
+    expect(matchBankRule('GRAB CAR', 'out')).toBe('5104');
+  });
   it('saldo akhir tersimpan; 0 menghapus', () => {
     setBankEndBalance('1102', 5000000);
     expect(getBankEndBalances()['1102']).toBe(5000000);
