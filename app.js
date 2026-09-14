@@ -10,7 +10,7 @@ import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimeP
 import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 import { code128Svg } from './barcode.js';
-import { suggestMatches, reconSummary } from './bankmatch.js';
+import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.80.0';
+const APP_VERSION = '1.81.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -912,6 +912,10 @@ function bindEvents() {
   document.getElementById('bankRulePresets')?.addEventListener('click', (e) => {
     const b = e.target.closest('.bank-rule-preset');
     if (b) bankRuleAdd(b.dataset.kw, b.dataset.code, b.dataset.dir);
+  });
+  document.getElementById('bankRuleSuggestions')?.addEventListener('click', (e) => {
+    const b = e.target.closest('.bank-sgst-add');
+    if (b) bankRuleAddSuggestion(Number(b.dataset.i));
   });
   document.getElementById('kasReconBankSelect')?.addEventListener('change', renderKasReconDiff);
   document.getElementById('kasReconEndBal')?.addEventListener('change', () => {
@@ -2735,6 +2739,53 @@ function renderBankRules() {
       return `<button type="button" class="bank-rule-preset" data-kw="${escapeHtml(p.keyword)}" data-code="${p.code}" data-dir="${p.direction || ''}" title="${escapeHtml(acctLabel(p.code))}" style="font-size:11px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:9999px;padding:4px 10px;cursor:pointer">＋ ${escapeHtml(p.keyword)}${tag} → ${p.code}</button>`;
     }).join('') : `<small style="color:#94a3b8">${rules.length && !q ? 'Semua contoh sudah ada.' : 'Tidak ada contoh yang cocok.'}</small>`;
   }
+  renderBankRuleSuggestions();
+}
+// Saran aturan dari mutasi NYATA milik pengguna (bukan preset generik).
+let lastSuggestCards = [];
+function renderBankRuleSuggestions() {
+  const box = document.getElementById('bankRuleSuggestions');
+  if (!box) return;
+  const rules = Storage.getBankRules();
+  const existing = new Set(rules.map(r => `${r.keyword}|${r.direction || ''}`));
+  lastSuggestCards = suggestRules(Storage.getBankStatement()).filter(s => !existing.has(`${s.keyword}|${s.direction || ''}`)).slice(0, 6);
+  if (!lastSuggestCards.length) {
+    box.innerHTML = '<div style="font-size:11px;color:#64748b">Belum ada pola baru dari mutasi. Import mutasi bank untuk mendapat saran.</div>';
+    return;
+  }
+  box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#1e3a8a;margin-bottom:6px">💡 Saran aturan dari mutasi Anda — pilih COA lalu Tinjau &amp; tambah (langsung diterapkan ke mutasi serupa)</div>`
+    + lastSuggestCards.map((s, i) => {
+      const dirTag = s.direction === 'out' ? '<span style="color:#dc2626;font-size:10px">↑ keluar</span>' : s.direction === 'in' ? '<span style="color:#059669;font-size:10px">↓ masuk</span>' : '';
+      return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:8px 10px;margin-bottom:6px">
+        <div style="flex:1;min-width:140px"><b style="font-size:12px;text-transform:uppercase">${escapeHtml(s.keyword)}</b>
+          <span style="font-size:11px;color:#64748b">• ${s.count} mutasi • Rp${Math.round(s.total).toLocaleString('id-ID')}</span> ${dirTag}</div>
+        <select class="bank-sgst-code" data-i="${i}" aria-label="COA" style="max-width:250px;height:30px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;padding:0 6px">${accountOptionsWithSelected(s.code)}</select>
+        <button type="button" class="btn btn-primary bank-sgst-add" data-i="${i}" style="font-size:11px;padding:4px 10px;white-space:nowrap">Tinjau &amp; tambah</button>
+      </div>`;
+    }).join('');
+}
+function bankRuleAddSuggestion(i) {
+  const sug = lastSuggestCards[i];
+  if (!sug) return;
+  const sel = document.querySelector(`.bank-sgst-code[data-i="${i}"]`);
+  const code = sel ? sel.value : sug.code;
+  try {
+    Storage.addBankRule(sug.keyword, code, sug.direction);
+    let n = 0;
+    // Backfill: terapkan ke mutasi serupa yang belum diposting/dicocokkan
+    Storage.getBankStatement().forEach(s => {
+      if (s.posted || s.matchedId || s.ignored) return;
+      const d = String(s.desc || '').toLowerCase();
+      const dir = s.direction || '';
+      if (d.includes(sug.keyword) && (!sug.direction || !dir || sug.direction === dir)) {
+        Storage.updateBankStatement(s.key, { counterAccount: code });
+        n++;
+      }
+    });
+    UI.showSuccess(`Aturan "${sug.keyword.toUpperCase()}" disimpan${n ? ` • ${n} mutasi diperbarui` : ''}`);
+    renderBankRules();
+    renderBankRecon();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menambah aturan'); }
 }
 function bankRuleAdd(kwArg, codeArg, dirArg) {
   const kw = (kwArg !== undefined ? kwArg : document.getElementById('bankRuleKeyword')?.value) || '';

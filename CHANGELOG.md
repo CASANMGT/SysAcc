@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.81.0] - 2026-09-14
+
+### Added — Aturan bank belajar dari mutasi Anda (saran dari data nyata)
+- Bagian baru **"💡 Saran aturan dari mutasi Anda"** di Aturan Bank: kelompokkan **mutasi yang belum diproses** menurut kata kunci + arah, tampil sebagai kartu **`BIAYA ADM • 2 mutasi • Rp20.000`** dengan **COA terpopuler terisi otomatis**
+- Tombol **Tinjau & tambah**: menyimpan aturan **dan langsung menerapkannya ke semua mutasi serupa yang belum dibukukan** (backfill sekali klik)
+- Mesin saran aturan (`suggestRules`) mengabaikan baris yang sudah diposting/dicocokkan/diabaikan; pola yang sudah jadi aturan tidak muncul lagi
+- +1 test (pengelompokan & usulan akun); 316/316 tests ✓
+
+---
+
 ## [1.80.0] - 2026-09-14
 
 ### Added — Kolom COA di daftar transaksi

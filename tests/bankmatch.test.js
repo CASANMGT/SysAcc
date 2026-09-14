@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { suggestMatches, reconSummary, entryDirection } from '../bankmatch.js';
+import { suggestMatches, reconSummary, entryDirection, suggestRules } from '../bankmatch.js';
 import { upsertBankStatement, getBankStatement, updateBankStatement, getBankRules, addBankRule, deleteBankRule, updateBankRule, matchBankRule, getBankEndBalances, setBankEndBalance } from '../storage.js';
 
 const ENTRIES = [
@@ -37,6 +37,23 @@ describe('bankmatch engine', () => {
     expect(s.matched).toBe(1);
     expect(s.posted).toBe(1);
     expect(s.ignored).toBe(1);
+  });
+  it('suggestRules mengelompokkan mutasi nyata & usul akun terpopuler', () => {
+    const st = [
+      { key: 'a', desc: 'BIAYA ADM BULANAN', amount: 15000, direction: 'out', counterAccount: '5114' },
+      { key: 'b', desc: 'BIAYA ADM KARTU', amount: 5000, direction: 'out', counterAccount: '5114' },
+      { key: 'c', desc: 'GRABFOOD', amount: 85000, direction: 'out', counterAccount: '5103' },
+      { key: 'd', desc: 'SUDAH DIPROSES', amount: 1000, direction: 'out', counterAccount: '5199', posted: true },
+      { key: 'e', desc: 'DIABAIKAN', amount: 1000, direction: 'out', counterAccount: '5199', ignored: true },
+    ];
+    const r = suggestRules(st);
+    expect(r[0].keyword).toBe('biaya');
+    expect(r[0].count).toBe(2);
+    expect(r[0].total).toBe(20000);
+    expect(r[0].code).toBe('5114');
+    expect(r.some(x => x.keyword === 'grabfood')).toBe(true);
+    expect(r.some(x => x.keyword === 'diproses')).toBe(false);
+    expect(r.some(x => x.keyword === 'diabaikan')).toBe(false);
   });
 });
 

@@ -225,7 +225,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.80.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.81.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -548,7 +548,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.80.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.81.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1667,6 +1667,10 @@
           <div id="bankRuleSuggestion" style="margin-top:6px;font-size:12px;min-height:20px"></div>
         </div>
 
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin-bottom:12px">
+          <div id="bankRuleSuggestions"></div>
+        </div>
+
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <input type="search" id="bankRuleSearch" placeholder="🔍 Cari kata kunci / akun..." style="flex:1;min-width:160px;height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
           <button type="button" class="btn btn-ghost" id="bankRuleSeedAll" style="height:36px;font-size:12px" title="Tambah semua contoh sekaligus">⚡ Pakai semua contoh</button>
@@ -2439,7 +2443,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.80.0';
+    window.__htmlVersion = '1.81.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
