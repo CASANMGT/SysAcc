@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.92.0] - 2026-09-15
+
+### Changed — revamp alur Penjualan: DP % + kurs yuan
+- **DP berbasis persen** untuk SEMUA jenis (ready & preorder) — satu kolom `DP (%)`, auto hitung `DP (Rp)`; jenis pesanan dibuat kartu pilihan (📦/🌏) yang jelas
+- **Cara bayar DP terbuka**: transfer bank/tunai/QRIS dst mengikuti kolom *Cara bayar* yang sudah ada (dipakai untuk jurnal DP)
+- **Preorder pakai yuan**: form preorder bertambah **Kurs (Rp per ¥)** default 2.300; langkah "Beli barang → gudang China" punya kolom **¥ yuan** — biaya barang (Rupiah) tercatat otomatis plus catatan `¥… × kurs = Rp…`
+- Panel Status Pesanan menampilkan resi terkini dari tiap tahap (China→Indo & kirim pelanggan)
+- UI lebih fluid: dua blok bersih per mode, satu ringkasan alur (tanpa info dobel), label dinamis untuk step beli China vs kirim
+
 ## [1.91.0] - 2026-09-15
 
 ### Fixed — UI preorder: tidak ada DP/termin duplikat

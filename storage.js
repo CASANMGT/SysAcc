@@ -2588,7 +2588,9 @@ function nextPreorderNo() {
 }
 // Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
 // months = estimasi berapa bulan barang tiba (preorder luar negeri).
-export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount } = {}) {
+// Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
+// months = estimasi berapa bulan barang tiba (preorder luar negeri); fx = kurs Rp per ¥.
+export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx } = {}) {
   requireCap('ledger');
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
@@ -2603,8 +2605,9 @@ export function createPreorder({ date, customer, items, deposit, payment, note, 
   const id = generateId();
   const cleanItems = clean.map(l => ({ ...(l.itemId ? { itemId: String(l.itemId) } : {}), name: l.name, qty: l.qty, price: l.price }));
   const monthsEta = Math.max(Number(months) || 0, 0);
+  const fxRate = Math.max(Number(fx) || 2300, 1);
   const rec = {
-    id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40), monthsEta,
+    id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40), monthsEta, fx: fxRate,
     customer: String(customer || '').trim().slice(0, 60),
     items: cleanItems, subtotal: sub, discount: disc, sellTotal, deposit: dp, payment: payment || 'cash',
     costs: [], payments: [], stage: dp > 0 ? 'dp_paid' : 'ordered',
@@ -2667,7 +2670,7 @@ export function addPreorderCost(id, { amount, kind, date, payment, note } = {}) 
   return po;
 }
 // Barang dibeli & dikirim (pengiriman dari China): hanya update tahap.
-export function shipPreorder(id, { note, tracking } = {}) {
+export function shipPreorder(id, { note, tracking, cny } = {}) {
   requireCap('ledger');
   const list = getPreorders();
   const i = list.findIndex(x => x.id === id);
@@ -2675,13 +2678,13 @@ export function shipPreorder(id, { note, tracking } = {}) {
   const po = list[i];
   if (!['ordered', 'dp_paid'].includes(po.stage)) throw new Error('Tahap sudah ' + po.stage);
   const d = new Date().toISOString().split('T')[0];
-  po.stage = 'shipping';
+  po.stage = 'china';
   po.shipNotes = String(note || '').slice(0, 80);
   po.shipment = { ...(po.shipment || {}), tracking: String(tracking || '').slice(0, 40), date: d };
-  po.events = (po.events || []).concat([{ date: d, stage: 'shipped', note: `Barang di jalan${note ? ' • ' + note : ''}`, tracking: String(tracking || '').slice(0, 40), schedule: '' }]);
+  po.events = (po.events || []).concat([{ date: d, stage: 'china', note: `Barang dibeli${cny > 0 ? ' ¥' + Number(cny).toLocaleString('id-ID') : ''}${note ? ' • ' + note : ''}`, tracking: String(tracking || '').slice(0, 40), schedule: '' }]);
   list[i] = po;
   savePreorders(list);
-  logAudit('update', 'preorder', id, null, { stage: 'shipping' });
+  logAudit('update', 'preorder', id, null, { stage: 'china' });
   return po;
 }
 // Barang sampai + pelanggan bayar penuh sisa → uang muka jadi pendapatan, barang jadi HPP.

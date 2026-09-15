@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.91.0';
+const APP_VERSION = '1.92.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -797,9 +797,9 @@ function bindEvents() {
     const fee = e.target.closest('.preorder-cost');
     const delJ = e.target.closest('.credit-del');
     let delP = e.target.closest('.preorder-del');
-    if (ship) openOrderShip(ship.dataset.id);
+    if (ship) openOrderShip('jual', ship.dataset.id);
     else if (recv) handleOrderReceive(recv.dataset.id);
-    else if (e.target.closest('.preorder-ship')) orderShipPrompt(e.target.closest('.preorder-ship').dataset.id);
+    else if (e.target.closest('.preorder-ship')) { const b = e.target.closest('.preorder-ship'); openOrderShip('po', b.dataset.id); }
     else if (e.target.closest('.preorder-arrive')) orderArrivePrompt(e.target.closest('.preorder-arrive').dataset.id);
     else if (setStatus) openOrderStatus(setStatus.dataset.kind, setStatus.dataset.id, setStatus.dataset.st || '');
     else if (pay) (pay.dataset.kind === 'po') ? openPoPay(pay.dataset.id) : openCreditPay(pay.dataset.id);
@@ -2950,13 +2950,6 @@ function bindPreorderUI() {
   document.getElementById('preorderCostClose')?.addEventListener('click', closePoCost);
   document.getElementById('preorderCostCancel')?.addEventListener('click', closePoCost);
   document.getElementById('preorderCostSave')?.addEventListener('click', handlePoCostSubmit);
-}
-function orderShipPrompt(id) {
-  const po = Storage.getPreorderById(id);
-  if (!po) return;
-  if (!confirm(`Barang pesanan ${po.no} sudah dibeli & masuk gudang China?`)) return;
-  try { Storage.shipPreorder(id, {}); UI.showSuccess('Barang dinyatakan di jalan — tunggu sampai tiba (~1 bulan)'); refreshSalesPage(); }
-  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui tahap'); }
 }
 function orderArrivePrompt(id) {
   const po = Storage.getPreorderById(id);
@@ -5647,9 +5640,8 @@ function handleSaleSave() {
       try {
         const po = Storage.createPreorder({
           date: d.date, customer: d.customer, items: d.lines.map(l => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })),
-          deposit: d.deposit, payment: d.payment, note: d.note, months: d.monthsEta || 1, discount: d.discount,
-        });
-        UI.closeSale();
+          deposit: d.deposit, payment: d.payment, note: d.note, months: d.monthsEta || 1, discount: d.discount, fx: d.fx,
+        });        UI.closeSale();
         UI.showSuccess(`Preorder ${fmt(po.sellTotal)} tersimpan${po.deposit > 0 ? ` • DP ${fmt(po.deposit)} masuk kas` : ''} • est datang ${po.monthsEta || 1} bulan • pantau di Status Pesanan`);
         refresh();
         refreshSalesPage();
@@ -7202,23 +7194,54 @@ document.addEventListener('DOMContentLoaded', init);
 
 
 
-function openOrderShip(id) {
-  const cs = Storage.getCreditSaleById(id);
+function openOrderShip(kind, id) {
+  const cs = kind === 'po' ? Storage.getPreorderById(id) : Storage.getCreditSaleById(id);
   if (!cs) return;
   document.getElementById('shipId').value = id;
-  const out = Storage.creditOutstanding(cs);
+  const kindEl = document.getElementById('shipKind'); if (kindEl) kindEl.value = kind || 'jual';
+  const title = document.getElementById('shipTitle');
+  if (title) title.textContent = kind === 'po' ? '🛒 Beli Barang → Gudang China' : '🚚 Tandai Dikirim';
+  const yuanWrap = document.getElementById('shipYuanWrap');
+  if (yuanWrap) yuanWrap.hidden = kind !== 'po';
+  const courierLabel = document.getElementById('shipCourierLabel');
+  if (courierLabel) courierLabel.textContent = kind === 'po' ? 'Agent/grosir (opsional)' : 'Ekspedisi / kurir';
+  const out = kind === 'po' ? Storage.preorderBalance(cs) : Storage.creditOutstanding(cs);
   const info = document.getElementById('shipInfo');
-  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${('Rp' + Math.round(cs.total).toLocaleString('id-ID'))} • <b>sisa ${('Rp' + Math.round(out).toLocaleString('id-ID'))}</b> dikumpulkan setelah diterima`;
+  if (info) {
+    const fx = kind === 'po' ? Number(cs.fx) || 2300 : 0;
+    info.innerHTML = `<b>${escapeHtml(cs.no || cs.invoiceNo || '')}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${('Rp' + Math.round(cs.sellTotal || cs.total).toLocaleString('id-ID'))} • <b>sisa ${('Rp' + Math.round(out).toLocaleString('id-ID'))}</b>${kind === 'po' ? ` • kurs ¥1 = Rp${fx.toLocaleString('id-ID')}` : ''}`;
+  }
   const dt = document.getElementById('shipDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
   const er = document.getElementById('shipError'); if (er) er.textContent = '';
+  const yuan = document.getElementById('shipYuan'); if (yuan) { yuan.value = ''; delete yuan.dataset.touched; }
   const m = document.getElementById('shipModal');
-  if (m && !m.open) { try { m.showModal(); } catch {} setTimeout(() => document.getElementById('shipCourier')?.focus(), 60); }
+  if (m && !m.open) {
+    try { m.showModal(); } catch {}
+    setTimeout(() => (kind === 'po' ? document.getElementById('shipYuan') : document.getElementById('shipCourier'))?.focus(), 60);
+  }
 }
 function closeOrderShip() { const m = document.getElementById('shipModal'); if (m && m.open) { try { m.close(); } catch {} } }
 function handleOrderShipSubmit() {
   const id = document.getElementById('shipId')?.value || '';
+  const kind = document.getElementById('shipKind')?.value || 'jual';
   if (!id) return;
   try {
+    if (kind === 'po') {
+      const yuan = Number(UI.parseIdrInput(document.getElementById('shipYuan')?.value || '')) || 0;
+      Storage.shipPreorder(id, {
+        note: 'Beli barang (agent)',
+        tracking: document.getElementById('shipTracking')?.value || '',
+      });
+      if (yuan > 0) {
+        const po = Storage.getPreorderById(id);
+        const fx = Number(po?.fx) || 2300;
+        Storage.addPreorderCost(id, { amount: Math.round(yuan * fx), kind: 'barang', payment: 'transfer', note: `¥${yuan.toLocaleString('id-ID')} yuan × kurs ${fx.toLocaleString('id-ID')} = Rp${Math.round(yuan * fx).toLocaleString('id-ID')}` });
+      }
+      closeOrderShip();
+      UI.showSuccess(`Barang dibeli & dicatat di gudang China${UI.parseIdrInput(document.getElementById('shipYuan')?.value || '') > 0 ? ' (biaya barang masuk pesanan)' : ''} — langkah berikutnya kirim China → Indonesia`);
+      refreshSalesPage();
+      return;
+    }
     Storage.shipCreditSale(id, {
       courier: document.getElementById('shipCourier')?.value || '',
       tracking: document.getElementById('shipTracking')?.value || '',
@@ -7229,8 +7252,8 @@ function handleOrderShipSubmit() {
     refreshSalesPage();
   } catch (e) {
     const er = document.getElementById('shipError');
-    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan pengiriman';
-    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan pengiriman');
+    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan';
+    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan');
   }
 }
 function handleOrderReceive(id) {
