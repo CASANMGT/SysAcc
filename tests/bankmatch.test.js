@@ -1,4 +1,4 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { suggestMatches, reconSummary, entryDirection, suggestRules } from '../bankmatch.js';
 import { upsertBankStatement, getBankStatement, updateBankStatement, getBankRules, addBankRule, deleteBankRule, updateBankRule, matchBankRule, getBankEndBalances, setBankEndBalance } from '../storage.js';
@@ -9,7 +9,7 @@ const ENTRIES = [
 ];
 
 describe('bankmatch engine', () => {
-  it('entryDirection memetakan incomeâ†’in, expenseâ†’out', () => {
+  it('entryDirection memetakan income→in, expense→out', () => {
     expect(entryDirection({ type: 'income' })).toBe('in');
     expect(entryDirection({ type: 'expense' })).toBe('out');
   });
@@ -54,6 +54,8 @@ describe('bankmatch engine', () => {
     expect(r.some(x => x.keyword === 'grabfood')).toBe(true);
     expect(r.some(x => x.keyword === 'diproses')).toBe(false);
     expect(r.some(x => x.keyword === 'diabaikan')).toBe(false);
+    expect(r[0].examples.length).toBeGreaterThan(0);
+    expect(typeof r[0].confirmed).toBe('number');
   });
 });
 
@@ -76,7 +78,7 @@ describe('bank statement store', () => {
 
 describe('aturan bank & saldo akhir', () => {
   beforeEach(() => localStorage.clear());
-  it('aturan keyword â†’ akun (dipakai saat import)', () => {
+  it('aturan keyword → akun (dipakai saat import)', () => {
     addBankRule('gojek', '5104');
     expect(matchBankRule('TRANSFER GOJEK 123')).toBe('5104');
     expect(matchBankRule('makan siang')).toBe(null);

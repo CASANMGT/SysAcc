@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   accountForPayment, expenseAccountFor, getAccounts, setCustomAccounts,
   REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD, suggestBankAccount, suggestBankAccountFull, BANK_RULE_PRESETS, parseCoaCsv
@@ -8,7 +8,7 @@ import {
   buildTransferJournal, buildAdjustJournal, buildPayrollKasbonJournal, balances, findUnbalanced
 } from '../journals.js';
 
-// isLiabilityPayment tidak diekspor â€” cek via akun credit/paylater
+// isLiabilityPayment tidak diekspor — cek via akun credit/paylater
 import { ACCOUNTS } from '../coa.js';
 
 function totals(j) {
@@ -18,14 +18,14 @@ function totals(j) {
 }
 
 describe('coa maps', () => {
-  it('cash â†’ aset, credit/paylater â†’ kewajiban', () => {
+  it('cash → aset, credit/paylater → kewajiban', () => {
     expect(accountForPayment('cash')).toBe('1104');
     expect(accountForPayment('transfer')).toBe('1101');
     expect(accountForPayment('credit')).toBe('2109');
     expect(accountForPayment('paylater')).toBe('2110');
     expect(accountForPayment('ngawur')).toBe('1104');
   });
-  it('kategori beban â†’ akun, custom â†’ 5199', () => {
+  it('kategori beban → akun, custom → 5199', () => {
     expect(expenseAccountFor('makanan')).toBe('5103');
     expect(expenseAccountFor('gaji-out')).toBe('6201');
     expect(expenseAccountFor('x-custom')).toBe('5199');
@@ -137,7 +137,7 @@ describe('buildEntryJournal', () => {
     expect(d).toBe(c);
     expect(d).toBe(550000);
   });
-  it('nominal rusak â†’ null', () => {
+  it('nominal rusak → null', () => {
     expect(buildEntryJournal({ amount: 0 })).toBeNull();
     expect(buildEntryJournal({ amount: -5 })).toBeNull();
   });
@@ -169,7 +169,7 @@ describe('buildLoanJournal / buildRepaymentJournal', () => {
     );
     expect(j.lines.find(l => l.account === AR_ACCOUNT).credit).toBe(200000);
   });
-  it('pelunasan berbunga given â†’ bunga masuk Pendapatan Bunga 4102 (B7)', () => {
+  it('pelunasan berbunga given → bunga masuk Pendapatan Bunga 4102 (B7)', () => {
     const j = buildRepaymentJournal(
       { id: 'l1', direction: 'given', person: 'Budi', amount: 1000000, interestRate: 10 },
       { id: 'r1', amount: 550000, date: '2026-09-05', payment: 'cash' }
@@ -179,7 +179,7 @@ describe('buildLoanJournal / buildRepaymentJournal', () => {
     expect(j.lines.find(l => l.account === AR_ACCOUNT).credit).toBe(500000);
     expect(j.lines.find(l => l.account === '4190').credit).toBe(50000);
   });
-  it('pelunasan berbunga taken â†’ bunga masuk Beban Bunga 5113 (B7)', () => {
+  it('pelunasan berbunga taken → bunga masuk Beban Bunga 5113 (B7)', () => {
     const j = buildRepaymentJournal(
       { id: 'l2', direction: 'taken', person: 'Ani', amount: 1000000, interestRate: 10 },
       { id: 'r2', amount: 1100000, date: '2026-09-05', payment: 'transfer' }
@@ -213,7 +213,7 @@ describe('purchase journals', () => {
     expect(j.lines.find(l => l.account === '1101').credit).toBe(196000);
     expect(j.lines.find(l => l.account === '2104').credit).toBe(4000);
   });
-  it('pemotongan >= nominal â†’ fallthrough penuh (tanpa 2107)', async () => {
+  it('pemotongan >= nominal → fallthrough penuh (tanpa 2107)', async () => {
     const { buildPurchasePayJournal } = await import('../journals.js');
     const j = buildPurchasePayJournal({
       amount: 3000, date: '2026-09-03', payment: 'cash', memo: 'X',
@@ -225,7 +225,7 @@ describe('purchase journals', () => {
 });
 
 describe('opening balance', () => {
-  it('pincang â†’ null; seimbang â†’ jurnal ref opening', async () => {
+  it('pincang → null; seimbang → jurnal ref opening', async () => {
     const { buildOpeningJournal } = await import('../journals.js');
     expect(buildOpeningJournal({ date: '2026-01-01' }, [{ account: '1101', debit: 1000000, credit: 0 }])).toBeNull();
     const j = buildOpeningJournal({ date: '2026-01-01' }, [
@@ -246,7 +246,7 @@ describe('transfer & adjust', () => {  it('transfer antar kas', () => {
     expect(j.lines.find(l => l.account === '1101').debit).toBe(1000000);
     expect(j.lines.find(l => l.account === '1104').credit).toBe(1000000);
   });
-  it('kas sama â†’ null', () => {
+  it('kas sama → null', () => {
     expect(buildTransferJournal({ fromPayment: 'cash', toPayment: 'cash', amount: 1, date: '2026-09-01' })).toBeNull();
   });
   it('opname tambah persediaan', () => {
@@ -278,12 +278,12 @@ describe('balances & findUnbalanced', () => {
 });
 
 describe('pphFinalForYear (PP 23/2018)', () => {
-  it('omzet â‰¤ Rp4,8 M â†’ berhak, 0,5%', () => {
+  it('omzet ≤ Rp4,8 M → berhak, 0,5%', () => {
     const r = pphFinalForYear(1000000000);
     expect(r.eligible).toBe(true);
     expect(r.pph).toBe(5000000);
   });
-  it('omzet > Rp4,8 M â†’ tidak berhak, PPh 0', () => {
+  it('omzet > Rp4,8 M → tidak berhak, PPh 0', () => {
     const r = pphFinalForYear(PPH_THRESHOLD + 1);
     expect(r.eligible).toBe(false);
     expect(r.pph).toBe(0);
@@ -299,7 +299,7 @@ describe('buildPayrollKasbonJournal (kasbon potong gaji)', () => {
     expect(j.lines.find(l => l.account === AR_ACCOUNT).credit).toBe(500000);
     expect(j.lines.some(l => l.account === '1101' || l.account === '1101')).toBe(false);
   });
-  it('nominal 0 â†’ null', () => {
+  it('nominal 0 → null', () => {
     expect(buildPayrollKasbonJournal({ person: 'Budi' }, 0, '2026-08-31')).toBe(null);
   });
 });

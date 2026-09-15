@@ -1,4 +1,4 @@
-﻿import * as Storage from './storage.js';
+import * as Storage from './storage.js';
 import * as Reports from './reports.js';
 import * as UI from './ui.js';
 import * as IDB from './idb.js';
@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.86.1';
+const APP_VERSION = '1.86.2';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -47,7 +47,7 @@ const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
 function init() {
   window.__appBooted = true;
   setupA11y();
-  // Self-heal split-brain cache: JS baru + HTML lama (tanpa anchor wajib) â†’
+  // Self-heal split-brain cache: JS baru + HTML lama (tanpa anchor wajib) →
   // buang service worker + cache, lalu reload SEKALI. Mencegah halaman putih.
   const anchors = ['loginScreen', 'appRoot', 'viewRingkasan', 'viewLaporan', 'pageReportContent', 'reportBtnSidebar'];
   const missing = anchors.filter(id => !document.getElementById(id));
@@ -63,7 +63,7 @@ function init() {
           }).catch(done);
         } else done();
         const box = document.getElementById('loginError');
-        if (box) { box.classList.remove('hidden'); box.textContent = 'Memperbarui aplikasi ke versi terbaruâ€¦'; }
+        if (box) { box.classList.remove('hidden'); box.textContent = 'Memperbarui aplikasi ke versi terbaru…'; }
         return;
       }
     } catch {}
@@ -82,7 +82,7 @@ async function bootFromServer() {
     if (Cloud.isCloudConfigured() && Cloud.isCloudReady()) {
       await Cloud.pullAll();
     }
-  } catch { /* offline â†’ pakai cache lokal */ }
+  } catch { /* offline → pakai cache lokal */ }
 }
 
 /* ===== F9 accessibility enhancements (boot + dinamis) ===== */
@@ -159,7 +159,7 @@ function enhanceTables(root) {
     }
   });
 }
-// Hierarki heading: h3/h4 panel Ringkasan diberi level eksplisit (h1 â†’ h2 â†’ h3).
+// Hierarki heading: h3/h4 panel Ringkasan diberi level eksplisit (h1 → h2 → h3).
 function enhanceHeadings(root) {
   (root || document).querySelectorAll('#viewRingkasan .dash-panel-head h3, #viewRingkasan .budget-head h4, #viewRingkasan .dash-panel-head h4').forEach(h => {
     if (h.getAttribute('role') === 'heading') return;
@@ -209,7 +209,7 @@ function setupA11y() {
     if (tab && tab.parentElement) setTimeout(() => syncTabStates(tab.parentElement), 0);
   }, true);
 
-  // Field yang dirender dinamis â†’ beri label & state saat muncul
+  // Field yang dirender dinamis → beri label & state saat muncul
   try {
     const obs = new window.MutationObserver((muts) => {
       for (const m of muts) {
@@ -235,7 +235,7 @@ function safeSessionGet(k) {
 }
 function safeSessionSet(k, v) {
   try { sessionStorage.setItem(k, v); return true; }
-  catch { UI.showError('Browser memblokir penyimpanan sesi â€” login tidak bisa disimpan'); return false; }
+  catch { UI.showError('Browser memblokir penyimpanan sesi — login tidak bisa disimpan'); return false; }
 }
 function safeLocalSet(k, v) {
   try { localStorage.setItem(k, v); } catch {}
@@ -277,18 +277,18 @@ async function handleSignup() {
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('appRoot').classList.add('hidden');
-  // Hint kredensial hanya saat sandi masih default (belum pernah diganti) â€” hilang setelah diganti
+  // Hint kredensial hanya saat sandi masih default (belum pernah diganti) — hilang setelah diganti
   const hint = document.getElementById('loginHint');
   if (hint) {
     const a = Storage.getAuth();
     const pristine = a.alg === 'plain';
     hint.textContent = pristine
-      ? 'Pertama kali? Masuk "admin" / sandi "admin" â€” ganti segera di Pengaturan â†’ Keamanan'
+      ? 'Pertama kali? Masuk "admin" / sandi "admin" — ganti segera di Pengaturan → Keamanan'
       : 'Masuk dengan akun yang diberikan pemilik';
     hint.style.display = pristine ? '' : 'none';
   }
   // Server-authoritative: masuk pakai akun online (email + kata sandi).
-  if (hint) { hint.textContent = 'Masuk dengan email & kata sandi akun online Anda â€” data tersimpan di server.'; hint.style.display = ''; }
+  if (hint) { hint.textContent = 'Masuk dengan email & kata sandi akun online Anda — data tersimpan di server.'; hint.style.display = ''; }
   if (!loginListenerAdded) {
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('loginSignup')?.addEventListener('click', (e) => { e.preventDefault(); handleSignup(); });    const eye = document.getElementById('loginEye');
@@ -296,7 +296,7 @@ function showLogin() {
       const pass = document.getElementById('loginPass');
       const isText = pass.type === 'text';
       pass.type = isText ? 'password' : 'text';
-      eye.textContent = isText ? 'ðŸ‘ï¸' : 'ðŸ™ˆ';
+      eye.textContent = isText ? '👁️' : '🙈';
       try { eye.setAttribute('aria-pressed', String(!isText)); } catch {}
     });
     // clear error as soon as user retypes
@@ -309,18 +309,18 @@ function showLogin() {
       e.preventDefault();
       if (confirm('Lupa kata sandi? Klik OK untuk reset ke default admin / admin.')) {
         Storage.resetAuth();
-        UI.showSuccess('Direset. Masuk dengan admin / admin, lalu ganti di Pengaturan â†’ Keamanan.');
+        UI.showSuccess('Direset. Masuk dengan admin / admin, lalu ganti di Pengaturan → Keamanan.');
         document.getElementById('loginUser').value = 'admin';
         document.getElementById('loginPass').value = 'admin';
       }
     });
     document.getElementById('loginHelp')?.addEventListener('click', (e) => {
       e.preventDefault();
-      UI.openInfoModal('â“ Bantuan Wynara',
-        `<p><b>Mulai dalam 3 langkah:</b> 1ï¸âƒ£ Tambah transaksi â†’ 2ï¸âƒ£ Coba Pinjemin â†’ 3ï¸âƒ£ Lihat laporan.</p>` +
-        `<p><b>Alur uang:</b> ðŸ“¤ keluar = Kasih pinjam & Balikin. ðŸ“¥ masuk = Dibalikin & Pinjam uang.</p>` +
-        `<p><b>Keyboard:</b> <kbd>Ctrl+N</kbd> tambah Â· <kbd>/</kbd> cari Â· <kbd>Esc</kbd> tutup.</p>` +
-        `<p><b>Data aman:</b> Pengaturan â†’ JSON Backup tiap bulan. Login default <b>admin / admin</b> â€” segera ganti di Pengaturan â†’ Keamanan.</p>`);
+      UI.openInfoModal('❓ Bantuan Wynara',
+        `<p><b>Mulai dalam 3 langkah:</b> 1️⃣ Tambah transaksi → 2️⃣ Coba Pinjemin → 3️⃣ Lihat laporan.</p>` +
+        `<p><b>Alur uang:</b> 📤 keluar = Kasih pinjam & Balikin. 📥 masuk = Dibalikin & Pinjam uang.</p>` +
+        `<p><b>Keyboard:</b> <kbd>Ctrl+N</kbd> tambah · <kbd>/</kbd> cari · <kbd>Esc</kbd> tutup.</p>` +
+        `<p><b>Data aman:</b> Pengaturan → JSON Backup tiap bulan. Login default <b>admin / admin</b> — segera ganti di Pengaturan → Keamanan.</p>`);
     });
     loginListenerAdded = true;
   }
@@ -356,7 +356,7 @@ async function handleLogin(e) {
     // PEMILIK = akun online (server-authoritative): wajib email + kata sandi.
     const isEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user);
     if (!isEmail) {
-      // Akun lokal lama (mis. "admin") â€” tetap didukung sebagai fallback admin.
+      // Akun lokal lama (mis. "admin") — tetap didukung sebagai fallback admin.
       const ok = await Storage.verifyLogin(user, pass);
       if (!ok) {
         document.getElementById('loginError').classList.remove('hidden');
@@ -371,7 +371,7 @@ async function handleLogin(e) {
         if (err) { err.textContent = (e2 && e2.message) ? e2.message : 'Email atau kata sandi salah'; err.classList.remove('hidden'); }
         return;
       }
-      try { await Cloud.pullAll(); } catch (e3) { /* offline â†’ pakai cache */ }
+      try { await Cloud.pullAll(); } catch (e3) { /* offline → pakai cache */ }
     }
     document.getElementById('loginError').classList.add('hidden');
     const remember = document.getElementById('loginRemember')?.checked !== false;
@@ -386,7 +386,7 @@ async function handleLogin(e) {
   }
 }
 
-// Mode Sederhana â€” sembunyikan alat akuntan (jurnal, kertas kerja) via CSS body[data-mode]
+// Mode Sederhana — sembunyikan alat akuntan (jurnal, kertas kerja) via CSS body[data-mode]
 function applySimpleMode(mode) {
   try { document.body.dataset.mode = mode === 'sederhana' ? 'sederhana' : 'akuntan'; } catch {}
 }
@@ -401,7 +401,7 @@ function showApp() {
   updateBackupDot();
   updateCloudDot();
   nudgeBackupExport();
-  // Sinkron online awal (bila terhubung) â€” diam-diam di background
+  // Sinkron online awal (bila terhubung) — diam-diam di background
   if (Cloud.isCloudConfigured() && Cloud.getCloudSession()) {
     setTimeout(() => {
       Cloud.syncNow().then(() => { try { updateCloudDot(); } catch {} }).catch(() => { try { updateCloudDot(); } catch {} });
@@ -415,7 +415,7 @@ function showApp() {
   // version check
   const stored = safeLocalGet('wynara_version');
   if (stored && stored !== APP_VERSION) {
-    UI.showInfo(`Diperbarui ke v${APP_VERSION} (dari v${stored}) â€” lihat Changelog`);
+    UI.showInfo(`Diperbarui ke v${APP_VERSION} (dari v${stored}) — lihat Changelog`);
   }
   safeLocalSet('wynara_version', APP_VERSION);
   try {
@@ -447,7 +447,7 @@ function showApp() {
 function loadData() {
   let coaMigrated = null;
   try { coaMigrated = Storage.migrateCoaRenumber(); } catch {}
-  // Renumber COA lokal → dorong ke server (write-through) agar Supabase ikut ter-renumber.
+  // Renumber COA lokal ? dorong ke server (write-through) agar Supabase ikut ter-renumber.
   if (coaMigrated && coaMigrated.done) { try { queueMirror(); } catch {} }
   try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
   try { setCoaAliases(Storage.getCoaAliases()); } catch {}
@@ -467,7 +467,7 @@ function queueMirror() {
   if (mirrorTimer) clearTimeout(mirrorTimer);
   mirrorTimer = setTimeout(() => {
     try { IDB.mirrorSnapshot(Storage.snapshotAll()); } catch {}
-    // Cadangan otomatis (IDB) tercatat â€” pakai kunci kanonis yang sama dengan storage.js
+    // Cadangan otomatis (IDB) tercatat — pakai kunci kanonis yang sama dengan storage.js
     try { localStorage.setItem('wynara_lastBackup', new Date().toISOString()); } catch {}
     try { updateBackupDot(); } catch {}
   }, 2000);
@@ -485,20 +485,20 @@ function updateCloudDot() {
   const st = Cloud.getCloudStatus();
   const ses = Cloud.getCloudSession();
   if (!Cloud.isCloudConfigured() || !ses) {
-    dot.textContent = 'â˜ï¸'; dot.style.opacity = '.35';
+    dot.textContent = '☁️'; dot.style.opacity = '.35';
     dot.title = 'Sinkron online: mati';
     dot.setAttribute('aria-label', 'Sinkron online mati');
     return;
   }
   if (st.state === 'syncing') {
-    dot.textContent = 'â˜ï¸'; dot.style.opacity = '1';
-    dot.title = 'Sinkron online: sedang sinkronâ€¦';
+    dot.textContent = '☁️'; dot.style.opacity = '1';
+    dot.title = 'Sinkron online: sedang sinkron…';
   } else if (st.state === 'error') {
-    dot.textContent = 'â˜ï¸'; dot.style.opacity = '1';
+    dot.textContent = '☁️'; dot.style.opacity = '1';
     dot.title = 'Sinkron online gagal: ' + (st.detail || 'periksa koneksi');
   } else {
-    dot.textContent = 'â˜ï¸'; dot.style.opacity = '.8';
-    dot.title = 'Sinkron online aktif' + (st.detail ? ' â€” ' + st.detail : '');
+    dot.textContent = '☁️'; dot.style.opacity = '.8';
+    dot.title = 'Sinkron online aktif' + (st.detail ? ' — ' + st.detail : '');
   }
   dot.setAttribute('aria-label', dot.title);
 }
@@ -506,15 +506,15 @@ function updateBackupDot() {
   const dot = document.getElementById('backupDot');
   if (!dot) return;
   let last = Storage.getLastBackup();
-  if (!last) { dot.textContent = 'ðŸ’¾'; dot.title = 'Pengingat: buka Pengaturan â†’ JSON Backup untuk menyimpan cadangan pertama'; dot.style.opacity = '.35'; dot.setAttribute('aria-label', 'Cadangan belum pernah dibuat'); return; }
+  if (!last) { dot.textContent = '💾'; dot.title = 'Pengingat: buka Pengaturan → JSON Backup untuk menyimpan cadangan pertama'; dot.style.opacity = '.35'; dot.setAttribute('aria-label', 'Cadangan belum pernah dibuat'); return; }
   const days = Math.floor((Date.now() - last.getTime()) / 86400000);
   const t = last.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   dot.style.opacity = days > 7 ? '1' : '.55';
-  dot.textContent = days > 7 ? 'ðŸ”´' : 'ðŸ’¾';
-  dot.title = days > 7 ? `Cadangan terakhir ${t} â€” lebih dari 7 hari, unduh JSON di Pengaturan` : `Cadangan otomatis terakhir: ${t}`;
+  dot.textContent = days > 7 ? '🔴' : '💾';
+  dot.title = days > 7 ? `Cadangan terakhir ${t} — lebih dari 7 hari, unduh JSON di Pengaturan` : `Cadangan otomatis terakhir: ${t}`;
   dot.setAttribute('aria-label', dot.title);
 }
-// Nudge cadangan FILE (bukan IDB): >14 hari sejak unduhan terakhir â†’ ingatkan maksimal 1Ã—/bulan
+// Nudge cadangan FILE (bukan IDB): >14 hari sejak unduhan terakhir → ingatkan maksimal 1×/bulan
 function nudgeBackupExport() {
   let lastExport = 0;
   try { lastExport = Number(localStorage.getItem('wynara_last_export')) || 0; } catch {}
@@ -523,12 +523,12 @@ function nudgeBackupExport() {
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
   try { if (safeLocalGet('wynara_nudge_export') === monthKey) return; } catch {}
-  UI.showWarning('Cadangan FILE belum diunduh lebih dari 14 hari â€” Pengaturan â†’ â¬‡ï¸ JSON Backup. Mirror IndexedDB bisa hilang bila browser dibersihkan.');
+  UI.showWarning('Cadangan FILE belum diunduh lebih dari 14 hari — Pengaturan → ⬇️ JSON Backup. Mirror IndexedDB bisa hilang bila browser dibersihkan.');
   try { safeLocalSet('wynara_nudge_export', monthKey); } catch {}
 }
 
 function bootDataSafety() {
-  // 1) Recovery: localStorage kosong tapi IDB ada isi â†’ kembalikan
+  // 1) Recovery: localStorage kosong tapi IDB ada isi → kembalikan
   try {
     const localSize = Storage.snapshotSize();
     if (localSize === 0) {
@@ -552,7 +552,7 @@ function bootDataSafety() {
       backupReminder();
     }
   } catch { /* safety tidak boleh mematikan boot */ }
-  // Jurnal backfill (idempoten â€” lewati yang sudah ada)
+  // Jurnal backfill (idempoten — lewati yang sudah ada)
   try {
     const n = Storage.backfillJournals({ buildEntryJournal, buildLoanJournal, buildRepaymentJournal });
     if (n > 0) { queueMirror(); refresh(); }
@@ -585,11 +585,11 @@ function backupReminder() {
     if (size === 0) return;
     const last = Storage.getLastBackup();
     if (!last) {
-      UI.showWarning('Belum pernah backup â€” buka Pengaturan â†’ JSON Backup biar data aman');
+      UI.showWarning('Belum pernah backup — buka Pengaturan → JSON Backup biar data aman');
       return;
     }
     const days = Math.floor((Date.now() - last.getTime()) / 86400000);
-    if (days >= 30) UI.showWarning(`Backup terakhir ${days} hari lalu â€” buka Pengaturan â†’ JSON Backup`);
+    if (days >= 30) UI.showWarning(`Backup terakhir ${days} hari lalu — buka Pengaturan → JSON Backup`);
   } catch {}
 }
 
@@ -726,7 +726,7 @@ function bindEvents() {
       overlay.classList.add('hidden');
     });
   }
-  // Pengaman drawer: T klik item sidebar MANAPUN â†’ drawer selalu tertutup.
+  // Pengaman drawer: T klik item sidebar MANAPUN → drawer selalu tertutup.
   // (showView juga menutup; ini lapis kedua agar tak ada drawer nyangkut.)
   document.getElementById('sidebar')?.addEventListener('click', (ev) => {
     if (!ev.target.closest('.sidebar-item')) return;
@@ -847,7 +847,7 @@ function bindEvents() {
     try { document.querySelector('#main-content')?.scrollTo(0, 0); } catch {}
     document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
     // Fallback defensif: bila section target hilang dari DOM (cache basi),
-    // jangan pernah biarkan layar putih â€” tampilkan Ringkasan.
+    // jangan pernah biarkan layar putih — tampilkan Ringkasan.
     const target = document.getElementById(viewId) || document.getElementById('viewRingkasan');
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
@@ -973,15 +973,15 @@ function bindEvents() {
     else if (t === 'add') { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); }
     else if (t === 'more') {
       const links = [
-        { goto: 'contacts', icon: 'ðŸ‘¥', label: 'Kontak', aria: 'Kontak' },
-        { goto: 'loans', icon: 'ðŸ¤', label: 'Pinjemin', aria: 'Pinjemin' },
-        { goto: 'stock', icon: 'ðŸ“¦', label: 'Produk', aria: 'Produk dan stok' },
-        { goto: 'sales', icon: 'ðŸ›’', label: 'Penjualan', aria: 'Laporan penjualan' },
-        { goto: 'pembelian', icon: 'ðŸ§º', label: 'Pembelian', aria: 'Pembelian dan hutang supplier' },
-        { goto: 'biaya', icon: 'ðŸ’¸', label: 'Biaya', aria: 'Pengeluaran operasional' },
-        { goto: 'kas', icon: 'ðŸ’³', label: 'Kas', aria: 'Kas dan rekonsiliasi' },
-        { goto: 'bank', icon: 'ðŸ¦', label: 'Mutasi bank', aria: 'Import dan cocokkan mutasi bank' },
-        { goto: 'settings', icon: 'âš™ï¸', label: 'Pengaturan', aria: 'Pengaturan' },
+        { goto: 'contacts', icon: '👥', label: 'Kontak', aria: 'Kontak' },
+        { goto: 'loans', icon: '🤝', label: 'Pinjemin', aria: 'Pinjemin' },
+        { goto: 'stock', icon: '📦', label: 'Produk', aria: 'Produk dan stok' },
+        { goto: 'sales', icon: '🛒', label: 'Penjualan', aria: 'Laporan penjualan' },
+        { goto: 'pembelian', icon: '🧺', label: 'Pembelian', aria: 'Pembelian dan hutang supplier' },
+        { goto: 'biaya', icon: '💸', label: 'Biaya', aria: 'Pengeluaran operasional' },
+        { goto: 'kas', icon: '💳', label: 'Kas', aria: 'Kas dan rekonsiliasi' },
+        { goto: 'bank', icon: '🏦', label: 'Mutasi bank', aria: 'Import dan cocokkan mutasi bank' },
+        { goto: 'settings', icon: '⚙️', label: 'Pengaturan', aria: 'Pengaturan' },
       ];
       const html = links.map(l => `<button type="button" class="notif-goto" data-goto="${l.goto}" aria-label="${l.aria}" style="display:flex;align-items:center;gap:10px;width:100%;background:none;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:6px;cursor:pointer">${l.icon} ${l.label}</button>`).join('');
       UI.openInfoModal('Menu lainnya', html);
@@ -999,9 +999,9 @@ function bindEvents() {
   });
   document.getElementById('notifBtn')?.addEventListener('click', () => {
     const alerts = getAllAlerts();
-    if (!alerts.length) { UI.showSuccess('Tidak ada pengingat ðŸŽ‰'); return; }
-    const items = alerts.map(a => `<li style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${a.icon} ${escapeHtml(a.text)}</span><button type="button" class="notif-goto" data-goto="${a.target || ''}" style="white-space:nowrap;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Buka â†’</button></li>`).join('');
-    UI.openInfoModal('ðŸ”” Pengingat', `<ul style="padding-left:20px;margin:0;list-style:disc">${items}</ul>`);
+    if (!alerts.length) { UI.showSuccess('Tidak ada pengingat 🎉'); return; }
+    const items = alerts.map(a => `<li style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>${a.icon} ${escapeHtml(a.text)}</span><button type="button" class="notif-goto" data-goto="${a.target || ''}" style="white-space:nowrap;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Buka →</button></li>`).join('');
+    UI.openInfoModal('🔔 Pengingat', `<ul style="padding-left:20px;margin:0;list-style:disc">${items}</ul>`);
   });
   document.getElementById('infoModalBody')?.addEventListener('click', (ev) => {
     const cm = ev.target.closest('.close-month-btn[data-mk]');
@@ -1185,7 +1185,7 @@ function bindEvents() {
     const cat = e.target.value; if (!cat) return;
     const ids = selectedStockIds(); if (!ids.length) return;
     Storage.setItemsCategory(ids, cat);
-    UI.showSuccess(`${ids.length} produk diset kategori â€œ${cat}â€`);
+    UI.showSuccess(`${ids.length} produk diset kategori “${cat}”`);
     refreshStock();
     e.target.value = '';
     queueMirror();
@@ -1253,7 +1253,7 @@ function bindEvents() {
     a.href = url; a.download = `wynara-pajak-${d.year}.csv`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    UI.showSuccess(`CSV pajak ${d.year} diunduh â€” siap untuk DJP/e-Bupot`);
+    UI.showSuccess(`CSV pajak ${d.year} diunduh — siap untuk DJP/e-Bupot`);
   };
   document.addEventListener('wynara:tax-csv', buildTaxCsv);
   const dlCsv = (name, rows) => {
@@ -1438,28 +1438,28 @@ function bindEvents() {
   document.getElementById('topbarAccount')?.addEventListener('click', () => {
     const n = Storage.snapshotSize();
     const last = Storage.getLastBackup();
-    UI.openInfoModal('ðŸ‘¤ Akun utama',
-      `<p><b>admin</b> â€” demo lokal (tanpa server, data tersimpan di browser ini).</p>` +
-      `<p>ðŸ“¦ ${n} baris data tersimpan.</p>` +
-      `<p>ðŸ’¾ Backup terakhir: ${last ? last.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'belum pernah'}.</p>`);
+    UI.openInfoModal('👤 Akun utama',
+      `<p><b>admin</b> — demo lokal (tanpa server, data tersimpan di browser ini).</p>` +
+      `<p>📦 ${n} baris data tersimpan.</p>` +
+      `<p>💾 Backup terakhir: ${last ? last.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'belum pernah'}.</p>`);
   });
   document.getElementById('topbarPeriod')?.addEventListener('click', () => {
     UI.openCustomDateModal();
   });
-  // sidebar help â†’ panduan beneran
+  // sidebar help → panduan beneran
   UI.bindInfoModal();
   document.querySelector('.sidebar-help-btn')?.addEventListener('click', () => {
-    UI.openInfoModal('â“ Bantuan Wynara',
-      `<p><b>Mulai dalam 3 langkah:</b> 1ï¸âƒ£ Tambah transaksi â†’ 2ï¸âƒ£ Coba Pinjemin â†’ 3ï¸âƒ£ Lihat laporan.</p>` +
-      `<p><b>Alur uang:</b> ðŸ“¤ keluar = Kasih pinjam & Balikin. ðŸ“¥ masuk = Dibalikin & Pinjam uang.</p>` +
-      `<p><b>Keyboard:</b> <kbd>Ctrl+N</kbd> tambah Â· <kbd>/</kbd> cari Â· <kbd>Esc</kbd> tutup.</p>` +
-      `<p><b>Data aman:</b> Pengaturan â†’ JSON Backup tiap bulan. Cadangan otomatis tersimpan di browser ini.</p>`);
+    UI.openInfoModal('❓ Bantuan Wynara',
+      `<p><b>Mulai dalam 3 langkah:</b> 1️⃣ Tambah transaksi → 2️⃣ Coba Pinjemin → 3️⃣ Lihat laporan.</p>` +
+      `<p><b>Alur uang:</b> 📤 keluar = Kasih pinjam & Balikin. 📥 masuk = Dibalikin & Pinjam uang.</p>` +
+      `<p><b>Keyboard:</b> <kbd>Ctrl+N</kbd> tambah · <kbd>/</kbd> cari · <kbd>Esc</kbd> tutup.</p>` +
+      `<p><b>Data aman:</b> Pengaturan → JSON Backup tiap bulan. Cadangan otomatis tersimpan di browser ini.</p>`);
   });
 
 function loadChangelogPage() {
   const box = document.getElementById('changelogContent');
   if (!box) return;
-  box.innerHTML = '<p style="color:#94a3b8">Memuatâ€¦</p>';
+  box.innerHTML = '<p style="color:#94a3b8">Memuat…</p>';
   const fallback = `<p>Sedang berjalan <b>v${APP_VERSION}</b>. Riwayat lengkap ada di file <code>CHANGELOG.md</code> pada repo.</p>`;
   fetch('CHANGELOG.md').then(r => {
     if (!r.ok) throw new Error('not-found');
@@ -1643,10 +1643,10 @@ function handleFormSubmit() {
   try {
     ok = submitFormData(data) !== false;
   } catch (err) {
-    UI.showError(err && err.message ? err.message : 'Gagal menyimpan â€” coba lagi');
+    UI.showError(err && err.message ? err.message : 'Gagal menyimpan — coba lagi');
     return;
   }
-  if (!ok) return; // validasi gagal â€” biarkan form terbuka biar bisa dibetulkan
+  if (!ok) return; // validasi gagal — biarkan form terbuka biar bisa dibetulkan
 
   const recCb = document.getElementById('entryRecurring');
   if (recCb) recCb.checked = false;
@@ -1658,13 +1658,13 @@ function submitFormData(data) {
   // Kunci periode: transaksi bulan terkunci tak bisa ditambah/diubah/dipindah.
   // Cek tanggal tujuan dulu (menutup celah create-backdated), lalu tanggal lama saat edit.
   if (data.date && Storage.isMonthLocked(data.date)) {
-    UI.showError(`Bulan ${String(data.date).slice(0, 7)} terkunci â€” buka di Pengaturan kalau mau ubah`);
+    UI.showError(`Bulan ${String(data.date).slice(0, 7)} terkunci — buka di Pengaturan kalau mau ubah`);
     return false;
   }
   if (data.id) {
     const prev = Storage.getEntryById(data.id);
     if (prev && Storage.isMonthLocked(prev.date)) {
-      UI.showError(`Transaksi bulan ${String(prev.date).slice(0, 7)} terkunci â€” buka di Pengaturan kalau mau ubah`);
+      UI.showError(`Transaksi bulan ${String(prev.date).slice(0, 7)} terkunci — buka di Pengaturan kalau mau ubah`);
       return false;
     }
   }
@@ -1672,7 +1672,7 @@ function submitFormData(data) {
 
   if (isLoan) {
     const mode = data.loanMode || 'new';
-    // 4 flows: Pinjemin ðŸ“¤ / Balikin ðŸ“¥ (terima) vs Ambil Loan ðŸ“¥ / Balikin ðŸ“¤ (bayar)
+    // 4 flows: Pinjemin 📤 / Balikin 📥 (terima) vs Ambil Loan 📥 / Balikin 📤 (bayar)
     if (mode === 'settle') {
       if (data.id) {
         UI.showError('Balikin tidak bisa diubah dari sini. Gunakan panel Pinjaman.');
@@ -1681,9 +1681,9 @@ function submitFormData(data) {
       const loanId = data.loanId || null;
       if (!loanId) { UI.showError(data.category === 'Hutang' ? 'Pilih dulu loan yang mau kamu balikin' : 'Pilih dulu siapa yang balikin ke kamu'); return false; }
       const loan = Storage.getLoanById(loanId);
-      if (!loan) { UI.showError('Pinjaman terpilih tidak ditemukan â€” pilih ulang'); return false; }
+      if (!loan) { UI.showError('Pinjaman terpilih tidak ditemukan — pilih ulang'); return false; }
       const expectedDir = data.category === 'Hutang' ? 'taken' : 'given';
-      if (loan.direction !== expectedDir) { UI.showError('Pinjaman terpilih tidak sesuai kategori â€” pilih ulang'); return false; }
+      if (loan.direction !== expectedDir) { UI.showError('Pinjaman terpilih tidak sesuai kategori — pilih ulang'); return false; }
       const reps = Storage.getLoanRepayments(loanId);
       const outstanding = outstandingOf(loan, reps);
       if (data.amount > outstanding + 0.01) {
@@ -1700,16 +1700,16 @@ function submitFormData(data) {
       });
       const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v);
       UI.showSuccess(data.category === 'Hutang'
-        ? `Oke, kamu balikin ${fmt(data.amount)} ke ${loan.person} ðŸ‘`
-        : `${loan.person} sudah balikin ${fmt(data.amount)} ke kamu ðŸ‘`);
+        ? `Oke, kamu balikin ${fmt(data.amount)} ke ${loan.person} 👍`
+        : `${loan.person} sudah balikin ${fmt(data.amount)} ke kamu 👍`);
     } else {
       const direction = data.category === 'Piutang' ? 'given' : 'taken';
       if (!data.person) { UI.showError(data.category === 'Hutang' ? 'Tulis dulu dari siapa ambil loan' : 'Tulis dulu ke siapa kasih pinjam'); return false; }
-      // Kontak "Karyawan" â†’ resolve & validasi ke data karyawan (kasbon)
+      // Kontak "Karyawan" → resolve & validasi ke data karyawan (kasbon)
       let employeeId = '';
       if (data.contactType === 'karyawan') {
         const emp = Storage.getAllEmployees().find(e => String(e.name || '').trim().toLowerCase() === String(data.person || '').trim().toLowerCase());
-        if (!emp) { UI.showError('Karyawan tidak ditemukan â€” pilih dari daftar karyawan di kolom nama'); return false; }
+        if (!emp) { UI.showError('Karyawan tidak ditemukan — pilih dari daftar karyawan di kolom nama'); return false; }
         employeeId = emp.id;
       }
 
@@ -1754,7 +1754,7 @@ function submitFormData(data) {
           invoiceNo: data.invoiceNo,
           employeeId
         });
-        UI.showSuccess(data.category === 'Hutang' ? `Oke, kamu pinjam ${Reports.formatCurrency(data.amount)} dari ${data.person} ðŸ’°` : `Kasih pinjam ${Reports.formatCurrency(data.amount)} ke ${data.person} ðŸ“¤${data.invoiceNo ? ` â€¢ ${data.invoiceNo}` : ''}`);
+        UI.showSuccess(data.category === 'Hutang' ? `Oke, kamu pinjam ${Reports.formatCurrency(data.amount)} dari ${data.person} 💰` : `Kasih pinjam ${Reports.formatCurrency(data.amount)} ke ${data.person} 📤${data.invoiceNo ? ` • ${data.invoiceNo}` : ''}`);
       }
     }
   } else {
@@ -1829,7 +1829,7 @@ function handleReturnOpen(entryId) {
     const remaining = (Number(l.qty) || 0) - ret;
     return `<tr><td style="font-size:12px">${escapeHtml(name)}</td><td class="amount-col">${l.qty}</td><td class="amount-col">${ret}</td><td class="amount-col"><input type="number" class="ret-qty" data-item="${l.itemId}" min="0" max="${Math.max(remaining, 0)}" step="1" value="0" ${remaining <= 0 ? 'disabled' : ''} style="width:80px;height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px;font-size:12px"></td></tr>`;
   }).join('');
-  document.getElementById('returnInfo').innerHTML = `Penjualan <b>${new Date(e.date).toLocaleDateString('id-ID')}</b>${e.person ? ' â€¢ ' + escapeHtml(e.person) : ''} â€¢ ${Storage.getSaleReturns(entryId).length} retur sebelumnya`;
+  document.getElementById('returnInfo').innerHTML = `Penjualan <b>${new Date(e.date).toLocaleDateString('id-ID')}</b>${e.person ? ' • ' + escapeHtml(e.person) : ''} • ${Storage.getSaleReturns(entryId).length} retur sebelumnya`;
   const dEl = document.getElementById('returnDate'); if (dEl) dEl.value = new Date().toISOString().split('T')[0];
   const pEl = document.getElementById('returnPayment'); if (pEl) pEl.value = e.payment || 'transfer';
   updateReturnTotal();
@@ -1859,7 +1859,7 @@ function handleReturnSubmit() {
   const payment = document.getElementById('returnPayment')?.value || 'transfer';
   try {
     const rec = Storage.returnSale(returnSaleId, items, { date, payment });
-    UI.showSuccess(`Retur Rp${Math.round(rec.refund).toLocaleString('id-ID')} â€” stok masuk lagi`);
+    UI.showSuccess(`Retur Rp${Math.round(rec.refund).toLocaleString('id-ID')} — stok masuk lagi`);
     closeReturn(); refresh(); refreshStock(); queueMirror();
   } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal retur'); }
 }
@@ -1922,7 +1922,7 @@ function handleCustomDateApply(startDate, endDate) {
   UI.selectPeriodChip('custom');
   currentPage = 1;
   render();
-  UI.showSuccess(`Filter: ${startDate} â†’ ${endDate}`);
+  UI.showSuccess(`Filter: ${startDate} → ${endDate}`);
 }
 
 function handleSearchChange(term) {
@@ -2074,13 +2074,13 @@ function renderOwnerPanel() {
   const laba3b = months.slice(3).reduce((s, k) => s + stats[k].omzet - stats[k].hpp - stats[k].beban, 0);
   const naik = laba3b >= laba3a;
   const margin = cur.omzet > 0 ? Math.round(((cur.omzet - cur.hpp) / cur.omzet) * 100) : null;
-  const labaBulan = s6 => (s6 < 0 ? 'âˆ’' : '+') + 'Rp' + Math.abs(Math.round(s6)).toLocaleString('id-ID');
+  const labaBulan = s6 => (s6 < 0 ? '−' : '+') + 'Rp' + Math.abs(Math.round(s6)).toLocaleString('id-ID');
   body.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Laba ${monthLabel(curKey)}</div><div style="font-weight:800;font-size:14px;color:${cur.omzet - cur.hpp - cur.beban >= 0 ? '#059669' : '#dc2626'}">${labaBulan(cur.omzet - cur.hpp - cur.beban)}</div></div>
-      <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Margin kotor</div><div style="font-weight:800;font-size:14px">${margin === null ? 'â€”' : margin + '%'}</div></div>
+      <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Margin kotor</div><div style="font-weight:800;font-size:14px">${margin === null ? '—' : margin + '%'}</div></div>
       <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Kas & rekening</div><div style="font-weight:800;font-size:14px">${fmt(kas)}</div></div>
-      <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Runway kas</div><div style="font-weight:800;font-size:14px">${runway === null ? 'â€”' : runway + ' bulan'}</div></div>
+      <div style="background:#f8fafc;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b">Runway kas</div><div style="font-weight:800;font-size:14px">${runway === null ? '—' : runway + ' bulan'}</div></div>
     </div>
     <div style="display:flex;align-items:flex-end;gap:5px;height:48px;margin-bottom:8px">${months.map((k) => {
     const laba = stats[k].omzet - stats[k].hpp - stats[k].beban;
@@ -2088,7 +2088,7 @@ function renderOwnerPanel() {
     const h = Math.max(3, Math.round((Math.abs(laba) / max) * 42));
     return `<div style="flex:1;text-align:center"><div style="height:${h}px;background:${laba >= 0 ? '#34d399' : '#fb7185'};border-radius:4px 4px 0 0"></div></div>`;
   }).join('')}</div>
-    <div style="font-size:11px;color:${naik ? '#059669' : '#dc2626'};font-weight:600">${naik ? 'ðŸ“ˆ' : 'ðŸ“‰'} Laba 3 bulan terakhir ${naik ? 'lebih baik' : 'menurun'} dari sebelumnya</div>`;
+    <div style="font-size:11px;color:${naik ? '#059669' : '#dc2626'};font-weight:600">${naik ? '📈' : '📉'} Laba 3 bulan terakhir ${naik ? 'lebih baik' : 'menurun'} dari sebelumnya</div>`;
 }
 
 function refresh() {
@@ -2231,17 +2231,17 @@ function periodLabelText() {
   else if (f.period === 'this-year') label = `Tahun ${now.getFullYear()}`;
   else if (f.period === 'custom' && (f.startDate || f.endDate)) {
     const fmt = (s) => { const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }); };
-    label = `${f.startDate ? fmt(f.startDate) : 'â€¦'} â€“ ${f.endDate ? fmt(f.endDate) : 'â€¦'}`;
+    label = `${f.startDate ? fmt(f.startDate) : '…'} – ${f.endDate ? fmt(f.endDate) : '…'}`;
   }
   return label;
 }
 function syncTopbarPeriod() {
   const el = document.getElementById('topbarPeriod');
   if (!el) return;
-  el.textContent = periodLabelText() + ' â–¾';
+  el.textContent = periodLabelText() + ' ▾';
 }
 
-// Total periode SEBELUM rentang filter aktif (panjang sama) â€” untuk tren kartu.
+// Total periode SEBELUM rentang filter aktif (panjang sama) — untuk tren kartu.
 // Jujur: tren selalu vs periode sebelumnya, bukan angka statis.
 function prevPeriodTotals() {
   const f = currentFilters;
@@ -2315,7 +2315,7 @@ function syncTopSearch() {
   if (top && main && top.value !== main.value) top.value = main.value;
 }
 
-// Grafik pindah ke charts.js â€” wrapper tipis supaya call-site tidak berubah
+// Grafik pindah ke charts.js — wrapper tipis supaya call-site tidak berubah
 function renderArusKasChart(entries) {
   Charts.renderArusKasChart(entries, { range: arusKasRange, show: arusKasShow });
 }
@@ -2346,7 +2346,7 @@ function renderTopProductsInto(containerId, entries, returnFilter) {
     lines.forEach(l => {
       const q = Number(l.qty) || 0;
       if (!q) return;
-      const key = l.itemId || l.name || 'â€”';
+      const key = l.itemId || l.name || '—';
       if (!byItem[key]) byItem[key] = { name: l.name || (items[key] && items[key].name) || '(barang terhapus)', qty: 0, omzet: 0 };
       byItem[key].qty += q;
       byItem[key].omzet += (Number(l.price) || 0) * q * factor;
@@ -2354,7 +2354,7 @@ function renderTopProductsInto(containerId, entries, returnFilter) {
   });
   // Kurangi barang yang diretur pada periode yang sama.
   (returnFilter ? periodReturns(returnFilter) : []).forEach(r => (r.lines || []).forEach(l => {
-    const key = l.itemId || l.name || 'â€”';
+    const key = l.itemId || l.name || '—';
     if (!byItem[key]) return;
     byItem[key].qty -= Number(l.qty) || 0;
     byItem[key].omzet -= (Number(l.price) || 0) * (Number(l.qty) || 0);
@@ -2378,7 +2378,7 @@ function renderTopProductsInto(containerId, entries, returnFilter) {
 
 /* ===== Halaman Penjualan (gabungan semua laporan penjualan) ===== */
 let salesPeriodValue = 'this-month';
-const PAY_LABEL = { cash: 'ðŸ’µ Tunai', transfer: 'ðŸ¦ Transfer', qris: 'ðŸ“± QRIS', ewallet: 'ðŸ“² E-Wallet', debit: 'ðŸ’³ Debit', other: 'ðŸ“¦ Lainnya' };
+const PAY_LABEL = { cash: '💵 Tunai', transfer: '🏦 Transfer', qris: '📱 QRIS', ewallet: '📲 E-Wallet', debit: '💳 Debit', other: '📦 Lainnya' };
 // Retur penjualan (bukan entry) difilter seperti entry: bungkus dgn type/category agar filterEntries bekerja.
 function periodReturns(filter) {
   if (!filter) return [];
@@ -2411,7 +2411,7 @@ function computeSales(entries) {
   // Net retur periode berjalan (kurangi qty/omzet/HPP).
   const rets = periodReturns({ period: salesPeriodValue, type: 'income', category: 'jualan' });
   rets.forEach(r => (r.lines || []).forEach(l => {
-    const key = l.itemId || l.name || 'â€”';
+    const key = l.itemId || l.name || '—';
     if (!byItem[key]) byItem[key] = { name: l.name || (items[l.itemId] && items[l.itemId].name) || '(barang terhapus)', qty: 0, omzet: 0, hpp: 0 };
     byItem[key].qty -= Number(l.qty) || 0;
     byItem[key].omzet -= (Number(l.price) || 0) * (Number(l.qty) || 0);
@@ -2429,7 +2429,7 @@ function renderSalesPage() {
   const d = computeSales(entries);
   const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Math.round(v || 0));
   const sub = document.getElementById('salesSubtitle');
-  if (sub) sub.textContent = `${d.orders} struk â€¢ ${d.qty} pcs barang terjual â€¢ ${d.rows.length} jenis produk`;
+  if (sub) sub.textContent = `${d.orders} struk • ${d.qty} pcs barang terjual • ${d.rows.length} jenis produk`;
   // KPI
   const kpi = document.getElementById('salesKpi');
   if (kpi) {
@@ -2462,7 +2462,7 @@ function renderSalesPage() {
     const pk = Object.keys(byPay).sort((a, b) => byPay[b] - byPay[a]);
     pay.innerHTML = pk.length ? `<table class="report-table"><thead><tr><th>Metode</th><th class="amount-col">Omzet</th><th class="amount-col">Porsi</th></tr></thead><tbody>
       ${pk.map(k => `<tr><td>${PAY_LABEL[k] || escapeHtml(k)}</td><td class="amount-col income">${fmt(byPay[k])}</td><td class="amount-col">${d.omzet > 0 ? ((byPay[k] / d.omzet) * 100).toFixed(1) : '0.0'}%</td></tr>`).join('')}
-      </tbody></table>` : '<p style="color:var(--text-muted)">â€”</p>';
+      </tbody></table>` : '<p style="color:var(--text-muted)">—</p>';
   }
   // Struk terbaru
   const recent = document.getElementById('salesRecentList');
@@ -2471,7 +2471,7 @@ function renderSalesPage() {
     recent.innerHTML = list.length ? list.map(e => {
       const n = e.sale && Array.isArray(e.sale.lines) ? e.sale.lines.reduce((s, l) => s + (Number(l.qty) || 0), 0) : 0;
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-        <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.person || e.description || 'Penjualan')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(e.date)} â€¢ ${n} pcs â€¢ ${PAY_LABEL[e.payment] || ''}</div></div>
+        <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.person || e.description || 'Penjualan')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(e.date)} • ${n} pcs • ${PAY_LABEL[e.payment] || ''}</div></div>
         <div style="font-size:12px;font-weight:700;white-space:nowrap">${fmt(e.amount)}</div></div>`;
     }).join('') : '<p style="color:var(--text-muted)">Belum ada struk.</p>';
   }
@@ -2485,9 +2485,9 @@ function renderCreditSection() {
   if (kpi) {
     const s = Storage.creditSalesSummary();
     const tile = (label, value, color) => `<button type="button" style="cursor:default">${label}<b style="color:${color}">${value}</b></button>`;
-    kpi.innerHTML = tile('ðŸ•’ Belum dibayar', `${fmt(s.outstanding)} (${s.openCount})`, '#b45309')
-      + tile('âš ï¸ Jatuh tempo', `${fmt(s.overdue)} (${s.overdueCount})`, '#dc2626')
-      + tile('âœ… Pelunasan 30 hari', fmt(s.received30), '#059669');
+    kpi.innerHTML = tile('🕒 Belum dibayar', `${fmt(s.outstanding)} (${s.openCount})`, '#b45309')
+      + tile('⚠️ Jatuh tempo', `${fmt(s.overdue)} (${s.overdueCount})`, '#dc2626')
+      + tile('✅ Pelunasan 30 hari', fmt(s.received30), '#059669');
   }
   const box = document.getElementById('creditList');
   if (!box) return;
@@ -2505,12 +2505,12 @@ function renderCreditSection() {
     return `<tr>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.date)}</td>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.invoiceNo)}</td>
-        <td style="font-size:12px">${escapeHtml(cs.customer || 'â€”')}</td>
-        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.dueDate || 'â€”')}</td>
+        <td style="font-size:12px">${escapeHtml(cs.customer || '—')}</td>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.dueDate || '—')}</td>
         <td>${status}</td>
         <td class="amount-col">${fmt(out)}</td>
         <td class="amount-col">${fmt(cs.total)}</td>
-        <td style="white-space:nowrap">${out > 0.01 ? `<button class="btn btn-primary credit-pay" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">ðŸ’° Bayar</button>` : ''} <button class="btn btn-ghost credit-del" data-id="${cs.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Hapus">ðŸ—‘</button></td>
+        <td style="white-space:nowrap">${out > 0.01 ? `<button class="btn btn-primary credit-pay" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">💰 Bayar</button>` : ''} <button class="btn btn-ghost credit-del" data-id="${cs.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Hapus">🗑</button></td>
       </tr>`;
   }).join('')}
   </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada penjualan kredit. Centang "Bayar nanti (kredit)" saat menjual.</p>';
@@ -2521,7 +2521,7 @@ function openCreditPay(id) {
   document.getElementById('creditPayId').value = id;
   const out = Storage.creditOutstanding(cs);
   const info = document.getElementById('creditPayInfo');
-  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> â€” ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${'Rp' + Math.round(cs.total).toLocaleString('id-ID')} â€¢ sudah dibayar ${'Rp' + Math.round(Storage.creditPaidTotal(cs)).toLocaleString('id-ID')} â€¢ <b>sisa Rp${Math.round(out).toLocaleString('id-ID')}</b>`;
+  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${'Rp' + Math.round(cs.total).toLocaleString('id-ID')} • sudah dibayar ${'Rp' + Math.round(Storage.creditPaidTotal(cs)).toLocaleString('id-ID')} • <b>sisa Rp${Math.round(out).toLocaleString('id-ID')}</b>`;
   const amt = document.getElementById('creditPayAmount'); if (amt) amt.value = String(Math.round(out));
   const dt = document.getElementById('creditPayDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
   const err = document.getElementById('creditPayError'); if (err) err.textContent = '';
@@ -2537,7 +2537,7 @@ function handleCreditPaySubmit() {
   try {
     Storage.payCreditSale(id, { amount, date, payment });
     closeCreditPay();
-    UI.showSuccess('Pembayaran diterima â€” piutang berkurang');
+    UI.showSuccess('Pembayaran diterima — piutang berkurang');
     refreshSalesPage();
   } catch (e) {
     const err = document.getElementById('creditPayError');
@@ -2561,7 +2561,7 @@ function printSalesPage() {
 }
 function exportSalesExcel() {
   try {
-    if (typeof window.XLSX === 'undefined') { UI.showError('Library Excel belum termuat â€” coba muat ulang halaman'); return; }
+    if (typeof window.XLSX === 'undefined') { UI.showError('Library Excel belum termuat — coba muat ulang halaman'); return; }
     const box = document.getElementById('salesContent');
     if (!box) return;
     const tables = [...box.querySelectorAll('table.report-table')];
@@ -2586,14 +2586,14 @@ function renderKasPage() {
   const rows = cashAccountRows();
   const total = rows.reduce((s, x) => s + x.net, 0);
   const cash = rows.filter(x => x.payment === 'cash').reduce((s, x) => s + x.net, 0);
-  const fmt = (v) => (v < 0 ? 'âˆ’Rp' : 'Rp') + Math.abs(Math.round(v || 0)).toLocaleString('id-ID');
+  const fmt = (v) => (v < 0 ? '−Rp' : 'Rp') + Math.abs(Math.round(v || 0)).toLocaleString('id-ID');
   const kpi = document.getElementById('kasKpi');
   if (kpi) {
     const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
-    kpi.innerHTML = tile('Total kas & bank', fmt(total)) + tile('ðŸ’µ Tunai', fmt(cash)) + tile('ðŸ¦ Bank/QRIS/E-wallet', fmt(total - cash));
+    kpi.innerHTML = tile('Total kas & bank', fmt(total)) + tile('💵 Tunai', fmt(cash)) + tile('🏦 Bank/QRIS/E-wallet', fmt(total - cash));
   }
   const sub = document.getElementById('kasSubtitle');
-  if (sub) sub.textContent = `${rows.length} dompet aktif â€¢ saldo kumulatif dari jurnal`;
+  if (sub) sub.textContent = `${rows.length} dompet aktif • saldo kumulatif dari jurnal`;
   const box = document.getElementById('kasWalletList');
   if (box) {
     if (!rows.length) {
@@ -2605,9 +2605,9 @@ function renderKasPage() {
         return 'ewallet';
       };
       const groups = [
-        { key: 'tunai', label: 'ðŸ’µ Tunai' },
-        { key: 'bank', label: 'ðŸ¦ Bank' },
-        { key: 'ewallet', label: 'ðŸ“± E-Wallet / QRIS' },
+        { key: 'tunai', label: '💵 Tunai' },
+        { key: 'bank', label: '🏦 Bank' },
+        { key: 'ewallet', label: '📱 E-Wallet / QRIS' },
       ];
       box.innerHTML = groups.map(g => {
         const list = rows.filter(x => catOf(x) === g.key);
@@ -2616,7 +2616,7 @@ function renderKasPage() {
         return `<div style="margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px"><span>${g.label}</span><span>${fmt(sub)}</span></div>
           ${list.map(x => {
-          const icon = x.payment ? ((Reports.PAYMENT_OPTIONS || []).find(p => p.value === x.payment)?.icon || 'ðŸ“¦') : (g.key === 'bank' ? 'ðŸ¦' : 'ðŸ“±');
+          const icon = x.payment ? ((Reports.PAYMENT_OPTIONS || []).find(p => p.value === x.payment)?.icon || '📦') : (g.key === 'bank' ? '🏦' : '📱');
           return `<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px solid #f1f5f9">
               <span>${icon}</span><span style="flex:1">${escapeHtml(x.name)}<br><small style="color:#94a3b8">${x.code}</small></span>
               <b style="color:${x.net < 0 ? '#ef4444' : '#0f172a'}">${fmt(x.net)}</b></div>`;
@@ -2636,14 +2636,14 @@ function renderKasPage() {
       const counterpart = (j.lines || []).find(l => !codes.has(l.account));
       const cpLabel = counterpart ? acctLabel(counterpart.account) : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-        <div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.memo || 'Jurnal')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(j.date || '')}${cpLabel ? ' â€¢ <b style="color:#334155">' + escapeHtml(cpLabel) + '</b>' : ''}</div></div>
+        <div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.memo || 'Jurnal')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(j.date || '')}${cpLabel ? ' • <b style="color:#334155">' + escapeHtml(cpLabel) + '</b>' : ''}</div></div>
         <b style="font-size:12px;white-space:nowrap;color:${amt < 0 ? '#ef4444' : '#0f172a'}">${fmt(amt)}</b></div>`;
     }).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi kas/bank.</p>';
   }
   renderBankRecon();
 }
 
-/* ===== Rekonsiliasi bank (cocokkan mutasi â†” transaksi) ===== */
+/* ===== Rekonsiliasi bank (cocokkan mutasi ↔ transaksi) ===== */
 function bankAccountSuggestion(desc, direction) {
   return bankAccountSuggestionFull(desc, direction).code;
 }
@@ -2662,12 +2662,12 @@ function renderBankRecon() {
   if (!stmts.length) {
     if (sumEl) sumEl.textContent = '';
     if (allBtn) allBtn.disabled = true;
-    box.innerHTML = '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi bank. Klik ðŸ“‚ Import mutasi untuk meng-upload CSV â€” sistem akan otomatis mencocokkan dengan transaksi yang sudah dicatat.</p>';
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi bank. Klik 📂 Import mutasi untuk meng-upload CSV — sistem akan otomatis mencocokkan dengan transaksi yang sudah dicatat.</p>';
     return;
   }
   const results = suggestMatches(stmts, Storage.getAllEntries(), { days: 3 });
   const s = reconSummary(results);
-  if (sumEl) sumEl.textContent = `${s.matched} cocok â€¢ ${s.pending} saran â€¢ ${s.posted} diposting â€¢ ${s.unmatched} tanpa pasangan`;
+  if (sumEl) sumEl.textContent = `${s.matched} cocok • ${s.pending} saran • ${s.posted} diposting • ${s.unmatched} tanpa pasangan`;
   if (allBtn) allBtn.disabled = s.pending === 0;
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const rows = results.map(r => {
@@ -2676,22 +2676,22 @@ function renderBankRecon() {
     const cands = r.candidates || [];
     let status, actions = '';
     if (st.matchedId) {
-      status = `âœ… <span style="font-size:11px">${pair ? escapeHtml(pair.description || pair.category || 'transaksi') + ' â€¢ ' + escapeHtml(pair.date) : 'cocok'}</span>`;
+      status = `✅ <span style="font-size:11px">${pair ? escapeHtml(pair.description || pair.category || 'transaksi') + ' • ' + escapeHtml(pair.date) : 'cocok'}</span>`;
     } else if (st.posted) {
-      status = '<small style="color:#64748b">ðŸ“˜ diposting ke COA</small>';
+      status = '<small style="color:#64748b">📘 diposting ke COA</small>';
     } else if (st.ignored) {
-      status = '<small style="color:#94a3b8">â€” diabaikan</small>';
+      status = '<small style="color:#94a3b8">— diabaikan</small>';
       actions = `<button class="btn btn-ghost recon-unignore" data-key="${st.key}" style="font-size:11px;padding:2px 8px">Batalkan</button>`;
     } else if (cands.length) {
-      status = `<span style="font-size:11px;color:#b45309">â†” saran: ${escapeHtml(cands[0].description || cands[0].category || 'transaksi')} â€¢ ${escapeHtml(cands[0].date)}</span>`;
-      actions = `<button class="btn btn-primary recon-match" data-key="${st.key}" data-entry="${cands[0].id}" style="font-size:11px;padding:3px 10px">âœ“ Cocokkan</button>
+      status = `<span style="font-size:11px;color:#b45309">↔ saran: ${escapeHtml(cands[0].description || cands[0].category || 'transaksi')} • ${escapeHtml(cands[0].date)}</span>`;
+      actions = `<button class="btn btn-primary recon-match" data-key="${st.key}" data-entry="${cands[0].id}" style="font-size:11px;padding:3px 10px">✓ Cocokkan</button>
         <button class="btn btn-ghost recon-post" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Posting COA</button>
-        <button class="btn btn-ghost recon-rule" data-key="${st.key}" style="font-size:11px;padding:3px 8px" title="Simpan keterangan ini sebagai aturan">ï¼‹ Aturan</button>
+        <button class="btn btn-ghost recon-rule" data-key="${st.key}" style="font-size:11px;padding:3px 8px" title="Simpan keterangan ini sebagai aturan">＋ Aturan</button>
         <button class="btn btn-ghost recon-ignore" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Abaikan</button>`;
     } else {
       status = '<small style="color:#94a3b8">tidak ada pasangan</small>';
       actions = `<button class="btn btn-ghost recon-post" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Posting COA</button>
-        <button class="btn btn-ghost recon-rule" data-key="${st.key}" style="font-size:11px;padding:3px 8px" title="Simpan keterangan ini sebagai aturan">ï¼‹ Aturan</button>
+        <button class="btn btn-ghost recon-rule" data-key="${st.key}" style="font-size:11px;padding:3px 8px" title="Simpan keterangan ini sebagai aturan">＋ Aturan</button>
         <button class="btn btn-ghost recon-ignore" data-key="${st.key}" style="font-size:11px;padding:3px 8px">Abaikan</button>`;
     }
     const acct = (getAccounts().find(a => a.code === st.counterAccount) || {});
@@ -2700,7 +2700,7 @@ function renderBankRecon() {
       <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(st.desc || '')}">${escapeHtml(st.desc || '')}</td>
       <td class="amount-col" style="color:#059669">${st.direction === 'in' ? fmt(st.amount) : ''}</td>
       <td class="amount-col" style="color:#dc2626">${st.direction === 'out' ? fmt(st.amount) : ''}</td>
-      <td style="font-size:11px;color:#64748b">${acct.code ? escapeHtml(acct.code + ' ' + acct.name) : 'â€”'}</td>
+      <td style="font-size:11px;color:#64748b">${acct.code ? escapeHtml(acct.code + ' ' + acct.name) : '—'}</td>
       <td>${status}</td>
       <td style="white-space:nowrap">${actions}</td>
     </tr>`;
@@ -2708,7 +2708,7 @@ function renderBankRecon() {
   box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
     <th>Tanggal</th><th>Keterangan</th><th class="amount-col">Masuk</th><th class="amount-col">Keluar</th>
     <th>Akun lawan</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p style="font-size:11px;color:#64748b;margin-top:6px">Cocok = mutasi sama dengan transaksi tercatat (tak perlu dijurnal ulang). Posting COA = buat jurnal bankâ†”akun untuk mutasi yang belum tercatat.</p>`;
+    <p style="font-size:11px;color:#64748b;margin-top:6px">Cocok = mutasi sama dengan transaksi tercatat (tak perlu dijurnal ulang). Posting COA = buat jurnal bank↔akun untuk mutasi yang belum tercatat.</p>`;
 }
 function bankReconMatch(key, entryId) {
   Storage.updateBankStatement(key, { matchedId: entryId, matchedType: 'entry' });
@@ -2721,7 +2721,7 @@ function bankReconPost(key) {
   try {
     const res = Storage.importBankLines([{ date: st.date, amount: st.amount, direction: st.direction, counterAccount: st.counterAccount, memo: st.desc }], { bankAccount: st.bankAccount || '1101' });
     if (res.ok) { Storage.updateBankStatement(key, { posted: true }); UI.showSuccess('Mutasi diposting ke COA'); }
-    else UI.showError('Gagal posting â€” bulan terkunci atau akun lawan belum dipilih');
+    else UI.showError('Gagal posting — bulan terkunci atau akun lawan belum dipilih');
     renderBankRecon(); refresh();
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal posting'); }
 }
@@ -2766,7 +2766,7 @@ function renderKasReconDiff() {
   const end = Number(endBals[code]) || 0;
   const diff = end - book;
   const fmt = (v) => 'Rp' + Math.round(v || 0).toLocaleString('id-ID');
-  out.innerHTML = `Saldo buku: <span style="color:#0f172a">${fmt(book)}</span> &nbsp;â€¢&nbsp; Selisih: <span style="color:${Math.abs(diff) < 1 ? '#059669' : '#dc2626'}">${diff < 0 ? 'âˆ’' : ''}${fmt(Math.abs(diff))}</span> ${Math.abs(diff) < 1 ? 'âœ“ cocok' : ''}`;
+  out.innerHTML = `Saldo buku: <span style="color:#0f172a">${fmt(book)}</span> &nbsp;•&nbsp; Selisih: <span style="color:${Math.abs(diff) < 1 ? '#059669' : '#dc2626'}">${diff < 0 ? '−' : ''}${fmt(Math.abs(diff))}</span> ${Math.abs(diff) < 1 ? '✓ cocok' : ''}`;
 }
 function openBankRules(prefillKeyword, prefillCode) {
   const m = document.getElementById('bankRulesModal');
@@ -2790,7 +2790,7 @@ function accountOptionsWithSelected(code) {
 }
 function acctLabel(code) {
   const a = getAccounts().find(x => x.code === code);
-  return a ? `${a.code} ${a.name}` : String(code || 'â€”');
+  return a ? `${a.code} ${a.name}` : String(code || '—');
 }
 function renderBankRules() {
   const sel = document.getElementById('bankRuleCode');
@@ -2799,7 +2799,7 @@ function renderBankRules() {
   const q = String(document.getElementById('bankRuleSearch')?.value || '').trim().toLowerCase();
   const match = (kw, code) => !q || kw.includes(q) || String(code).includes(q) || acctLabel(code).toLowerCase().includes(q);
   const countEl = document.getElementById('bankRuleCount');
-  if (countEl) countEl.textContent = rules.length ? `â€¢ ${rules.length} aturan` : '';
+  if (countEl) countEl.textContent = rules.length ? `• ${rules.length} aturan` : '';
   const chip = document.getElementById('kasReconRulesCount');
   if (chip) chip.textContent = rules.length ? `(${rules.length})` : '';
   // Tabel aturan tersimpan (bisa diedit langsung)
@@ -2810,11 +2810,11 @@ function renderBankRules() {
       ${shown.map(r => `<tr>
         <td><b style="font-size:12px">${escapeHtml(r.keyword)}</b></td>
         <td><select class="bank-rule-dir" data-id="${r.id}" aria-label="Arah" style="height:30px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;padding:0 6px">
-          <option value=""${!r.direction ? ' selected' : ''}>â†” Dua arah</option>
-          <option value="out"${r.direction === 'out' ? ' selected' : ''}>â†‘ Keluar</option>
-          <option value="in"${r.direction === 'in' ? ' selected' : ''}>â†“ Masuk</option></select></td>
+          <option value=""${!r.direction ? ' selected' : ''}>↔ Dua arah</option>
+          <option value="out"${r.direction === 'out' ? ' selected' : ''}>↑ Keluar</option>
+          <option value="in"${r.direction === 'in' ? ' selected' : ''}>↓ Masuk</option></select></td>
         <td><select class="bank-rule-code" data-id="${r.id}" aria-label="Akun" style="max-width:260px;height:30px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;padding:0 6px">${accountOptionsWithSelected(r.code)}</select></td>
-        <td><button class="btn btn-ghost bank-rule-del" data-id="${r.id}" aria-label="Hapus aturan" style="font-size:11px;padding:0 8px;color:#ef4444">âœ•</button></td>
+        <td><button class="btn btn-ghost bank-rule-del" data-id="${r.id}" aria-label="Hapus aturan" style="font-size:11px;padding:0 8px;color:#ef4444">✕</button></td>
       </tr>`).join('')}
     </tbody></table></div>`
       : `<p style="color:var(--text-muted);font-size:12px">${rules.length ? 'Tidak ada aturan yang cocok pencarian.' : 'Belum ada aturan. Klik salah satu contoh di bawah, atau isi form Tambah aturan.'}</p>`;
@@ -2828,8 +2828,8 @@ function renderBankRules() {
       .filter(p => match(p.keyword, p.code))
       .slice(0, 80);
     presetsBox.innerHTML = list.length ? list.map(p => {
-      const tag = p.direction === 'in' ? ' â†“' : p.direction === 'out' ? ' â†‘' : '';
-      return `<button type="button" class="bank-rule-preset" data-kw="${escapeHtml(p.keyword)}" data-code="${p.code}" data-dir="${p.direction || ''}" title="${escapeHtml(acctLabel(p.code))}" style="font-size:11px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:9999px;padding:4px 10px;cursor:pointer">ï¼‹ ${escapeHtml(p.keyword)}${tag} â†’ ${p.code}</button>`;
+      const tag = p.direction === 'in' ? ' ↓' : p.direction === 'out' ? ' ↑' : '';
+      return `<button type="button" class="bank-rule-preset" data-kw="${escapeHtml(p.keyword)}" data-code="${p.code}" data-dir="${p.direction || ''}" title="${escapeHtml(acctLabel(p.code))}" style="font-size:11px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:9999px;padding:4px 10px;cursor:pointer">＋ ${escapeHtml(p.keyword)}${tag} → ${p.code}</button>`;
     }).join('') : `<small style="color:#94a3b8">${rules.length && !q ? 'Semua contoh sudah ada.' : 'Tidak ada contoh yang cocok.'}</small>`;
   }
   renderBankRuleSuggestions();
@@ -2842,40 +2842,60 @@ function renderBankRuleSuggestions() {
   const rules = Storage.getBankRules();
   const existing = new Set(rules.map(r => `${r.keyword}|${r.direction || ''}`));
   lastSuggestCards = suggestRules(Storage.getBankStatement()).filter(s => !existing.has(`${s.keyword}|${s.direction || ''}`)).slice(0, 6);
+  const bfCount = document.getElementById('bankRuleBackfillCount');
+  if (bfCount) bfCount.textContent = String(lastSuggestCards.reduce((s, c) => s + c.count, 0));
   if (!lastSuggestCards.length) {
     box.innerHTML = '<div style="font-size:11px;color:#64748b">Belum ada pola baru dari mutasi. Import mutasi bank untuk mendapat saran.</div>';
     return;
   }
-  box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#1e3a8a;margin-bottom:6px">ðŸ’¡ Saran aturan dari mutasi Anda â€” pilih COA lalu Tinjau &amp; tambah (langsung diterapkan ke mutasi serupa)</div>`
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#1e3a8a;margin-bottom:8px">💡 Saran aturan dari mutasi Anda — pilih rekomendasi → periksa contoh → tambah aturan</div>`
     + lastSuggestCards.map((s, i) => {
-      const dirTag = s.direction === 'out' ? '<span style="color:#dc2626;font-size:10px">â†‘ keluar</span>' : s.direction === 'in' ? '<span style="color:#059669;font-size:10px">â†“ masuk</span>' : '';
-      return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:8px 10px;margin-bottom:6px">
-        <div style="flex:1;min-width:140px"><b style="font-size:12px;text-transform:uppercase">${escapeHtml(s.keyword)}</b>
-          <span style="font-size:11px;color:#64748b">â€¢ ${s.count} mutasi â€¢ Rp${Math.round(s.total).toLocaleString('id-ID')}</span> ${dirTag}</div>
-        <select class="bank-sgst-code" data-i="${i}" aria-label="COA" style="max-width:250px;height:30px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;padding:0 6px">${accountOptionsWithSelected(s.code)}</select>
-        <button type="button" class="btn btn-primary bank-sgst-add" data-i="${i}" style="font-size:11px;padding:4px 10px;white-space:nowrap">Tinjau &amp; tambah</button>
+    const dirTag = s.direction === 'out' ? '<span style="color:#dc2626;font-size:10px">↑ Uang keluar</span>' : s.direction === 'in' ? '<span style="color:#059669;font-size:10px">↓ Uang masuk</span>' : '';
+    const badge = s.confirmed > 0
+      ? '<span style="background:#dcfce7;color:#166534;border-radius:9999px;padding:2px 8px;font-size:10px;font-weight:700">✅ Berdasarkan pilihan Anda</span>'
+      : '<span style="background:#fef3c7;color:#b45309;border-radius:9999px;padding:2px 8px;font-size:10px;font-weight:700">⚠️ Perlu konfirmasi</span>';
+    const reason = s.confirmed > 0
+      ? `${s.confirmed} transaksi sebelumnya dikategorikan sama oleh Anda.`
+      : 'Saran dari kata pada mutasi bank — periksa tujuan transaksi.';
+    const examples = s.examples.map(e => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#475569"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.desc)}</span><b style="white-space:nowrap">${fmt(e.amount)}</b></div>`).join('');
+    return `<div style="background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b style="font-size:13px;text-transform:uppercase;flex:1">${escapeHtml(s.keyword)}</b>
+          <span style="font-size:11px;color:#64748b">${s.count} mutasi • ${fmt(s.total)}</span> ${dirTag}
+        </div>
+        <div style="margin:4px 0 6px">${badge} <span style="font-size:11px;color:#64748b">${reason}</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;color:#64748b">COA disarankan</span>
+          <select class="bank-sgst-code" data-i="${i}" aria-label="COA" style="flex:1;min-width:200px;height:32px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;padding:0 6px">${accountOptionsWithSelected(s.code)}</select>
+          <button type="button" class="btn btn-primary bank-sgst-add" data-i="${i}" style="font-size:12px;padding:5px 12px;white-space:nowrap">Tinjau &amp; tambah</button>
+        </div>
+        <div style="margin-top:6px;border-top:1px dashed #e2e8f0;padding-top:6px">${examples}</div>
       </div>`;
-    }).join('');
+  }).join('');
 }
 function bankRuleAddSuggestion(i) {
   const sug = lastSuggestCards[i];
   if (!sug) return;
   const sel = document.querySelector(`.bank-sgst-code[data-i="${i}"]`);
   const code = sel ? sel.value : sug.code;
+  const doBackfill = document.getElementById('bankRuleBackfill')?.checked !== false;
   try {
     Storage.addBankRule(sug.keyword, code, sug.direction);
     let n = 0;
-    // Backfill: terapkan ke mutasi serupa yang belum diposting/dicocokkan
-    Storage.getBankStatement().forEach(s => {
-      if (s.posted || s.matchedId || s.ignored) return;
-      const d = String(s.desc || '').toLowerCase();
-      const dir = s.direction || '';
-      if (d.includes(sug.keyword) && (!sug.direction || !dir || sug.direction === dir)) {
+    if (doBackfill) {
+      Storage.getBankStatement().forEach(s => {
+        if (s.posted || s.matchedId || s.ignored) return;
+        const d = String(s.desc || '').toLowerCase();
+        const dir = s.direction || '';
+        if (!(d.includes(sug.keyword) && (!sug.direction || !dir || sug.direction === dir))) return;
+        // Pertahankan koreksi manual: lewati baris yang akunnya sudah diubah dari saran awal
+        if (s.suggestCode && s.counterAccount && s.counterAccount !== s.suggestCode) return;
         Storage.updateBankStatement(s.key, { counterAccount: code });
         n++;
-      }
-    });
-    UI.showSuccess(`Aturan "${sug.keyword.toUpperCase()}" disimpan${n ? ` â€¢ ${n} mutasi diperbarui` : ''}`);
+      });
+    }
+    UI.showSuccess(`Aturan "${sug.keyword.toUpperCase()}" disimpan${n ? ` • ${n} mutasi diperbarui` : ''}`);
     renderBankRules();
     renderBankRecon();
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menambah aturan'); }
@@ -2951,10 +2971,10 @@ function renderPembelianPage() {
   const kpi = document.getElementById('pembelianKpi');
   if (kpi) {
     const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
-    kpi.innerHTML = tile('Total hutang usaha', fmt(outstanding)) + tile('â° Jatuh tempo/terlambat', fmt(overdue)) + tile('Faktur belum lunas', openCount) + tile('Total pembelian', purchases.length);
+    kpi.innerHTML = tile('Total hutang usaha', fmt(outstanding)) + tile('⏰ Jatuh tempo/terlambat', fmt(overdue)) + tile('Faktur belum lunas', openCount) + tile('Total pembelian', purchases.length);
   }
   const sub = document.getElementById('pembelianSubtitle');
-  if (sub) sub.textContent = `${purchases.length} pembelian â€¢ ${openCount} belum lunas â€¢ hutang ${fmt(outstanding)}`;
+  if (sub) sub.textContent = `${purchases.length} pembelian • ${openCount} belum lunas • hutang ${fmt(outstanding)}`;
   UI.renderSuppliers(purchases, 'pembelianList');
 }
 
@@ -2969,10 +2989,10 @@ function renderBiayaPage() {
   const kpi = document.getElementById('biayaKpi');
   if (kpi) {
     const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
-    kpi.innerHTML = tile('Total biaya', fmt(total)) + tile('Transaksi', entries.length) + tile('Kategori', cats.length) + tile('Terbesar', cats[0] ? escapeHtml(Reports.getCategoryLabel(cats[0].category)) : 'â€”');
+    kpi.innerHTML = tile('Total biaya', fmt(total)) + tile('Transaksi', entries.length) + tile('Kategori', cats.length) + tile('Terbesar', cats[0] ? escapeHtml(Reports.getCategoryLabel(cats[0].category)) : '—');
   }
   const sub = document.getElementById('biayaSubtitle');
-  if (sub) sub.textContent = `${entries.length} transaksi biaya â€¢ total ${fmt(total)}`;
+  if (sub) sub.textContent = `${entries.length} transaksi biaya • total ${fmt(total)}`;
   const catBox = document.getElementById('biayaCats');
   if (catBox) {
     const max = Math.max(1, ...cats.map(c => c.total));
@@ -2985,8 +3005,8 @@ function renderBiayaPage() {
   if (list) {
     const rows = entries.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 40);
     list.innerHTML = rows.length ? rows.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-      <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.description || Reports.getCategoryLabel(e.category))}</div><div style="font-size:10px;color:#64748b">${escapeHtml(e.date)} â€¢ ${escapeHtml(Reports.getCategoryLabel(e.category))}${e.person ? ' â€¢ ' + escapeHtml(e.person) : ''}</div></div>
-      <b style="font-size:12px;white-space:nowrap;color:#dc2626">âˆ’${fmt(e.amount)}</b></div>`).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada transaksi biaya.</p>';
+      <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.description || Reports.getCategoryLabel(e.category))}</div><div style="font-size:10px;color:#64748b">${escapeHtml(e.date)} • ${escapeHtml(Reports.getCategoryLabel(e.category))}${e.person ? ' • ' + escapeHtml(e.person) : ''}</div></div>
+      <b style="font-size:12px;white-space:nowrap;color:#dc2626">−${fmt(e.amount)}</b></div>`).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada transaksi biaya.</p>';
   }
 }
 
@@ -3018,8 +3038,8 @@ function renderBudget(entries) {
     fill.classList.toggle('over', pct >= 90);
   }
   if (spentEl) spentEl.textContent = `Rp${expense.toLocaleString('id-ID')} terpakai`;
-  if (limitEl) limitEl.textContent = `Limit: Rp${limit.toLocaleString('id-ID')} â€¢ ${pct}%`;
-  if (hint) hint.textContent = pct >= 100 ? 'âš ï¸ Melebihi anggaran!' : pct >= 80 ? 'Hampir mencapai limit' : 'Kelola pengeluaran dengan bijak';
+  if (limitEl) limitEl.textContent = `Limit: Rp${limit.toLocaleString('id-ID')} • ${pct}%`;
+  if (hint) hint.textContent = pct >= 100 ? '⚠️ Melebihi anggaran!' : pct >= 80 ? 'Hampir mencapai limit' : 'Kelola pengeluaran dengan bijak';
   renderCategoryBudgets(entries);
 }
 
@@ -3040,7 +3060,7 @@ function renderCategoryBudgets(entries) {
     return `<div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:#475569;margin-bottom:3px">
         <span>${escapeHtml(label)}</span>
-        <span style="font-weight:600;color:${over ? '#ef4444' : '#0f172a'}">${fmt(spent)} / ${fmt(lim)}${over ? ' âš ï¸' : ''}</span>
+        <span style="font-weight:600;color:${over ? '#ef4444' : '#0f172a'}">${fmt(spent)} / ${fmt(lim)}${over ? ' ⚠️' : ''}</span>
       </div>
       <div class="budget-bar" style="height:6px"><div class="budget-fill${over ? ' over' : ''}" style="width:${pct}%"></div></div>
     </div>`;
@@ -3061,11 +3081,11 @@ function renderWallets() {
     box.innerHTML = '<span style="font-size:11px;color:#94a3b8">Belum ada transaksi</span>';
     return;
   }
-  const fmt = (v) => (v < 0 ? 'âˆ’Rp' : 'Rp') + Math.abs(Math.round(v)).toLocaleString('id-ID');
+  const fmt = (v) => (v < 0 ? '−Rp' : 'Rp') + Math.abs(Math.round(v)).toLocaleString('id-ID');
   rows.sort((a, b) => b.net - a.net);
   box.innerHTML = rows.map(x => {
     const acct = cashAccts.find(a => a.code === x.code) || {};
-    const icon = (Reports.PAYMENT_OPTIONS || []).find(p => p.value === acct.payment)?.icon || 'ðŸ“¦';
+    const icon = (Reports.PAYMENT_OPTIONS || []).find(p => p.value === acct.payment)?.icon || '📦';
     return `<div style="display:flex;align-items:center;gap:8px;font-size:12px">
       <span>${icon}</span>
       <span style="flex:1">${acct.name || x.code}</span>
@@ -3115,13 +3135,13 @@ function pphPendingInfo() {
 function getAllAlerts() {
   const out = [];
   getLoanAlerts().forEach(a => out.push({
-    type: 'loan', target: 'loans', icon: a.kind === 'overdue' ? 'ðŸ”´' : 'ðŸŸ¡',
-    text: `Pinjaman ${a.loan.person || 'â€”'} ${a.diffDays < 0 ? `terlambat ${Math.abs(a.diffDays)} hari` : (a.diffDays === 0 ? 'jatuh tempo hari ini' : `jatuh tempo H-${a.diffDays}`)}`
+    type: 'loan', target: 'loans', icon: a.kind === 'overdue' ? '🔴' : '🟡',
+    text: `Pinjaman ${a.loan.person || '—'} ${a.diffDays < 0 ? `terlambat ${Math.abs(a.diffDays)} hari` : (a.diffDays === 0 ? 'jatuh tempo hari ini' : `jatuh tempo H-${a.diffDays}`)}`
   }));
   let low = [];
   try { low = Storage.getAllItems().filter(i => (i.minStock || 0) > 0 && i.stock <= i.minStock); } catch {}
   if (low.length) out.push({
-    type: 'stock', target: 'stock', icon: 'ðŸ“¦',
+    type: 'stock', target: 'stock', icon: '📦',
     text: `Stok menipis: ${low.slice(0, 3).map(i => i.name).join(', ')}${low.length > 3 ? ` +${low.length - 3} lagi` : ''}`
   });
   let sup = [];
@@ -3129,9 +3149,9 @@ function getAllAlerts() {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     sup = Storage.getAllPurchases().filter(p => p.status !== 'paid' && p.dueDate && Storage.purchaseOutstanding(p) > 0.01 && new Date(p.dueDate + 'T00:00:00') < today);
   } catch {}
-  if (sup.length) out.push({ type: 'supplier', target: 'stock', icon: 'ðŸ“¥', text: `${sup.length} pembelian supplier lewat jatuh tempo â€” cek Stok â†’ Hutang ke Supplier` });
+  if (sup.length) out.push({ type: 'supplier', target: 'stock', icon: '📥', text: `${sup.length} pembelian supplier lewat jatuh tempo — cek Stok → Hutang ke Supplier` });
   const pph = pphPendingInfo();
-  if (pph) out.push({ type: 'pph', target: 'tax', icon: 'ðŸ§¾', text: `PPh Final ${pph.key}: Rp${pph.pph.toLocaleString('id-ID')} â€” bayar sebelum tgl 15 (Laporan â†’ Pajak)` });
+  if (pph) out.push({ type: 'pph', target: 'tax', icon: '🧾', text: `PPh Final ${pph.key}: Rp${pph.pph.toLocaleString('id-ID')} — bayar sebelum tgl 15 (Laporan → Pajak)` });
   return out;
 }
 function updateNotifBadge() {
@@ -3157,7 +3177,7 @@ function checkOverdue() {
     overdueNotified = true;
     const over = alerts.filter(a => a.kind === 'overdue').length;
     const soon = alerts.length - over;
-    UI.showWarning(over ? `${over} pinjaman terlambat${soon ? `, ${soon} jatuh tempo â‰¤3 hari` : ''}! Cek menu Pinjaman.` : `${soon} pinjaman jatuh tempo â‰¤3 hari. Cek menu Pinjaman.`);
+    UI.showWarning(over ? `${over} pinjaman terlambat${soon ? `, ${soon} jatuh tempo ≤3 hari` : ''}! Cek menu Pinjaman.` : `${soon} pinjaman jatuh tempo ≤3 hari. Cek menu Pinjaman.`);
   }
   checkPPhReminder();
   checkStockAlert();
@@ -3196,7 +3216,7 @@ function checkPPhReminder() {
   if (omzet > 0) {
     pphNotified = true;
     const pph = Math.round(omzet * 0.005);
-    UI.showWarning(`PPh Final bulan lalu Rp${pph.toLocaleString('id-ID')} â€” bayar sebelum tgl 15. Lihat Laporan â†’ Pajak.`);
+    UI.showWarning(`PPh Final bulan lalu Rp${pph.toLocaleString('id-ID')} — bayar sebelum tgl 15. Lihat Laporan → Pajak.`);
   }
 }
 
@@ -3234,7 +3254,7 @@ function renderFullTransaksi() {
   const withBalance = Reports.computeRunningBalance(searchFiltered);
   const sorted = sortEntries(withBalance);
   const totals = Reports.computeTotals(searchFiltered);
-  if (subtitle) subtitle.textContent = `${searchFiltered.length} transaksi â€¢ Total ${new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(totals.net)} saldo`;
+  if (subtitle) subtitle.textContent = `${searchFiltered.length} transaksi • Total ${new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(totals.net)} saldo`;
   if (saldoEl) saldoEl.textContent = `Total saldo: ${Reports.formatCurrency(totals.net)}`;
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   if (transaksiPage > totalPages) transaksiPage = totalPages;
@@ -3256,8 +3276,8 @@ function renderFullTransaksi() {
     const amt = Reports.formatCurrency(Number(e.amount)||0).replace(/\s/g,'');
     const kategori = Reports.getCategoryLabel(e.category);
     const ikon = Reports.getCategoryIcon(e.category);
-    const kontak = e.person ? escapeHtml(e.person) : 'â€”';
-    const cara = `${Reports.getPaymentIcon(e.payment)} ${Reports.getPaymentLabel(e.payment)}${e.paymentDetail ? ' â€¢ ' + escapeHtml(e.paymentDetail) : ''}`;
+    const kontak = e.person ? escapeHtml(e.person) : '—';
+    const cara = `${Reports.getPaymentIcon(e.payment)} ${Reports.getPaymentLabel(e.payment)}${e.paymentDetail ? ' • ' + escapeHtml(e.paymentDetail) : ''}`;
     const acctCode = e.loanId ? '1201' : (e.type === 'income' ? REVENUE_ACCOUNT : expenseAccountFor(e.category));
     const acctName = (getAccounts().find(a => a.code === acctCode) || {}).name || '';
     return `<tr style="border-bottom:1px solid #f8fafc">
@@ -3267,12 +3287,12 @@ function renderFullTransaksi() {
       <td style="padding:12px;white-space:nowrap" title="${escapeHtml(acctCode + ' ' + acctName)}"><span style="font-family:monospace;font-size:11px;color:#475569">${acctCode}</span> <span style="color:var(--text-muted);font-size:11px">${escapeHtml(acctName)}</span></td>
       <td style="padding:12px;white-space:nowrap;font-size:13px">${kontak}</td>
       <td style="padding:12px;white-space:nowrap;font-size:12px"><span style="background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:9999px">${cara}</span></td>
-      <td style="padding:12px"><span style="background:${isIncome?'#ecfdf5':'#fff1f2'};color:${isIncome?'#047857':'#be123c'};padding:2px 8px;border-radius:9999px;font-size:11px">${isIncome?'ðŸ“¥ Masuk':'ðŸ“¤ Keluar'}</span></td>
+      <td style="padding:12px"><span style="background:${isIncome?'#ecfdf5':'#fff1f2'};color:${isIncome?'#047857':'#be123c'};padding:2px 8px;border-radius:9999px;font-size:11px">${isIncome?'📥 Masuk':'📤 Keluar'}</span></td>
       <td style="padding:12px;text-align:right;white-space:nowrap;font-weight:700;color:${isIncome?'#059669':'#dc2626'};font-family:monospace">${sign} ${amt}</td>
       <td style="padding:12px;text-align:right;white-space:nowrap">
-        <button class="btn btn-ghost" onclick="document.dispatchEvent(new CustomEvent('wynara:edit',{detail:'${e.id}'}))" style="padding:2px 6px;font-size:12px">âœŽ</button>
-        <button class="btn btn-ghost" onclick="document.dispatchEvent(new CustomEvent('wynara:receipt',{detail:'${e.id}'}))" style="padding:2px 6px;font-size:12px" title="Kwitansi">ðŸ§¾</button>
-        <button class="btn btn-danger" onclick="document.dispatchEvent(new CustomEvent('wynara:delete',{detail:'${e.id}'}))" style="padding:2px 6px;font-size:12px">ðŸ—‘</button>
+        <button class="btn btn-ghost" onclick="document.dispatchEvent(new CustomEvent('wynara:edit',{detail:'${e.id}'}))" style="padding:2px 6px;font-size:12px">✎</button>
+        <button class="btn btn-ghost" onclick="document.dispatchEvent(new CustomEvent('wynara:receipt',{detail:'${e.id}'}))" style="padding:2px 6px;font-size:12px" title="Kwitansi">🧾</button>
+        <button class="btn btn-danger" onclick="document.dispatchEvent(new CustomEvent('wynara:delete',{detail:'${e.id}'}))" style="padding:2px 6px;font-size:12px">🗑</button>
       </td>
     </tr>`;
   }).join('');
@@ -3330,7 +3350,7 @@ function computeReportData(type) {
   }
 }
 
-// Neraca Saldo â€” alat kerja utama akuntan (saldo debit/kredit per akun, cek seimbang)
+// Neraca Saldo — alat kerja utama akuntan (saldo debit/kredit per akun, cek seimbang)
 function buildTrialBalance() {
   const journals = Storage.getAllJournals();
   const drill = journalDateRange();
@@ -3354,7 +3374,7 @@ function buildTrialBalance() {
   try { unbalanced = findUnbalanced(journals); } catch {}
   let locked = [];
   try { locked = Storage.getLockedMonths(); } catch {}
-  return { rows: accounts, debit: totDeb, credit: totCred, diff: totDeb - totCred, balanced: Math.abs(totDeb - totCred) < 0.005, unbalanced, locked, lines, rangeLabel: drill.start && drill.end ? `${drill.start} â€” ${drill.end}` : 'Semua akun' };
+  return { rows: accounts, debit: totDeb, credit: totCred, diff: totDeb - totCred, balanced: Math.abs(totDeb - totCred) < 0.005, unbalanced, locked, lines, rangeLabel: drill.start && drill.end ? `${drill.start} — ${drill.end}` : 'Semua akun' };
 }
 
 // Laporan PPN bulanan (gaya 1111): PPN Keluaran (2105) vs Masukan (1401)
@@ -3383,7 +3403,7 @@ function buildPPNReport() {
   return { months, totalKeluar: totK, totalMasuk: totM, net: totK - totM, year: new Date().getFullYear() };
 }
 
-// Rekap PPh 21 per bulan (untuk e-SPT 21) â€” dari data gaji yang difinalisasi
+// Rekap PPh 21 per bulan (untuk e-SPT 21) — dari data gaji yang difinalisasi
 function buildPPh21Report() {
   const by = {};
   Storage.getAllEntries().forEach(e => {
@@ -3422,10 +3442,10 @@ function buildPPh23Report() {
   return { months, totalDipotong, totalDisetor, outstanding: totalDipotong - totalDisetor, year: new Date().getFullYear() };
 }
 
-// Laporan produk terlaris â€” dari entri penjualan (sale.lines)
+// Laporan produk terlaris — dari entri penjualan (sale.lines)
 let expenseCatFilter = 'all';
 let expensePersonFilter = 'all';
-// Laporan Pengeluaran vs Anggaran â€” dari budget + entri pengeluaran periode aktif
+// Laporan Pengeluaran vs Anggaran — dari budget + entri pengeluaran periode aktif
 function buildExpenseReport() {
   const all = Reports.filterEntries(Storage.getAllEntries(), currentFilters).filter(e => e.type === 'expense');
   const budget = Storage.getBudget();
@@ -3501,7 +3521,7 @@ function buildProductsReport() {
   return { rows, total, totalQty, totalHpp };
 }
 
-// Laba kotor per bulan: omzet âˆ’ HPP (modal dibekukan saat penjualan).
+// Laba kotor per bulan: omzet − HPP (modal dibekukan saat penjualan).
 function buildGrossProfitReport() {
   const items = {};
   try { Storage.getAllItems().forEach(i => { items[i.id] = i; }); } catch {}
@@ -3545,7 +3565,7 @@ function renderPageReport() {
   if (['all', 'this-month', 'last-month', 'this-year'].includes(currentFilters.period)) pageReportPeriodUi = currentFilters.period;
   const periodSel = document.getElementById('pageReportPeriod');
   if (periodSel && [...periodSel.options].some(o => o.value === pageReportPeriodUi)) periodSel.value = pageReportPeriodUi;
-  // Search hanya relevan di Jurnal & Buku Besar â€” reset saat pindah tab lain
+  // Search hanya relevan di Jurnal & Buku Besar — reset saat pindah tab lain
   const searchInp = document.getElementById('reportSearchInput');
   if (searchInp) {
     searchInp.hidden = !(tab === 'journal' || tab === 'ledger');
@@ -3564,14 +3584,14 @@ function renderPageHealth() {
   let closeColor = '#94a3b8';
   if (lastCloseDate) {
     const [y, m] = String(lastCloseDate).split('-').map(Number);
-    closeText = `ðŸ”’ penutupan terakhir ${new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}`;
+    closeText = `🔒 penutupan terakhir ${new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}`;
     closeColor = '#2563eb';
   }
   const chips = [
-    t.unbalanced.length === 0 ? '<span style="color:#059669;font-weight:600">âœ“ jurnal lengkap</span>' : `<span style="color:#b91c1c;font-weight:600">âš  ${t.unbalanced.length} jurnal pincang</span>`,
-    t.balanced ? '<span style="color:#059669;font-weight:600">âœ“ neraca saldo seimbang</span>' : `<span style="color:#b91c1c;font-weight:600">âš  selisih Rp${Math.abs(Math.round(t.diff)).toLocaleString('id-ID')}</span>`,
+    t.unbalanced.length === 0 ? '<span style="color:#059669;font-weight:600">✓ jurnal lengkap</span>' : `<span style="color:#b91c1c;font-weight:600">⚠ ${t.unbalanced.length} jurnal pincang</span>`,
+    t.balanced ? '<span style="color:#059669;font-weight:600">✓ neraca saldo seimbang</span>' : `<span style="color:#b91c1c;font-weight:600">⚠ selisih Rp${Math.abs(Math.round(t.diff)).toLocaleString('id-ID')}</span>`,
     `<span style="color:${closeColor};font-weight:600">${closeText}</span>`,
-    t.locked.length ? `<span style="color:#64748b">ðŸ”’ ${t.locked.length} bulan terkunci</span>` : '<span style="color:#94a3b8">tidak ada periode terkunci</span>'
+    t.locked.length ? `<span style="color:#64748b">🔒 ${t.locked.length} bulan terkunci</span>` : '<span style="color:#94a3b8">tidak ada periode terkunci</span>'
   ];
   box.innerHTML = chips.map(c => `<span class="chip" style="font-size:11px;margin:0 6px 6px 0">${c}</span>`).join('');
 }
@@ -3677,7 +3697,7 @@ function bsSnapshot(bal) {
   const totalL = liabs.reduce((s, x) => s + x.total, 0);
   const eq = Storage.getOpeningEquity();
   const modal = eq ? Number(eq.amount) || 0 : 0;
-  // Laba ditahan = total pendapatan âˆ’ total beban (kumulatif s/d tanggal neraca)
+  // Laba ditahan = total pendapatan − total beban (kumulatif s/d tanggal neraca)
   const revCodes = ACCOUNTS.filter(a => a.type === 'revenue').map(a => a.code);
   const rev = revCodes.reduce((s, c) => s + ((bal[c]?.credit || 0) - (bal[c]?.debit || 0)), 0);
   const expCodes = ACCOUNTS.filter(a => a.type === 'expense').map(a => a.code);
@@ -3872,7 +3892,7 @@ function handleRepayClick(loanId, presetAmount) {
   const tenor = calcTenor(loan);
   const isTaken = loan.direction !== 'given';
   const verb = isTaken ? 'Bayar' : 'Terima';
-  const label = loan.loanType === 'cicilan' && tenor > 1 ? `${verb} Cicilan ${Math.min(reps.length + 1, tenor)}/${tenor} â€” ${loan.person}` : `${verb} â€” ${loan.person}`;
+  const label = loan.loanType === 'cicilan' && tenor > 1 ? `${verb} Cicilan ${Math.min(reps.length + 1, tenor)}/${tenor} — ${loan.person}` : `${verb} — ${loan.person}`;
   UI.openRepayModal(loanId, outstanding, presetAmount, label, {
     total: totalOwed(loan),
     paid,
@@ -3888,7 +3908,7 @@ function handleRepaySubmit() {
   const loan = Storage.getLoanById(data.loanId);
   if (!loan) return UI.showError('Pinjaman tidak ditemukan');
   if (!data.amount || data.amount <= 0) return UI.showError('Jumlah bayar harus > 0');
-  if (data.date && Storage.isMonthLocked(data.date)) return UI.showError(`Bulan ${String(data.date).slice(0, 7)} terkunci â€” buka di Pengaturan`);
+  if (data.date && Storage.isMonthLocked(data.date)) return UI.showError(`Bulan ${String(data.date).slice(0, 7)} terkunci — buka di Pengaturan`);
 
   const reps = Storage.getLoanRepayments(data.loanId);
   const paid = paidOf(reps);
@@ -3909,10 +3929,10 @@ function handleRepaySubmit() {
   const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v);
   const verbDone = loan.direction !== 'given' ? 'Dibayar' : 'Diterima';
   UI.showSuccess(left <= 0.01
-    ? `Lunas! ${loan.person} â€” total ${fmt(totalOwed(loan))}`
+    ? `Lunas! ${loan.person} — total ${fmt(totalOwed(loan))}`
     : (tenor > 1
-      ? `Cicilan ${doneCount}/${tenor} ${verbDone.toLowerCase()} ${fmt(data.amount)} â€” sisa ${fmt(left)}`
-      : `${verbDone} ${fmt(data.amount)} â€” sisa ${fmt(left)}`));
+      ? `Cicilan ${doneCount}/${tenor} ${verbDone.toLowerCase()} ${fmt(data.amount)} — sisa ${fmt(left)}`
+      : `${verbDone} ${fmt(data.amount)} — sisa ${fmt(left)}`));
   UI.closeRepayModal();
   refreshLoans();
 }
@@ -3926,7 +3946,7 @@ function handleInvoicePrint(loanId) {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const sched = loan.loanType === 'cicilan' && Number(loan.installmentAmount) > 0
-    ? `${fmt(loan.installmentAmount)}/bulan Ã— ${calcTenor(loan)}`
+    ? `${fmt(loan.installmentAmount)}/bulan × ${calcTenor(loan)}`
     : 'Sekali bayar';
   const rows = reps.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map((r, i) =>
     `<tr><td style="padding:6px 8px;border:1px solid #ddd">${i + 1}</td><td style="padding:6px 8px;border:1px solid #ddd">${esc(r.date)}</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right">${fmt(r.amount)}</td></tr>`
@@ -3940,7 +3960,7 @@ function handleInvoicePrint(loanId) {
       <tr><td style="color:#555">Tagihan untuk</td><td><b>${esc(loan.person)}</b></td></tr>
       <tr><td style="color:#555">Tanggal</td><td>${esc(loan.date)}</td></tr>
       ${loan.dueDate ? `<tr><td style="color:#555">Jatuh tempo</td><td>${esc(loan.dueDate)}</td></tr>` : ''}
-      <tr><td style="color:#555">Skema</td><td>${esc(sched)}${Number(loan.interestRate) > 0 ? ` â€¢ Bunga ${esc(String(loan.interestRate))}%` : ''}</td></tr>
+      <tr><td style="color:#555">Skema</td><td>${esc(sched)}${Number(loan.interestRate) > 0 ? ` • Bunga ${esc(String(loan.interestRate))}%` : ''}</td></tr>
       ${loan.description ? `<tr><td style="color:#555">Keterangan</td><td>${esc(loan.description)}</td></tr>` : ''}
     </table>
     <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:10px">
@@ -4063,12 +4083,12 @@ function handleCoaImport() {
   refreshCoa();
   queueMirror();
   const info = document.getElementById('coaImportInfo');
-  if (info) info.textContent = `${added} ditambah â€¢ ${parsed.collide.length} bentrok kode bawaan (tidak diubah) â€¢ ${parsed.skipped.length} dilewati`;
+  if (info) info.textContent = `${added} ditambah • ${parsed.collide.length} bentrok kode bawaan (tidak diubah) • ${parsed.skipped.length} dilewati`;
   if (added) UI.showSuccess(`${added} akun COA diimpor`); else UI.showInfo('Tidak ada akun baru yang diimpor');
 }
 function handleCoaRenumberPreview() {
   const p = Storage.previewCoaRenumber();
-  const rows = p.hits.map(([code, n]) => `<tr><td style="font-family:monospace;font-size:12px">${escapeHtml(code)}</td><td style="font-size:12px">â†’</td><td style="font-family:monospace;font-size:12px">${escapeHtml(COA_RENUMBER[code] || code)}</td><td class="amount-col">${n}</td></tr>`).join('');
+  const rows = p.hits.map(([code, n]) => `<tr><td style="font-family:monospace;font-size:12px">${escapeHtml(code)}</td><td style="font-size:12px">→</td><td style="font-family:monospace;font-size:12px">${escapeHtml(COA_RENUMBER[code] || code)}</td><td class="amount-col">${n}</td></tr>`).join('');
   const body = `<p style="font-size:12px;color:#64748b">Pratinjau migrasi renumber ke chart <b>PT Wynara Living Atelier</b>. <b>Belum ada data yang diubah.</b></p>
     <div class="report-summary">
       <div class="report-summary-item"><span class="label">Baris jurnal terdampak</span><span class="value">${p.journalLines}</span></div>
@@ -4080,7 +4100,7 @@ function handleCoaRenumberPreview() {
     ${p.unknownCodes.length ? `<p style="font-size:12px;color:#b91c1c">Kode tak dikenal (cek dulu): ${p.unknownCodes.map(escapeHtml).join(', ')}</p>` : ''}
     <table class="report-table"><thead><tr><th>Kode lama</th><th></th><th>Kode baru</th><th class="amount-col">Baris</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Tidak ada kode lama yang perlu diubah.</td></tr>'}</tbody></table>
     <p style="font-size:11px;color:#64748b">Setelah Anda setujui, saya jalankan migrasi: tulis ulang kode di jurnal + mutasi/aturan bank + saldo awal, lalu ganti chart.</p>`;
-  UI.openInfoModal('ðŸ”„ Pratinjau Renumber COA', body);
+  UI.openInfoModal('🔄 Pratinjau Renumber COA', body);
 }
 function handleCoaRename(code, name) {
   try {
@@ -4155,12 +4175,12 @@ function openStockMovementsToday() {
   const dt = (s) => { try { return new Date(s).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
   const th = (m) => STOCK_MOVE_LABELS[m.type] || (m.qtyIn ? 'Masuk' : 'Keluar');
   const body = moves.length
-    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">Mutasi <b>${escapeHtml(nm)}</b> hari ini â€” ${moves.length} gerakan</div>
+    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">Mutasi <b>${escapeHtml(nm)}</b> hari ini — ${moves.length} gerakan</div>
        <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Jam</th><th>Jenis</th><th>Produk</th><th class="amount-col">Masuk</th><th class="amount-col">Keluar</th><th class="amount-col">Sisa</th></tr></thead><tbody>
-       ${moves.slice(0, 120).map(m => { const it = Storage.getItemById(m.itemId) || {}; return `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${th(m)}</td><td style="font-size:12px">${escapeHtml(it.name || 'â€”')}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? 'âˆ’' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td></tr>`; }).join('')}
+       ${moves.slice(0, 120).map(m => { const it = Storage.getItemById(m.itemId) || {}; return `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${th(m)}</td><td style="font-size:12px">${escapeHtml(it.name || '—')}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? '−' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td></tr>`; }).join('')}
        </tbody></table></div>`
     : '<p style="color:#64748b">Belum ada mutasi stok hari ini.</p>';
-  UI.openInfoModal('ðŸ”„ Mutasi stok hari ini', body);
+  UI.openInfoModal('🔄 Mutasi stok hari ini', body);
 }
 function renderBulkBar() {
   const bar = document.getElementById('stockBulkBar');
@@ -4181,12 +4201,12 @@ function handleReorderReport() {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const totalCost = rows.reduce((s, r) => s + r.suggest * (Number(r.item.cost) || 0), 0);
   const body = rows.length
-    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">Toko <b>${escapeHtml(shopName)}</b> â€” ${rows.length} varian â‰¤ titik pesan ulang â€¢ perkiraan biaya restock <b>${fmt(totalCost)}</b></div>
+    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">Toko <b>${escapeHtml(shopName)}</b> — ${rows.length} varian ≤ titik pesan ulang • perkiraan biaya restock <b>${fmt(totalCost)}</b></div>
        <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Produk</th><th>SKU</th><th class="amount-col">Stok</th><th class="amount-col">Min</th><th class="amount-col">Saran</th></tr></thead><tbody>
-       ${rows.slice(0, 200).map(r => `<tr><td style="font-size:12px">${escapeHtml(r.item.name)}${[r.item.size, r.item.color].filter(Boolean).length ? ' ' + escapeHtml([r.item.size, r.item.color].filter(Boolean).join('/')) : ''}</td><td style="font-size:11px">${escapeHtml(r.item.sku || 'â€”')}</td><td class="amount-col ${r.stock <= r.min ? 'expense' : ''}">${r.stock}</td><td class="amount-col">${r.min}</td><td class="amount-col"><b>${r.suggest}</b></td></tr>`).join('')}
+       ${rows.slice(0, 200).map(r => `<tr><td style="font-size:12px">${escapeHtml(r.item.name)}${[r.item.size, r.item.color].filter(Boolean).length ? ' ' + escapeHtml([r.item.size, r.item.color].filter(Boolean).join('/')) : ''}</td><td style="font-size:11px">${escapeHtml(r.item.sku || '—')}</td><td class="amount-col ${r.stock <= r.min ? 'expense' : ''}">${r.stock}</td><td class="amount-col">${r.min}</td><td class="amount-col"><b>${r.suggest}</b></td></tr>`).join('')}
        </tbody></table></div>`
-    : '<p style="color:#64748b">Tidak ada varian yang menipis di toko ini. ðŸŽ‰</p>';
-  UI.openInfoModal('ðŸ“‹ Perlu Restock', body);
+    : '<p style="color:#64748b">Tidak ada varian yang menipis di toko ini. 🎉</p>';
+  UI.openInfoModal('📋 Perlu Restock', body);
 }
 function bulkSetActive(active) {
   const ids = selectedStockIds();
@@ -4252,15 +4272,15 @@ function renderShopSelect() {
   if (!sel) return;
   const shops = Storage.getShops();
   const active = Storage.getActiveShopId();
-  sel.innerHTML = shops.map(s => `<option value="${s.id}" ${s.id === active ? 'selected' : ''}>ðŸ¬ ${escapeHtml(s.name)}</option>`).join('');
+  sel.innerHTML = shops.map(s => `<option value="${s.id}" ${s.id === active ? 'selected' : ''}>🏬 ${escapeHtml(s.name)}</option>`).join('');
 }
 function handleStockRestockGroup(key) {
   const g = Storage.getStockGroups().find(x => x.key === key);
   if (!g) return;
   const sel = document.getElementById('restockVariant');
-  if (sel) sel.innerHTML = g.variants.map(v => { const lab = [v.size, v.color].filter(Boolean).join('/') || 'Default'; return `<option value="${v.id}">${escapeHtml(lab)} â€” stok ${v.stock}</option>`; }).join('');
+  if (sel) sel.innerHTML = g.variants.map(v => { const lab = [v.size, v.color].filter(Boolean).join('/') || 'Default'; return `<option value="${v.id}">${escapeHtml(lab)} — stok ${v.stock}</option>`; }).join('');
   const info = document.getElementById('restockInfo');
-  if (info) info.innerHTML = `<b>${escapeHtml(g.name)}</b> â€” modal rata-rata Rp${Math.round(Number(g.variants[0] && g.variants[0].cost) || 0).toLocaleString('id-ID')}/pcs`;
+  if (info) info.innerHTML = `<b>${escapeHtml(g.name)}</b> — modal rata-rata Rp${Math.round(Number(g.variants[0] && g.variants[0].cost) || 0).toLocaleString('id-ID')}/pcs`;
   const dateEl = document.getElementById('restockDate'); if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
   const q = document.getElementById('restockQty'); if (q) q.value = '';
   const c = document.getElementById('restockCost'); if (c) c.value = g.variants[0] && g.variants[0].cost ? String(Math.round(g.variants[0].cost)) : '';
@@ -4270,7 +4290,7 @@ function closeRestock() { const m = document.getElementById('restockModal'); if 
 /* ===== Dokumen stok: penyesuaian & transfer ===== */
 function openStockAdjust(preselectId) {
   const sel = document.getElementById('stkAdjItem');
-  if (sel) sel.innerHTML = '<option value="">â€” pilih barang â€”</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${i.stock})</option>`; }).join('');
+  if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${i.stock})</option>`; }).join('');
   const dEl = document.getElementById('stkAdjDate'); if (dEl) dEl.value = new Date().toISOString().split('T')[0];
   const q = document.getElementById('stkAdjQty'); if (q) q.value = '';
   const r = document.getElementById('stkAdjReason'); if (r) r.value = '';
@@ -4285,7 +4305,7 @@ function updateStockAdjInfo() {
   if (!it) { info.textContent = ''; return; }
   const shopId = Storage.getActiveShopId();
   const nm = (Storage.getShops().find(s => s.id === shopId) || {}).name || '';
-  info.textContent = `Stok ${nm}: ${Storage.shopStockOf(it, shopId)} â€¢ modal rata-rata Rp${Math.round(it.cost || 0).toLocaleString('id-ID')}`;
+  info.textContent = `Stok ${nm}: ${Storage.shopStockOf(it, shopId)} • modal rata-rata Rp${Math.round(it.cost || 0).toLocaleString('id-ID')}`;
 }
 function handleStockAdjustSubmit() {
   const itemId = document.getElementById('stkAdjItem')?.value || '';
@@ -4293,7 +4313,7 @@ function handleStockAdjustSubmit() {
   const reason = document.getElementById('stkAdjReason')?.value.trim() || '';
   const date = document.getElementById('stkAdjDate')?.value || new Date().toISOString().split('T')[0];
   if (!itemId) return UI.showError('Pilih barang dulu');
-  if (!qty) return UI.showError('Isi jumlah (+/âˆ’), tidak boleh 0');
+  if (!qty) return UI.showError('Isi jumlah (+/−), tidak boleh 0');
   try {
     Storage.adjustStock(itemId, { qty, reason, date });
     UI.showSuccess(`Penyesuaian stok ${qty > 0 ? '+' : ''}${qty} disimpan`);
@@ -4303,7 +4323,7 @@ function handleStockAdjustSubmit() {
 function closeStockAdjust() { const m = document.getElementById('stockAdjustModal'); if (m && m.open) { try { m.close(); } catch {} } }
 function openTransfer(preselectId) {
   const sel = document.getElementById('trfItem');
-  if (sel) sel.innerHTML = '<option value="">â€” pilih barang â€”</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''}</option>`; }).join('');
+  if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''}</option>`; }).join('');
   const shops = Storage.getShops();
   const opts = shops.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
   const from = document.getElementById('trfFrom'); if (from) from.innerHTML = opts;
@@ -4367,7 +4387,7 @@ function handleStockSave() {
       let created = 0, totalStock = 0;
       const groupId = 'G' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       variants.forEach((v, i) => {
-        const nm = `${d.name}${v.size ? ' â€¢ ' + v.size : ''}${v.color ? ' â€¢ ' + v.color : ''}`;
+        const nm = `${d.name}${v.size ? ' • ' + v.size : ''}${v.color ? ' • ' + v.color : ''}`;
         try {
           Storage.saveItem({
             id: null, name: nm, sku: v.sku || (d.sku ? `${d.sku}-${i + 1}` : ''), barcode: v.barcode || '',
@@ -4383,7 +4403,7 @@ function handleStockSave() {
         } catch {}
       });
       Storage.logAudit('create', 'item', '', null, { variants: created, base: d.name });
-      UI.showSuccess(`${created} varian â€œ${d.name}â€ dibuat â€” total stok ${totalStock}.`);
+      UI.showSuccess(`${created} varian “${d.name}” dibuat — total stok ${totalStock}.`);
       UI.resetStockForm();
       UI.closeStock();
       refreshStock();
@@ -4393,9 +4413,9 @@ function handleStockSave() {
     const prev = d.id ? Storage.getItemById(d.id) : null;
     const opnameDate = new Date().toISOString().split('T')[0];
     if (prev && Number(d.stock) !== Number(prev.stock) && Storage.isMonthLocked(opnameDate)) {
-      return UI.showError(`Bulan ${opnameDate.slice(0, 7)} terkunci â€” stok tidak bisa disesuaikan`);
+      return UI.showError(`Bulan ${opnameDate.slice(0, 7)} terkunci — stok tidak bisa disesuaikan`);
     }
-    // Fallback: mode varian tanpa ukuran/warna terisi â†’ pakai harga varian pertama bila ada.
+    // Fallback: mode varian tanpa ukuran/warna terisi → pakai harga varian pertama bila ada.
     if (!(Number(d.price) > 0) && Array.isArray(vd.variants) && vd.variants[0]) {
       d.price = Number(vd.variants[0].price) || 0;
       d.cost = Number(vd.variants[0].cost) || 0;
@@ -4406,13 +4426,13 @@ function handleStockSave() {
       const j = buildAdjustJournal({
         account: '1105', amount: Math.abs(diff) * Math.max(saved.cost, 0),
         date: new Date().toISOString().split('T')[0],
-        memo: `Opname ${saved.name}: ${prev.stock} â†’ ${saved.stock}`,
+        memo: `Opname ${saved.name}: ${prev.stock} → ${saved.stock}`,
         increase: diff > 0
       });
       if (j) Storage.postJournal(j);
     }
     Storage.logAudit(d.id ? 'update' : 'create', 'item', saved.id, prev ? { stock: prev.stock } : null, { stock: saved.stock });
-    UI.showSuccess(`Barang â€œ${saved.name}â€ disimpan`);
+    UI.showSuccess(`Barang “${saved.name}” disimpan`);
     UI.resetStockForm();
     UI.closeStock();
     refreshStock();
@@ -4432,12 +4452,12 @@ function handleStockHistory(id) {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const dt = (s) => { try { return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
   const body = moves.length
-    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">${escapeHtml(it.name)} â€” stok kini <b>${it.stock}</b> â€¢ modal rata-rata ${fmt(it.cost)}</div>
+    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">${escapeHtml(it.name)} — stok kini <b>${it.stock}</b> • modal rata-rata ${fmt(it.cost)}</div>
        <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Waktu</th><th>Jenis</th><th>Masuk</th><th>Keluar</th><th>Sisa</th><th>Modal/unit</th></tr></thead><tbody>
-       ${moves.slice(0, 100).map(m => `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${STOCK_MOVE_LABELS[m.type] || (m.qtyIn ? 'Masuk' : 'Keluar')}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? 'âˆ’' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td><td class="amount-col">${fmt(m.unitCost)}</td></tr>`).join('')}
+       ${moves.slice(0, 100).map(m => `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${STOCK_MOVE_LABELS[m.type] || (m.qtyIn ? 'Masuk' : 'Keluar')}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? '−' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td><td class="amount-col">${fmt(m.unitCost)}</td></tr>`).join('')}
        </tbody></table></div>`
     : '<p style="color:#64748b">Belum ada mutasi tercatat untuk barang ini.</p>';
-  UI.openInfoModal(`ðŸ“œ Kartu stok â€” ${it.name}`, body);
+  UI.openInfoModal(`📜 Kartu stok — ${it.name}`, body);
 }
 function handleStockHistoryGroup(key) {
   const g = Storage.getStockGroups().find(x => x.key === key);
@@ -4453,12 +4473,12 @@ function handleStockHistoryGroup(key) {
   rows.sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
   const val = g.variants.reduce((s, v) => s + Storage.shopStockOf(v, shopId) * (Number(v.cost) || 0), 0);
   const body = rows.length
-    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px"><b>${escapeHtml(g.name)}</b> â€” nilai ${fmt(val)} â€¢ ${g.variants.length} varian</div>
+    ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px"><b>${escapeHtml(g.name)}</b> — nilai ${fmt(val)} • ${g.variants.length} varian</div>
        <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Waktu</th><th>Varian</th><th>Masuk</th><th>Keluar</th><th>Sisa</th></tr></thead><tbody>
-       ${rows.slice(0, 120).map(m => `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${escapeHtml(m.vlabel)}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? 'âˆ’' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td></tr>`).join('')}
+       ${rows.slice(0, 120).map(m => `<tr><td style="white-space:nowrap;font-size:11px">${dt(m.ts)}</td><td style="font-size:11px">${escapeHtml(m.vlabel)}</td><td class="amount-col income">${m.qtyIn ? '+' + m.qtyIn : ''}</td><td class="amount-col expense">${m.qtyOut ? '−' + m.qtyOut : ''}</td><td class="amount-col"><b>${m.balance}</b></td></tr>`).join('')}
        </tbody></table></div>`
     : '<p style="color:#64748b">Belum ada mutasi tercatat.</p>';
-  UI.openInfoModal(`ðŸ“œ Riwayat â€” ${g.name}`, body);
+  UI.openInfoModal(`📜 Riwayat — ${g.name}`, body);
 }
 
 /* ===== Lembar aksi cepat produk (movement-first) ===== */
@@ -4472,9 +4492,9 @@ function openStockActionSheet(itemId) {
   const q = Storage.shopStockOf(it, shopId);
   const v = Storage.itemVariantLabel(it);
   const title = document.getElementById('stockActionTitle');
-  if (title) title.textContent = it.name + (v ? ' â€¢ ' + v : '');
+  if (title) title.textContent = it.name + (v ? ' • ' + v : '');
   const info = document.getElementById('stockActionInfo');
-  if (info) info.innerHTML = `Stok <b>${q}</b> ${escapeHtml(shopName)} â€¢ total ${it.stock} â€¢ modal Rp${Math.round(Number(it.cost) || 0).toLocaleString('id-ID')}`;
+  if (info) info.innerHTML = `Stok <b>${q}</b> ${escapeHtml(shopName)} • total ${it.stock} • modal Rp${Math.round(Number(it.cost) || 0).toLocaleString('id-ID')}`;
   const m = document.getElementById('stockActionSheet');
   if (m && !m.open) { try { m.showModal(); } catch {} }
 }
@@ -4487,11 +4507,11 @@ function openRestockForItem(itemId) {
   const sel = document.getElementById('restockVariant');
   if (sel) {
     const list = g ? g.variants : [it];
-    sel.innerHTML = list.map(x => { const lab = [x.size, x.color].filter(Boolean).join('/') || 'Default'; return `<option value="${x.id}">${escapeHtml(lab)} â€” stok ${Storage.shopStockOf(x, shopId)}</option>`; }).join('');
+    sel.innerHTML = list.map(x => { const lab = [x.size, x.color].filter(Boolean).join('/') || 'Default'; return `<option value="${x.id}">${escapeHtml(lab)} — stok ${Storage.shopStockOf(x, shopId)}</option>`; }).join('');
     sel.value = itemId;
   }
   const info = document.getElementById('restockInfo');
-  if (info) info.innerHTML = `<b>${escapeHtml(g ? g.name : it.name)}</b> â€” modal rata-rata Rp${Math.round(Number(it.cost) || 0).toLocaleString('id-ID')}/pcs`;
+  if (info) info.innerHTML = `<b>${escapeHtml(g ? g.name : it.name)}</b> — modal rata-rata Rp${Math.round(Number(it.cost) || 0).toLocaleString('id-ID')}/pcs`;
   const dateEl = document.getElementById('restockDate'); if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
   const q = document.getElementById('restockQty'); if (q) q.value = '';
   const c = document.getElementById('restockCost'); if (c) c.value = it.cost ? String(Math.round(it.cost)) : '';
@@ -4506,9 +4526,9 @@ function openBarcode(itemId) {
   barcodeItemId = itemId;
   const code = it.barcode || it.sku || it.id;
   const title = document.getElementById('barcodeTitle');
-  if (title) title.textContent = 'ðŸ·ï¸ ' + it.name;
+  if (title) title.textContent = '🏷️ ' + it.name;
   const info = document.getElementById('barcodeInfo');
-  if (info) info.textContent = `${[it.size, it.color].filter(Boolean).join(' / ') || 'Produk'} â€¢ SKU ${it.sku || 'â€”'}`;
+  if (info) info.textContent = `${[it.size, it.color].filter(Boolean).join(' / ') || 'Produk'} • SKU ${it.sku || '—'}`;
   const box = document.getElementById('barcodeSvg');
   if (box) box.innerHTML = code128Svg(code, { height: 72 });
   const txt = document.getElementById('barcodeText');
@@ -4539,11 +4559,11 @@ function openImport(mode) {
   importOrders = []; importProducts = []; importDataRows = [];
   const m = document.getElementById('importModal');
   if (!m) return;
-  const titles = { sales: 'ðŸ“¥ Import penjualan (marketplace)', wa: 'ðŸ“¥ Import penjualan (WhatsApp/offline)', products: 'ðŸ“¥ Import daftar produk' };
+  const titles = { sales: '📥 Import penjualan (marketplace)', wa: '📥 Import penjualan (WhatsApp/offline)', products: '📥 Import daftar produk' };
   const t = document.getElementById('importTitle'); if (t) t.textContent = titles[importMode] || 'Import';
   document.querySelectorAll('#importIntro .chip').forEach(c => c.classList.toggle('selected', c.dataset.mode === importMode));
   const ta = document.getElementById('importText');
-  if (ta) { ta.value = ''; ta.placeholder = importMode === 'wa' ? 'Contoh:\n2x Kopi 15000\n1 Teh @8000\nKopi Susu 3x 20000' : 'Tempel data CSV/Excel di siniâ€¦'; }
+  if (ta) { ta.value = ''; ta.placeholder = importMode === 'wa' ? 'Contoh:\n2x Kopi 15000\n1 Teh @8000\nKopi Susu 3x 20000' : 'Tempel data CSV/Excel di sini…'; }
   const f = document.getElementById('importModalFile'); if (f) f.value = '';
   const f2 = document.getElementById('importFile'); if (f2) f2.value = '';
   const mapWrap = document.getElementById('importMapWrap'); if (mapWrap) { mapWrap.hidden = true; mapWrap.innerHTML = ''; }
@@ -4570,8 +4590,8 @@ async function readImportSource() {
   return { headers: rows[0] || [], dataRows: rows.slice(1) };
 }
 function mapSelects(headers, mapping, fields) {
-  const opts = (sel) => ['<option value="-1">â€”</option>'].concat((headers || []).map((h, i) => `<option value="${i}" ${i === sel ? 'selected' : ''}>${escapeHtml(String(h || '').trim().slice(0, 28) || ('Kolom ' + (i + 1)))}</option>`)).join('');
-  return `<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Pasangkan kolom (ditebak otomatis â€” ubah bila perlu):</div>
+  const opts = (sel) => ['<option value="-1">—</option>'].concat((headers || []).map((h, i) => `<option value="${i}" ${i === sel ? 'selected' : ''}>${escapeHtml(String(h || '').trim().slice(0, 28) || ('Kolom ' + (i + 1)))}</option>`)).join('');
+  return `<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Pasangkan kolom (ditebak otomatis — ubah bila perlu):</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
     ${(fields || []).map(f => `<label style="font-size:11px;color:#64748b">${f.label}<select data-map="${f.key}" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;margin-top:2px">${opts(mapping[f.key])}</select></label>`).join('')}
     </div>`;
@@ -4589,11 +4609,11 @@ function renderSalesPreview() {
   const commit = document.getElementById('importCommitBtn');
   if (commit) commit.disabled = !importOrders.some(o => o.lines.some(l => l.itemId));
   document.getElementById('importPreview').innerHTML = `
-    <div style="font-size:12px;color:#334155;margin-bottom:6px"><b>${importOrders.length}</b> pesanan â€¢ <b>${res.matched}</b> baris cocok${res.unmatched ? ` â€¢ <span style="color:#b45309">${res.unmatched} belum cocok</span>` : ' â€¢ semua cocok'} â€¢ total <b>${Reports.formatCurrency(total)}</b></div>
+    <div style="font-size:12px;color:#334155;margin-bottom:6px"><b>${importOrders.length}</b> pesanan • <b>${res.matched}</b> baris cocok${res.unmatched ? ` • <span style="color:#b45309">${res.unmatched} belum cocok</span>` : ' • semua cocok'} • total <b>${Reports.formatCurrency(total)}</b></div>
     <div style="max-height:220px;overflow:auto"><table class="report-table"><thead><tr><th>Pesanan</th><th>Tanggal</th><th>Pembeli</th><th>Item</th><th class="amount-col">Total</th></tr></thead><tbody>
-    ${importOrders.slice(0, 50).map(o => `<tr><td style="font-size:11px">${escapeHtml(o.orderId)}</td><td style="font-size:11px">${escapeHtml(o.date)}</td><td style="font-size:11px">${escapeHtml(o.buyer || 'â€”')}</td><td style="font-size:11px">${o.lines.map(l => `${l.qty}Ã— ${escapeHtml(l.name || '(?)')}${l.itemId ? '' : ' âš '}`).join(', ')}</td><td class="amount-col">${Reports.formatCurrency(o.total)}</td></tr>`).join('')}
+    ${importOrders.slice(0, 50).map(o => `<tr><td style="font-size:11px">${escapeHtml(o.orderId)}</td><td style="font-size:11px">${escapeHtml(o.date)}</td><td style="font-size:11px">${escapeHtml(o.buyer || '—')}</td><td style="font-size:11px">${o.lines.map(l => `${l.qty}× ${escapeHtml(l.name || '(?)')}${l.itemId ? '' : ' ⚠'}`).join(', ')}</td><td class="amount-col">${Reports.formatCurrency(o.total)}</td></tr>`).join('')}
     </tbody></table></div>
-    <p style="font-size:11px;color:#94a3b8;margin-top:6px">Tanda âš  = belum cocok ke barang (nama/SKU beda) â†’ tidak ikut diimpor. Rapikan nama barang di Stok lalu ulangi.</p>`;
+    <p style="font-size:11px;color:#94a3b8;margin-top:6px">Tanda ⚠ = belum cocok ke barang (nama/SKU beda) → tidak ikut diimpor. Rapikan nama barang di Stok lalu ulangi.</p>`;
 }
 function renderProductsPreview() {
   const mapping = readMapping(['name', 'sku', 'size', 'color', 'price', 'cost', 'discount', 'stock', 'min']);
@@ -4601,11 +4621,11 @@ function renderProductsPreview() {
   const withSku = importProducts.filter(p => p.sku).length;
   const commit = document.getElementById('importCommitBtn');
   if (commit) commit.disabled = importProducts.length === 0;
-  const variant = (p) => [p.size, p.color].filter(Boolean).join('/') || 'â€”';
+  const variant = (p) => [p.size, p.color].filter(Boolean).join('/') || '—';
   document.getElementById('importPreview').innerHTML = `
     <div style="font-size:12px;color:#334155;margin-bottom:6px"><b>${importProducts.length}</b> produk siap diimpor (${withSku} ber-SKU). Upsert per SKU/nama.</div>
     <div style="max-height:220px;overflow:auto"><table class="report-table"><thead><tr><th>Nama</th><th>SKU</th><th>Varian</th><th class="amount-col">Jual</th><th class="amount-col">Modal</th><th class="amount-col">Stok</th></tr></thead><tbody>
-    ${importProducts.slice(0, 50).map(p => `<tr><td style="font-size:11px">${escapeHtml(p.name)}</td><td style="font-size:11px">${escapeHtml(p.sku || 'â€”')}</td><td style="font-size:11px">${escapeHtml(variant(p))}</td><td class="amount-col">${Reports.formatCurrency(p.price)}${p.discountPct ? ` <small>(âˆ’${p.discountPct}%)</small>` : ''}</td><td class="amount-col">${Reports.formatCurrency(p.cost)}</td><td class="amount-col">${p.stock}</td></tr>`).join('')}
+    ${importProducts.slice(0, 50).map(p => `<tr><td style="font-size:11px">${escapeHtml(p.name)}</td><td style="font-size:11px">${escapeHtml(p.sku || '—')}</td><td style="font-size:11px">${escapeHtml(variant(p))}</td><td class="amount-col">${Reports.formatCurrency(p.price)}${p.discountPct ? ` <small>(−${p.discountPct}%)</small>` : ''}</td><td class="amount-col">${Reports.formatCurrency(p.cost)}</td><td class="amount-col">${p.stock}</td></tr>`).join('')}
     </tbody></table></div>`;
 }
 function renderWaPreview() {
@@ -4614,9 +4634,9 @@ function renderWaPreview() {
   const commit = document.getElementById('importCommitBtn');
   if (commit) commit.disabled = !order.lines.some(l => l.itemId);
   document.getElementById('importPreview').innerHTML = `
-    <div style="font-size:12px;color:#334155;margin-bottom:6px">${order.lines.length} baris â€¢ total <b>${Reports.formatCurrency(order.total)}</b>${order.unmatched.length ? ` â€¢ <span style="color:#b45309">${order.unmatched.length} belum cocok</span>` : ''}</div>
+    <div style="font-size:12px;color:#334155;margin-bottom:6px">${order.lines.length} baris • total <b>${Reports.formatCurrency(order.total)}</b>${order.unmatched.length ? ` • <span style="color:#b45309">${order.unmatched.length} belum cocok</span>` : ''}</div>
     <div style="max-height:220px;overflow:auto"><table class="report-table"><thead><tr><th>Barang</th><th class="amount-col">Qty</th><th class="amount-col">Harga</th><th></th></tr></thead><tbody>
-    ${order.lines.map(l => `<tr><td style="font-size:11px">${escapeHtml(l.name)}</td><td class="amount-col">${l.qty}</td><td class="amount-col">${Reports.formatCurrency(l.price)}</td><td>${l.itemId ? 'âœ“' : 'âš  belum cocok'}</td></tr>`).join('')}
+    ${order.lines.map(l => `<tr><td style="font-size:11px">${escapeHtml(l.name)}</td><td class="amount-col">${l.qty}</td><td class="amount-col">${Reports.formatCurrency(l.price)}</td><td>${l.itemId ? '✓' : '⚠ belum cocok'}</td></tr>`).join('')}
     </tbody></table></div>`;
 }
 async function handleImportParse() {
@@ -4659,7 +4679,7 @@ function handleImportCommit() {
       const channel = importMode === 'wa' ? 'whatsapp' : 'marketplace';
       const created = Storage.createSalesFromOrders(importOrders, { channel });
       if (!created.length) return UI.showError('Tidak ada baris yang cocok untuk disimpan');
-      UI.showSuccess(`${created.length} penjualan diimpor (${channel}) â€” stok & jurnal diperbarui`);
+      UI.showSuccess(`${created.length} penjualan diimpor (${channel}) — stok & jurnal diperbarui`);
       refresh();
     }
     closeImport();
@@ -4670,7 +4690,7 @@ function handleImportCommit() {
 function handleStockDelete(id) {
   const it = Storage.getItemById(id);
   if (!it) return;
-  if (!confirm(`Hapus barang â€œ${it.name}â€? (transaksi lama tidak ikut terhapus)`)) return;
+  if (!confirm(`Hapus barang “${it.name}”? (transaksi lama tidak ikut terhapus)`)) return;
   try {
     Storage.deleteItem(id);
     Storage.logAudit('delete', 'item', id, { name: it.name }, null);
@@ -4690,12 +4710,12 @@ function handleBuySave() {
   const d = UI.getBuyData();
   if (!d.supplier) return UI.showError('Tulis dulu nama supplier');
   if (!d.lines.length) return UI.showError('Pilih dulu barang + isi qty dan harga modal');
-  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci â€” buka di Pengaturan`);
+  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
   try {
     const p = Storage.createPurchase(d);
     const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
     UI.closeBuy();
-    UI.showSuccess(`Beli ke ${p.supplier} ${fmt(p.totalCost)} â€” jadi hutang, stok masuk`);
+    UI.showSuccess(`Beli ke ${p.supplier} ${fmt(p.totalCost)} — jadi hutang, stok masuk`);
     refreshStock();
     refreshSuppliers();
     render();
@@ -4711,12 +4731,12 @@ function handleSupplierPay(id) {
 function handleSupplierPaySubmit() {
   const d = UI.getSupplierPayData();
   if (!d.id) return;
-  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci â€” buka di Pengaturan`);
+  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
   try {
     const p = Storage.addPurchasePayment(d.id, d);
     const out = Storage.purchaseOutstanding(p);
     UI.closeSupplierPay();
-    UI.showSuccess(out <= 0.01 ? `Lunas! ${p.supplier}` : `Bayar tercatat â€” sisa Rp${Math.round(out).toLocaleString('id-ID')}`);
+    UI.showSuccess(out <= 0.01 ? `Lunas! ${p.supplier}` : `Bayar tercatat — sisa Rp${Math.round(out).toLocaleString('id-ID')}`);
     refreshSuppliers();
     render();
     queueMirror();
@@ -4775,7 +4795,7 @@ function handleEmpSave() {
   try {
     const saved = Storage.saveEmployee(d);
     Storage.logAudit(d.id ? 'update' : 'create', 'employee', saved.id, null, { name: saved.name });
-    UI.showSuccess(`Karyawan â€œ${saved.name}â€ disimpan`);
+    UI.showSuccess(`Karyawan “${saved.name}” disimpan`);
     UI.resetEmpForm();
     refreshPayroll();
     queueMirror();
@@ -4790,7 +4810,7 @@ function handleEmpEdit(id) {
 function handleEmpDelete(id) {
   const e = Storage.getAllEmployees().find(x => x.id === id);
   if (!e) return;
-  if (!confirm(`Hapus karyawan â€œ${e.name}â€? (gaji yang sudah dibuat tidak ikut terhapus)`)) return;
+  if (!confirm(`Hapus karyawan “${e.name}”? (gaji yang sudah dibuat tidak ikut terhapus)`)) return;
   Storage.deleteEmployee(id);
   Storage.logAudit('delete', 'employee', id, { name: e.name }, null);
   UI.showSuccess('Karyawan dihapus');
@@ -4807,7 +4827,7 @@ function handlePayrollRun() {
   if (!sel.length) return UI.showInfo('Centang dulu karyawan yang mau diproses');
   const payment = document.getElementById('payrollPayment')?.value || 'transfer';
   const date = now.toISOString().split('T')[0];
-  if (Storage.isMonthLocked(date)) return UI.showError(`Bulan ${key} terkunci â€” buka di Pengaturan`);
+  if (Storage.isMonthLocked(date)) return UI.showError(`Bulan ${key} terkunci — buka di Pengaturan`);
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   let ok = 0, compTotal = 0;
   sel.forEach(s => {
@@ -4828,7 +4848,7 @@ function handlePayrollRun() {
       if (slip.kasbon > 0) deds.push(`kasbon ${fmt(slip.kasbon)}`);
       Storage.createEntry({
         date, type: 'expense', category: 'gaji-out', payment,
-        description: `Gaji ${monthLabel} â€” ${e.name} (${bits.join(' + ')}${deds.length ? ` âˆ’ ${deds.join(' + ')}` : ''})`,
+        description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})`,
         amount: slip.takeHome, person: e.name,
         payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, thr: slip.thr, ded: slip.ded, comp: slip.comp, kasbon: slip.kasbon, takeHome: slip.takeHome, employerCost: slip.employerCost }
       });
@@ -4867,7 +4887,7 @@ function openSeverance() {
   const sel = document.getElementById('sevEmp');
   if (sel) {
     const emps = Storage.getAllEmployees().filter(e => e.active !== false);
-    sel.innerHTML = '<option value="">â€” pilih (opsional) â€”</option>' + emps.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+    sel.innerHTML = '<option value="">— pilih (opsional) —</option>' + emps.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
   }
   const m = document.getElementById('severanceModal');
   if (m && !m.open) { try { m.showModal(); } catch {} }
@@ -4899,7 +4919,7 @@ function handleSeveranceCalc() {
   const out = document.getElementById('sevResult');
   if (!out) return;
   out.innerHTML = `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px">
-    <div style="font-size:11px;color:#64748b;margin-bottom:6px">${escapeHtml(r.reasonLabel)} â€¢ masa kerja ${Math.floor(tm / 12)} th ${tm % 12} bln</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">${escapeHtml(r.reasonLabel)} • masa kerja ${Math.floor(tm / 12)} th ${tm % 12} bln</div>
     <div>Uang Pesangon (${r.upMonths} bln): <b>${fmt(r.up)}</b></div>
     <div>Uang Penghargaan Masa Kerja (${r.upmkMonths} bln): <b>${fmt(r.upmk)}</b></div>
     <div>Uang Penggantian Hak (+cuti/lain): <b>${fmt(r.uph)}</b></div>
@@ -4917,7 +4937,7 @@ function handleEmpSlip(id) {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const total = rows.reduce((s, x) => s + (Number(x.amount) || 0), 0);
-  const who = [e.gender === 'P' ? 'Perempuan' : e.gender === 'L' ? 'Laki-laki' : '', e.role || '', e.contract || ''].filter(Boolean).join(' â€¢ ');
+  const who = [e.gender === 'P' ? 'Perempuan' : e.gender === 'L' ? 'Laki-laki' : '', e.role || '', e.contract || ''].filter(Boolean).join(' • ');
   const det = rows.map(x => {
     const p = x.payroll || {};
     const d = p.ded || {};
@@ -4942,9 +4962,9 @@ function handleEmpSlip(id) {
         ${e.phone ? `<tr><td style="color:#555">HP</td><td>${esc(e.phone)}</td></tr>` : ''}
       </table>
       ${det.length ? det.map(g => `
-        <div style="font-size:12px;color:#555;margin:6px 0">${esc(g.date)} â€” ${esc(g.desc || '')}</div>
+        <div style="font-size:12px;color:#555;margin:6px 0">${esc(g.date)} — ${esc(g.desc || '')}</div>
         <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:8px">
-          ${g.lines.map(([k, v]) => `<tr><td style="padding:4px 6px;border:1px solid #ddd">${esc(k)}</td><td style="padding:4px 6px;border:1px solid #ddd;text-align:right">${v < 0 ? 'âˆ’' : ''}${fmt(Math.abs(v))}</td></tr>`).join('')}
+          ${g.lines.map(([k, v]) => `<tr><td style="padding:4px 6px;border:1px solid #ddd">${esc(k)}</td><td style="padding:4px 6px;border:1px solid #ddd;text-align:right">${v < 0 ? '−' : ''}${fmt(Math.abs(v))}</td></tr>`).join('')}
           <tr><td style="padding:4px 6px;border:1px solid #ddd"><b>THP diterima</b></td><td style="padding:4px 6px;border:1px solid #ddd;text-align:right"><b>${fmt(g.thp)}</b></td></tr>
         </table>`).join('') : '<p style="font-size:13px">Belum ada pembayaran bulan ini.</p>'}
       <div style="font-size:13px"><b>Total diterima: ${fmt(total)}</b></div>
@@ -4961,7 +4981,7 @@ function kasRows() {
   }));
 }
 function cashIcon(payment) {
-  return { cash: 'ðŸ’µ', transfer: 'ðŸ¦', qris: 'ðŸ“±', ewallet: 'ðŸ“²', debit: 'ðŸ’³', other: 'ðŸ“¦' }[payment] || 'ðŸ’°';
+  return { cash: '💵', transfer: '🏦', qris: '📱', ewallet: '📲', debit: '💳', other: '📦' }[payment] || '💰';
 }
 function refreshKas() {
   UI.renderKas(kasRows());
@@ -4971,7 +4991,7 @@ function handleTransfer() {
   const d = UI.getTransferFormData();
   if (!d.amount || d.amount <= 0) return UI.showError('Nominal transfer harus lebih dari 0');
   if (d.from === d.to) return UI.showError('Kas asal dan tujuan harus beda');
-  if (d.date && Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci â€” buka di Pengaturan`);
+  if (d.date && Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
   try {
     const j = buildTransferJournal({ fromPayment: d.from, toPayment: d.to, amount: d.amount, date: d.date, memo: 'Transfer antar kas' });
     if (!j) throw new Error('Transfer tidak valid');
@@ -4998,7 +5018,7 @@ function handleRecon() {
   const box = document.getElementById('reconResult');
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   if (diff === 0) {
-    if (box) box.innerHTML = `âœ… <b>Cocok!</b> Catatan ${fmt(row.balance)} = fisik ${fmt(d.actual)}.`;
+    if (box) box.innerHTML = `✅ <b>Cocok!</b> Catatan ${fmt(row.balance)} = fisik ${fmt(d.actual)}.`;
     return;
   }
   try {
@@ -5010,7 +5030,7 @@ function handleRecon() {
     });
     if (j) Storage.postJournal(j);
     Storage.logAudit('create', 'recon', j ? j.id : '', null, { account: row.code, diff });
-    if (box) box.innerHTML = `âš ï¸ Selisih <b>${fmt(diff)}</b> dicatat sebagai penyesuaian. Saldo kini ${fmt(d.actual)}.`;
+    if (box) box.innerHTML = `⚠️ Selisih <b>${fmt(diff)}</b> dicatat sebagai penyesuaian. Saldo kini ${fmt(d.actual)}.`;
     UI.showSuccess('Selisih dicatat');
     document.getElementById('reconForm')?.reset();
     refreshKas();
@@ -5037,7 +5057,7 @@ function parseIDate(s) {
 function parseIAmount(s) {
   s = String(s || '').trim();
   if (!s) return 0;
-  // "1.234.567,89" â†’ 1234567.89 ; "1,234.56" â†’ 1234.56 ; "1.234" â†’ 1234
+  // "1.234.567,89" → 1234567.89 ; "1,234.56" → 1234.56 ; "1.234" → 1234
   const lastComma = s.lastIndexOf(',');
   const lastDot = s.lastIndexOf('.');
   let norm = s.replace(/[^0-9,.-]/g, '');
@@ -5097,7 +5117,7 @@ function handleBankFile(file) {
         });
       }
       if (!rows.length) throw new Error('Tidak ada baris mutasi terbaca');
-      // cocokkan dengan transaksi ada (nominal sama + tanggal Â±3 hari + arah sama)
+      // cocokkan dengan transaksi ada (nominal sama + tanggal ±3 hari + arah sama)
       const existing = currentEntries;
       const bankJs = Storage.getAllJournals().filter(j => (j.ref || '') === 'bank');
       rows.forEach(r => {
@@ -5111,7 +5131,7 @@ function handleBankFile(file) {
           if (isNaN(ed)) return false;
           return Math.abs((ed - d) / 86400000) <= 3;
         });
-        // Sudah pernah direkonsiliasi (jurnal ref 'bank') â†’ tandai cocok.
+        // Sudah pernah direkonsiliasi (jurnal ref 'bank') → tandai cocok.
         const nearBank = bankJs.some(j => {
           const t = (j.lines || []).reduce((s, l) => s + (Number(l.debit) || 0), 0);
           if (Math.round(t) !== amt) return false;
@@ -5157,7 +5177,7 @@ function handleBankImport() {
   }));
   const res = Storage.importBankLines(lines, { bankAccount });
   rows.forEach(r => Storage.updateBankStatement(r.key, { posted: true }));
-  UI.showSuccess(`${res.ok} mutasi direkonsiliasi ke COA${res.locked ? ` â€¢ ${res.locked} bulan terkunci dilewati` : ''}${res.skipped ? ` â€¢ ${res.skipped} tanpa akun` : ''}`);
+  UI.showSuccess(`${res.ok} mutasi direkonsiliasi ke COA${res.locked ? ` • ${res.locked} bulan terkunci dilewati` : ''}${res.skipped ? ` • ${res.skipped} tanpa akun` : ''}`);
   UI.setBankRows([]);
   bankImportRows = [];
   refresh();
@@ -5168,19 +5188,19 @@ function handleSaleSave() {
   const d = UI.getSaleData();
   if (!d.lines.length) return UI.showError('Pilih dulu barang + isi qty dan harga');
   if (!d.date) return UI.showError('Tanggal wajib diisi');
-  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci â€” buka di Pengaturan`);
+  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
   // Cek stok dulu biar pesan jelas sekaligus (per toko aktif)
   const items = Storage.getAllItems();
   const shopId = Storage.getActiveShopId();
   for (const l of d.lines) {
     const it = items.find(x => x.id === l.itemId);
-    if (!it) return UI.showError('Ada barang yang tidak dikenal â€” pilih ulang');
+    if (!it) return UI.showError('Ada barang yang tidak dikenal — pilih ulang');
     const avail = Storage.shopStockOf(it, shopId);
     if (l.qty > avail) return UI.showError(`Stok ${it.name} di toko ini kurang (sisa ${avail}, mau ${l.qty})`);
   }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
-  const descBase = d.note || `Jual: ${d.lines.map(l => `${l.qty}Ã— ${l.name}`).join(', ')}`;
-  const desc = d.discount > 0 ? `${descBase} â€¢ diskon ${fmt(d.discount)}` : descBase;
+  const descBase = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
+  const desc = d.discount > 0 ? `${descBase} • diskon ${fmt(d.discount)}` : descBase;
   // Penjualan KREDIT (bayar nanti): DP + termin + sisa piutang.
   if (d.credit) {
     if (!d.customer) return UI.showError('Penjualan kredit perlu nama pelanggan');
@@ -5194,7 +5214,7 @@ function handleSaleSave() {
       });
       Storage.logAudit('create', 'credit-sale', cs.id, null, { total: cs.total, deposit: cs.deposit });
       UI.closeSale();
-      UI.showSuccess(`Penjualan kredit ${fmt(cs.total)} tersimpan â€¢ sisa ${fmt(Storage.creditOutstanding(cs))}`);
+      UI.showSuccess(`Penjualan kredit ${fmt(cs.total)} tersimpan • sisa ${fmt(Storage.creditOutstanding(cs))}`);
       refresh();
     } catch (err) {
       UI.showError(err && err.message ? err.message : 'Gagal menyimpan penjualan kredit');
@@ -5210,7 +5230,7 @@ function handleSaleSave() {
     });
     Storage.logAudit('create', 'sale', entry.id, null, { total: d.total, discount: d.discount, lines: d.lines.length });
     UI.closeSale();
-    UI.showSuccess(`Penjualan ${fmt(d.total)} tersimpan â€” stok berkurang`);
+    UI.showSuccess(`Penjualan ${fmt(d.total)} tersimpan — stok berkurang`);
     UI.openReceipt(entry);
     refresh();
   } catch (err) {
@@ -5222,7 +5242,7 @@ function handleSaleSave() {
 let payrollViewMonth = '';
 let payrollEmpSearch = '';
 let payrollCache = {}; // empId -> {overtime, withThr, withPph, checked}
-let payrollRates = {}; // tarif iuran bulan ini ({kesComp,...} pecahan) â€” default BPJS bila kosong
+let payrollRates = {}; // tarif iuran bulan ini ({kesComp,...} pecahan) — default BPJS bila kosong
 
 function payrollMonthEnd(key) {
   const [y, m] = String(key || '').split('-').map(Number);
@@ -5321,7 +5341,7 @@ function payRowsForView() {
       const cuti = rowCuti(emp, c);
       const ump = rowUmp(emp);
       const slip = computeSlip(emp, { overtime: rowOvertime(emp, c), overtimeHours: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
-      const thrNote = c.withThr && slip.thr <= 0 ? 'Masa kerja belum 1 bulan â€” THR Rp0. Jangan centang bila belum waktunya.' : '';
+      const thrNote = c.withThr && slip.thr <= 0 ? 'Masa kerja belum 1 bulan — THR Rp0. Jangan centang bila belum waktunya.' : '';
       return { emp, slip, checked: !!c.checked, paid: !!paid[emp.id], overtime: c.overtime, hadir: c.hadir || 0, withThr: !!c.withThr, withPph: !!c.withPph, thrNote, kasbon: kb.due, kasbonDetail: kb.detail, kasbonSkip: !!c.kasbonSkip, kasbonAmount: c.kasbonAmount, lemburJam: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, cutiBalance: cuti.balance, ump };
     });
 }
@@ -5529,7 +5549,7 @@ function handlePayrollHadir(input) {
     payrollCache[empId].deduct = suggest;
     const dendaInput = document.querySelector(`#payrollTableBody .pay-denda[data-id="${empId}"]`);
     if (dendaInput) dendaInput.value = String(suggest);
-    UI.showInfo(`Hadir ${n} hari â€” denda disarankan Rp${suggest.toLocaleString('id-ID')} (${std - n} Ã— Rp100rb). Ubah bebas di kolom Denda.`);
+    UI.showInfo(`Hadir ${n} hari — denda disarankan Rp${suggest.toLocaleString('id-ID')} (${std - n} × Rp100rb). Ubah bebas di kolom Denda.`);
   }
   patchPayrollRow(empId);
 }
@@ -5580,7 +5600,7 @@ function handlePayrollRateChange(input) {
   if (v > 100) v = 100;
   const limit = (RATE_LIMITS[key] ?? 1) * 100;
   if (v > limit) {
-    UI.showError(`Tarif ${input.getAttribute('aria-label') || key} maksimal ${limit.toLocaleString('id-ID')}% â€” ketik angka persen seperti 0,54 (bukan 54)`);
+    UI.showError(`Tarif ${input.getAttribute('aria-label') || key} maksimal ${limit.toLocaleString('id-ID')}% — ketik angka persen seperti 0,54 (bukan 54)`);
     renderPayrollView();
     return;
   }
@@ -5605,8 +5625,8 @@ function handlePayrollPrintSlip(empId) {
   const pct = (v) => ((Number(v) || 0) * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 }) + '%';
   const trow = (label_, amt, cls) => (amt > 0 ? `<tr><td>${label_}</td><td class="r ${cls || ''}">${fmt(amt)}</td></tr>` : '');
   const win = window.open('', '_blank', 'width=760,height=900');
-  if (!win) return UI.showError('Popup diblokir browser â€” izinkan popup lalu coba lagi');
-  win.document.write(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Slip Gaji ${escapeHtml(emp.name)} â€” ${escapeHtml(label)}</title><style>
+  if (!win) return UI.showError('Popup diblokir browser — izinkan popup lalu coba lagi');
+  win.document.write(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Slip Gaji ${escapeHtml(emp.name)} — ${escapeHtml(label)}</title><style>
     body{font-family:Arial,Helvetica,sans-serif;margin:32px;color:#0f172a;font-size:13px}
     h1{font-size:17px;margin:0} .sub{color:#64748b;font-size:11px;margin:2px 0 16px}
     .box{border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:14px}
@@ -5617,11 +5637,11 @@ function handlePayrollPrintSlip(empId) {
     .muted{color:#64748b;font-size:10px} h2{font-size:12px;margin:0 0 6px;color:#334155}
     @media print{ body{margin:12px} }
   </style></head><body>
-    <h1>Slip Gaji â€” ${escapeHtml(label)}</h1>
+    <h1>Slip Gaji — ${escapeHtml(label)}</h1>
     <div class="sub">Cetakan di-${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
     <div class="box"><div class="kv">
-      <b>Karyawan</b><span>${escapeHtml(emp.name)}${emp.role ? ' â€” ' + escapeHtml(emp.role) : ''}</span>
-      <b>Status PTKP</b><span>${escapeHtml(emp.ptkp || 'TK/0')}${emp.npwp ? ` â€¢ NPWP ${escapeHtml(emp.npwp)}` : ' â€¢ tanpa NPWP (+20%)'}</span>
+      <b>Karyawan</b><span>${escapeHtml(emp.name)}${emp.role ? ' — ' + escapeHtml(emp.role) : ''}</span>
+      <b>Status PTKP</b><span>${escapeHtml(emp.ptkp || 'TK/0')}${emp.npwp ? ` • NPWP ${escapeHtml(emp.npwp)}` : ' • tanpa NPWP (+20%)'}</span>
       <b>Masa kerja</b><span>${slip.tenureMonths} bulan</span>
     </div></div>
     <div class="box"><h2>Pendapatan</h2><table>
@@ -5633,7 +5653,7 @@ function handlePayrollPrintSlip(empId) {
       ${trow(`BPJS Kesehatan pekerja (${pct(R.kesSelf)})`, slip.ded.kesSelf, 'neg')}
       ${trow(`JHT pekerja (${pct(R.jhtSelf)})`, slip.ded.jhtSelf, 'neg')}
       ${trow(`JP pekerja (${pct(R.jpSelf)})`, slip.ded.jpSelf, 'neg')}
-      ${trow(`PPh 21 TER Ã— netto ${fmt(slip.pphNetto)}`, slip.ded.pph21, 'neg')}
+      ${trow(`PPh 21 TER × netto ${fmt(slip.pphNetto)}`, slip.ded.pph21, 'neg')}
       ${trow('Denda/absensi', slip.deduct, 'neg')}
       ${slip.kasbon > 0 ? trow('Potong kasbon', slip.kasbon, 'neg') : ''}
       <tr class="sum"><td>Total potongan</td><td class="r neg">${fmt(slip.totalDed + slip.deduct + slip.kasbon)}</td></tr>
@@ -5656,7 +5676,7 @@ function handlePayrollSlipWa(empId) {
   const c = payrollCache[empId];
   if (!emp || !c) return;
   let phone = String(emp.phone || '').replace(/[^0-9]/g, '');
-  if (!phone || phone.length < 8) return UI.showError(`No. HP ${emp.name} kosong/tidak valid â€” isi di Data Karyawan agar slip bisa dikirim`);
+  if (!phone || phone.length < 8) return UI.showError(`No. HP ${emp.name} kosong/tidak valid — isi di Data Karyawan agar slip bisa dikirim`);
   if (phone.startsWith('0')) phone = '62' + phone.slice(1);
   const ref = payrollMonthEnd(payrollViewMonth);
   const kb = employeeKasbonDue(emp, c);
@@ -5665,13 +5685,13 @@ function handlePayrollSlipWa(empId) {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const lines = [
     `*Slip Gaji ${label}*`,
-    `${emp.name}${emp.role ? ' â€” ' + emp.role : ''}`,
+    `${emp.name}${emp.role ? ' — ' + emp.role : ''}`,
     '',
     `Bruto: ${fmt(slip.gross + slip.thr)}${slip.thr > 0 ? ` (termasuk THR ${fmt(slip.thr)})` : ''}`,
-    slip.ded.kesSelf > 0 ? `BPJS Anda: âˆ’${fmt(slip.ded.kesSelf + slip.ded.jhtSelf + slip.ded.jpSelf)}` : '',
-    slip.ded.pph21 > 0 ? `PPh 21: âˆ’${fmt(slip.ded.pph21)}` : '',
-    slip.deduct > 0 ? `Denda: âˆ’${fmt(slip.deduct)}` : '',
-    slip.kasbon > 0 ? `Kasbon: âˆ’${fmt(slip.kasbon)}` : '',
+    slip.ded.kesSelf > 0 ? `BPJS Anda: −${fmt(slip.ded.kesSelf + slip.ded.jhtSelf + slip.ded.jpSelf)}` : '',
+    slip.ded.pph21 > 0 ? `PPh 21: −${fmt(slip.ded.pph21)}` : '',
+    slip.deduct > 0 ? `Denda: −${fmt(slip.deduct)}` : '',
+    slip.kasbon > 0 ? `Kasbon: −${fmt(slip.kasbon)}` : '',
     '',
     `*Diterima: ${fmt(slip.takeHome)}*`,
     '',
@@ -5679,7 +5699,7 @@ function handlePayrollSlipWa(empId) {
   ].filter(l => l !== '').join('\n');
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(lines)}`;
   window.open(url, '_blank');
-  UI.showSuccess('WhatsApp terbuka â€” teks slip sudah terisi, tinggal tekan kirim');
+  UI.showSuccess('WhatsApp terbuka — teks slip sudah terisi, tinggal tekan kirim');
 }
 function handlePayrollCopyPrev() {
   ensurePayrollMonth();
@@ -5703,7 +5723,7 @@ function handlePayrollCopyPrev() {
     };
   });
   try { Storage.savePayrollDraft(payrollViewMonth, { items: JSON.parse(JSON.stringify(payrollCache)), rates: payrollRates, status: 'draft' }); } catch {}
-  UI.showSuccess('Disalin dari bulan lalu â€” cukup ubah lembur/bonus/potongan bila beda');
+  UI.showSuccess('Disalin dari bulan lalu — cukup ubah lembur/bonus/potongan bila beda');
   renderPayrollView();
   queueMirror();
 }
@@ -5752,7 +5772,7 @@ function handlePayrollDraft() {
 }
 function handlePayrollFinal() {
   ensurePayrollMonth();
-  if (Storage.isMonthLocked(payrollViewMonth + '-01')) return UI.showError(`Bulan ${payrollViewMonth} terkunci â€” buka di Pengaturan`);
+  if (Storage.isMonthLocked(payrollViewMonth + '-01')) return UI.showError(`Bulan ${payrollViewMonth} terkunci — buka di Pengaturan`);
   syncPayrollInputsFromDOM();
   const emps = Storage.getAllEmployees();
   const paid = payrollPaidMap(payrollViewMonth);
@@ -5787,7 +5807,7 @@ function handlePayrollFinal() {
       if (slip.kasbon > 0) deds.push(`kasbon ${fmt(slip.kasbon)}`);
       Storage.createEntry({
         date, type: 'expense', category: 'gaji-out', payment,
-        description: `Gaji ${monthLabel} â€” ${e.name} (${bits.join(' + ')}${deds.length ? ` âˆ’ ${deds.join(' + ')}` : ''})${slip.pphOverridden ? ' (PPh rekonsiliasi Des)' : ''}`,
+        description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})${slip.pphOverridden ? ' (PPh rekonsiliasi Des)' : ''}`,
         amount: slip.takeHome, person: e.name,
         payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, kasbon: slip.kasbon, overtimeHours: slip.overtimeHours, gantiCuti: slip.gantiCuti, gantiCutiDays: slip.gantiCutiDays, cutiDiambil: slip.cutiDiambil, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp, recon: slip.pphOverridden === true }
       });
@@ -5799,7 +5819,7 @@ function handlePayrollFinal() {
           if (a > 0) { try { Storage.applyPayrollKasbon(d.loan.id, a, date, payrollViewMonth); } catch {} rem -= a; }
         });
       }
-      // Ganti cuti & cuti terpakai â†’ saldo cuti tahun ini
+      // Ganti cuti & cuti terpakai → saldo cuti tahun ini
       if ((c.gantiCuti && c.lemburJam > 0) || c.cutiDiambil > 0) {
         const yr = Number(String(payrollViewMonth).slice(0, 4)) || new Date().getFullYear();
         try { Storage.addLeave(e.id, yr, { comp: c.gantiCuti ? gantiCutiDays(c.lemburJam) : 0, taken: c.cutiDiambil || 0 }); } catch {}
@@ -5829,8 +5849,8 @@ function handlePayrollFinal() {
 }
 
 /* ===== Rekonsiliasi PPh 21 Desember (PMK 168/2023: TER = estimasi bulanan,
-   Desember = hitung tahunan âˆ’ potongan Janâ€“Nov). Tarif tahunan: UU 36/2008
-   jo. UU HPP 7/2021 â€” minta konsultan konfirmasi sebelum filing. ===== */
+   Desember = hitung tahunan − potongan Jan–Nov). Tarif tahunan: UU 36/2008
+   jo. UU HPP 7/2021 — minta konsultan konfirmasi sebelum filing. ===== */
 function buildDecRecon() {
   const [y, m] = String(payrollViewMonth || '').split('-').map(Number);
   if (!y || m !== 12) return null;
@@ -5888,7 +5908,7 @@ function handleDecApply(empId) {
   const m = Number(String(payrollViewMonth || '').split('-')[1]);
   if (m !== 12) return;
   const draft = Storage.getPayrollDraft(payrollViewMonth);
-  if (draft && draft.status === 'final') return UI.showError('Bulan sudah final â€” rekonsiliasi tidak bisa diubah');
+  if (draft && draft.status === 'final') return UI.showError('Bulan sudah final — rekonsiliasi tidak bisa diubah');
   const rows = buildDecRecon() || [];
   const row = rows.find(r => r.empId === empId);
   if (!row) return UI.showError('Data setahun karyawan ini belum cukup');
@@ -5934,7 +5954,7 @@ function handleLogout() {
 // tetap menegakkan lewat requireOwner; ini memberi pesan jelas + tak jalan).
 function blockKasir() {
   if (!Storage.can('ledger')) {
-    UI.showError('Akses ditolak â€” aksi ini hanya untuk pemilik/akuntan');
+    UI.showError('Akses ditolak — aksi ini hanya untuk pemilik/akuntan');
     return true;
   }
   return false;
@@ -5985,22 +6005,22 @@ function handleClosing() {
   const items = months.map((mk) => {
     const label = payrollMonthLabel(mk);
     const done = Storage.getAllJournals().some(j => j.id === `CLOSE-${mk}`);
-    return `<button type="button" class="close-month-btn" data-mk="${mk}" style="display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid ${done ? '#e2e8f0' : '#bfdbfe'};background:${done ? '#f8fafc' : '#eff6ff'};color:${done ? '#64748b' : '#1d4ed8'};border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:6px;cursor:pointer"><span>ðŸ“… ${label}</span><span style="font-size:11px">${done ? 'âœ“ sudah ditutup' : 'Tutup â†’'}</span></button>`;
+    return `<button type="button" class="close-month-btn" data-mk="${mk}" style="display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid ${done ? '#e2e8f0' : '#bfdbfe'};background:${done ? '#f8fafc' : '#eff6ff'};color:${done ? '#64748b' : '#1d4ed8'};border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:6px;cursor:pointer"><span>📅 ${label}</span><span style="font-size:11px">${done ? '✓ sudah ditutup' : 'Tutup →'}</span></button>`;
   }).join('');
-  UI.openInfoModal('ðŸ”’ Penutupan bulan', `<p style="font-size:12px;color:#64748b;margin:0 0 10px">Pilih bulan yang sudah selesai â€” pendapatan & beban ditutup ke Laba Ditahan (idempoten; menerkat tetap aman).</p>${items.join('')}`);
+  UI.openInfoModal('🔒 Penutupan bulan', `<p style="font-size:12px;color:#64748b;margin:0 0 10px">Pilih bulan yang sudah selesai — pendapatan & beban ditutup ke Laba Ditahan (idempoten; menerkat tetap aman).</p>${items.join('')}`);
 }
 function doClosing(mk) {
   const data = buildClosingJournalData(mk);
   if (!data) return UI.showInfo(`Tidak ada pendapatan/beban di ${mk}`);
   const deb = data.lines.reduce((s, l) => s + l.debit, 0);
   const cr = data.lines.reduce((s, l) => s + l.credit, 0);
-  if (deb !== cr) return UI.showError('Jurnal penutupan pincang â€” kontak cara bayar bermasalah');
+  if (deb !== cr) return UI.showError('Jurnal penutupan pincang — kontak cara bayar bermasalah');
   try {
     if (Storage.getAllJournals().some(j => j.id === data.id)) { UI.showInfo(`Penutupan ${mk} sudah pernah diposting`); return; }
-    if (Storage.isMonthLocked(data.date)) return UI.showError(`Bulan ${mk} terkunci â€” jurnal penutupan tidak bisa diposting`);
+    if (Storage.isMonthLocked(data.date)) return UI.showError(`Bulan ${mk} terkunci — jurnal penutupan tidak bisa diposting`);
     Storage.postJournal(data);
     Storage.logAudit('create', 'closing', data.id, null, { month: mk, total: Math.round(deb) });
-    UI.showSuccess(`Jurnal penutupan ${data.label}: Rp${Math.round(data.total).toLocaleString('id-ID')} â†’ Laba Ditahan`);
+    UI.showSuccess(`Jurnal penutupan ${data.label}: Rp${Math.round(data.total).toLocaleString('id-ID')} → Laba Ditahan`);
     refresh();
     renderPageReport();
     queueMirror();
@@ -6018,12 +6038,12 @@ async function handleBackupShare() {
     if (canShareFile) {
       const file = new window.File([json], name, { type: 'application/json' });
       await navigator.share({ title: 'Wynara Backup', text: `Backup Wynara ${new Date().toLocaleDateString('id-ID')}`, files: [file] });
-      UI.showSuccess('Backup dibagikan â€” lampirkan/ubah destinasi WhatsApp/Email pilihanmu');
+      UI.showSuccess('Backup dibagikan — lampirkan/ubah destinasi WhatsApp/Email pilihanmu');
       stampShares();
       return;
     }
     Storage.exportJSON();
-    UI.showInfo('Browser ini tidak bisa share langsung â€” file backup sudah diunduh. Kirim lewat WhatsApp/Email (lampirkan file).');
+    UI.showInfo('Browser ini tidak bisa share langsung — file backup sudah diunduh. Kirim lewat WhatsApp/Email (lampirkan file).');
   } catch (err) {
     if (err && err.name === 'AbortError') return;
     UI.showError('Gagal membagikan backup');
@@ -6033,7 +6053,7 @@ function stampShares() {
   try { localStorage.setItem('wynara_lastBackup', new Date().toISOString()); } catch {}
 }
 
-/* ===== Sinkron online (Supabase) â€” local-first, opsional ===== */
+/* ===== Sinkron online (Supabase) — local-first, opsional ===== */
 function refreshCloudLabel() {
   const linkWrap = document.getElementById('cloudLinkEmailWrap');
   try { if (linkWrap) linkWrap.hidden = !Cloud.isAnonymousSession(); } catch {}
@@ -6042,34 +6062,34 @@ function refreshCloudLabel() {
   const st = Cloud.getCloudStatus();
   const ses = Cloud.getCloudSession();
   if (!Cloud.isCloudConfigured()) {
-    label.textContent = 'Belum terhubung â€” data hanya di HP ini. Pakai anon/public key, JANGAN service_role key.';
+    label.textContent = 'Belum terhubung — data hanya di HP ini. Pakai anon/public key, JANGAN service_role key.';
     return;
   }
   if (!ses) {
-    label.textContent = 'Server tersimpan, belum masuk â€” tekan ðŸ‘» Masuk tanpa email.';
+    label.textContent = 'Server tersimpan, belum masuk — tekan 👻 Masuk tanpa email.';
     return;
   }
-  label.textContent = 'Terhubung sebagai ' + (ses.user_id || '').slice(0, 8) + 'â€¦ â€” ' + (st.detail || st.state);
+  label.textContent = 'Terhubung sebagai ' + (ses.user_id || '').slice(0, 8) + '… — ' + (st.detail || st.state);
 }
 function handleDataHealth() {
   const r = Storage.dataHealthCheck();
   const head = r.ok
-    ? '<div style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:6px">âœ… Tidak ada masalah kritis</div>'
-    : '<div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px">âš ï¸ Ada masalah yang perlu diperhatikan</div>';
+    ? '<div style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:6px">✅ Tidak ada masalah kritis</div>'
+    : '<div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:6px">⚠️ Ada masalah yang perlu diperhatikan</div>';
   const body = r.issues.length
-    ? `<ul style="font-size:12px;padding-left:18px;margin:0">${r.issues.map(i => `<li style="margin:4px 0">${i.level === 'error' ? 'ðŸ”´' : 'ðŸŸ¡'} ${escapeHtml(i.label)}${i.detail ? ` <span style="color:#64748b">(${escapeHtml(i.detail)})</span>` : ''}</li>`).join('')}</ul>`
+    ? `<ul style="font-size:12px;padding-left:18px;margin:0">${r.issues.map(i => `<li style="margin:4px 0">${i.level === 'error' ? '🔴' : '🟡'} ${escapeHtml(i.label)}${i.detail ? ` <span style="color:#64748b">(${escapeHtml(i.detail)})</span>` : ''}</li>`).join('')}</ul>`
     : '<p style="color:#64748b;font-size:12px">Semua pemeriksaan lulus: jurnal seimbang, akun dikenal, stok sehat, backup segar.</p>';
   let cloud = '';
   try {
     const s = Cloud.getCloudSession();
     cloud = `<div style="font-size:11px;color:#64748b;margin-top:8px">Cloud: ${Cloud.isCloudConfigured() ? (s ? 'terkonfigurasi & terhubung' : 'terkonfigurasi, belum masuk') : 'tidak dipakai'}</div>`;
   } catch {}
-  UI.openInfoModal('ðŸ©º Kesehatan Data', head + body + cloud);
+  UI.openInfoModal('🩺 Kesehatan Data', head + body + cloud);
 }
 async function handleBackupSelfTest() {
   try {
     const r = Storage.backupSelfTest();
-    if (r.ok) UI.showSuccess(`Backup OK â€” ${r.bytes.toLocaleString('id-ID')} byte â€¢ ${r.counts.entries} transaksi â€¢ ${r.counts.journals} jurnal. File bisa dipulihkan.`);
+    if (r.ok) UI.showSuccess(`Backup OK — ${r.bytes.toLocaleString('id-ID')} byte • ${r.counts.entries} transaksi • ${r.counts.journals} jurnal. File bisa dipulihkan.`);
     else UI.showError(`Backup bermasalah: ${r.err || 'tidak valid'}`);
   } catch (e) {
     UI.showError(e && e.message ? e.message : 'Gagal menguji backup');
@@ -6079,7 +6099,7 @@ async function handleCloudPing() {
   try {
     if (!Cloud.isCloudConfigured()) return UI.showError('Hubungkan Supabase dulu (isi URL + key)');
     await Cloud.cloudPing();
-    UI.showSuccess('Koneksi OK â€” sesi valid & RLS jalan');
+    UI.showSuccess('Koneksi OK — sesi valid & RLS jalan');
     refreshCloudLabel();
     updateCloudDot();
   } catch (err) {
@@ -6100,12 +6120,12 @@ async function handleCloudEmailLogin() {
     await Cloud.cloudSignIn(email, pass);
     const p = document.getElementById('cloudPass2');
     if (p) p.value = '';
-    UI.showSuccess('Masuk â€” menarik data dari serverâ€¦');
+    UI.showSuccess('Masuk — menarik data dari server…');
     refreshCloudLabel();
     updateCloudDot();
     const res = await Cloud.syncNow();
     if (res && res.error) UI.showError(res.error);
-    else UI.showSuccess(`Data ditarik (â†‘${res.pushed || 0} â†“${res.pulled || 0})`);
+    else UI.showSuccess(`Data ditarik (↑${res.pushed || 0} ↓${res.pulled || 0})`);
     refreshCloudLabel();
     updateCloudDot();
     refresh();
@@ -6123,7 +6143,7 @@ async function handleCloudLinkEmail() {
     await Cloud.cloudLinkEmail(email, pass);
     const p = document.getElementById('cloudLinkPass');
     if (p) p.value = '';
-    UI.showSuccess('Email tertaut â€” sekarang bisa masuk dari HP lain (cek email bila diminta konfirmasi)');
+    UI.showSuccess('Email tertaut — sekarang bisa masuk dari HP lain (cek email bila diminta konfirmasi)');
     refreshCloudLabel();
     updateCloudDot();
   } catch (err) {
@@ -6137,12 +6157,12 @@ async function handleCloudAnon() {
     if (url || key) Cloud.saveCloudConfig(url, key);
     if (!Cloud.isCloudConfigured()) return UI.showError('Isi URL + anon key Supabase dulu');
     await Cloud.cloudSignInAnonymously();
-    UI.showSuccess('Masuk anonim â€” sinkronisasi pertama mengunggah data HP ini');
+    UI.showSuccess('Masuk anonim — sinkronisasi pertama mengunggah data HP ini');
     refreshCloudLabel();
     updateCloudDot();
     const res = await Cloud.syncNow();
     if (res && res.error) UI.showError(res.error);
-    else UI.showSuccess(`Sinkron awal selesai (â†‘${res.pushed || 0} â†“${res.pulled || 0})`);
+    else UI.showSuccess(`Sinkron awal selesai (↑${res.pushed || 0} ↓${res.pulled || 0})`);
     refreshCloudLabel();
     updateCloudDot();
     refresh();
@@ -6157,7 +6177,7 @@ async function handleCloudSyncNow() {  if (!Cloud.isCloudConfigured()) return UI
   const res = await Cloud.syncNow();
   if (res && res.error) UI.showError(res.error);
   else {
-    UI.showSuccess(`Sinkron selesai (â†‘${res.pushed || 0} â†“${res.pulled || 0}${res.conflicts ? ` â€¢ ${res.conflicts} beda versi, ikut terbaru` : ''})`);
+    UI.showSuccess(`Sinkron selesai (↑${res.pushed || 0} ↓${res.pulled || 0}${res.conflicts ? ` • ${res.conflicts} beda versi, ikut terbaru` : ''})`);
     refresh();
   }
   refreshCloudLabel();
@@ -6165,7 +6185,7 @@ async function handleCloudSyncNow() {  if (!Cloud.isCloudConfigured()) return UI
 }
 function handleCloudOff() {
   Cloud.clearCloudConfig();
-  UI.showInfo('Sinkron online dimatikan â€” data lokal tetap utuh');
+  UI.showInfo('Sinkron online dimatikan — data lokal tetap utuh');
   refreshCloudLabel();
   updateCloudDot();
 }
@@ -6204,8 +6224,8 @@ function updateOpeningBalance() {
     if (inp.classList.contains('opening-deb')) deb += v; else cred += v;
   });
   const diff = deb - cred;
-  if (diff === 0) info.innerHTML = deb > 0 ? '<span style="color:#059669">âœ“ Seimbang</span>' : '<span style="color:#94a3b8">Isi debit/kredit per akun, atau tempel dari Excel</span>';
-  else info.innerHTML = `<span style="color:#b91c1c">Selisih ${'Rp' + Math.abs(diff).toLocaleString('id-ID')} â€” dipasang otomatis ke 3101 Modal</span>`;
+  if (diff === 0) info.innerHTML = deb > 0 ? '<span style="color:#059669">✓ Seimbang</span>' : '<span style="color:#94a3b8">Isi debit/kredit per akun, atau tempel dari Excel</span>';
+  else info.innerHTML = `<span style="color:#b91c1c">Selisih ${'Rp' + Math.abs(diff).toLocaleString('id-ID')} — dipasang otomatis ke 3101 Modal</span>`;
 }
 function handleOpeningPost() {
   if (blockKasir()) return;
@@ -6249,7 +6269,7 @@ function handleOpeningPost() {
 
 /* ===== Jurnal penyesuaian manual ===== */
 function accountOptionsHTML(selected) {
-  return getAccounts().map(a => `<option value="${a.code}" ${a.code === selected ? 'selected' : ''}>${a.code} â€” ${escapeHtml(a.name)}</option>`).join('');
+  return getAccounts().map(a => `<option value="${a.code}" ${a.code === selected ? 'selected' : ''}>${a.code} — ${escapeHtml(a.name)}</option>`).join('');
 }
 function openAdjust() {
   const m = document.getElementById('adjustModal');
@@ -6275,10 +6295,10 @@ function updateAdjustPreview() {
   const label = (code) => { const a = getAccounts().find(x => x.code === code); return a ? `${a.code} ${a.name}` : code; };
   if (d <= 0 && c <= 0) { box.innerHTML = '<span style="color:#94a3b8">Isi nominal debit & kredit.</span>'; return; }
   if (d !== c) {
-    box.innerHTML = `<span style="color:#dc2626">âš  Pincang: debit ${'Rp' + d.toLocaleString('id-ID')} â‰  kredit ${'Rp' + c.toLocaleString('id-ID')} â€” selisih ${'Rp' + Math.abs(d - c).toLocaleString('id-ID')}</span>`;
+    box.innerHTML = `<span style="color:#dc2626">⚠ Pincang: debit ${'Rp' + d.toLocaleString('id-ID')} ≠ kredit ${'Rp' + c.toLocaleString('id-ID')} — selisih ${'Rp' + Math.abs(d - c).toLocaleString('id-ID')}</span>`;
     return;
   }
-  box.innerHTML = `âœ“ Balance: <b>${label(dAcc)}</b> â‡„ <b>${label(cAcc)}</b> â€” ${'Rp' + d.toLocaleString('id-ID')}`;
+  box.innerHTML = `✓ Balance: <b>${label(dAcc)}</b> ⇄ <b>${label(cAcc)}</b> — ${'Rp' + d.toLocaleString('id-ID')}`;
 }
 function handleAdjustPost() {
   if (blockKasir()) return;
@@ -6289,10 +6309,10 @@ function handleAdjustPost() {
   const d = adjustAmount(document.getElementById('adjustDebitAmt'));
   const c = adjustAmount(document.getElementById('adjustCreditAmt'));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return UI.showError('Tanggal belum benar');
-  if (Storage.isMonthLocked(date)) return UI.showError(`Bulan ${date.slice(0, 7)} terkunci â€” buka di Pengaturan`);
+  if (Storage.isMonthLocked(date)) return UI.showError(`Bulan ${date.slice(0, 7)} terkunci — buka di Pengaturan`);
   if (!memo) return UI.showError('Keterangan wajib diisi');
   if (!(d > 0)) return UI.showError('Nominal debit harus lebih dari 0');
-  if (d !== c) return UI.showError('Jurnal pincang â€” debit dan kredit harus sama');
+  if (d !== c) return UI.showError('Jurnal pincang — debit dan kredit harus sama');
   if (dAcc === cAcc) return UI.showError('Akun debit dan kredit tidak boleh sama');
   try {
     const id = `ADJ-${date.replace(/-/g, '')}-${Date.now().toString(36)}`;
@@ -6336,7 +6356,7 @@ function refreshAssets() {
       <td style="padding:8px;text-align:right">${fmt(monthly)}</td>
       <td style="padding:8px;text-align:right">${fmt(accum)}</td>
       <td style="padding:8px;text-align:right"><b>${fmt(buku)}</b></td>
-      <td style="padding:8px;text-align:right"><button class="btn btn-danger asset-delete" data-id="${a.id}" aria-label="Hapus ${escapeHtml(a.name)}" style="padding:2px 8px;font-size:12px">Ã—</button></td>
+      <td style="padding:8px;text-align:right"><button class="btn btn-danger asset-delete" data-id="${a.id}" aria-label="Hapus ${escapeHtml(a.name)}" style="padding:2px 8px;font-size:12px">×</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8">Belum ada aset. Isi form di atas lalu tekan Tambah.</td></tr>';
   const sum = document.getElementById('assetSummary');
@@ -6376,7 +6396,7 @@ function handleAssetDelete(id) {
 function handleAssetPost() {
   if (blockKasir()) return;
   const mk = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-  if (Storage.isMonthLocked(`${mk}-01`)) return UI.showError(`Bulan ${mk} terkunci â€” buka di Pengaturan`);
+  if (Storage.isMonthLocked(`${mk}-01`)) return UI.showError(`Bulan ${mk} terkunci — buka di Pengaturan`);
   const id = `DEP-${mk}`;
   if (Storage.getAllJournals().some(j => j.id === id)) return UI.showInfo(`Penyusutan ${mk} sudah pernah diposting`);
   const total = Storage.getFixedAssets().reduce((s, a) => {
@@ -6440,8 +6460,8 @@ function openSettings() {
   if (lastBackupEl) {
     const last = Storage.getLastBackup();
     lastBackupEl.textContent = last
-      ? `Backup terakhir: ${last.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} â€” cadangan otomatis aktif di browser ini`
-      : 'Belum pernah backup â€” unduh JSON Backup biar data aman';
+      ? `Backup terakhir: ${last.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} — cadangan otomatis aktif di browser ini`
+      : 'Belum pernah backup — unduh JSON Backup biar data aman';
   }
   // Kunci periode
   const renderLocks = () => {
@@ -6449,7 +6469,7 @@ function openSettings() {
     if (!box) return;
     const locks = Storage.getLockedMonths();
     box.innerHTML = locks.length
-      ? locks.map(m => `<span class="chip" style="font-size:11px">ðŸ”’ ${m} <button data-unlock="${m}" style="margin-left:4px;background:none;border:none;cursor:pointer;color:#ef4444" title="Buka kunci">Ã—</button></span>`).join('')
+      ? locks.map(m => `<span class="chip" style="font-size:11px">🔒 ${m} <button data-unlock="${m}" style="margin-left:4px;background:none;border:none;cursor:pointer;color:#ef4444" title="Buka kunci">×</button></span>`).join('')
       : '<span style="font-size:11px;color:#94a3b8">Belum ada bulan terkunci</span>';
     box.querySelectorAll('[data-unlock]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -6481,18 +6501,18 @@ function openSettings() {
   const kasirInput = document.getElementById('kasirPinInput');
   const renderKasirHint = () => {
     if (kasirHint) kasirHint.textContent = Storage.kasirEnabled()
-      ? 'Aktif â€” login pakai username "kasir" + PIN. Kasir: cuma catat transaksi (tanpa laporan/gaji/hapus). PIN default awal: 1234.'
-      : 'Belum aktif â€” simpan PIN (default pertama: 1234) untuk memberi akses terbatas ke kasir.';
+      ? 'Aktif — login pakai username "kasir" + PIN. Kasir: cuma catat transaksi (tanpa laporan/gaji/hapus). PIN default awal: 1234.'
+      : 'Belum aktif — simpan PIN (default pertama: 1234) untuk memberi akses terbatas ke kasir.';
   };
   renderKasirHint();
   document.getElementById('kasirPinSave').onclick = async () => {
     const v = (kasirInput && kasirInput.value || '').trim();
-    if (!v) return UI.showError('Isi PIN dulu (4â€“8 angka)');
+    if (!v) return UI.showError('Isi PIN dulu (4–8 angka)');
     try {
       await Storage.setKasirPin(v, true);
       if (kasirInput) kasirInput.value = '';
       renderKasirHint();
-      UI.showSuccess('PIN kasir disimpan â€” login "kasir" + PIN');
+      UI.showSuccess('PIN kasir disimpan — login "kasir" + PIN');
     } catch (err) {
       UI.showError(err && err.message ? err.message : 'Gagal menyimpan PIN');
     }
@@ -6505,7 +6525,7 @@ function openSettings() {
   // Akuntan & HRD: PIN per peran (OQ4)
   const renderRolePins = () => {
     const h = document.getElementById('rolePinHint');
-    if (h) h.textContent = `Akuntan: ${Storage.rolePinEnabled('akuntan') ? 'aktif' : 'belum'} â€¢ HRD: ${Storage.rolePinEnabled('hrd') ? 'aktif' : 'belum'}. Login pakai username akuntan / hrd + PIN. Akuntan = semua akuntansi; HRD = gaji & penggantian kas kecil.`;
+    if (h) h.textContent = `Akuntan: ${Storage.rolePinEnabled('akuntan') ? 'aktif' : 'belum'} • HRD: ${Storage.rolePinEnabled('hrd') ? 'aktif' : 'belum'}. Login pakai username akuntan / hrd + PIN. Akuntan = semua akuntansi; HRD = gaji & penggantian kas kecil.`;
   };
   renderRolePins();
   const wireRolePin = (role, inputId, saveId, offId, label) => {
@@ -6513,12 +6533,12 @@ function openSettings() {
     const save = document.getElementById(saveId);
     if (save) save.onclick = async () => {
       const v = (input && input.value || '').trim();
-      if (!v) return UI.showError('Isi PIN dulu (4â€“8 angka)');
+      if (!v) return UI.showError('Isi PIN dulu (4–8 angka)');
       try {
         await Storage.setRolePin(role, v, true);
         if (input) input.value = '';
         renderRolePins();
-        UI.showSuccess(`PIN ${label} disimpan â€” login "${role}" + PIN`);
+        UI.showSuccess(`PIN ${label} disimpan — login "${role}" + PIN`);
       } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal menyimpan PIN'); }
     };
     const off = document.getElementById(offId);
@@ -6536,7 +6556,7 @@ function openSettings() {
     if (!box) return;
     const shops = Storage.getShops();
     const active = Storage.getActiveShopId();
-    box.innerHTML = shops.map(s => `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px"><span style="flex:1">ðŸ¬ ${escapeHtml(s.name)} ${s.id === active ? '<small style="color:#64748b">(aktif)</small>' : ''}</span>${shops.length > 1 ? `<button type="button" data-shopdel="${s.id}" style="background:none;border:none;color:#ef4444;cursor:pointer" title="Hapus toko">âœ•</button>` : ''}</div>`).join('');
+    box.innerHTML = shops.map(s => `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px"><span style="flex:1">🏬 ${escapeHtml(s.name)} ${s.id === active ? '<small style="color:#64748b">(aktif)</small>' : ''}</span>${shops.length > 1 ? `<button type="button" data-shopdel="${s.id}" style="background:none;border:none;color:#ef4444;cursor:pointer" title="Hapus toko">✕</button>` : ''}</div>`).join('');
     box.querySelectorAll('[data-shopdel]').forEach(b => { b.onclick = () => {
       if (!confirm('Hapus toko ini? Stok di toko ini tidak lagi ditampilkan.')) return;
       try {
@@ -6572,11 +6592,11 @@ function openSettings() {
         let label = c;
         try { label = Reports.getCategoryLabel(c) || c; } catch {}
         return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:6px 10px">
-          <span style="flex:1">${escapeHtml(label)} â€¢ <b>${fmt(all[c])}</b></span>
-          <button data-catdel="${escapeHtml(c)}" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:#ef4444">âœ•</button>
+          <span style="flex:1">${escapeHtml(label)} • <b>${fmt(all[c])}</b></span>
+          <button data-catdel="${escapeHtml(c)}" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
         </div>`;
       }).join('')
-      : '<span style="font-size:11px;color:#94a3b8">Belum ada â€” tambah mis. Makanan Rp500rb</span>';
+      : '<span style="font-size:11px;color:#94a3b8">Belum ada — tambah mis. Makanan Rp500rb</span>';
     catList.querySelectorAll('[data-catdel]').forEach(btn => {
       btn.addEventListener('click', () => {
         Storage.setCategoryBudget(btn.dataset.catdel, 0);
@@ -6622,10 +6642,10 @@ function openSettings() {
       const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v);
       recList.innerHTML = templates.map(t => `
         <div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">
-          <span>${t.type === 'income' ? 'ðŸ“¥' : 'ðŸ“¤'}</span>
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.category || 'Lainnya')} â€¢ ${fmt(Number(t.amount) || 0)}/bln${t.paused ? ' <small style="color:#94a3b8">(jeda)</small>' : ''}</span>
-          <button data-rec="${t.recurringId}" data-act="pause" class="btn btn-ghost" style="font-size:11px;padding:2px 8px">${t.paused ? 'â–¶ï¸' : 'â¸ï¸'}</button>
-          <button data-rec="${t.recurringId}" data-act="del" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:#ef4444">âœ•</button>
+          <span>${t.type === 'income' ? '📥' : '📤'}</span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.category || 'Lainnya')} • ${fmt(Number(t.amount) || 0)}/bln${t.paused ? ' <small style="color:#94a3b8">(jeda)</small>' : ''}</span>
+          <button data-rec="${t.recurringId}" data-act="pause" class="btn btn-ghost" style="font-size:11px;padding:2px 8px">${t.paused ? '▶️' : '⏸️'}</button>
+          <button data-rec="${t.recurringId}" data-act="del" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
         </div>`).join('');
       recList.querySelectorAll('button[data-rec]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -6653,7 +6673,7 @@ function openSettings() {
     if (!customs.length) list.innerHTML = '<span style="font-size:11px;color:#94a3b8">Tidak ada kategori custom</span>';
     else list.innerHTML = customs.map(c => {
       const cnt = currentEntries.filter(e => e.category === c).length;
-      return `<span class="chip" style="font-size:11px">${escapeHtml(c)} <small>(${cnt})</small> <button data-cat="${escapeHtml(c)}" class="del-cat" style="margin-left:4px;background:none;border:none;cursor:pointer;color:#ef4444">Ã—</button></span>`;
+      return `<span class="chip" style="font-size:11px">${escapeHtml(c)} <small>(${cnt})</small> <button data-cat="${escapeHtml(c)}" class="del-cat" style="margin-left:4px;background:none;border:none;cursor:pointer;color:#ef4444">×</button></span>`;
     }).join('');
     list.querySelectorAll('.del-cat').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -6713,7 +6733,7 @@ function saveSettings() {
       UI.showError(err && err.message ? err.message : 'Tarif PPN tidak valid');
     }
   }
-  // UMP (upah minimum) â€” validasi gaji
+  // UMP (upah minimum) — validasi gaji
   const umpInput = document.getElementById('umpInput');
   if (umpInput) {
     try { Storage.saveUmp(umpInput.value); } catch (err) { UI.showError(err && err.message ? err.message : 'UMP tidak valid'); }

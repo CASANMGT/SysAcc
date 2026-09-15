@@ -55,15 +55,17 @@ export function suggestRules(statements) {
     const tokens = String(s.desc || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').trim().split(/\s+/).filter(t => t.length >= 3);
     if (!tokens.length) return;
     const key = `${tokens[0]}|${s.direction || ''}`;
-    if (!groups.has(key)) groups.set(key, { keyword: tokens[0], direction: s.direction || '', count: 0, total: 0, codes: new Map() });
+    if (!groups.has(key)) groups.set(key, { keyword: tokens[0], direction: s.direction || '', count: 0, total: 0, confirmed: 0, codes: new Map(), examples: [] });
     const g = groups.get(key);
     g.count++; g.total += Number(s.amount) || 0;
     if (s.counterAccount) g.codes.set(s.counterAccount, (g.codes.get(s.counterAccount) || 0) + 1);
+    if (s.suggestCode && s.counterAccount && s.counterAccount !== s.suggestCode) g.confirmed++;
+    if (g.examples.length < 3) g.examples.push({ desc: s.desc || '', amount: Number(s.amount) || 0 });
   });
   const out = [];
   groups.forEach(g => {
     const top = [...g.codes.entries()].sort((a, b) => b[1] - a[1])[0];
-    out.push({ keyword: g.keyword, direction: g.direction, count: g.count, total: g.total, code: top ? top[0] : '' });
+    out.push({ keyword: g.keyword, direction: g.direction, count: g.count, total: g.total, confirmed: g.confirmed, examples: g.examples, code: top ? top[0] : '' });
   });
   return out.sort((a, b) => b.count - a.count);
 }

@@ -1,4 +1,4 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, creditPaidTotal, payCreditSale, deleteCreditSale, creditSalesSummary } from '../storage.js';
 
@@ -15,15 +15,15 @@ const goodBackup = JSON.stringify({
 });
 
 describe('validateBackupJSON', () => {
-  it('backup valid â†’ ok', () => {
+  it('backup valid → ok', () => {
     expect(validateBackupJSON(goodBackup).ok).toBe(true);
   });
-  it('bukan JSON â†’ pesan jelas', () => {
+  it('bukan JSON → pesan jelas', () => {
     const r = validateBackupJSON('{{{bukan json');
     expect(r.ok).toBe(false);
     expect(r.errors[0]).toMatch(/JSON/i);
   });
-  it('JSON tapi bukan backup â†’ ditolak', () => {
+  it('JSON tapi bukan backup → ditolak', () => {
     expect(validateBackupJSON('"cuma string"').ok).toBe(false);
     expect(validateBackupJSON('{"hello":1}').ok).toBe(false);
     expect(validateBackupJSON('null').ok).toBe(false);
@@ -48,12 +48,12 @@ describe('importEntries', () => {
     expect(added).toHaveLength(1);
     expect(getAllEntries()).toHaveLength(1);
   });
-  it('impor kedua = duplikat â†’ 0 baru', () => {
+  it('impor kedua = duplikat → 0 baru', () => {
     const rows = [{ date: '2026-08-01', type: 'income', category: 'gaji', amount: 5000000 }];
     importEntries(JSON.stringify(rows));
     expect(importEntries(JSON.stringify(rows))).toHaveLength(0);
   });
-  it('file rusak â†’ throw pesan jelas', () => {
+  it('file rusak → throw pesan jelas', () => {
     expect(() => importEntries('bukan json')).toThrow(/invalid/i);
     expect(() => clearAllEntries()).not.toThrow();
   });
@@ -158,7 +158,7 @@ describe('purchase flow', () => {
     const it = saveItem({ name: 'Teh', cost: 3000, price: 5000, stock: 0 });
     const p = createPurchase({ supplier: 'S2', date: '2026-09-01', lines: [{ itemId: it.id, qty: 5, unitCost: 3000 }] });
     expect(getItemById(it.id).stock).toBe(5);
-    // jual 5 via entry langsung? simulasi: kurangi stok manual lalu hapus â†’ gagal
+    // jual 5 via entry langsung? simulasi: kurangi stok manual lalu hapus → gagal
     saveItem({ id: it.id, name: 'Teh', cost: 3000, price: 5000, stock: 0 });
     expect(() => deletePurchase(p.id)).toThrow();
   });
@@ -265,7 +265,7 @@ describe('aksi massal & restock (F1)', () => {
 });
 
 describe('dokumen stok: penyesuaian & transfer', () => {
-  it('adjustStock (+/âˆ’) + jurnal Dr/Cr 1105 vs 5199', () => {
+  it('adjustStock (+/−) + jurnal Dr/Cr 1105 vs 5199', () => {
     saveShops([{ id: 'main', name: 'Toko Utama' }]);
     setActiveShopId('main');
     const it = saveItem({ name: 'Kopi', price: 10000, cost: 5000, stock: 5 });
@@ -429,7 +429,7 @@ describe('perbaikan bug (audit)', () => {
   it('akun custom tidak boleh memakai kode akun bawaan', () => {
     expect(() => saveCustomAccount({ code: '4101', name: 'X', type: 'asset' })).toThrow(/bawaan|dipakai/);
   });
-  it('importBankLines memposting jurnal bankâ†”COA (balance)', () => {
+  it('importBankLines memposting jurnal bank↔COA (balance)', () => {
     const res = importBankLines([{ date: '2026-09-01', amount: 15000, direction: 'out', counterAccount: '6205', memo: 'Biaya adm' }], { bankAccount: '1101' });
     expect(res.ok).toBe(1);
     const j = getAllJournals().find(x => x.ref === 'bank');
@@ -440,13 +440,13 @@ describe('perbaikan bug (audit)', () => {
 });
 
 describe('kesehatan data (F4)', () => {
-  it('data bersih (backup baru) â†’ ok tanpa isu', () => {
+  it('data bersih (backup baru) → ok tanpa isu', () => {
     localStorage.setItem('wynara_lastBackup', new Date().toISOString());
     const r = dataHealthCheck();
     expect(r.ok).toBe(true);
     expect(r.issues.length).toBe(0);
   });
-  it('akun tak dikenal di jurnal â†’ peringatan', () => {
+  it('akun tak dikenal di jurnal → peringatan', () => {
     postJournal({ id: 'JX', date: '2026-08-01', memo: 'uji', lines: [{ account: '9999', debit: 1000, credit: 0, memo: 'x' }, { account: '1101', debit: 0, credit: 1000, memo: 'x' }] });
     const r = dataHealthCheck();
     expect(r.issues.some(i => /tak dikenal/.test(i.label))).toBe(true);
@@ -554,8 +554,8 @@ describe('cuti & UMP (storage)', () => {
 
 describe('produk: grup & restock', () => {
   it('getStockGroups mengelompokkan varian + total/harga', () => {
-    saveItem({ name: 'Kaos â€¢ S â€¢ Hitam', sku: 'K-1', size: 'S', color: 'Hitam', price: 100000, stock: 3, groupId: 'G1', baseName: 'Kaos' });
-    saveItem({ name: 'Kaos â€¢ M â€¢ Hitam', sku: 'K-2', size: 'M', color: 'Hitam', price: 110000, stock: 2, groupId: 'G1', baseName: 'Kaos' });
+    saveItem({ name: 'Kaos • S • Hitam', sku: 'K-1', size: 'S', color: 'Hitam', price: 100000, stock: 3, groupId: 'G1', baseName: 'Kaos' });
+    saveItem({ name: 'Kaos • M • Hitam', sku: 'K-2', size: 'M', color: 'Hitam', price: 110000, stock: 2, groupId: 'G1', baseName: 'Kaos' });
     const g = getStockGroups().find(x => x.key === 'g1');
     expect(g).toBeTruthy();
     expect(g.variants.length).toBe(2);
@@ -582,7 +582,7 @@ describe('produk: varian & diskon', () => {
     expect(itemNetPrice(it)).toBe(75000);
     expect(itemVariantLabel(it)).toBe('L / Hitam');
   });
-  it('diskon dibatasi 0â€“100', () => {
+  it('diskon dibatasi 0–100', () => {
     expect(saveItem({ name: 'X', price: 1000, discountPct: 150 }).discountPct).toBe(100);
     expect(saveItem({ name: 'Y', price: 1000, discountPct: -5 }).discountPct).toBe(0);
   });
@@ -612,8 +612,8 @@ describe('produk: varian & diskon', () => {
   });
 });
 
-describe('stok & penjualan (regresi #1 â€” sale.lines)', () => {
-  it('penjualan via sale.lines MENGURANGI stok + tercatat di kartu stok; hapus â†’ stok balik', () => {
+describe('stok & penjualan (regresi #1 — sale.lines)', () => {
+  it('penjualan via sale.lines MENGURANGI stok + tercatat di kartu stok; hapus → stok balik', () => {
     const it = saveItem({ name: 'Kopi', stock: 10, cost: 10000, price: 15000 });
     const e = createEntry({ date: '2026-08-01', type: 'income', category: 'jualan', amount: 50000, sale: { lines: [{ itemId: it.id, qty: 2, price: 25000 }] } });
     expect(getItemById(it.id).stock).toBe(8);
@@ -656,7 +656,7 @@ describe('kasbon karyawan (storage)', () => {
     expect(j.lines.find(l => l.account === '6201').debit).toBe(300000);
     expect(j.lines.find(l => l.account === '1201').credit).toBe(300000);
   });
-  it('applyPayrollKasbon dibatasi sisa; lunas â†’ status paid', () => {
+  it('applyPayrollKasbon dibatasi sisa; lunas → status paid', () => {
     const emp = saveEmployee({ name: 'Clamp Kasbon', baseSalary: 4000000 });
     const loan = createLoan({ direction: 'given', person: 'Clamp Kasbon', amount: 500000, date: '2026-08-01' });
     const rep = applyPayrollKasbon(loan.id, 9999999, '2026-08-31', '2026-08');
