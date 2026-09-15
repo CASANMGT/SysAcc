@@ -2562,6 +2562,8 @@ export function getPreorders() {
 function savePreorders(list) { try { localStorage.setItem(PREORDER_KEY, JSON.stringify(list)); } catch {} }
 export function getPreorderById(id) { return getPreorders().find(x => x.id === id) || null; }
 export function preorderSellTotal(po) {
+  // pakai sellTotal tersimpan (sudah diskon); fallback recompute untuk data lama
+  if (po && po.sellTotal != null && Number.isFinite(Number(po.sellTotal))) return Math.max(Number(po.sellTotal) || 0, 0);
   return ((po && po.items) || []).reduce((s, l) => s + Math.max(Number(l.qty) || 0, 0) * Math.max(Number(l.price) || 0, 0), 0);
 }
 export function preorderCostTotal(po) {
@@ -2783,11 +2785,12 @@ export function createCreditSale({ date, dueDate, customer, person, lines, disco
   requireCap('ledger');
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
-  const cleanLines = (Array.isArray(lines) ? lines : []).filter(l => l && l.itemId && Number(l.qty) > 0).map(l => {
-    const it = getItemById(l.itemId) || {};
+  // Barang boleh dari master (itemId) atau manual (nama saja) — manual tidak menyentuh stok.
+  const cleanLines = (Array.isArray(lines) ? lines : []).filter(l => l && (l.itemId || String(l.name || '').trim()) && Number(l.qty) > 0).map(l => {
+    const it = l.itemId ? (getItemById(l.itemId) || {}) : {};
     const qty = Math.floor(Number(l.qty) || 0);
     const cost = (l.avgCost != null) ? Number(l.avgCost) || 0 : Number(it.cost) || 0;
-    return { itemId: String(l.itemId), qty, price: Math.max(Number(l.price) || 0, 0), name: String(l.name || it.name || '').slice(0, 80), avgCost: cost };
+    return { itemId: String(l.itemId || ''), qty, price: Math.max(Number(l.price) || 0, 0), name: String(l.name || it.name || '').slice(0, 80), avgCost: cost };
   });
   if (!cleanLines.length) throw new Error('Tambahkan minimal satu barang');
   const sub = cleanLines.reduce((s, l) => s + l.qty * l.price, 0);
@@ -2803,7 +2806,7 @@ export function createCreditSale({ date, dueDate, customer, person, lines, disco
   const cogs = cleanLines.reduce((s, l) => s + Math.round(l.qty * l.avgCost), 0);
   const applied = [];
   try {
-    cleanLines.forEach(l => { applyStockMove(l.itemId, { qtyOut: l.qty, ref: id, type: 'sale' }); applied.push(l); });
+    cleanLines.forEach(l => { if (l.itemId) { applyStockMove(l.itemId, { qtyOut: l.qty, ref: id, type: 'sale' }); applied.push(l); } });
   } catch (e) {
     applied.forEach(l => { try { applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: 0, keepCost: true, ref: id, note: 'reversal', type: 'reversal' }); } catch {} });
     throw e;
@@ -2928,7 +2931,7 @@ export function trackCreditOrder(id, { stage, date, note, tracking, schedule } =
   logAudit('update', 'credit-sale', id, null, { stage: cs.stage, note, tracking, schedule });
   return cs;
 }
-const PO_TRACK_STAGES = ['ordered', 'dp_paid', 'china', 'to_indo', 'in_wh', 'sent', 'invoiced', 'shipping', 'arrived', 'received'];
+const PO_TRACK_STAGES = ['ordered', 'dp_paid', 'china', 'to_indo', 'in_wh', 'sent', 'invoiced', 'shipping', 'arrived', 'received', 'shipped'];
 // Update status manual (riwayat bebas): barang dibeli→gudang China, China→Indo (bayar kirim),
 // gudang kita, dikirim ke pelanggan, invoice terkirim (immediate/scheduled), dll.
 export function trackPreorder(id, { stage, date, note, tracking, schedule } = {}) {

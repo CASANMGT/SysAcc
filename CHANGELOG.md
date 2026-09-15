@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.89.0] - 2026-09-15
+
+### Fixed — uji end-to-end alur pesanan (otsend: bug ditemukan & dipulihkan)
+- **BUG UANG (kritis)**: `preorderSellTotal` menghitung ulang dari barang mengabaikan diskon tersimpan — **settle preorder MEMUNGUT KEBALIKAN customer** (mis. terbayar 200k padahal total dengan diskon 190k) → pakai `sellTotal` tersimpan (fallback recompute untuk data lama)
+- createCreditSale kini menerima **barang manual tanpa itemId** (nama saja) — tidak menyentuh stok (sebelumnya baris itu dibuang diam-diam)
+- trackPreorder menerima alias tahap lama (`shipped`); resi China→Indo / kirim-pelanggan tersimpan di `po.shipment`
+- **325 tests ✓** (4 baru: alur JUAL end-to-end, alur TITIP BELI end-to-end, penolakan status, toleransi profit)
+
 ## [1.88.0] - 2026-09-15
 
 ### Changed — Satu alur penjualan (Bayar Nanti = ready OR preorder)
