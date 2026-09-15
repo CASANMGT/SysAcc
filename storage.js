@@ -2585,7 +2585,8 @@ function nextPreorderNo() {
   return `PO-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${String(list.length + 1).padStart(3, '0')}`;
 }
 // Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
-export function createPreorder({ date, customer, items, deposit, payment, note, eta } = {}) {
+// months = estimasi berapa bulan barang tiba (preorder luar negeri).
+export function createPreorder({ date, customer, items, deposit, payment, note, eta, months } = {}) {
   requireCap('ledger');
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
@@ -2596,10 +2597,12 @@ export function createPreorder({ date, customer, items, deposit, payment, note, 
   if (sellTotal <= 0) throw new Error('Total pesanan harus > 0');
   let dp = Math.min(Math.max(Math.round(Number(deposit) || 0), 0), sellTotal);
   const id = generateId();
+  const cleanItems = clean.map(l => ({ ...(l.itemId ? { itemId: String(l.itemId) } : {}), name: l.name, qty: l.qty, price: l.price }));
+  const monthsEta = Math.max(Number(months) || 0, 0);
   const rec = {
-    id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40),
+    id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40), monthsEta,
     customer: String(customer || '').trim().slice(0, 60),
-    items: clean, sellTotal, deposit: dp, payment: payment || 'cash',
+    items: cleanItems, sellTotal, deposit: dp, payment: payment || 'cash',
     costs: [], payments: [], stage: dp > 0 ? 'dp_paid' : 'ordered',
     events: [{ date: d, stage: dp > 0 ? 'dp_paid' : 'ordered', note: customer ? 'Pesanan dibuat' : 'Pesanan dibuat', tracking: '', schedule: '' }],
     note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
@@ -2923,7 +2926,9 @@ export function trackCreditOrder(id, { stage, date, note, tracking, schedule } =
   logAudit('update', 'credit-sale', id, null, { stage: cs.stage, note, tracking, schedule });
   return cs;
 }
-// Track status pesananya titip beli (vocab sama seperti jual alur pesanan).
+const PO_TRACK_STAGES = ['ordered', 'dp_paid', 'china', 'to_indo', 'in_wh', 'sent', 'invoiced', 'shipping', 'arrived', 'received'];
+// Update status manual (riwayat bebas): barang dibeli→gudang China, China→Indo (bayar kirim),
+// gudang kita, dikirim ke pelanggan, invoice terkirim (immediate/scheduled), dll.
 export function trackPreorder(id, { stage, date, note, tracking, schedule } = {}) {
   requireCap('ledger');
   const list = getPreorders();
@@ -2933,8 +2938,8 @@ export function trackPreorder(id, { stage, date, note, tracking, schedule } = {}
   if (po.stage === 'cancelled') throw new Error('Pesanan dibatalkan');
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   let st = stage;
-  if (st && st === 'done' && po.stage !== 'arrived' && po.stage !== 'received' && po.stage !== 'invoiced' && po.stage !== 'shipped') throw new Error('Barang belum dikirim/sampai — gunakan status lain');
-  if (st && !['ordered', 'dp_paid', 'shipped', 'arrived', 'received', 'invoiced'].includes(st)) throw new Error('Status tidak dikenal: ' + st);
+  if (st === 'done') throw new Error('Gunakan tombol Lunas & Selesai untuk menyelesaikan pesanan');
+  if (st && !PO_TRACK_STAGES.includes(st)) throw new Error('Status tidak dikenal: ' + st);
   if (st === 'shipped') po.stage = 'shipping';
   else if (st === 'received') po.stage = 'arrived';
   else if (st) po.stage = st;

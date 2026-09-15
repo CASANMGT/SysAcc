@@ -2518,8 +2518,8 @@ const ORDER_STATUS_META = {
   invoiced: { chip: '🧾 Invoice terkirim — tunggu pembayaran', bg: '#e0e7ff', fg: '#4338ca' },
   done:     { chip: '🏁 Selesai', bg: '#dcfce7', fg: '#166534' },
 };
-function orderStageU(stage) {
-  const m = { shipping: 'shipped', arrived: 'received', settled: 'done', DPBC: 'ordered' };
+function orderStageU(stage, kind) {
+  const m = { shipping: 'to_indo', arrived: 'in_wh', settled: 'done', shipped: 'shipped', received: 'received' };
   return m[stage] || stage || 'ordered';
 }
 function renderOrdersPanel() {
@@ -2566,8 +2566,7 @@ function renderOrdersPanel() {
     const st = orderStageU(r.stage);
     const meta = ORDER_STATUS_META[st] || ORDER_STATUS_META.ordered;
     const overdue = r.balance > 0.01 && r.dueDate && new Date(r.dueDate + 'T00:00:00') < today;
-    const etaValid = !!(r.eta && /^\d{4}-\d{2}-\d{2}$/.test(r.eta));
-    const etaOver = !!(etaValid && st !== 'done' && new Date(r.eta + 'T00:00:00') < today);
+    const etaMonths = Number(r.months) || 0;
     const ev = (r.events || []).slice(-1)[0] || null;
     const itemsTxt = (r.items || []).slice(0, 3).map(l => `${l.qty}× ${escapeHtml(l.name)}`).join(', ') + ((r.items || []).length > 3 ? ` +${r.items.length - 3}` : '');
     const shipLine = r.shipment && (r.shipment.tracking || r.shipment.courier)
@@ -2584,12 +2583,22 @@ function renderOrdersPanel() {
     let action = '';
     if (st === 'ordered' && !(Number(r.paid) > 0.01)) {
       action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`;
-    } else if (st === 'dp_paid') {
-      action = `<button class="btn btn-primary ${r.kind === 'jual' ? 'order-ship' : 'preorder-ship'}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim / tulis resi</button>`;
+    } else if (st === 'dp_paid' && r.kind === 'jual') {
+      action = `<button class="btn btn-primary order-ship" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim ke pelanggan / tulis resi</button>`;
+    } else if (st === 'dp_paid' && r.kind === 'po') {
+      action = `<button class="btn btn-primary preorder-ship" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🛒 Beli barang → masuk gudang China</button>`;
     } else if (st === 'shipped') {
-      action = `<button class="btn btn-primary ${r.kind === 'jual' ? 'order-recv' : 'preorder-arrive'}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">📦 Diterima</button>`;
+      action = `<button class="btn btn-primary order-recv" data-id="${r.id}" style="font-size:11px;padding:2px 8px">📦 Diterima pelanggan</button>`;
     } else if (st === 'received') {
       action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="invoiced" style="font-size:11px;padding:2px 8px">🧾 Kirim Invoice — tunggu bayar</button>`;
+    } else if (st === 'china') {
+      action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="to_indo" style="font-size:11px;padding:2px 8px">🌏 Kirim gudang China → Indonesia (isikan resi)</button>`;
+    } else if (st === 'to_indo') {
+      action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="in_wh" style="font-size:11px;padding:2px 8px">🏭 Tiba di gudang kita (bayar kirim Indo)</button>`;
+    } else if (st === 'in_wh') {
+      action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="sent" style="font-size:11px;padding:2px 8px">🚚 Kirim ke pelanggan</button>`;
+    } else if (st === 'sent') {
+      action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="invoiced" style="font-size:11px;padding:2px 8px">🧾 Kirim Invoice ke pelanggan</button>`;
     } else if (st === 'invoiced') {
       action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Terima pembayaran</button>`;
     }
@@ -2597,7 +2606,7 @@ function renderOrdersPanel() {
     const statusBtn = `<button class="btn btn-ghost order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="" style="font-size:11px;padding:2px 8px">＋ Status</button>`;
     const delBtn = `<button class="btn btn-ghost ${r.kind === 'jual' ? 'credit-del' : 'preorder-del'}" data-id="${r.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan/hapus pesanan">🗑</button>`;
     return `<tr>
-        <td style="font-size:12px;white-space:nowrap">${typeBadge} <div>${escapeHtml(r.date)}</div>${r.eta ? `<div style="font-size:10px;color:${etaOver ? '#b91c1c' : '#64748b'};font-weight:${etaOver ? '700' : '400'}">${etaOver ? '⚠️ ' : ''}Est datang ${escapeHtml(String(r.eta))}${etaOver ? ' (lewat)' : ''}</div>` : ''}</td>
+        <td style="font-size:12px;white-space:nowrap">${typeBadge} <div>${escapeHtml(r.date)}</div>${etaMonths ? `<div style="font-size:10px;color:#64748b">Est datang ${escapeHtml(String(etaMonths))} bln</div>` : ''}</td>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(r.no)}</td>
         <td style="font-size:12px">${escapeHtml(r.customer || '—')}<div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
         <td>${chip}${shipLine}${noteLine}${sched}${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
@@ -2626,7 +2635,9 @@ function openOrderStatus(kind, id, presetStage) {
   }
   const st = document.getElementById('orderStatusSchedule'); if (st) st.value = '';
   const tr = document.getElementById('orderStatusTracking'); if (tr) tr.value = (po.shipment && po.shipment.tracking) || '';
-  const sel = document.getElementById('orderStatusStage'); if (sel && presetStage) sel.value = presetStage;
+  const sel = populateOrderStatusSelect(kind);
+  if (sel && presetStage) sel.value = presetStage;
+  else if (sel) sel.selectedIndex = 0;
   const dt = document.getElementById('orderStatusDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
   const nn = document.getElementById('orderStatusNote'); if (nn) nn.value = '';
   const er = document.getElementById('orderStatusError'); if (er) er.textContent = '';
@@ -5612,32 +5623,50 @@ function handleSaleSave() {
   if (!d.lines.length) return UI.showError('Pilih dulu barang + isi qty dan harga');
   if (!d.date) return UI.showError('Tanggal wajib diisi');
   if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
-  // Cek stok dulu biar pesan jelas sekaligus (per toko aktif)
+  // Cek stok dulu biar pesan jelas sekaligus (per toko aktif) — preorder luar negeri tidak pakai stok.
   const items = Storage.getAllItems();
   const shopId = Storage.getActiveShopId();
-  for (const l of d.lines) {
-    const it = items.find(x => x.id === l.itemId);
-    if (!it) return UI.showError('Ada barang yang tidak dikenal — pilih ulang');
-    const avail = Storage.shopStockOf(it, shopId);
-    if (l.qty > avail) return UI.showError(`Stok ${it.name} di toko ini kurang (sisa ${avail}, mau ${l.qty})`);
+  if (!(d.credit && d.mode === 'preorder')) {
+    for (const l of d.lines) {
+      const it = items.find(x => x.id === l.itemId);
+      if (!it) return UI.showError('Ada barang yang tidak dikenal — pilih ulang');
+      const avail = Storage.shopStockOf(it, shopId);
+      if (l.qty > avail) return UI.showError(`Stok ${it.name} di toko ini kurang (sisa ${avail}, mau ${l.qty})`);
+    }
   }
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const descBase = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
   const desc = d.discount > 0 ? `${descBase} • diskon ${fmt(d.discount)}` : descBase;
-  // Penjualan KREDIT (bayar nanti): DP + termin + sisa piutang.
+  // Penjualan KREDIT (bayar nanti): satu alur — barang ready OR preorder luar negeri.
   if (d.credit) {
     if (!d.customer) return UI.showError('Penjualan kredit perlu nama pelanggan');
     if (!d.dueDate) return UI.showError('Isi tanggal jatuh tempo');
+    // Preorder (beli dari luar negeri): tanpa ambil stok — barang dibeli setelah DP.
+    if (d.mode === 'preorder') {
+      try {
+        const po = Storage.createPreorder({
+          date: d.date, customer: d.customer, items: d.lines.map(l => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })),
+          deposit: d.deposit, payment: d.payment, note: d.note, months: d.monthsEta || 1,
+        });
+        UI.closeSale();
+        UI.showSuccess(`Preorder ${fmt(po.sellTotal)} tersimpan${po.deposit > 0 ? ` • DP ${fmt(po.deposit)} masuk kas` : ''} • est datang ${po.monthsEta || 1} bulan • pantau di Status Pesanan`);
+        refresh();
+        refreshSalesPage();
+      } catch (err) {
+        UI.showError(err && err.message ? err.message : 'Gagal menyimpan preorder');
+      }
+      return;
+    }
     try {
       const cs = Storage.createCreditSale({
         date: d.date, dueDate: d.dueDate, customer: d.customer, person: d.customer,
         lines: d.lines.map(l => ({ itemId: l.itemId, qty: l.qty, price: l.price, name: l.name })),
         discount: d.discount, ppn: d.ppn, deposit: d.deposit, depositPct: d.depositPct,
-        terms: d.terms, payment: d.payment, note: d.note, flow: d.flow,
+        terms: d.terms, payment: d.payment, note: d.note, flow: 'order',
       });
       Storage.logAudit('create', 'credit-sale', cs.id, null, { total: cs.total, deposit: cs.deposit });
       UI.closeSale();
-      UI.showSuccess(`Penjualan kredit ${fmt(cs.total)} tersimpan • sisa ${fmt(Storage.creditOutstanding(cs))}`);
+      UI.showSuccess(`Penjualan kredit ${fmt(cs.total)} tersimpan • sisa ${fmt(Storage.creditOutstanding(cs))} • pantau di Status Pesanan`);
       refresh();
     } catch (err) {
       UI.showError(err && err.message ? err.message : 'Gagal menyimpan penjualan kredit');
@@ -7208,4 +7237,13 @@ function handleOrderReceive(id) {
   if (!confirm(`Barang ${cs.invoiceNo} sudah diterima pelanggan? Setelah ini tinggal pelunasan.`)) return;
   try { Storage.receiveCreditSale(id, {}); UI.showSuccess('Paket diterima pelanggan — tunggu pelunasan'); refreshSalesPage(); }
   catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui status'); }
+}
+function populateOrderStatusSelect(kind) {
+  const sel = document.getElementById('orderStatusStage');
+  if (!sel) return null;
+  const opts = kind === 'po'
+    ? [['china', '🛒 Barang dibeli — masuk gudang China'], ['to_indo', '🌏 Dikirim gudang China → Indonesia'], ['in_wh', '🏭 Barang di gudang kita'], ['sent', '🚚 Dikirim ke pelanggan'], ['invoiced', '🧾 Invoice terkirim — tunai / jadwal bayar']]
+    : [['shipped', '🚚 Dikirim ke pelanggan (resi)'], ['received', '✅ Diterima pelanggan'], ['invoiced', '🧾 Invoice terkirim — tunai / jadwal bayar']];
+  sel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+  return sel;
 }
