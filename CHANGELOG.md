@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.94.0] - 2026-09-15
+
+### Fixed & Changed — form preorder & update status fokus lokasi
+- **DP (%) kembali tampil di preorder** (dihitung ke `DP (Rp)`), tanpa termin/jatuh tempo
+- **Kurs dibulatkan ke atas ke 100** (2643 → 2700) dan label menampilkan rate asli
+- **Beli → gudang China** kini jelas: kolom **¥ yuan belanja** (auto biaya barang Rp via kurs) + blok **🚚 kirim China→Indo per CBM**: `CBM (m³) × rate/CBM (Rp)` → auto biaya kirim
+- **Update Status dirampas**: kolom janji bayar dihapus — ubah status fokus ke `lokasi barang` (status, resi, tanggal kejadian, catatan)
+
 ## [1.93.0] - 2026-09-15
 
 ### Added — kurs online ¥→Rp + tabel halaman Penjualan
