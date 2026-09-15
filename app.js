@@ -2953,7 +2953,7 @@ function bindPreorderUI() {
 function orderShipPrompt(id) {
   const po = Storage.getPreorderById(id);
   if (!po) return;
-  if (!confirm(`Barang ${po.no} sudah dibeli dan dikirim dari China?`)) return;
+  if (!confirm(`Barang pesanan ${po.no} sudah dibeli & masuk gudang China?`)) return;
   try { Storage.shipPreorder(id, {}); UI.showSuccess('Barang dinyatakan di jalan — tunggu sampai tiba (~1 bulan)'); refreshSalesPage(); }
   catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui tahap'); }
 }
@@ -5626,7 +5626,7 @@ function handleSaleSave() {
   // Cek stok dulu biar pesan jelas sekaligus (per toko aktif) — preorder luar negeri tidak pakai stok.
   const items = Storage.getAllItems();
   const shopId = Storage.getActiveShopId();
-  if (!(d.credit && d.mode === 'preorder')) {
+  if (d.mode !== 'preorder') {
     for (const l of d.lines) {
       const it = items.find(x => x.id === l.itemId);
       if (!it) return UI.showError('Ada barang yang tidak dikenal — pilih ulang');
@@ -5637,16 +5637,16 @@ function handleSaleSave() {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const descBase = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
   const desc = d.discount > 0 ? `${descBase} • diskon ${fmt(d.discount)}` : descBase;
-  // Penjualan KREDIT (bayar nanti): satu alur — barang ready OR preorder luar negeri.
-  if (d.credit) {
-    if (!d.customer) return UI.showError('Penjualan kredit perlu nama pelanggan');
-    if (!d.dueDate) return UI.showError('Isi tanggal jatuh tempo');
+  // Penjualan KREDIT / prepaid: satu alur — barang ready OR preorder luar negeri.
+  const isPreorder = d.mode === 'preorder';
+  if (d.credit || isPreorder) {
+    if (!d.customer) return UI.showError('Isi nama pelanggan dulu');
     // Preorder (beli dari luar negeri): tanpa ambil stok — barang dibeli setelah DP.
-    if (d.mode === 'preorder') {
+    if (isPreorder) {
       try {
         const po = Storage.createPreorder({
           date: d.date, customer: d.customer, items: d.lines.map(l => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })),
-          deposit: d.deposit, payment: d.payment, note: d.note, months: d.monthsEta || 1,
+          deposit: d.deposit, payment: d.payment, note: d.note, months: d.monthsEta || 1, discount: d.discount,
         });
         UI.closeSale();
         UI.showSuccess(`Preorder ${fmt(po.sellTotal)} tersimpan${po.deposit > 0 ? ` • DP ${fmt(po.deposit)} masuk kas` : ''} • est datang ${po.monthsEta || 1} bulan • pantau di Status Pesanan`);
@@ -5657,6 +5657,7 @@ function handleSaleSave() {
       }
       return;
     }
+    if (!d.dueDate) return UI.showError('Isi tanggal jatuh tempo');
     try {
       const cs = Storage.createCreditSale({
         date: d.date, dueDate: d.dueDate, customer: d.customer, person: d.customer,

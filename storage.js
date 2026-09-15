@@ -2586,14 +2586,16 @@ function nextPreorderNo() {
 }
 // Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
 // months = estimasi berapa bulan barang tiba (preorder luar negeri).
-export function createPreorder({ date, customer, items, deposit, payment, note, eta, months } = {}) {
+export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount } = {}) {
   requireCap('ledger');
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
   const clean = (Array.isArray(items) ? items : []).filter(l => l && String(l.name || '').trim() && Number(l.qty) > 0)
-    .map(l => ({ name: String(l.name).trim().slice(0, 80), qty: Math.floor(Number(l.qty) || 1), price: Math.max(Math.round(Number(l.price) || 0), 0) }));
+    .map(l => ({ ...(l.itemId ? { itemId: l.itemId } : {}), name: String(l.name).trim().slice(0, 80), qty: Math.floor(Number(l.qty) || 1), price: Math.max(Math.round(Number(l.price) || 0), 0) }));
   if (!clean.length) throw new Error('Tambahkan minimal satu barang pesanan');
-  const sellTotal = clean.reduce((s, l) => s + l.qty * l.price, 0);
+  const sub = clean.reduce((s, l) => s + l.qty * l.price, 0);
+  const disc = Math.min(Math.max(Number(discount) || 0, 0), sub);
+  const sellTotal = Math.max(sub - disc, 0);
   if (sellTotal <= 0) throw new Error('Total pesanan harus > 0');
   let dp = Math.min(Math.max(Math.round(Number(deposit) || 0), 0), sellTotal);
   const id = generateId();
@@ -2602,7 +2604,7 @@ export function createPreorder({ date, customer, items, deposit, payment, note, 
   const rec = {
     id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40), monthsEta,
     customer: String(customer || '').trim().slice(0, 60),
-    items: cleanItems, sellTotal, deposit: dp, payment: payment || 'cash',
+    items: cleanItems, subtotal: sub, discount: disc, sellTotal, deposit: dp, payment: payment || 'cash',
     costs: [], payments: [], stage: dp > 0 ? 'dp_paid' : 'ordered',
     events: [{ date: d, stage: dp > 0 ? 'dp_paid' : 'ordered', note: customer ? 'Pesanan dibuat' : 'Pesanan dibuat', tracking: '', schedule: '' }],
     note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
