@@ -4161,6 +4161,8 @@ export function openSale() {
   document.getElementById('saleNote').value = '';
   document.getElementById('salePPN').checked = false;
   const ready = document.querySelector('input[name="saleMode"][value="ready"]'); if (ready) ready.checked = true;
+  const poDep = document.getElementById('poDeposit'); if (poDep) { poDep.value = ''; delete poDep.dataset.touched; }
+  const poFields = document.getElementById('salePreorderFields'); if (poFields) poFields.hidden = true;
   const disc = document.getElementById('saleDiscount'); if (disc) disc.value = '';
   const srch = document.getElementById('saleSearch'); if (srch) srch.value = '';
   document.getElementById('saleRows').innerHTML = '';
@@ -4281,10 +4283,11 @@ export function getSaleData() {
     note: document.getElementById('saleNote')?.value.trim() || '',
     ppn: !!document.getElementById('salePPN')?.checked,
     credit: !!document.getElementById('saleCredit')?.checked,
-    mode,
+mode,
     monthsEta: Math.max(Number(document.getElementById('saleEtaMonths')?.value) || 0, 0),
-    depositPct: Math.min(Math.max(Number(document.getElementById('saleDepositPct')?.value) || 0, 0), 100),
-    deposit: Number(parseIdrInput(document.getElementById('saleDeposit')?.value || '')) || 0,
+    deposit: mode === 'preorder'
+      ? (Number(parseIdrInput(document.getElementById('poDeposit')?.value || '')) || 0)
+      : (Number(parseIdrInput(document.getElementById('saleDeposit')?.value || '')) || 0),
     terms: Math.max(parseInt(document.getElementById('saleTerms')?.value || '1', 10) || 1, 1),
     dueDate: document.getElementById('saleDueDate')?.value || '',
     subtotal, discount, total, lines
@@ -4294,16 +4297,16 @@ function modeValue() { return document.querySelector('input[name="saleMode"]:che
 function updateSaleCreditInfo(data) {
   const el = document.getElementById('saleCreditInfo');
   if (!el) return;
-  if (!document.getElementById('saleCredit')?.checked) { el.textContent = ''; return; }
-  const dp = Math.min(Math.max(Number(parseIdrInput(document.getElementById('saleDeposit')?.value || '')) || 0, 0), data.total);
+  const mode = modeValue();
+  if (!(document.getElementById('saleCredit')?.checked || mode === 'preorder')) { el.textContent = ''; return; }
+  const depId = mode === 'preorder' ? 'poDeposit' : 'saleDeposit';
+  const dp = Math.min(Math.max(Number(parseIdrInput(document.getElementById(depId)?.value || '')) || 0, 0), data.total);
   const sisa = Math.max(data.total - dp, 0);
-  const mode = document.querySelector('input[name="saleMode"]:checked')?.value || 'ready';
   const howMany = Math.max(Number(document.getElementById('saleEtaMonths')?.value) || 0, 0);
   const flowLine = mode === 'preorder'
-    ? `<br><span style="color:#2563eb">🌏 Preorder: dibeli → gudang China → kirim Indo (bayar kirim) → gudang kita → kirim ke pelanggan → invoice → bayar${howMany ? ` (estimasi ${howMany} bulan)` : ''}${dp > 0 ? ` • DP ${formatCurrency(dp)}` : ''} • sisa ${formatCurrency(sisa)} dibayar saat barang datang (langsung / janji bayar)</span>`
-    : `<br><span style="color:#2563eb">📦 Ready: ${dp > 0 ? `DP ${formatCurrency(dp)} diterima → ` : ''}kirim ke pelanggan → invoice → bayar sisa ${formatCurrency(sisa)} (langsung dijadwalkan di Status Pesanan)</span>`;
-  el.innerHTML = `Sisa jadi piutang <b>${formatCurrency(sisa)}</b>${data.terms > 1 ? ` • ${data.terms}× ${formatCurrency(Math.round(sisa / data.terms))}` : ''}${flowLine}`;
-  return;
+    ? `<br><span style="color:#2563eb">🌏 Preorder: dibeli → gudang China → kirim Indo (bayar kirim Indo) → gudang kita → kirim pelanggan → invoice → sisa <b>${formatCurrency(sisa)}</b> dibayar saat barang datang (langsung / janji bayar)${dp > 0 ? ` • DP ${formatCurrency(dp)}` : ''}${howMany ? ` • estimasi ${howMany} bulan` : ''}</span>`
+    : `<br><span style="color:#2563eb">📦 Ready: ${dp > 0 ? `DP ${formatCurrency(dp)} diterima → ` : ''}kirim ke pelanggan → invoice → bayar sisa ${formatCurrency(sisa)}${data.terms > 1 ? ` • ${data.terms}× ${formatCurrency(Math.round(sisa / data.terms))}` : ''}</span>`;
+  el.innerHTML = flowLine;
 }
 export function bindSale(onSave) {
   document.getElementById('closeSaleBtn')?.addEventListener('click', closeSale);
@@ -4318,13 +4321,16 @@ export function bindSale(onSave) {
     const box = document.getElementById('saleCreditFields');
     if (box) box.hidden = !e.target.checked;
     const po = document.getElementById('salePreorderFields');
-    if (po) po.hidden = !e.target.checked || modeValue() === 'ready';    const due = document.getElementById('saleDueDate');
-    if (e.target.checked && due && !due.value) {
+    if (po) po.hidden = modeValue() !== 'preorder';
+    const due = document.getElementById('saleDueDate');
+    if (e.target.checked && !(!due.hidden) && due && !due.value) {
       const d = new Date(); d.setDate(d.getDate() + 30);
       due.value = d.toISOString().split('T')[0];
     }
     recalcSale();
   });
+  document.getElementById('poDeposit')?.addEventListener('input', recalcSale);
+  document.getElementById('poDeposit')?.addEventListener('blur', (e) => { const v = parseIdrInput(e.target.value); e.target.value = v ? formatIdrInput(v) : ''; recalcSale(); });
   document.querySelectorAll('input[name="saleMode"]').forEach(r => r.addEventListener('change', () => {
     // UX: preorder otomatis "bayar nanti" (DP → invoice/cicilan), checkbox kredit menyesuaikan
     const credit = document.getElementById('saleCredit');
