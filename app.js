@@ -4,7 +4,7 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS, expenseAccountFor, REVENUE_ACCOUNT, parseCoaCsv, setCoaAliases } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS, expenseAccountFor, REVENUE_ACCOUNT, parseCoaCsv, setCoaAliases, COA_RENUMBER } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.84.1';
+const APP_VERSION = '1.85.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -825,6 +825,7 @@ function bindEvents() {
   document.getElementById('coaOpenBtn')?.addEventListener('click', openCoaModal);
   document.getElementById('coaSearch')?.addEventListener('input', refreshCoa);
   document.getElementById('coaImportBtn')?.addEventListener('click', handleCoaImport);
+  document.getElementById('coaRenumberBtn')?.addEventListener('click', handleCoaRenumberPreview);
   document.getElementById('coaTypeFilter')?.addEventListener('change', refreshCoa);
   document.getElementById('coaType')?.addEventListener('change', (e) => {
     const codeEl = document.getElementById('coaCode');
@@ -4060,6 +4061,22 @@ function handleCoaImport() {
   const info = document.getElementById('coaImportInfo');
   if (info) info.textContent = `${added} ditambah • ${parsed.collide.length} bentrok kode bawaan (tidak diubah) • ${parsed.skipped.length} dilewati`;
   if (added) UI.showSuccess(`${added} akun COA diimpor`); else UI.showInfo('Tidak ada akun baru yang diimpor');
+}
+function handleCoaRenumberPreview() {
+  const p = Storage.previewCoaRenumber();
+  const rows = p.hits.map(([code, n]) => `<tr><td style="font-family:monospace;font-size:12px">${escapeHtml(code)}</td><td style="font-size:12px">→</td><td style="font-family:monospace;font-size:12px">${escapeHtml(COA_RENUMBER[code] || code)}</td><td class="amount-col">${n}</td></tr>`).join('');
+  const body = `<p style="font-size:12px;color:#64748b">Pratinjau migrasi renumber ke chart <b>PT Wynara Living Atelier</b>. <b>Belum ada data yang diubah.</b></p>
+    <div class="report-summary">
+      <div class="report-summary-item"><span class="label">Baris jurnal terdampak</span><span class="value">${p.journalLines}</span></div>
+      <div class="report-summary-item"><span class="label">Jurnal</span><span class="value">${p.journalsAffected}</span></div>
+      <div class="report-summary-item"><span class="label">Mutasi bank</span><span class="value">${p.statementsAffected}</span></div>
+      <div class="report-summary-item"><span class="label">Aturan bank</span><span class="value">${p.rulesAffected}</span></div>
+      <div class="report-summary-item"><span class="label">Akun saldo awal</span><span class="value">${p.openingCodes.length}</span></div>
+    </div>
+    ${p.unknownCodes.length ? `<p style="font-size:12px;color:#b91c1c">Kode tak dikenal (cek dulu): ${p.unknownCodes.map(escapeHtml).join(', ')}</p>` : ''}
+    <table class="report-table"><thead><tr><th>Kode lama</th><th></th><th>Kode baru</th><th class="amount-col">Baris</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Tidak ada kode lama yang perlu diubah.</td></tr>'}</tbody></table>
+    <p style="font-size:11px;color:#64748b">Setelah Anda setujui, saya jalankan migrasi: tulis ulang kode di jurnal + mutasi/aturan bank + saldo awal, lalu ganti chart.</p>`;
+  UI.openInfoModal('🔄 Pratinjau Renumber COA', body);
 }
 function handleCoaRename(code, name) {
   try {

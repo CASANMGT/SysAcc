@@ -1,7 +1,7 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, findUnbalanced } from './journals.js';
-import { getAccounts, ACCOUNTS } from './coa.js';
+import { getAccounts, ACCOUNTS, COA_RENUMBER } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -2664,6 +2664,45 @@ export function deleteCreditSale(id) {
   saveCreditSales(list.filter(x => x.id !== id));
   logAudit('delete', 'credit-sale', id, null, null);
   return true;
+}
+
+// ===== Preview migrasi renumber COA (belum mengubah data) =====
+export function previewCoaRenumber() {
+  const map = COA_RENUMBER;
+  const hits = new Map();
+  const bump = (code) => { if (code && map[code] && map[code] !== code) hits.set(code, (hits.get(code) || 0) + 1); };
+  let jLines = 0, jAffected = 0;
+  getAllJournals().forEach(j => {
+    let touched = false;
+    (j.lines || []).forEach(l => { if (map[l.account] && map[l.account] !== l.account) { jLines++; touched = true; bump(l.account); } });
+    if (touched) jAffected++;
+  });
+  let stmtHits = 0;
+  getBankStatement().forEach(s => {
+    if ((map[s.counterAccount] && map[s.counterAccount] !== s.counterAccount) || (map[s.bankAccount] && map[s.bankAccount] !== s.bankAccount)) stmtHits++;
+    bump(s.counterAccount); bump(s.bankAccount);
+  });
+  let ruleHits = 0;
+  getBankRules().forEach(r => { if (map[r.code] && map[r.code] !== r.code) { ruleHits++; bump(r.code); } });
+  const openDraft = (() => { try { return JSON.parse(localStorage.getItem('wynara_opening') || 'null'); } catch { return null; } })();
+  const openingCodes = openDraft && openDraft.rows ? Object.keys(openDraft.rows).filter(c => map[c] && map[c] !== c) : [];
+  const known = new Set(getAccounts().map(a => a.code));
+  const unknown = new Set();
+  getAllJournals().forEach(j => (j.lines || []).forEach(l => { if (!known.has(l.account)) unknown.add(l.account); }));
+  return {
+    mapSize: Object.keys(map).length,
+    journalLines: jLines,
+    journalsAffected: jAffected,
+    statementsAffected: stmtHits,
+    rulesAffected: ruleHits,
+    openingCodes,
+    unknownCodes: [...unknown],
+    merged: Object.entries(map).filter(([a, b]) => a !== b && mapHasDuplicateTarget(map, b)),
+    hits: [...hits.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30),
+  };
+}
+function mapHasDuplicateTarget(map, target) {
+  return Object.values(map).filter(v => v === target).length > 1;
 }
 
 export function purchaseOutstanding(p) {
