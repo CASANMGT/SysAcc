@@ -4318,8 +4318,7 @@ export function bindSale(onSave) {
     const box = document.getElementById('saleCreditFields');
     if (box) box.hidden = !e.target.checked;
     const po = document.getElementById('salePreorderFields');
-    if (po) po.hidden = !e.target.checked || modeValue() === 'ready';
-    const due = document.getElementById('saleDueDate');
+    if (po) po.hidden = !e.target.checked || modeValue() === 'ready';    const due = document.getElementById('saleDueDate');
     if (e.target.checked && due && !due.value) {
       const d = new Date(); d.setDate(d.getDate() + 30);
       due.value = d.toISOString().split('T')[0];
@@ -4327,8 +4326,11 @@ export function bindSale(onSave) {
     recalcSale();
   });
   document.querySelectorAll('input[name="saleMode"]').forEach(r => r.addEventListener('change', () => {
+    // UX: preorder otomatis "bayar nanti" (DP → invoice/cicilan), checkbox kredit menyesuaikan
+    const credit = document.getElementById('saleCredit');
+    if (modeValue() === 'preorder' && credit && !credit.checked) { credit.checked = true; credit.dispatchEvent(new Event('change')); }
     const po = document.getElementById('salePreorderFields');
-    if (po) po.hidden = modeValue() === 'ready';
+    if (po) po.hidden = modeValue() !== 'preorder';
     recalcSale();
   }));
   document.getElementById('saleDepositPct')?.addEventListener('input', () => {

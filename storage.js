@@ -2945,6 +2945,9 @@ export function trackPreorder(id, { stage, date, note, tracking, schedule } = {}
   if (st === 'shipped') po.stage = 'shipping';
   else if (st === 'received') po.stage = 'arrived';
   else if (st) po.stage = st;
+  if ((st === 'shipped' || st === 'to_indo' || st === 'sent') && tracking) {
+    po.shipment = { ...(po.shipment || {}), tracking: String(tracking).slice(0, 40), date: d };
+  }
   po.events = (po.events || []).concat([{
     date: d, stage: st || po.stage, note: String(note || '').slice(0, 140),
     tracking: String(tracking || '').slice(0, 40), schedule: String(schedule || '').slice(0, 10),

@@ -2569,8 +2569,9 @@ function renderOrdersPanel() {
     const etaMonths = Number(r.months) || 0;
     const ev = (r.events || []).slice(-1)[0] || null;
     const itemsTxt = (r.items || []).slice(0, 3).map(l => `${l.qty}× ${escapeHtml(l.name)}`).join(', ') + ((r.items || []).length > 3 ? ` +${r.items.length - 3}` : '');
-    const shipLine = r.shipment && (r.shipment.tracking || r.shipment.courier)
-      ? `<div style="font-size:10.5px;color:#475569">🚛 ${escapeHtml(r.shipment.courier || 'kurir')}${r.shipment.tracking ? ' • resi <b>' + escapeHtml(r.shipment.tracking) + '</b>' : ''}</div>`
+    const trackShow = (ev && ev.tracking) || (r.shipment && (r.shipment.tracking || r.shipment.courier)) || '';
+    const shipLine = trackShow
+      ? `<div style="font-size:10.5px;color:#475569">🚛 resi/kiriman: <b>${escapeHtml(trackShow)}</b></div>`
       : '';
     const noteLine = ev && ev.note ? `<div style="font-size:10.5px;color:#475569">📝 ${escapeHtml(ev.note)}</div>` : '';
     const sched = ev && ev.schedule ? `<div style="font-size:10.5px;color:#4338ca;font-weight:600;margin-top:2px">⏰ Janji bayar ${escapeHtml(ev.schedule)}</div>` : '';
