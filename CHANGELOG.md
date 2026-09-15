@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.90.0] - 2026-09-15
+
+### Changed — preorder luar negeri: bayar saat barang datang
+- **Tanpa termin & tanpa jatuh tempo** untuk preorder — DP/termin/jatuh tempo hanya untuk barang ready
+- **DP open** (boleh kosong) — kolom `DP sekarang (Rp)` terpisah di form preorder, tidak dihitung otomatis pakai %
+- Sisa dibayar **saat barang datang** (langsung, atau isi ⏰ janji bayar saat step invoice)
+- Teks alur di form menyebut eksplisit: dibeli → gudang China → kirim Indo (bayar kirim Indo) → gudang kita → kirim pelanggan → invoice → bayar
+
 ## [1.89.0] - 2026-09-15
 
 ### Fixed — uji end-to-end alur pesanan (otsend: bug ditemukan & dipulihkan)
