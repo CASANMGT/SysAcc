@@ -6,6 +6,35 @@
 --   * CUSTOM : akun tambahan (kode yang belum dipakai bawaan).
 -- Cara pakai: Supabase → SQL Editor → Run (ganti email bila perlu).
 -- Setelah itu: login ulang / tunggu pullAll → Daftar Akun menampilkan chart ini.
+--
+-- PEMETAAN LENGKAP (chart PT Wynara Living Atelier → kode aplikasi):
+--   Bank BCA              -> 1106  (nama diganti via alias)
+--   Wallet Shopee         -> 1112  (alias)
+--   Wallet Tokopedia      -> 1116  (alias)
+--   Petty Cash            -> 1120  (alias)
+--   Inventory             -> 1301  (alias; mesin memakai 1301 utk persediaan)
+--   Account Receivable    -> 1201  (alias, sama)
+--   Employee Loan         -> 1202  (alias, sama)
+--   Other Receivable      -> 1203  (alias, sama)
+--   Customer Deposit      -> 2202  (alias)
+--   Account Payable       -> 2103  (alias, sama)
+--   PPh 21 Payable        -> 2201  (alias)
+--   PPh 23 Payable        -> 2107  (alias)
+--   Owner Capital         -> 3101  (alias, sama)
+--   Shopee Sales          -> 4101  (alias)
+--   Tokopedia Sales       -> 4105 (custom; 4102 dipakai Pendapatan Bunga)
+--   Offline Sales         -> 4106 (custom; 4103 dipakai Pendapatan Jasa)
+--   Other Sales           -> 4107 (custom)
+--   Salary Expense        -> 6201 (custom + kategori gaji-out)
+--   THR Expense           -> 6202 (custom)
+--   BPJS TK Expense       -> 6203 (custom)
+--   BPJS Kes Expense      -> 6204 (custom)
+--   Bank Admin Fee        -> 6205 (custom + kategori adm_bank)
+--   Entertainment Expense -> 6206 (custom + kategori hiburan)
+--   Marketing & Ads       -> 6207 (custom + kategori iklan)
+--   Shipping & Logistic   -> 6208 (custom + kategori kirim)
+--   PPh 21 Expense        -> 6209 (custom)
+
 -- ============================================================================
 
 -- 1) ALIAS nama akun bawaan → istilah perusahaan
@@ -26,7 +55,7 @@ select t.id, 'wynara_coa_alias',
   "2107":"PPh 23 Payable",
   "2202":"Customer Deposit",
   "3101":"Owner Capital",
-  "4101":"Shopee Sales"
+  "4101":"Sales"
 }'::jsonb,
 now()
 from target t
