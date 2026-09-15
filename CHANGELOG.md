@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.87.0] - 2026-09-15
+
+### Added — Alur pesanan & Titip Beli (jual + preorder satu alur)
+- **Status Pesanan** (tab Penjualan): panel satu-tabel untuk **Jual (alur pesanan)** dan **Titip Beli** — tahap: `Pesanan dibuat → DP → Dikirim (resi) → Diterima → Invoice → Tunggu bayar (jadwal) → Lunas`
+- **Alur pesanan** di modal Jual: centang *Bayar nanti* → pilih *🚚 Alur pesanan*; DP → kas, sisa jadi piutang, tahap terlacak otomatis
+- **Titip Beli (preorder)**: beli atas nama pelanggan — DP opsional (`2101 Customer Deposit`), catat biaya beli barang (→ Inventory), kirim/logistik (→ 6208), lainnya (→ 5199); barang datang → pelunasan → uang muka jadi pendapatan & barang jadi HPP
+- **Update status manual**: ＋ Status (nomor resi, catatan bebas, tanggal janji bayar); riwayat status tersimpan per pesanan; tombol cepat per tahap (Kirim/Diterima/Kirim Invoice)
+- Barang preorder memakai **master Produk** (klik pilih, harga jual terisi otomatis) + opsi tulis manual
+- **Estimasi tanggal datang** (ETA) — merah ⚠ bila lewat; **🔔 pengingat**: DP belum diterima, lewat ETA, barang sampai belum dibayar, pesanan belum dikirim/sudah diterima
+- Jurnal double-entry tetap konsisten; ringkasan laba per pesanan selesai
+
+### Fixed — 1.86.1 / 1.86.2
+- **1.86.1** push-through renumber COA ke Supabase setelah migrasi
+- **1.86.2** anon key default bawaan (typo case-sensitive) — login Supabase gagal "Invalid API key"
+
 ## [1.86.0] - 2026-09-14
 
 ### Changed — Renumber COA ke chart "PT Wynara Living Atelier" (ganti chart total)
