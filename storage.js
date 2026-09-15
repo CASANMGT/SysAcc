@@ -306,7 +306,7 @@ export function clearAllData() {
     ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY, DRAFT_KEY,
     SALE_RET_KEY, MOVE_KEY, 'wynara_assets', SHOP_KEY, ACTIVE_SHOP_KEY,
     'wynara_leave', 'wynara_ump', 'wynara_selfTest', 'wynara_ppn', 'wynara_payroll_rates',
-    BANK_STMT_KEY, BANK_RULES_KEY, BANK_ENDBAL_KEY, CREDIT_KEY
+    BANK_STMT_KEY, BANK_RULES_KEY, BANK_ENDBAL_KEY, CREDIT_KEY, COA_ALIAS_KEY
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -2512,6 +2512,16 @@ export function updateBankRule(id, patch) {
   return next;
 }
 export function clearBankRules() { return saveBankRules([]); }
+
+// Alias nama akun bawaan (kode & tahan tetap; hanya label tampilan).
+const COA_ALIAS_KEY = 'wynara_coa_alias';
+export function getCoaAliases() {
+  try { const v = JSON.parse(localStorage.getItem(COA_ALIAS_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+}
+export function saveCoaAliases(map) {
+  try { localStorage.setItem(COA_ALIAS_KEY, JSON.stringify(map || {})); } catch {}
+  return map || {};
+}
 // Cari akun dari aturan (substring kata kunci; kata kunci terpanjang menang). Null bila tidak ada.
 export function matchBankRule(desc, direction) {
   const s = String(desc || '').toLowerCase();

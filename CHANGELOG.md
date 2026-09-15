@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.84.0] - 2026-09-14
+
+### Added — Ganti nama akun bawaan (alias COA) agar chart bisnis cocok
+- Akun **bawaan** kini bisa **diganti nama tampilannya** (✎ di Daftar Akun) tanpa mengubah kode/type — mis. `1101 Kas Tunai` → `1101 Bank BCA`, `1112 ShopeePay` dipakai untuk `Wallet Shopee`
+- Alias tersimpan (`wynara_coa_alias`) & tersinkron ke server; dipakai di semua laporan/dialog
+- Jalan teraman mengintegrasikan COA eksternal: **petakan nama ke kode bawaan** (bukan menimpa kode), sisanya via **📥 Import COA**
+- 321/321 tests ✓
+
+---
+
 ## [1.83.0] - 2026-09-14
 
 ### Added — Import COA (tempel dari Excel) + template seed COA

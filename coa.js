@@ -89,12 +89,20 @@ export function setCustomAccounts(list) {
   customAccounts = Array.isArray(list) ? list.filter(a => a && /^\d{4}$/.test(a.code)) : [];
 }
 
+// Alias nama untuk akun bawaan (mis. 1101 → "Bank BCA"). Kode/type tidak berubah.
+let coaAliases = {};
+export function setCoaAliases(map) { coaAliases = (map && typeof map === 'object') ? map : {}; }
+function withAlias(a) {
+  const n = coaAliases[a.code];
+  return n ? { ...a, name: String(n).slice(0, 60) } : a;
+}
+
 export function getAccounts() {
   const seen = new Set();
   const out = [];
   customAccounts.forEach(a => { seen.add(a.code); out.push(a); });
   ACCOUNTS.forEach(a => { if (!seen.has(a.code)) out.push(a); });
-  return out;
+  return out.map(withAlias);
 }
 
 export function getAccount(code) {

@@ -4,7 +4,7 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS, expenseAccountFor, REVENUE_ACCOUNT, parseCoaCsv } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS, expenseAccountFor, REVENUE_ACCOUNT, parseCoaCsv, setCoaAliases } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.83.0';
+const APP_VERSION = '1.84.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -4018,6 +4018,7 @@ function suggestCoaCode(type) {
 }
 function refreshCoa() {
   try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
+  try { setCoaAliases(Storage.getCoaAliases()); } catch {}
   const q = String(document.getElementById('coaSearch')?.value || '').trim().toLowerCase();
   const tf = document.getElementById('coaTypeFilter')?.value || 'all';
   const list = getAccounts().filter(a =>
@@ -4061,7 +4062,16 @@ function handleCoaImport() {
 }
 function handleCoaRename(code, name) {
   try {
-    Storage.renameCustomAccount(code, name);
+    const isCustom = Storage.getCustomAccounts().some(a => a.code === code);
+    if (isCustom) {
+      Storage.renameCustomAccount(code, name);
+    } else {
+      // Bawaan: simpan sebagai alias nama (kode/type tetap).
+      const map = { ...Storage.getCoaAliases() };
+      map[code] = String(name || '').trim().slice(0, 60);
+      Storage.saveCoaAliases(map);
+      try { setCoaAliases(map); } catch {}
+    }
     UI.showSuccess('Nama akun diperbarui');
     refreshCoa();
     queueMirror();

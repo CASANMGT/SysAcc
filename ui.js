@@ -4121,7 +4121,7 @@ export function renderCoa(accounts, bal) {
       ${a.custom
         ? `<button class="btn btn-ghost coa-rename" data-code="${escapeHtml(a.code)}" style="font-size:11px;padding:2px 8px">✎</button>
            <button class="btn btn-ghost coa-del" data-code="${escapeHtml(a.code)}" ${used ? 'disabled title="Sudah ada mutasi"' : ''} style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>`
-        : `<small style="color:#94a3b8">bawaan</small>`}
+        : `<button class="btn btn-ghost coa-rename" data-code="${escapeHtml(a.code)}" title="Ganti nama tampilan" style="font-size:11px;padding:2px 8px">✎</button> <small style="color:#94a3b8">bawaan</small>`}
     </div>`;
   }).join('');
 }
