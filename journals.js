@@ -338,3 +338,57 @@ export function buildCreditPaymentJournal({ date, amount, payment, memo }) {
   const j = { id: jid('J'), date, memo: m, ref: 'credit-pay', refId: null, lines };
   return balanced(lines) ? j : null;
 }
+
+// ===== Titip beli / Preorder (beli atas nama pelanggan) =====
+// Termin data customer payment: Dr kas / Cr 2101 Customer Deposit (uang muka belum jadi pendapatan).
+export const DEPOSIT_ACCOUNT = '2101';
+const PREORDER_GOODS_ACCOUNT = INVENTORY_ACCOUNT;   // 1105 — barang dibeli untuk pesanan
+const PREORDER_SHIP_ACCOUNT = '6208';               // Beban kirim & logistik
+const PREORDER_OTHER_COST_ACCOUNT = '5199';         // Beban lainnya (impor, jasa dll)
+
+export function buildPreorderPayJournal({ date, amount, payment, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const cash = accountForPayment(payment || 'cash');
+  const m = memo || 'DP preorder';
+  const lines = [
+    { account: cash, debit: amt, credit: 0, memo: m },
+    { account: DEPOSIT_ACCOUNT, debit: 0, credit: amt, memo: m },
+  ];
+  const j = { id: jid('J'), date, memo: m, ref: 'preorder', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
+
+// Biaya titip beli: barang → Inventory (1105); kirim → 6208; lainnya → 5199.
+export function buildPreorderCostJournal({ date, amount, kind, payment, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const cash = accountForPayment(payment || 'cash');
+  const acc = kind === 'barang' ? PREORDER_GOODS_ACCOUNT : kind === 'kirim' ? PREORDER_SHIP_ACCOUNT : PREORDER_OTHER_COST_ACCOUNT;
+  const m = memo || (kind === 'barang' ? 'Beli barang pesanan' : kind === 'kirim' ? 'Biaya kirim pesanan' : 'Biaya pesanan');
+  const lines = [
+    { account: acc, debit: amt, credit: 0, memo: m },
+    { account: cash, debit: 0, credit: amt, memo: m },
+  ];
+  const j = { id: jid('J'), date, memo: m, ref: 'preorder', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
+
+// Pelunasan preorder (barang datang + pelanggan bayar penuh): uang muka → pendapatan,
+// biaya barang → HPP. Ref biaya kirim/lain sudah dibebankan saat dibayar.
+export function buildPreorderSettleJournal({ date, totalPaid, costGoods, memo }) {
+  const paid = Math.round(Number(totalPaid) || 0);
+  const goods = Math.round(Number(costGoods) || 0);
+  if (!isFinite(paid) || paid <= 0) return null;
+  const m = memo || 'Pelunasan preorder';
+  const lines = [
+    { account: DEPOSIT_ACCOUNT, debit: paid, credit: 0, memo: m },
+    { account: REVENUE_ACCOUNT, debit: 0, credit: paid, memo: m },
+  ];
+  if (goods > 0) {
+    lines.push({ account: COGS_ACCOUNT, debit: goods, credit: 0, memo: 'HPP preorder' });
+    lines.push({ account: PREORDER_GOODS_ACCOUNT, debit: 0, credit: goods, memo: 'HPP preorder' });
+  }
+  const j = { id: jid('J'), date, memo: m, ref: 'preorder', refId: null, lines };
+  return balanced(lines) ? j : null;
+}

@@ -1,6 +1,6 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, findUnbalanced } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, buildPreorderPayJournal, buildPreorderCostJournal, buildPreorderSettleJournal, findUnbalanced } from './journals.js';
 import { getAccounts, ACCOUNTS, COA_RENUMBER, INVENTORY_ACCOUNT } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
@@ -306,7 +306,7 @@ export function clearAllData() {
     ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY, DRAFT_KEY,
     SALE_RET_KEY, MOVE_KEY, 'wynara_assets', SHOP_KEY, ACTIVE_SHOP_KEY,
     'wynara_leave', 'wynara_ump', 'wynara_selfTest', 'wynara_ppn', 'wynara_payroll_rates',
-    BANK_STMT_KEY, BANK_RULES_KEY, BANK_ENDBAL_KEY, CREDIT_KEY, COA_ALIAS_KEY
+    BANK_STMT_KEY, BANK_RULES_KEY, BANK_ENDBAL_KEY, CREDIT_KEY, COA_ALIAS_KEY, PREORDER_KEY
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -1569,6 +1569,7 @@ export function snapshotAll() {
     drafts: (() => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch { return {}; } })(),
     shops: getShops(),
     saleReturns: getSaleReturns(),
+    preorders: getPreorders(),
     exportedAt: new Date().toISOString(),
     version: 3
   };
@@ -1655,6 +1656,7 @@ export function restoreAll(snap) {
   if (!snap || typeof snap !== 'object') throw new Error('Snapshot tidak valid');
   if (Array.isArray(snap.shops) && snap.shops.length) { try { saveShops(snap.shops); } catch {} }
   if (Array.isArray(snap.saleReturns)) { try { saveSaleReturns(snap.saleReturns); } catch {} }
+  if (Array.isArray(snap.preorders)) { try { savePreorders(snap.preorders); } catch {} }
   let cE = 0, cL = 0, cR = 0, cP = 0;
   if (Array.isArray(snap.entries)) {
     const valid = snap.entries.map(sanitizeEntry).filter(Boolean);
@@ -2550,6 +2552,181 @@ export function setBankEndBalance(code, amount) {
 
 // ===== Penjualan kredit (jual dulu, bayar nanti) =====
 const CREDIT_KEY = 'wynara_credit_sales';
+
+// ===== Titip beli / Preorder (beli barang atas nama pelanggan) =====
+const PREORDER_KEY = 'wynara_preorders';
+export function getPreorders() {
+  try { const d = JSON.parse(localStorage.getItem(PREORDER_KEY) || '[]'); return Array.isArray(d) ? d : []; }
+  catch { return []; }
+}
+function savePreorders(list) { try { localStorage.setItem(PREORDER_KEY, JSON.stringify(list)); } catch {} }
+export function getPreorderById(id) { return getPreorders().find(x => x.id === id) || null; }
+export function preorderSellTotal(po) {
+  return ((po && po.items) || []).reduce((s, l) => s + Math.max(Number(l.qty) || 0, 0) * Math.max(Number(l.price) || 0, 0), 0);
+}
+export function preorderCostTotal(po) {
+  return ((po && po.costs) || []).reduce((s, c) => s + Math.max(Number(c.amount) || 0, 0), 0);
+}
+export function preorderGoodsCost(po) {
+  return ((po && po.costs) || []).filter(c => c.kind === 'barang').reduce((s, c) => s + Math.max(Number(c.amount) || 0, 0), 0);
+}
+export function preorderPaidTotal(po) {
+  return ((po && po.payments) || []).reduce((s, p) => s + Math.max(Number(p.amount) || 0, 0), 0);
+}
+export function preorderBalance(po) {
+  return Math.max(preorderSellTotal(po) - preorderPaidTotal(po), 0);
+}
+export function preorderProfit(po) {
+  return preorderPaidTotal(po) - preorderCostTotal(po);
+}
+function nextPreorderNo() {
+  const list = getPreorders();
+  const d = new Date();
+  return `PO-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${String(list.length + 1).padStart(3, '0')}`;
+}
+// Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
+export function createPreorder({ date, customer, items, deposit, payment, note, eta } = {}) {
+  requireCap('ledger');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const clean = (Array.isArray(items) ? items : []).filter(l => l && String(l.name || '').trim() && Number(l.qty) > 0)
+    .map(l => ({ name: String(l.name).trim().slice(0, 80), qty: Math.floor(Number(l.qty) || 1), price: Math.max(Math.round(Number(l.price) || 0), 0) }));
+  if (!clean.length) throw new Error('Tambahkan minimal satu barang pesanan');
+  const sellTotal = clean.reduce((s, l) => s + l.qty * l.price, 0);
+  if (sellTotal <= 0) throw new Error('Total pesanan harus > 0');
+  let dp = Math.min(Math.max(Math.round(Number(deposit) || 0), 0), sellTotal);
+  const id = generateId();
+  const rec = {
+    id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40),
+    customer: String(customer || '').trim().slice(0, 60),
+    items: clean, sellTotal, deposit: dp, payment: payment || 'cash',
+    costs: [], payments: [], stage: 'ordered',
+    note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
+  };
+  if (dp > 0) {
+    const j = buildPreorderPayJournal({ date: d, amount: dp, payment: rec.payment, memo: `DP titip beli ${rec.no}${rec.customer ? ' — ' + rec.customer : ''}` });
+    if (j) { j.refId = id; postJournal(j); }
+    rec.payments = [{ id: generateId(), date: d, amount: dp, payment: rec.payment, kind: 'DP', note: 'DP saat pesan' }];
+  }
+  const list = getPreorders().concat(rec);
+  savePreorders(list);
+  logAudit('create', 'preorder', id, null, { no: rec.no, sellTotal, deposit: dp });
+  return rec;
+}
+// Pelanggan bayar (DP sisa / pelunasan): Dr kas / Cr Customer Deposit.
+export function payPreorder(id, { amount, date, payment, note } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.stage === 'settled' || po.stage === 'cancelled') throw new Error('Pesanan sudah selesai');
+  const amt = Math.round(Number(amount) || 0);
+  if (amt <= 0) throw new Error('Jumlah bayar harus > 0');
+  const bal = preorderBalance(po);
+  if (amt > bal + 0.01) throw new Error(`Melebihi sisa tagihan (Rp${Math.round(bal).toLocaleString('id-ID')})`);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const j = buildPreorderPayJournal({ date: d, amount: amt, payment, memo: `Bayar titip beli ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
+  if (j) { j.refId = id; postJournal(j); }
+  po.payments = (po.payments || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'cash', kind: preorderPaidTotal(po) === 0 ? 'DP' : 'bayar', note: String(note || '').slice(0, 80) });
+  list[i] = po;
+  savePreorders(list);
+  logAudit('create', 'preorder-pay', id, null, { amount: amt });
+  return po;
+}
+// Biaya titip beli dari kita (beli barang/kirim/bea masuk/jasa): Dr 1105/6208/5199 Cr kas.
+export function addPreorderCost(id, { amount, kind, date, payment, note } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.stage === 'cancelled') throw new Error('Pesanan dibatalkan');
+  const amt = Math.round(Number(amount) || 0);
+  if (amt <= 0) throw new Error('Jumlah biaya harus > 0');
+  const k = ['barang', 'kirim', 'lain'].includes(kind) ? kind : 'barang';
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const j = buildPreorderCostJournal({ date: d, amount: amt, kind: k, payment, memo: `Biaya ${po.no}${po.customer ? ' — ' + po.customer : ''}${note ? ' • ' + note : ''}` });
+  if (j) { j.refId = id; postJournal(j); }
+  po.costs = (po.costs || []).concat({ id: generateId(), date: d, amount: amt, kind: k, payment: payment || 'cash', note: String(note || '').slice(0, 80) });
+  list[i] = po;
+  savePreorders(list);
+  logAudit('create', 'preorder-cost', id, null, { amount: amt, kind: k });
+  return po;
+}
+// Barang dibeli & dikirim (pengiriman dari China): hanya update tahap.
+export function shipPreorder(id, { note } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.stage !== 'ordered') throw new Error('Tahap sudah ' + po.stage);
+  po.stage = 'shipping';
+  po.shipNotes = String(note || '').slice(0, 80);
+  list[i] = po;
+  savePreorders(list);
+  logAudit('update', 'preorder', id, null, { stage: 'shipping' });
+  return po;
+}
+// Barang sampai + pelanggan bayar penuh sisa → uang muka jadi pendapatan, barang jadi HPP.
+export function settlePreorder(id, { date, payment, note } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.stage !== 'ordered' && po.stage !== 'shipping') throw new Error('Status pesanan: ' + po.stage);
+  const bal = preorderBalance(po);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  if (bal > 0.01) {
+    payPreorder(id, { amount: bal, date: d, payment, note: 'Pelunasan (barang sampai)' });
+    po.stage = 'shipping';
+  }
+  const cur = getPreorderById(id) || po;
+  const paid = preorderPaidTotal(cur);
+  const goods = preorderGoodsCost(cur);
+  const j = buildPreorderSettleJournal({ date: d, totalPaid: paid, costGoods: goods, memo: `Pelunasan titip beli ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
+  if (j) { j.refId = id; postJournal(j); }
+  cur.stage = 'settled';
+  cur.settledDate = d;
+  cur.settledNote = String(note || '').slice(0, 80);
+  const out = getPreorders();
+  const oi = out.findIndex(x => x.id === id);
+  if (oi >= 0) out[oi] = cur; else out.push(cur);
+  savePreorders(out);
+  logAudit('update', 'preorder', id, null, { stage: 'settled', paid, goods });
+  return cur;
+}
+// Selesaikan manual (barang sampai, pembayaran janggal) — tanpa jurnal pelunasan penuh.
+export function arrivePreorder(id, { date } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.stage !== 'ordered' && po.stage !== 'shipping') throw new Error('Status pesanan: ' + po.stage);
+  po.stage = 'arrived';
+  po.arrivedDate = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  list[i] = po;
+  savePreorders(list);
+  logAudit('update', 'preorder', id, null, { stage: 'arrived' });
+  return po;
+}
+// Batalkan & hapus pesanan: jurnal terkait dihapus agar kas & laba konsisten.
+export function deletePreorder(id) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const po = list.find(x => x.id === id);
+  if (!po) return false;
+  deleteJournalsByRef('preorder', id);
+  savePreorders(list.filter(x => x.id !== id));
+  logAudit('delete', 'preorder', id, null, { no: po.no });
+  return true;
+}
 export function getCreditSales() {
   try { const v = JSON.parse(localStorage.getItem(CREDIT_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
 }

@@ -788,6 +788,22 @@ function bindEvents() {
   UI.bindSupplierList(handleSupplierPay, handleSupplierDelete);
   UI.bindSupplierPay(handleSupplierPaySubmit);
   UI.bindSale(handleSaleSave);
+  // Pemeriksaan Pengiriman: delegasi klik untuk aksi per tahap
+  document.getElementById('deliveryList')?.addEventListener('click', (e) => {
+    const ship = e.target.closest('.order-ship');
+    const recv = e.target.closest('.order-recv');
+    const settle = e.target.closest('.order-settle');
+    const del = e.target.closest('.credit-del');
+    if (ship) openOrderShip(ship.dataset.id);
+    else if (recv) handleOrderReceive(recv.dataset.id);
+    else if (settle) openCreditPay(settle.dataset.id);
+    else if (del) deleteCreditSalePrompt(del.dataset.id);
+  });
+  document.getElementById('shipClose')?.addEventListener('click', closeOrderShip);
+  document.getElementById('shipCancel')?.addEventListener('click', closeOrderShip);
+  document.getElementById('shipSave')?.addEventListener('click', handleOrderShipSubmit);
+  // Titip beli (preorder)
+  bindPreorderUI();
   UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
   document.getElementById('assetOpenBtn')?.addEventListener('click', openAssets);
   document.getElementById('openingOpenBtn')?.addEventListener('click', openOpening);
@@ -866,6 +882,7 @@ function bindEvents() {
     overlay?.classList.add('hidden');
     if (viewId === 'viewTransaksi') renderFullTransaksi();
     if (viewId === 'viewSales') renderSalesPage();
+    if (viewId === 'viewPreorder') renderPreorderPage();
     if (viewId === 'viewKas') renderKasPage();
     if (viewId === 'viewPembelian') renderPembelianPage();
     if (viewId === 'viewBiaya') renderBiayaPage();
@@ -880,6 +897,7 @@ function bindEvents() {
   document.getElementById('salesBtnSidebar')?.addEventListener('click', () => showView('viewSales'));
   document.getElementById('kasBtnSidebar')?.addEventListener('click', () => showView('viewKas'));
   document.getElementById('pembelianBtnSidebar')?.addEventListener('click', () => showView('viewPembelian'));
+  document.getElementById('preorderBtnSidebar')?.addEventListener('click', () => showView('viewPreorder'));
   document.getElementById('biayaBtnSidebar')?.addEventListener('click', () => showView('viewBiaya'));
   document.getElementById('assetBtnSidebar')?.addEventListener('click', () => openAssets());
   document.getElementById('coaBtnSidebar')?.addEventListener('click', openCoaModal);
@@ -959,20 +977,6 @@ function bindEvents() {
     if (p) openCreditPay(p.dataset.id);
     else if (d) deleteCreditSalePrompt(d.dataset.id);
   });
-  // Pemeriksaan Pengiriman: delegasi klik untuk aksi per tahap
-  document.getElementById('deliveryList')?.addEventListener('click', (e) => {
-    const ship = e.target.closest('.order-ship');
-    const recv = e.target.closest('.order-recv');
-    const settle = e.target.closest('.order-settle');
-    const del = e.target.closest('.credit-del');
-    if (ship) openOrderShip(ship.dataset.id);
-    else if (recv) handleOrderReceive(recv.dataset.id);
-    else if (settle) openCreditPay(settle.dataset.id);
-    else if (del) deleteCreditSalePrompt(del.dataset.id);
-  });
-  document.getElementById('shipClose')?.addEventListener('click', closeOrderShip);
-  document.getElementById('shipCancel')?.addEventListener('click', closeOrderShip);
-  document.getElementById('shipSave')?.addEventListener('click', handleOrderShipSubmit);
   document.getElementById('salesPeriod')?.addEventListener('change', (e) => { salesPeriodValue = e.target.value; renderSalesPage(); });
   document.getElementById('lihatSemua')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewTransaksi'); });
   // Bottom nav mobile
@@ -992,6 +996,7 @@ function bindEvents() {
         { goto: 'stock', icon: '📦', label: 'Produk', aria: 'Produk dan stok' },
         { goto: 'sales', icon: '🛒', label: 'Penjualan', aria: 'Laporan penjualan' },
         { goto: 'pembelian', icon: '🧺', label: 'Pembelian', aria: 'Pembelian dan hutang supplier' },
+        { goto: 'preorder', icon: '🌏', label: 'Titip Beli', aria: 'Titip beli pelanggan' },
         { goto: 'biaya', icon: '💸', label: 'Biaya', aria: 'Pengeluaran operasional' },
         { goto: 'kas', icon: '💳', label: 'Kas', aria: 'Kas dan rekonsiliasi' },
         { goto: 'bank', icon: '🏦', label: 'Mutasi bank', aria: 'Import dan cocokkan mutasi bank' },
@@ -1033,6 +1038,7 @@ function bindEvents() {
     else if (target === 'stock') showView('viewStock');
     else if (target === 'sales') showView('viewSales');
     else if (target === 'pembelian') showView('viewPembelian');
+    else if (target === 'preorder') showView('viewPreorder');
     else if (target === 'biaya') showView('viewBiaya');
     else if (target === 'kas') { refreshKas(); UI.openKas(); }
     else if (target === 'bank') { refreshKas(); UI.setBankRows([]); UI.openBank(); }
@@ -2654,6 +2660,292 @@ function deleteCreditSalePrompt(id) {
   catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menghapus'); }
 }
 function refreshSalesPage() { try { renderSalesPage(); } catch {} }
+
+/* ===== Titip Beli / Preorder (beli atas nama pelanggan) ===== */
+const PO_STAGE_META = {
+  ordered:  { chip: '📦 DP diterima — siap beli China', bg: '#fef3c7', fg: '#b45309', need: 'Tindakan: catat biaya beli barang → kirim saat jalan 🚛' },
+  shipping: { chip: '🌏 Barang di jalan China → Indo',  bg: '#dbeafe', fg: '#1d4ed8', need: 'Tindakan: tunggu ~1 bulan, catat biaya kirim/bea masuk 🧾' },
+  arrived:  { chip: '✅ Barang sudah sampai di Indonesia', bg: '#dcfce7', fg: '#166534', need: 'Tindakan: serahkan ke pelanggan + tagih pembayaran penuh 💵' },
+  settled:  { chip: '🏁 Selesai — lunas', bg: '#dcfce7', fg: '#166534', need: 'Riwayat' },
+};
+function preorderFmt(v) { return 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID'); }
+function renderPreorderPage() {
+  if (!document.getElementById('viewPreorder')) return;
+  const list = Storage.getPreorders();
+  const fmt = preorderFmt;
+  let running = 0, unpaid = 0, cost = 0, profit = 0;
+  list.forEach(po => {
+    if (po.stage === 'settled') { profit += Storage.preorderProfit(po); }
+    else {
+      running++;
+      unpaid += Storage.preorderBalance(po);
+      cost += Storage.preorderCostTotal(po);
+    }
+  });
+  const kpi = document.getElementById('preorderKpi');
+  if (kpi) {
+    const tile = (label, value, color) => `<button type="button" style="cursor:default">${label}<b style="color:${color}">${value}</b></button>`;
+    kpi.innerHTML = tile('📋 Pesanan berjalan', running, '#2563eb')
+      + tile('💵 Belum dibayar pelanggan', fmt(unpaid), '#b45309')
+      + tile('🧾 Biaya sudah keluar', fmt(cost), '#475569')
+      + tile('💰 Laba (pesanan selesai)', fmt(profit), '#059669');
+  }
+  const box = document.getElementById('preorderList');
+  if (!box) return;
+  const takLunas = list.filter(po => po.stage !== 'settled').sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const riwayat = list.filter(po => po.stage === 'settled').sort((a, b) => String(b.settledDate || b.date).localeCompare(String(a.settledDate || a.date)));
+  const row = (po) => {
+    const meta = PO_STAGE_META[po.stage] || PO_STAGE_META.ordered;
+    const bal = Storage.preorderBalance(po);
+    const costTotal = Storage.preorderCostTotal(po);
+    const paid = Storage.preorderPaidTotal(po);
+    const itemsTxt = (po.items || []).map(l => `${l.qty}× ${escapeHtml(l.name)}`).join(', ');
+    const costTxt = (po.costs || []).length
+      ? (po.costs || []).map(c => `<span style="display:inline-block;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:2px 8px;margin:2px 4px 2px 0;font-size:10.5px">${c.kind === 'barang' ? '📦' : c.kind === 'kirim' ? '🚚' : '🧾'} ${preorderFmt(c.amount)}${c.note ? ' • ' + escapeHtml(c.note) : ''}</span>`).join('')
+      : '<span style="font-size:10.5px;color:#94a3b8">Belum ada biaya dicatat</span>';
+    const feeBtn = `<button class="btn btn-ghost preorder-cost" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🧾 Biaya</button>`;
+    let action = '';
+    if (po.stage === 'ordered') action = `<button class="btn btn-primary preorder-ship" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🚛 Barang di jalan</button>${bal > 0.01 ? ` <button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''}`;
+    else if (po.stage === 'shipping') action = `${bal > 0.01 ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''} <button class="btn btn-primary preorder-arrive" data-id="${po.id}" style="font-size:11px;padding:2px 8px">📦 Sampai</button>`;
+    else if (po.stage === 'arrived') action = `${bal > 0.01 ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar sisa ${preorderFmt(bal)}</button>` : ''}<button class="btn btn-primary preorder-settle" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🏁 Lunas & Selesai</button>`;
+    const delBtn = po.stage === 'settled' ? '' : ` <button class="btn btn-ghost preorder-del" data-id="${po.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan pesanan">🗑</button>`;
+    return `<tr>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.date)}${po.eta ? `<div style="font-size:10px;color:#64748b">ETA ${escapeHtml(po.eta)}</div>` : ''}</td>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.no)}</td>
+        <td style="font-size:12px">${escapeHtml(po.customer || '—')}<div style="font-size:10.5px;color:#475569">Total ${preorderFmt(po.sellTotal)} • sudah bayar ${preorderFmt(paid)} • biaya ${preorderFmt(costTotal)}</div><div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
+        <td><span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span><div style="font-size:10.5px;color:#475569;margin-top:2px">${escapeHtml(meta.need)}</div></td>
+        <td>${costTxt}</td>
+        <td class="amount-col" style="font-weight:${bal > 0.01 ? '700' : '400'};color:${bal > 0.01 ? '#b45309' : '#059669'}">${bal > 0.01 ? preorderFmt(bal) : 'Lunas'}</td>
+        <td style="white-space:nowrap">${action}${feeBtn}${delBtn}</td>
+      </tr>`;
+  };
+  const envOne = (title, arr, autoOpenVal) => arr.length ? `<div style="font-size:11px;font-weight:700;color:#64748b;margin:8px 0 4px">${title}</div><div style="overflow-x:auto"><table class="report-table"><thead><tr>
+    <th>Tanggal</th><th>No</th><th>Pelanggan</th><th>Tahap</th><th>Biaya</th><th class="amount-col">Sisa tagihan</th><th></th></tr></thead><tbody>${arr.map(row).join('')}</tbody></table></div>`
+    : `<p style="color:var(--text-muted);font-size:12px">${title} — belum ada.</p>`;
+  const envTwo = (title2, arr2) => arr2.length ? `<div style="font-size:11px;font-weight:700;color:#64748b;margin:16px 0 4px">${title2}</div><div style="overflow-x:auto"><table class="report-table"><thead><tr>
+    <th>No</th><th>Pelanggan</th><th class="amount-col">Terbayar</th><th class="amount-col">Total biaya</th><th class="amount-col">Laba</th><th></th></tr></thead><tbody>${arr2.map(po => `<tr>
+      <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.no)}</td>
+      <td style="font-size:12px">${escapeHtml(po.customer || '—')}</td>
+      <td class="amount-col">${preorderFmt(Storage.preorderPaidTotal(po))}</td>
+      <td class="amount-col">${preorderFmt(Storage.preorderCostTotal(po))}</td>
+      <td class="amount-col" style="color:${Storage.preorderProfit(po) >= 0 ? '#059669' : '#dc2626'};font-weight:700">${preorderFmt(Storage.preorderProfit(po))}</td>
+      <td></td></tr>`).join('')}</tbody></table></div>` : '';
+  box.innerHTML = envOne('🚀 Pesanan Berjalan', takLunas) + envTwo('🗂 Riwayat (Lunas)', riwayat);
+}
+function openPreorder() {
+  const m = document.getElementById('preorderModal');
+  if (!m) return;
+  document.getElementById('preorderCustomer').value = '';
+  document.getElementById('preorderDate').value = new Date().toISOString().split('T')[0];
+  const eta = document.getElementById('preorderEta'); if (eta) eta.value = '1 bulan';
+  const dep = document.getElementById('preorderDeposit'); if (dep) { dep.value = ''; delete dep.dataset.touched; }
+  document.getElementById('preorderRows').innerHTML = '';
+  addPreorderRow();
+  addPreorderRow();
+  renderPreorderInfo();
+  const er = document.getElementById('preorderError'); if (er) er.textContent = '';
+  if (!m.open) { try { m.showModal(); } catch {} }
+  setTimeout(() => document.getElementById('preorderCustomer')?.focus(), 60);
+}
+function closePreorder() { const m = document.getElementById('preorderModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function addPreorderRow(pre) {
+  const box = document.getElementById('preorderRows');
+  if (!box) return;
+  const row = document.createElement('div');
+  row.className = 'preorder-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px';
+  row.innerHTML = `
+    <input type="text" class="preorder-item-name" placeholder="Nama barang (mis. polytron, shell)" maxlength="80" style="flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <input type="number" class="preorder-item-qty" min="1" step="1" value="1" title="Qty" style="width:60px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 6px;font-size:13px;text-align:center">
+    <input type="text" class="preorder-item-price" inputmode="decimal" placeholder="Rp/pcs (harga dijual)" style="flex:1;min-width:120px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <button type="button" class="btn btn-ghost preorder-row-del" aria-label="Hapus baris" style="font-size:12px;padding:4px 8px;color:#ef4444">✕</button>`;
+  const name = row.querySelector('.preorder-item-name');
+  const qty = row.querySelector('.preorder-item-qty');
+  const price = row.querySelector('.preorder-item-price');
+  name.addEventListener('input', renderPreorderInfo);
+  qty.addEventListener('input', () => { renderPreorderInfo(); maybeAddPoRow(); });
+  price.addEventListener('blur', () => { const v = UI.parseIdrInput(price.value); price.value = v ? UI.formatIdrInput ? UI.formatIdrInput(v) : (v ? String(v) : '') : ''; renderPreorderInfo(); });
+  price.addEventListener('input', () => { renderPreorderInfo(); maybeAddPoRow(); });
+  row.querySelector('.preorder-row-del').addEventListener('click', () => { row.remove(); renderPreorderInfo(); });
+  box.appendChild(row);
+}
+function maybeAddPoRow() {
+  const box = document.getElementById('preorderRows');
+  if (!box) return;
+  const rows = [...box.querySelectorAll('.preorder-row')];
+  const last = rows[rows.length - 1];
+  if (!last) return;
+  const name = last.querySelector('.preorder-item-name');
+  const qty = last.querySelector('.preorder-item-qty');
+  const price = last.querySelector('.preorder-item-price');
+  if (name && name.value.trim() && Number(qty.value) > 0 && UI.parseIdrInput(price.value || '') > 0 && rows.length < 30) addPreorderRow();
+}
+function readPreorderRows() {
+  const rows = [...document.querySelectorAll('#preorderRows .preorder-row')];
+  return rows.map(row => ({
+    name: (row.querySelector('.preorder-item-name')?.value || '').trim(),
+    qty: Math.max(parseInt(row.querySelector('.preorder-item-qty')?.value || '0', 10) || 0, 0),
+    price: Math.round(Number(UI.parseIdrInput(row.querySelector('.preorder-item-price')?.value || '')) || 0),
+  })).filter(l => l.name && l.qty > 0 && l.price > 0);
+}
+function renderPreorderInfo() {
+  const el = document.getElementById('preorderInfo');
+  if (!el) return;
+  const lines = readPreorderRows();
+  const total = lines.reduce((s, l) => s + l.qty * l.price, 0);
+  const depEl = document.getElementById('preorderDeposit');
+  const dep = Math.min(Math.max(Number(UI.parseIdrInput(depEl?.value || '')) || 0, 0), total);
+  el.innerHTML = total > 0
+    ? `Total ke pelanggan: <b>${preorderFmt(total)}</b>${dep > 0 ? ` • DP ${preorderFmt(dep)} → masuk kas, sisa dibayar saat barang datang (${preorderFmt(total - dep)})` : ' • tanpa DP'}`
+    : '<span style="color:var(--text-muted)">Isi min 1 baris barang: nama, qty, harga jual ke pelanggan.</span>';
+}
+function closePoPay() { const m = document.getElementById('preorderPayModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function openPoPay(id) {
+  const po = Storage.getPreorderById(id);
+  if (!po) return;
+  document.getElementById('preorderPayId').value = id;
+  const bal = Storage.preorderBalance(po);
+  const info = document.getElementById('preorderPayInfo');
+  if (info) info.innerHTML = `<b>${escapeHtml(po.no || '')}</b> — ${escapeHtml(po.customer || '')}<br>Total ${preorderFmt(po.sellTotal)} • sudah dibayar ${preorderFmt(Storage.preorderPaidTotal(po))} • <b>sisa ${preorderFmt(bal)}</b>`;
+  const amt = document.getElementById('preorderPayAmount'); if (amt) { amt.value = String(Math.round(bal)); delete amt.dataset.touched; }
+  const dt = document.getElementById('preorderPayDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
+  const er = document.getElementById('preorderPayError'); if (er) er.textContent = '';
+  const m = document.getElementById('preorderPayModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function handlePoPaySubmit() {
+  const id = document.getElementById('preorderPayId')?.value || '';
+  const amount = Math.round(Number(UI.parseIdrInput(document.getElementById('preorderPayAmount')?.value || '')) || 0);
+  const date = document.getElementById('preorderPayDate')?.value || new Date().toISOString().split('T')[0];
+  const payment = document.getElementById('preorderPayPayment')?.value || 'cash';
+  if (!id) return;
+  try {
+    Storage.payPreorder(id, { amount, date, payment });
+    closePoPay();
+    UI.showSuccess('Pembayaran diterima — uang muka pelanggan tercatat');
+    refreshPreorderPage();
+  } catch (e) {
+    const er = document.getElementById('preorderPayError');
+    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan bayar';
+    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan bayar');
+  }
+}
+function closePoCost() { const m = document.getElementById('preorderCostModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function openPoCost(id) {
+  const po = Storage.getPreorderById(id);
+  if (!po) return;
+  document.getElementById('preorderCostId').value = id;
+  const info = document.getElementById('preorderCostInfo');
+  if (info) info.innerHTML = `<b>${escapeHtml(po.no || '')}</b> — ${escapeHtml(po.customer || '')} • total biaya sejauh ini ${preorderFmt(Storage.preorderCostTotal(po))}`;
+  const amt = document.getElementById('preorderCostAmount'); if (amt) { amt.value = ''; delete amt.dataset.touched; }
+  const dt = document.getElementById('preorderCostDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
+  const er = document.getElementById('preorderCostError'); if (er) er.textContent = '';
+  const m = document.getElementById('preorderCostModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function handlePoCostSubmit() {
+  const id = document.getElementById('preorderCostId')?.value || '';
+  const amount = Math.round(Number(UI.parseIdrInput(document.getElementById('preorderCostAmount')?.value || '')) || 0);
+  const kind = document.getElementById('preorderCostKind')?.value || 'barang';
+  const date = document.getElementById('preorderCostDate')?.value || new Date().toISOString().split('T')[0];
+  const payment = document.getElementById('preorderCostPayment')?.value || 'cash';
+  const note = document.getElementById('preorderCostNote')?.value.trim() || '';
+  if (!id) return;
+  try {
+    Storage.addPreorderCost(id, { amount, kind, date, payment, note });
+    closePoCost();
+    UI.showSuccess('Biaya dicatat — ' + (kind === 'barang' ? 'masuk nilai barang pesanan' : kind === 'kirim' ? 'beban kirim' : 'beban lainnya'));
+    refreshPreorderPage();
+  } catch (e) {
+    const er = document.getElementById('preorderCostError');
+    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan biaya';
+    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan biaya');
+  }
+}
+function handlePreorderSubmit() {
+  const d = {
+    customer: document.getElementById('preorderCustomer')?.value.trim() || '',
+    date: document.getElementById('preorderDate')?.value || new Date().toISOString().split('T')[0],
+    eta: document.getElementById('preorderEta')?.value.trim() || '',
+    deposit: Number(UI.parseIdrInput(document.getElementById('preorderDeposit')?.value || '')) || 0,
+    payment: document.getElementById('preorderPayment')?.value || 'cash',
+  };
+  d.items = readPreorderRows();
+  if (!d.customer) { const er = document.getElementById('preorderError'); if (er) er.textContent = 'Isi nama pelanggan'; else UI.showError('Isi nama pelanggan'); return; }
+  if (!d.items.length) { const er = document.getElementById('preorderError'); if (er) er.textContent = 'Isi min 1 barang (nama + qty + harga)'; else UI.showError('Isi min 1 barang'); return; }
+  try {
+    const po = Storage.createPreorder(d);
+    closePreorder();
+    UI.showSuccess(`Pesanan ${po.no || po.id} tersimpan — ${preorderFmt(Storage.preorderSellTotal ? Storage.preorderSellTotal(po) : po.sellTotal)} — sisa dibayar saat barang datang`);
+    refreshPreorderPage();
+  } catch (e) {
+    const er = document.getElementById('preorderError');
+    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan pesanan';
+    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan pesanan');
+  }
+}
+function refreshPreorderPage() { try { renderPreorderPage(); } catch {} }
+function bindPreorderUI() {
+  document.getElementById('preorderBtnSidebar')?.addEventListener('click', () => showView('viewPreorder'));
+  document.getElementById('preorderNewBtn')?.addEventListener('click', openPreorder);
+  document.getElementById('preorderClose')?.addEventListener('click', closePreorder);
+  document.getElementById('preorderCancel')?.addEventListener('click', closePreorder);
+  document.getElementById('preorderAddRow')?.addEventListener('click', addPreorderRow);
+  document.getElementById('preorderSave')?.addEventListener('click', handlePreorderSubmit);
+  document.getElementById('preorderDeposit')?.addEventListener('input', renderPreorderInfo);
+  document.getElementById('preorderList')?.addEventListener('click', (e) => {
+    const ship = e.target.closest('.preorder-ship');
+    const arr = e.target.closest('.preorder-arrive');
+    const stl = e.target.closest('.preorder-settle');
+    const pay = e.target.closest('.preorder-pay');
+    const fee = e.target.closest('.preorder-cost');
+    const del = e.target.closest('.preorder-del');
+    if (ship) orderShipPrompt(ship.dataset.id);
+    else if (arr) orderArrivePrompt(arr.dataset.id);
+    else if (stl) orderSettlePrompt(stl.dataset.id);
+    else if (pay) openPoPay(pay.dataset.id);
+    else if (fee) openPoCost(fee.dataset.id);
+    else if (del) orderDeletePrompt(del.dataset.id);
+  });
+  document.getElementById('preorderPayClose')?.addEventListener('click', closePoPay);
+  document.getElementById('preorderPayCancel')?.addEventListener('click', closePoPay);
+  document.getElementById('preorderPaySave')?.addEventListener('click', handlePoPaySubmit);
+  document.getElementById('preorderCostClose')?.addEventListener('click', closePoCost);
+  document.getElementById('preorderCostCancel')?.addEventListener('click', closePoCost);
+  document.getElementById('preorderCostSave')?.addEventListener('click', handlePoCostSubmit);
+}
+function orderShipPrompt(id) {
+  const po = Storage.getPreorderById(id);
+  if (!po) return;
+  if (!confirm(`Barang ${po.no} sudah dibeli dan dikirim dari China?`)) return;
+  try { Storage.shipPreorder(id, {}); UI.showSuccess('Barang dinyatakan di jalan — tunggu sampai tiba (~1 bulan)'); refreshPreorderPage(); }
+  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui tahap'); }
+}
+function orderArrivePrompt(id) {
+  const po = Storage.getPreorderById(id);
+  if (!po) return;
+  if (!confirm(`Paket ${po.no} sudah tiba di Indonesia/di tangan admin?`)) return;
+  try { Storage.arrivePreorder(id, {}); UI.showSuccess('Barang sampai — serahkan ke pelanggan, terima pembayaran penuh'); refreshPreorderPage(); }
+  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui tahap'); }
+}
+function orderSettlePrompt(id) {
+  const po = Storage.getPreorderById(id);
+  if (!po) return;
+  const bal = Storage.preorderBalance(po);
+  const ok = bal <= 0.01
+    ? confirm(`Tandai ${po.no} SELESAI (lunas)? Barang jadi HPP, uang muka jadi pendapatan.`)
+    : confirm(`Pelunasan ${po.no}: terima sisa ${preorderFmt(bal)} sekaligus & selesaikan?`);
+  if (!ok) return;
+  try { Storage.settlePreorder(id, {}); UI.showSuccess('Pesanan selesai — laba masuk laporan'); refreshPreorderPage(); }
+  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyelesaikan pesanan'); }
+}
+function orderDeletePrompt(id) {
+  const po = Storage.getPreorderById(id);
+  if (!po) return;
+  if (!confirm(`Batalkan & hapus pesanan ${po.no}? Semua jurnal ${po.no} (DP, biaya, bayar) ikut dihapus.`)) return;
+  try { Storage.deletePreorder(id); UI.showSuccess('Pesanan dibatalkan'); refreshPreorderPage(); }
+  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menghapus'); }
+}
 function printSalesPage() {
   const src = document.getElementById('salesContent');
   const label = document.getElementById('salesPeriod')?.selectedOptions?.[0]?.textContent || '';

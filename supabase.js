@@ -35,6 +35,7 @@ export const KV_KEYS = [
   'wynara_counters', 'wynara_leave', 'wynara_ump', 'wynara_shops', 'wynara_sale_returns',
   'wynara_bank_endbal',
   'wynara_coa_alias',
+  'wynara_preorders',
 ];export const DRAFT_KEY = 'wynara_payroll_drafts'; // dipecah per bulan: draft:YYYY-MM
 export const TOMB_PREFIX = 'tomb:';
 export const TOMB_TTL_MS = 30 * 86400000;

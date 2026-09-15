@@ -201,6 +201,7 @@
           <button class="sidebar-item" id="kasBtnSidebar">💳 Kas &amp; Bank</button>
           <button class="sidebar-item" id="salesBtnSidebar">🛒 Penjualan</button>
           <button class="sidebar-item" id="pembelianBtnSidebar">🧺 Pembelian</button>
+          <button class="sidebar-item" id="preorderBtnSidebar">🌏 Titip Beli</button>
           <button class="sidebar-item" id="biayaBtnSidebar">💸 Biaya</button>
           <button class="sidebar-item" id="assetBtnSidebar">🏢 Aset Tetap</button>
         </nav>
@@ -606,6 +607,25 @@
                 <span id="transaksiSaldo" style="font-weight:600">Total saldo: Rp 0,00</span>
                 <div class="table-pager" style="display:flex;gap:4px"><button type="button" id="transaksiPrev" aria-label="Halaman sebelumnya" disabled>‹</button><span class="pager-active" id="transaksiPagerNum">1</span><button type="button" id="transaksiNext" aria-label="Halaman berikutnya" disabled>›</button></div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="viewPreorder" class="view-section hidden">
+          <div class="view-header">
+            <div>
+              <h1>🌏 Titip Beli (Preorder)</h1>
+              <p id="preorderSubtitle">Beli barang atas nama pelanggan — dari pesanan, biaya China & kirim, sampai barang datang dan pelunasan</p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="preorderNewBtn">＋ Pesanan Baru</button>
+            </div>
+          </div>
+          <div id="preorderContent">
+            <div id="preorderKpi" class="stock-kpi" aria-label="Ringkasan titip beli"></div>
+            <div class="dash-panel" style="padding:16px;margin-bottom:16px">
+              <h3 style="margin-bottom:8px">📋 Daftar Pesanan <span style="font-size:12px;font-weight:500;color:#64748b">— alur: DP → beli & kirim dari China (~1 bulan) → barang datang → pelanggan bayar penuh</span></h3>
+              <div id="preorderList"></div>
             </div>
           </div>
         </div>
@@ -1859,14 +1879,7 @@
     </div>
   </dialog>
 
-  <dialog id="buyModal" class="modal">
-    <div class="modal-content modal-lg">
-      <header class="modal-header">
-        <h2>📥 Beli ke Supplier</h2>
-        <button type="button" class="modal-close" aria-label="Tutup" id="closeBuyBtn">&times;</button>
-      </header>
-      <div class="modal-body">
-      <dialog id="shipModal" class="modal">
+  <dialog id="shipModal" class="modal">
     <div class="modal-content" style="max-width:420px">
       <header class="modal-header">
         <h2>🚚 Tandai Dikirim</h2>
@@ -1889,6 +1902,104 @@
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="shipCancel">Batal</button>
         <button type="button" class="btn btn-primary" id="shipSave">🚚 Simpan — Sedang Dikirim</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog id="preorderModal" class="modal">
+    <div class="modal-content" style="max-width:560px">
+      <header class="modal-header">
+        <h2>🌏 Titip Beli — Pesanan Baru</h2>
+        <button type="button" class="modal-close" aria-label="Tutup" id="preorderClose">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="flex:2;min-width:140px;font-size:11px;color:#64748b">Pelanggan*
+            <input type="text" id="preorderCustomer" maxlength="60" list="peopleList" placeholder="Nama pelanggan" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          <label style="flex:1;min-width:110px;font-size:11px;color:#64748b">Tanggal
+            <input type="date" id="preorderDate" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          <label style="flex:1;min-width:110px;font-size:11px;color:#64748b">Perkiraan datang (ETA)
+            <input type="text" id="preorderEta" maxlength="40" placeholder="mis. 1 bulan" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+        </div>
+        <div id="preorderRows"></div>
+        <button type="button" class="btn btn-ghost" id="preorderAddRow" style="font-size:12px;margin-top:6px">＋ Tambah baris</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:10px">
+          <label style="flex:1;min-width:140px;font-size:11px;color:#64748b">DP sekarang (Rp, opsional) <input type="text" id="preorderDeposit" inputmode="decimal" placeholder="0" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          <label style="flex:1;min-width:140px;font-size:11px;color:#64748b">Cara bayar
+            <select id="preorderPayment" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:2px">
+              <option value="cash">💵 Tunai</option><option value="transfer">🏦 Transfer</option><option value="qris">📱 QRIS</option><option value="ewallet">🛍 E-Wallet</option>
+            </select></label>
+        </div>
+        <div id="preorderInfo" style="font-size:11px;color:#64748b;margin-top:6px"></div>
+        <div id="preorderError" role="alert" style="color:#dc2626;font-size:12px;margin-top:8px"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="preorderCancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="preorderSave">💾 Simpan Pesanan</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog id="preorderPayModal" class="modal">
+    <div class="modal-content" style="max-width:420px">
+      <header class="modal-header">
+        <h2>💵 Terima Pembayaran</h2>
+        <button type="button" class="modal-close" aria-label="Tutup" id="preorderPayClose">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="preorderPayId">
+        <div id="preorderPayInfo" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
+        <label style="font-size:12px;display:block;margin-bottom:8px">Jumlah bayar (Rp)
+          <input type="text" id="preorderPayAmount" inputmode="decimal" placeholder="0" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label style="flex:1;min-width:130px;font-size:12px">Tanggal
+            <input type="date" id="preorderPayDate" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+          <label style="flex:1;min-width:130px;font-size:12px">Cara bayar
+            <select id="preorderPayPayment" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:3px">
+              <option value="cash">💵 Tunai</option><option value="transfer">🏦 Transfer</option><option value="qris">📱 QRIS</option><option value="ewallet">🛍 E-Wallet</option><option value="debit">💳 Debit</option><option value="other">📦 Lainnya</option>
+            </select></label>
+        </div>
+        <div id="preorderPayError" role="alert" style="color:#dc2626;font-size:12px;margin-top:8px"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="preorderPayCancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="preorderPaySave">💾 Simpan</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog id="preorderCostModal" class="modal">
+    <div class="modal-content" style="max-width:420px">
+      <header class="modal-header">
+        <h2>🧾 Biaya Titip Beli</h2>
+        <button type="button" class="modal-close" aria-label="Tutup" id="preorderCostClose">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="preorderCostId">
+        <div id="preorderCostInfo" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
+        <label style="font-size:12px;display:block;margin-bottom:8px">Jenis biaya
+          <select id="preorderCostKind" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:3px">
+            <option value="barang">📦 Beli barang (ke stok pesanan)</option>
+            <option value="kirim">🚚 Kirim / logistik China-Indo</option>
+            <option value="lain">🧾 Lainnya (bea masuk, jasa, dll)</option>
+          </select></label>
+        <label style="font-size:12px;display:block;margin-bottom:8px">Jumlah (Rp)
+          <input type="text" id="preorderCostAmount" inputmode="decimal" placeholder="0" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label style="flex:1;min-width:130px;font-size:12px">Tanggal
+            <input type="date" id="preorderCostDate" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+          <label style="flex:1;min-width:130px;font-size:12px">Cara bayar
+            <select id="preorderCostPayment" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:3px">
+              <option value="cash">💵 Tunai</option><option value="transfer">🏦 Transfer</option><option value="qris">📱 QRIS</option><option value="ewallet">🛍 E-Wallet</option><option value="debit">💳 Debit</option><option value="other">📦 Lainnya</option>
+            </select></label>
+        </div>
+        <label style="font-size:12px;display:block;margin-top:8px">Catatan (opsional)
+          <input type="text" id="preorderCostNote" maxlength="80" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <div id="preorderCostError" role="alert" style="color:#dc2626;font-size:12px;margin-top:8px"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="preorderCostCancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="preorderCostSave">💾 Simpan Biaya</button>
       </footer>
     </div>
   </dialog>
