@@ -4160,6 +4160,7 @@ export function openSale() {
   document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('saleNote').value = '';
   document.getElementById('salePPN').checked = false;
+  const ofl = document.getElementById('saleOrderFlow'); if (ofl) ofl.checked = false;
   const disc = document.getElementById('saleDiscount'); if (disc) disc.value = '';
   const srch = document.getElementById('saleSearch'); if (srch) srch.value = '';
   document.getElementById('saleRows').innerHTML = '';
@@ -4279,6 +4280,7 @@ export function getSaleData() {
     note: document.getElementById('saleNote')?.value.trim() || '',
     ppn: !!document.getElementById('salePPN')?.checked,
     credit: !!document.getElementById('saleCredit')?.checked,
+    flow: document.getElementById('saleOrderFlow')?.checked ? 'order' : 'credit',
     depositPct: Math.min(Math.max(Number(document.getElementById('saleDepositPct')?.value) || 0, 0), 100),
     deposit: Number(parseIdrInput(document.getElementById('saleDeposit')?.value || '')) || 0,
     terms: Math.max(parseInt(document.getElementById('saleTerms')?.value || '1', 10) || 1, 1),
@@ -4286,6 +4288,7 @@ export function getSaleData() {
     subtotal, discount, total, lines
   };
 }
+const STAGE_LABEL = { ordered: 'DP diterima, menunggu kirim', shipped: 'Sedang dikirim', delivered: 'Diterima, menunggu pelunasan', done: 'Selesai' };
 function updateSaleCreditInfo(data) {
   const el = document.getElementById('saleCreditInfo');
   if (!el) return;
@@ -4294,7 +4297,8 @@ function updateSaleCreditInfo(data) {
   const sisa = Math.max(data.total - dp, 0);
   const terms = Math.max(parseInt(document.getElementById('saleTerms')?.value || '1', 10) || 1, 1);
   const per = terms > 1 ? Math.round(sisa / terms) : sisa;
-  el.innerHTML = `DP masuk kas <b>${formatCurrency(dp)}</b> • Sisa jadi <b>piutang ${formatCurrency(sisa)}</b>${terms > 1 ? ` • ${terms}× ${formatCurrency(per)}` : ''}`;
+  const flow = document.getElementById('saleOrderFlow')?.checked;
+  el.innerHTML = `DP masuk kas <b>${formatCurrency(dp)}</b> • Sisa jadi <b>piutang ${formatCurrency(sisa)}</b>${terms > 1 ? ` • ${terms}× ${formatCurrency(per)}` : ''}${flow ? `<br><span style="color:#2563eb">🚚 Alur: ${STAGE_LABEL.ordered} → dikirim → diterima pelanggan → pelunasan sisa</span>` : ''}`;
 }
 export function bindSale(onSave) {
   document.getElementById('closeSaleBtn')?.addEventListener('click', closeSale);
@@ -4326,6 +4330,8 @@ export function bindSale(onSave) {
   });
   document.getElementById('saleDeposit')?.addEventListener('input', (e) => { e.target.dataset.touched = '1'; recalcSale(); });
   document.getElementById('saleTerms')?.addEventListener('input', recalcSale);
+  // Alur pesanan: DP → kirim → diterima → pelunasan
+  document.getElementById('saleOrderFlow')?.addEventListener('change', recalcSale);
   // POS: scan/kode/nama + Enter → tambah atau tambah qty
   document.getElementById('saleSearch')?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;

@@ -2587,7 +2587,8 @@ function nextCreditInvoiceNo() {
   return `INV-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${String(list.length + 1).padStart(3, '0')}`;
 }
 // Penjualan kredit: pendapatan penuh + DP masuk kas + sisa jadi Piutang (1201), stok & HPP diakui.
-export function createCreditSale({ date, dueDate, customer, person, lines, discount, ppn, deposit, depositPct, terms, payment, note }) {
+// flow='order': alur pesanan DP → dikirim → diterima → pelunasan (dilacak lewat Pemeriksaan Pengiriman).
+export function createCreditSale({ date, dueDate, customer, person, lines, discount, ppn, deposit, depositPct, terms, payment, note, flow }) {
   requireCap('ledger');
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
@@ -2625,9 +2626,13 @@ export function createCreditSale({ date, dueDate, customer, person, lines, disco
     customer: String(customer || '').slice(0, 60), person: String(person || customer || '').slice(0, 60),
     lines: cleanLines, subtotal: sub, discount: disc, ppn: !!ppn, total, deposit: dp,
     terms: Math.max(Math.floor(Number(terms) || 1), 1), payments: [],
+    flow: flow === 'order' ? 'order' : 'credit',
+    stage: flow === 'order' ? 'ordered' : '',
+    shipment: null, deliveredDate: '',
     status: dp >= total - 0.01 ? 'paid' : 'open',
     note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
   };
+  if (rec.status === 'paid' && rec.flow === 'order') { rec.stage = 'done'; rec.deliveredDate = d; }
   saveCreditSales(getCreditSales().concat(rec));
   logAudit('create', 'credit-sale', id, null, { invoiceNo, total, deposit: dp });
   return rec;
@@ -2648,9 +2653,45 @@ export function payCreditSale(id, { amount, date, payment, note } = {}) {
   if (j) { j.refId = id; postJournal(j); }
   cs.payments = (cs.payments || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'cash', note: String(note || '').slice(0, 80), createdAt: new Date().toISOString() });
   cs.status = creditOutstanding(cs) <= 0.01 ? 'paid' : 'open';
+  if (cs.flow === 'order') cs.stage = creditOutstanding(cs) <= 0.01 ? 'done' : (cs.stage || 'ordered');
   list[i] = cs;
   saveCreditSales(list);
   logAudit('create', 'credit-sale-pay', id, null, { amount: amt });
+  return cs;
+}
+// Pemeriksaan Pengiriman: tandai pesanan sedang dikirim (single shipment).
+export function shipCreditSale(id, { courier, tracking, date, note } = {}) {
+  requireCap('ledger');
+  const list = getCreditSales();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Penjualan tidak ditemukan');
+  const cs = list[i];
+  if (cs.flow !== 'order') throw new Error('Bukan pesanan alur pengiriman');
+  if (cs.stage && cs.stage !== 'ordered') throw new Error('Pesanan sudah dikirim — status: ' + cs.stage);
+  cs.stage = 'shipped';
+  cs.shipment = {
+    courier: String(courier || '').slice(0, 60), tracking: String(tracking || '').slice(0, 40),
+    date: String(date || new Date().toISOString().split('T')[0]).slice(0, 10), note: String(note || '').slice(0, 80),
+  };
+  list[i] = cs;
+  saveCreditSales(list);
+  logAudit('update', 'credit-sale', id, null, { stage: 'shipped', shipment: cs.shipment });
+  return cs;
+}
+// Pemeriksaan Pengiriman: tandai kedatangan barang (diterima pelanggan), tunggu pelunasan.
+export function receiveCreditSale(id, { date } = {}) {
+  requireCap('ledger');
+  const list = getCreditSales();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Penjualan tidak ditemukan');
+  const cs = list[i];
+  if (cs.flow !== 'order') throw new Error('Bukan pesanan alur pengiriman');
+  if (cs.stage !== 'shipped') throw new Error('Tandai dulu sebagai dikirim');
+  cs.stage = 'delivered';
+  cs.deliveredDate = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  list[i] = cs;
+  saveCreditSales(list);
+  logAudit('update', 'credit-sale', id, null, { stage: 'delivered', deliveredDate: cs.deliveredDate });
   return cs;
 }
 export function deleteCreditSale(id) {

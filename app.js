@@ -959,6 +959,20 @@ function bindEvents() {
     if (p) openCreditPay(p.dataset.id);
     else if (d) deleteCreditSalePrompt(d.dataset.id);
   });
+  // Pemeriksaan Pengiriman: delegasi klik untuk aksi per tahap
+  document.getElementById('deliveryList')?.addEventListener('click', (e) => {
+    const ship = e.target.closest('.order-ship');
+    const recv = e.target.closest('.order-recv');
+    const settle = e.target.closest('.order-settle');
+    const del = e.target.closest('.credit-del');
+    if (ship) openOrderShip(ship.dataset.id);
+    else if (recv) handleOrderReceive(recv.dataset.id);
+    else if (settle) openCreditPay(settle.dataset.id);
+    else if (del) deleteCreditSalePrompt(del.dataset.id);
+  });
+  document.getElementById('shipClose')?.addEventListener('click', closeOrderShip);
+  document.getElementById('shipCancel')?.addEventListener('click', closeOrderShip);
+  document.getElementById('shipSave')?.addEventListener('click', handleOrderShipSubmit);
   document.getElementById('salesPeriod')?.addEventListener('change', (e) => { salesPeriodValue = e.target.value; renderSalesPage(); });
   document.getElementById('lihatSemua')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewTransaksi'); });
   // Bottom nav mobile
@@ -2478,6 +2492,92 @@ function renderSalesPage() {
   renderCreditSection();
 }
 
+/* ===== Pemeriksaan Pengiriman (alur pesanan: DP → kirim → diterima → pelunasan) ===== */
+const ORDER_STAGE_META = {
+  ordered:   { chip: '📦 Pesanan dibuat — DP diterima',       bg: '#fef3c7', fg: '#b45309', need: 'Tindakan: kirim barang ke pelanggan' },
+  shipped:   { chip: '🚚 Sedang dikirim — tunggu sampai',     bg: '#dbeafe', fg: '#1d4ed8', need: 'Tindakan: lacak paket, tandai diterima setelah sampai' },
+  delivered: { chip: '✅ Diterima pelanggan — tunggu pelunasan', bg: '#dcfce7', fg: '#166534', need: 'Tindakan: tagih sisa pembayaran (pelunasan)' },
+  done:      { chip: '🏁 Selesai',                            bg: '#dcfce7', fg: '#166534', need: 'Selesai' },
+};
+function renderDeliverySection() {
+  const box = document.getElementById('deliveryList');
+  if (!box) return;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const list = Storage.getCreditSales()
+    .filter(cs => cs.flow === 'order' && cs.stage !== 'done')
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (!list.length) {
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:12px">Tidak ada pesanan berjalan. Buat penjualan dengan ✔ Bayar nanti + 🚚 Alur pesanan untuk melacak pengiriman.</p>';
+    return;
+  }
+  box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+    <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Tahap</th><th>Yang diperlukan</th><th class="amount-col">Sisa</th><th class="amount-col">Total</th><th></th></tr></thead><tbody>
+    ${list.map(cs => {
+      const meta = ORDER_STAGE_META[cs.stage] || ORDER_STAGE_META.ordered;
+      const out = Storage.creditOutstanding(cs);
+      const overdue = out > 0.01 && cs.dueDate && new Date(cs.dueDate + 'T00:00:00') < today;
+      const ship = cs.stage === 'shipped' && cs.shipment ? `<div style="font-size:10.5px;color:#475569">${escapeHtml(cs.shipment.courier || 'kurir')}${cs.shipment.tracking ? ' • resi ' + escapeHtml(cs.shipment.tracking) : ''} • ${escapeHtml(cs.shipment.date)}</div>` : '';
+      const action = cs.stage === 'ordered'
+        ? `<button class="btn btn-primary order-ship" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim</button>`
+        : cs.stage === 'shipped'
+          ? `<button class="btn btn-primary order-recv" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">📦 Diterima</button>`
+          : `<button class="btn btn-primary credit-pay order-settle" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">💰 Pelunasan</button>`;
+      return `<tr>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.date)}</td>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.invoiceNo)}</td>
+        <td style="font-size:12px">${escapeHtml(cs.customer || '—')}</td>
+        <td><span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>${ship}</td>
+        <td style="font-size:11.5px;color:${overdue ? '#b91c1c' : '#475569'}">${escapeHtml(meta.need)}${overdue ? ' • <b style="color:#b91c1c">⚠️ Jatuh tempo</b>' : ''}</td>
+        <td class="amount-col" style="color:#b45309;font-weight:700">${fmt(out)}</td>
+        <td class="amount-col">${fmt(cs.total)}</td>
+        <td style="white-space:nowrap">${action} <button class="btn btn-ghost credit-del" data-id="${cs.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan pesanan">🗑</button></td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>`;
+}
+function openOrderShip(id) {
+  const cs = Storage.getCreditSaleById(id);
+  if (!cs) return;
+  document.getElementById('shipId').value = id;
+  const out = Storage.creditOutstanding(cs);
+  const info = document.getElementById('shipInfo');
+  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${('Rp' + Math.round(cs.total).toLocaleString('id-ID'))} • <b>sisa ${'Rp' + Math.round(out).toLocaleString('id-ID')}</b> dikumpulkan setelah diterima`;
+  const dt = document.getElementById('shipDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
+  const er = document.getElementById('shipError'); if (er) er.textContent = '';
+  const m = document.getElementById('shipModal');
+  if (m && !m.open) {
+    try { m.showModal(); } catch {}
+    setTimeout(() => document.getElementById('shipCourier')?.focus(), 60);
+  }
+}
+function closeOrderShip() { const m = document.getElementById('shipModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function handleOrderShipSubmit() {
+  const id = document.getElementById('shipId')?.value || '';
+  if (!id) return;
+  try {
+    Storage.shipCreditSale(id, {
+      courier: document.getElementById('shipCourier')?.value || '',
+      tracking: document.getElementById('shipTracking')?.value || '',
+      date: document.getElementById('shipDate')?.value || new Date().toISOString().split('T')[0],
+    });
+    closeOrderShip();
+    UI.showSuccess('Pesanan ditandai sedang dikirim — pantau sampai diterima pelanggan');
+    refreshSalesPage();
+  } catch (e) {
+    const er = document.getElementById('shipError');
+    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan pengiriman';
+    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan pengiriman');
+  }
+}
+function handleOrderReceive(id) {
+  const cs = Storage.getCreditSaleById(id);
+  if (!cs) return;
+  if (!confirm(`Barang ${cs.invoiceNo} sudah diterima pelanggan? Setelah ini tinggal pelunasan.`)) return;
+  try { Storage.receiveCreditSale(id, {}); UI.showSuccess('Paket diterima pelanggan — tunggu pelunasan'); refreshSalesPage(); }
+  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui status'); }
+}
+
 /* ===== Piutang penjualan (kredit) ===== */
 function renderCreditSection() {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
@@ -2514,6 +2614,7 @@ function renderCreditSection() {
       </tr>`;
   }).join('')}
   </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada penjualan kredit. Centang "Bayar nanti (kredit)" saat menjual.</p>';
+  renderDeliverySection();
 }
 function openCreditPay(id) {
   const cs = Storage.getCreditSaleById(id);
@@ -5210,7 +5311,7 @@ function handleSaleSave() {
         date: d.date, dueDate: d.dueDate, customer: d.customer, person: d.customer,
         lines: d.lines.map(l => ({ itemId: l.itemId, qty: l.qty, price: l.price, name: l.name })),
         discount: d.discount, ppn: d.ppn, deposit: d.deposit, depositPct: d.depositPct,
-        terms: d.terms, payment: d.payment, note: d.note,
+        terms: d.terms, payment: d.payment, note: d.note, flow: d.flow,
       });
       Storage.logAudit('create', 'credit-sale', cs.id, null, { total: cs.total, deposit: cs.deposit });
       UI.closeSale();
