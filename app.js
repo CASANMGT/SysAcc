@@ -882,7 +882,7 @@ function bindEvents() {
     overlay?.classList.add('hidden');
     if (viewId === 'viewTransaksi') renderFullTransaksi();
     if (viewId === 'viewSales') renderSalesPage();
-    if (viewId === 'viewPreorder') renderPreorderPage();
+
     if (viewId === 'viewKas') renderKasPage();
     if (viewId === 'viewPembelian') renderPembelianPage();
     if (viewId === 'viewBiaya') renderBiayaPage();
@@ -897,7 +897,6 @@ function bindEvents() {
   document.getElementById('salesBtnSidebar')?.addEventListener('click', () => showView('viewSales'));
   document.getElementById('kasBtnSidebar')?.addEventListener('click', () => showView('viewKas'));
   document.getElementById('pembelianBtnSidebar')?.addEventListener('click', () => showView('viewPembelian'));
-  document.getElementById('preorderBtnSidebar')?.addEventListener('click', () => showView('viewPreorder'));
   document.getElementById('biayaBtnSidebar')?.addEventListener('click', () => showView('viewBiaya'));
   document.getElementById('assetBtnSidebar')?.addEventListener('click', () => openAssets());
   document.getElementById('coaBtnSidebar')?.addEventListener('click', openCoaModal);
@@ -1038,7 +1037,7 @@ function bindEvents() {
     else if (target === 'stock') showView('viewStock');
     else if (target === 'sales') showView('viewSales');
     else if (target === 'pembelian') showView('viewPembelian');
-    else if (target === 'preorder') showView('viewPreorder');
+    else if (target === 'preorder') showView('viewSales');
     else if (target === 'biaya') showView('viewBiaya');
     else if (target === 'kas') { refreshKas(); UI.openKas(); }
     else if (target === 'bank') { refreshKas(); UI.setBankRows([]); UI.openBank(); }
@@ -2496,6 +2495,7 @@ function renderSalesPage() {
     }).join('') : '<p style="color:var(--text-muted)">Belum ada struk.</p>';
   }
   renderCreditSection();
+  renderPreorderPage();
 }
 
 /* ===== Pemeriksaan Pengiriman (alur pesanan: DP → kirim → diterima → pelunasan) ===== */
@@ -2670,7 +2670,7 @@ const PO_STAGE_META = {
 };
 function preorderFmt(v) { return 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID'); }
 function renderPreorderPage() {
-  if (!document.getElementById('viewPreorder')) return;
+  if (!document.getElementById('preorderList')) return;
   const list = Storage.getPreorders();
   const fmt = preorderFmt;
   let running = 0, unpaid = 0, cost = 0, profit = 0;
@@ -2737,7 +2737,11 @@ function openPreorder() {
   if (!m) return;
   document.getElementById('preorderCustomer').value = '';
   document.getElementById('preorderDate').value = new Date().toISOString().split('T')[0];
-  const eta = document.getElementById('preorderEta'); if (eta) eta.value = '1 bulan';
+  const eta = document.getElementById('preorderEta');
+  if (eta) {
+    const d = new Date(); d.setDate(d.getDate() + 30); // estimasi datang ~1 bulan (boleh diubah)
+    eta.value = d.toISOString().split('T')[0];
+  }
   const dep = document.getElementById('preorderDeposit'); if (dep) { dep.value = ''; delete dep.dataset.touched; }
   document.getElementById('preorderRows').innerHTML = '';
   addPreorderRow();
@@ -2748,26 +2752,47 @@ function openPreorder() {
   setTimeout(() => document.getElementById('preorderCustomer')?.focus(), 60);
 }
 function closePreorder() { const m = document.getElementById('preorderModal'); if (m && m.open) { try { m.close(); } catch {} } }
-function addPreorderRow(pre) {
+function addPreorderRow(preselectId) {
   const box = document.getElementById('preorderRows');
   if (!box) return;
+  const items = (Storage.getAllItems() || []).filter(i => i && i.active !== false);
   const row = document.createElement('div');
   row.className = 'preorder-row';
   row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px';
   row.innerHTML = `
-    <input type="text" class="preorder-item-name" placeholder="Nama barang (mis. polytron, shell)" maxlength="80" style="flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <select class="preorder-item-sel" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+      <option value="">— Pilih barang*</option>
+      ${items.map(i => { const v = Storage.itemVariantLabel ? Storage.itemVariantLabel(i) : (i.variant || ''); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''}</option>`; }).join('')}
+      <option value="__custom">✏️ Tulis manual / barang lain</option>
+    </select>
     <input type="number" class="preorder-item-qty" min="1" step="1" value="1" title="Qty" style="width:60px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 6px;font-size:13px;text-align:center">
-    <input type="text" class="preorder-item-price" inputmode="decimal" placeholder="Rp/pcs (harga dijual)" style="flex:1;min-width:120px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+    <input type="text" class="preorder-item-price" inputmode="decimal" placeholder="Rp/pcs (harga jual)" style="flex:1;min-width:120px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
     <button type="button" class="btn btn-ghost preorder-row-del" aria-label="Hapus baris" style="font-size:12px;padding:4px 8px;color:#ef4444">✕</button>`;
-  const name = row.querySelector('.preorder-item-name');
+  const sel = row.querySelector('.preorder-item-sel');
   const qty = row.querySelector('.preorder-item-qty');
   const price = row.querySelector('.preorder-item-price');
-  name.addEventListener('input', renderPreorderInfo);
+  const syncPrice = () => {
+    if (sel.value === '__custom') {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.className = 'preorder-item-name'; inp.placeholder = 'Nama barang'; inp.maxLength = 80;
+      inp.style.cssText = 'flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px';
+      sel.replaceWith(inp);
+      inp.addEventListener('input', renderPreorderInfo);
+      inp.focus();
+      return;
+    }
+    const it = items.find(x => x.id === sel.value);
+    if (it && !price.dataset.touched && Storage.itemNetPrice) price.value = Storage.itemNetPrice(it) ? String(Storage.itemNetPrice(it)) : '';
+    renderPreorderInfo();
+  };
+  sel.addEventListener('change', syncPrice);
+  price.addEventListener('blur', () => { const v = UI.parseIdrInput(price.value); price.value = v ? (UI.formatIdrInput ? UI.formatIdrInput(v) : String(v)) : ''; renderPreorderInfo(); });
   qty.addEventListener('input', () => { renderPreorderInfo(); maybeAddPoRow(); });
-  price.addEventListener('blur', () => { const v = UI.parseIdrInput(price.value); price.value = v ? UI.formatIdrInput ? UI.formatIdrInput(v) : (v ? String(v) : '') : ''; renderPreorderInfo(); });
-  price.addEventListener('input', () => { renderPreorderInfo(); maybeAddPoRow(); });
+  price.addEventListener('input', () => { price.dataset.touched = '1'; renderPreorderInfo(); maybeAddPoRow(); });
   row.querySelector('.preorder-row-del').addEventListener('click', () => { row.remove(); renderPreorderInfo(); });
   box.appendChild(row);
+  if (preselectId) sel.value = preselectId;
+  syncPrice();
 }
 function maybeAddPoRow() {
   const box = document.getElementById('preorderRows');
@@ -2775,18 +2800,30 @@ function maybeAddPoRow() {
   const rows = [...box.querySelectorAll('.preorder-row')];
   const last = rows[rows.length - 1];
   if (!last) return;
-  const name = last.querySelector('.preorder-item-name');
+  const filled = !!((last.querySelector('.preorder-item-name')?.value || '').trim()
+    || (last.querySelector('.preorder-item-sel')?.value || '').trim());
   const qty = last.querySelector('.preorder-item-qty');
   const price = last.querySelector('.preorder-item-price');
-  if (name && name.value.trim() && Number(qty.value) > 0 && UI.parseIdrInput(price.value || '') > 0 && rows.length < 30) addPreorderRow();
+  if (filled && Number(qty.value) > 0 && UI.parseIdrInput(price.value || '') > 0 && rows.length < 30) addPreorderRow();
 }
 function readPreorderRows() {
   const rows = [...document.querySelectorAll('#preorderRows .preorder-row')];
-  return rows.map(row => ({
-    name: (row.querySelector('.preorder-item-name')?.value || '').trim(),
-    qty: Math.max(parseInt(row.querySelector('.preorder-item-qty')?.value || '0', 10) || 0, 0),
-    price: Math.round(Number(UI.parseIdrInput(row.querySelector('.preorder-item-price')?.value || '')) || 0),
-  })).filter(l => l.name && l.qty > 0 && l.price > 0);
+  const items = Storage.getAllItems() || [];
+  return rows.map(row => {
+    const nameInp = row.querySelector('.preorder-item-name');
+    let itemId = '';
+    let nm = '';
+    if (nameInp) { nm = (nameInp.value || '').trim(); }
+    else {
+      const sel = row.querySelector('.preorder-item-sel');
+      const it = items.find(x => x.id === (sel?.value || ''));
+      itemId = sel?.value || '';
+      nm = it ? (it.name + (() => { try { const v = Storage.itemVariantLabel(it); return v ? ' ' + v : ''; } catch { return ''; } })()) : '';
+    }
+    const qty = Math.max(parseInt(row.querySelector('.preorder-item-qty')?.value || '0', 10) || 0, 0);
+    const price = Math.round(Number(UI.parseIdrInput(row.querySelector('.preorder-item-price')?.value || '')) || 0);
+    return { itemId, name: nm, qty, price };
+  }).filter(l => l.name && l.qty > 0 && l.price > 0);
 }
 function renderPreorderInfo() {
   const el = document.getElementById('preorderInfo');
@@ -2797,7 +2834,7 @@ function renderPreorderInfo() {
   const dep = Math.min(Math.max(Number(UI.parseIdrInput(depEl?.value || '')) || 0, 0), total);
   el.innerHTML = total > 0
     ? `Total ke pelanggan: <b>${preorderFmt(total)}</b>${dep > 0 ? ` • DP ${preorderFmt(dep)} → masuk kas, sisa dibayar saat barang datang (${preorderFmt(total - dep)})` : ' • tanpa DP'}`
-    : '<span style="color:var(--text-muted)">Isi min 1 baris barang: nama, qty, harga jual ke pelanggan.</span>';
+    : '<span style="color:var(--text-muted)">Isi min 1 baris: pilih barang dari Produk (atau tulis manual), qty, dan harga jual ke pelanggan. Estimasi tanggal datang bisa diubah.</span>';
 }
 function closePoPay() { const m = document.getElementById('preorderPayModal'); if (m && m.open) { try { m.close(); } catch {} } }
 function openPoPay(id) {
@@ -2886,7 +2923,6 @@ function handlePreorderSubmit() {
 }
 function refreshPreorderPage() { try { renderPreorderPage(); } catch {} }
 function bindPreorderUI() {
-  document.getElementById('preorderBtnSidebar')?.addEventListener('click', () => showView('viewPreorder'));
   document.getElementById('preorderNewBtn')?.addEventListener('click', openPreorder);
   document.getElementById('preorderClose')?.addEventListener('click', closePreorder);
   document.getElementById('preorderCancel')?.addEventListener('click', closePreorder);
