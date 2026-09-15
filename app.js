@@ -2521,20 +2521,29 @@ function renderDeliverySection() {
     <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Tahap</th><th>Yang diperlukan</th><th class="amount-col">Sisa</th><th class="amount-col">Total</th><th></th></tr></thead><tbody>
     ${list.map(cs => {
       const meta = ORDER_STAGE_META[cs.stage] || ORDER_STAGE_META.ordered;
+      // bugfix: chip tahap 'ordered' harus jujur — DP 0 berarti belum dibayar
       const out = Storage.creditOutstanding(cs);
       const overdue = out > 0.01 && cs.dueDate && new Date(cs.dueDate + 'T00:00:00') < today;
       const ship = cs.stage === 'shipped' && cs.shipment ? `<div style="font-size:10.5px;color:#475569">${escapeHtml(cs.shipment.courier || 'kurir')}${cs.shipment.tracking ? ' • resi ' + escapeHtml(cs.shipment.tracking) : ''} • ${escapeHtml(cs.shipment.date)}</div>` : '';
       const action = cs.stage === 'ordered'
-        ? `<button class="btn btn-primary order-ship" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim</button>`
+        ? ((Number(cs.deposit) || 0) <= 0.01
+            ? `<button class="btn btn-primary credit-pay order-settle" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`
+            : `<button class="btn btn-primary order-ship" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim</button>`)
         : cs.stage === 'shipped'
           ? `<button class="btn btn-primary order-recv" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">📦 Diterima</button>`
           : `<button class="btn btn-primary credit-pay order-settle" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">💰 Pelunasan</button>`;
+      const chip = (cs.stage === 'ordered' && (Number(cs.deposit) || 0) <= 0.01)
+        ? '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-size:11px">⚠️ Pesanan dibuat — DP belum dibayar</span>'
+        : `<span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>`;
+      const need = (cs.stage === 'ordered' && (Number(cs.deposit) || 0) <= 0.01)
+        ? 'Tindakan: terima DP dari pelanggan, lalu beli & kirim barang'
+        : meta.need;
       return `<tr>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.date)}</td>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.invoiceNo)}</td>
         <td style="font-size:12px">${escapeHtml(cs.customer || '—')}</td>
-        <td><span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>${ship}</td>
-        <td style="font-size:11.5px;color:${overdue ? '#b91c1c' : '#475569'}">${escapeHtml(meta.need)}${overdue ? ' • <b style="color:#b91c1c">⚠️ Jatuh tempo</b>' : ''}</td>
+        <td>${chip}${ship}</td>
+        <td style="font-size:11.5px;color:${overdue ? '#b91c1c' : '#475569'}">${escapeHtml(need)}${overdue ? ' • <b style="color:#b91c1c">⚠️ Jatuh tempo</b>' : ''}</td>
         <td class="amount-col" style="color:#b45309;font-weight:700">${fmt(out)}</td>
         <td class="amount-col">${fmt(cs.total)}</td>
         <td style="white-space:nowrap">${action} <button class="btn btn-ghost credit-del" data-id="${cs.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan pesanan">🗑</button></td>
@@ -2673,6 +2682,7 @@ function renderPreorderPage() {
   if (!document.getElementById('preorderList')) return;
   const list = Storage.getPreorders();
   const fmt = preorderFmt;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   let running = 0, unpaid = 0, cost = 0, profit = 0;
   list.forEach(po => {
     if (po.stage === 'settled') { profit += Storage.preorderProfit(po); }
@@ -2704,16 +2714,32 @@ function renderPreorderPage() {
       ? (po.costs || []).map(c => `<span style="display:inline-block;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:2px 8px;margin:2px 4px 2px 0;font-size:10.5px">${c.kind === 'barang' ? '📦' : c.kind === 'kirim' ? '🚚' : '🧾'} ${preorderFmt(c.amount)}${c.note ? ' • ' + escapeHtml(c.note) : ''}</span>`).join('')
       : '<span style="font-size:10.5px;color:#94a3b8">Belum ada biaya dicatat</span>';
     const feeBtn = `<button class="btn btn-ghost preorder-cost" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🧾 Biaya</button>`;
-    let action = '';
-    if (po.stage === 'ordered') action = `<button class="btn btn-primary preorder-ship" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🚛 Barang di jalan</button>${bal > 0.01 ? ` <button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''}`;
-    else if (po.stage === 'shipping') action = `${bal > 0.01 ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''} <button class="btn btn-primary preorder-arrive" data-id="${po.id}" style="font-size:11px;padding:2px 8px">📦 Sampai</button>`;
-    else if (po.stage === 'arrived') action = `${bal > 0.01 ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar sisa ${preorderFmt(bal)}</button>` : ''}<button class="btn btn-primary preorder-settle" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🏁 Lunas & Selesai</button>`;
     const delBtn = po.stage === 'settled' ? '' : ` <button class="btn btn-ghost preorder-del" data-id="${po.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan pesanan">🗑</button>`;
+    // UX: ETA = estimasi tanggal datang; merah kalau sudah lewat & barang belum tiba
+    const etaValid = po.eta && /^\d{4}-\d{2}-\d{2}$/.test(po.eta);
+    const etaOver = !!(etaValid && po.stage !== 'settled' && new Date(po.eta + 'T00:00:00') < today);
+    const etaHtml = po.eta ? `<div style="font-size:10px;color:${etaOver ? '#b91c1c' : '#64748b'};font-weight:${etaOver ? '700' : '400'}">${etaOver ? '⚠️ ' : ''}Est datang ${escapeHtml(String(po.eta))}${etaOver ? ' (lewat)' : ''}</div>` : '';
+    // Chip tahap jujur: 'ordered' tanpa pembayaran = DP belum masuk
+    const chip = (po.stage === 'ordered' && paid <= 0.01)
+      ? '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-size:11px">⚠️ Pesanan dibuat — DP belum dibayar</span>'
+      : `<span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>`;
+    const need = (po.stage === 'ordered' && paid <= 0.01) ? 'Tindakan: terima DP pelanggan dulu, lalu beli barang' : meta.need;
+    // Aksi utama sesuai kondisi: DP masih 0 → terima DP; sudah DP → tandai di jalan / lanjut tahap
+    let action = '';
+    if (po.stage === 'ordered') {
+      action = paid <= 0.01
+        ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`
+        : `<button class="btn btn-primary preorder-ship" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🚛 Barang di jalan</button>${bal > 0.01 ? ` <button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''}`;
+    } else if (po.stage === 'shipping') {
+      action = `${bal > 0.01 ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''} <button class="btn btn-primary preorder-arrive" data-id="${po.id}" style="font-size:11px;padding:2px 8px">📦 Sampai</button>`;
+    } else if (po.stage === 'arrived') {
+      action = `${bal > 0.01 ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar sisa ${preorderFmt(bal)}</button>` : ''}<button class="btn btn-primary preorder-settle" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🏁 Lunas & Selesai</button>`;
+    }
     return `<tr>
-        <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.date)}${po.eta ? `<div style="font-size:10px;color:#64748b">ETA ${escapeHtml(po.eta)}</div>` : ''}</td>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.date)}${etaHtml}</td>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.no)}</td>
         <td style="font-size:12px">${escapeHtml(po.customer || '—')}<div style="font-size:10.5px;color:#475569">Total ${preorderFmt(po.sellTotal)} • sudah bayar ${preorderFmt(paid)} • biaya ${preorderFmt(costTotal)}</div><div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
-        <td><span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span><div style="font-size:10.5px;color:#475569;margin-top:2px">${escapeHtml(meta.need)}</div></td>
+        <td>${chip}<div style="font-size:10.5px;color:#475569;margin-top:2px">${escapeHtml(need)}</div></td>
         <td>${costTxt}</td>
         <td class="amount-col" style="font-weight:${bal > 0.01 ? '700' : '400'};color:${bal > 0.01 ? '#b45309' : '#059669'}">${bal > 0.01 ? preorderFmt(bal) : 'Lunas'}</td>
         <td style="white-space:nowrap">${action}${feeBtn}${delBtn}</td>
@@ -2784,6 +2810,7 @@ function addPreorderRow(preselectId) {
     const it = items.find(x => x.id === sel.value);
     if (it && !price.dataset.touched && Storage.itemNetPrice) price.value = Storage.itemNetPrice(it) ? String(Storage.itemNetPrice(it)) : '';
     renderPreorderInfo();
+    maybeAddPoRow(); // UX: baris baru otomatis muncul saat barang pilihan terisi lengkap
   };
   sel.addEventListener('change', syncPrice);
   price.addEventListener('blur', () => { const v = UI.parseIdrInput(price.value); price.value = v ? (UI.formatIdrInput ? UI.formatIdrInput(v) : String(v)) : ''; renderPreorderInfo(); });
@@ -3580,7 +3607,23 @@ function getAllAlerts() {
   } catch {}
   if (sup.length) out.push({ type: 'supplier', target: 'stock', icon: '📥', text: `${sup.length} pembelian supplier lewat jatuh tempo — cek Stok → Hutang ke Supplier` });
   const pph = pphPendingInfo();
-  if (pph) out.push({ type: 'pph', target: 'tax', icon: '🧾', text: `PPh Final ${pph.key}: Rp${pph.pph.toLocaleString('id-ID')} — bayar sebelum tgl 15 (Laporan → Pajak)` });
+  if (pph) out.push({ type: 'pph', target: 'tax', icon: '??', text: `PPh Final ${pph.key}: Rp${pph.pph.toLocaleString('id-ID')} — bayar sebelum tgl 15 (Laporan — Pajak)` });
+  // Titip beli & alur pesanan: barang lewat estimasi atau harus di-tagih
+  try {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const pos = (Storage.getPreorders() || []).filter(po => po.stage !== 'settled');
+    const lateEta = pos.filter(po => /^\d{4}-\d{2}-\d{2}$/.test(po.eta || '') && new Date(po.eta + 'T00:00:00') < today);
+    const noDp = pos.filter(po => po.stage === 'ordered' && Storage.preorderPaidTotal(po) <= 0.01);
+    const arrived = pos.filter(po => po.stage === 'arrived' && Storage.preorderBalance(po) > 0.01);
+    if (noDp.length) out.push({ type: 'preorder', target: 'sales', icon: '⚠️', text: `${noDp.length} titip beli belum DP — terima DP dulu (Penjualan -- Titip Beli)` });
+    if (lateEta.length) out.push({ type: 'preorder', target: 'sales', icon: '🌏', text: `${lateEta.length} titip beli lewat estimasi datang ${lateEta.map(po => po.no).slice(0, 3).join(', ')}` });
+    if (arrived.length) out.push({ type: 'preorder', target: 'sales', icon: '💰', text: `${arrived.length} titip beli barang sudah sampai — tagih pelanggan` });
+    const orders = (Storage.getCreditSales() || []).filter(cs => cs.flow === 'order' && cs.stage && cs.stage !== 'done');
+    const lateShip = orders.filter(cs => cs.stage === 'ordered' && cs.dueDate && new Date(cs.dueDate + 'T00:00:00') < today);
+    const toBill = orders.filter(cs => cs.stage === 'delivered' && Storage.creditOutstanding(cs) > 0.01);
+    if (lateShip.length) out.push({ type: 'order', target: 'sales', icon: '🚚', text: `${lateShip.length} pesanan belum dikirim sampai jatuh tempo (Penjualan -- Pemeriksaan Pengiriman)` });
+    if (toBill.length) out.push({ type: 'order', target: 'sales', icon: '💰', text: `${toBill.length} pesanan sudah diterima pelanggan — tagih pelunasan` });
+  } catch {}
   return out;
 }
 function updateNotifBadge() {

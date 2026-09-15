@@ -4288,7 +4288,6 @@ export function getSaleData() {
     subtotal, discount, total, lines
   };
 }
-const STAGE_LABEL = { ordered: 'DP diterima, menunggu kirim', shipped: 'Sedang dikirim', delivered: 'Diterima, menunggu pelunasan', done: 'Selesai' };
 function updateSaleCreditInfo(data) {
   const el = document.getElementById('saleCreditInfo');
   if (!el) return;
@@ -4297,8 +4296,9 @@ function updateSaleCreditInfo(data) {
   const sisa = Math.max(data.total - dp, 0);
   const terms = Math.max(parseInt(document.getElementById('saleTerms')?.value || '1', 10) || 1, 1);
   const per = terms > 1 ? Math.round(sisa / terms) : sisa;
-  const flow = document.getElementById('saleOrderFlow')?.checked;
-  el.innerHTML = `DP masuk kas <b>${formatCurrency(dp)}</b> • Sisa jadi <b>piutang ${formatCurrency(sisa)}</b>${terms > 1 ? ` • ${terms}× ${formatCurrency(per)}` : ''}${flow ? `<br><span style="color:#2563eb">🚚 Alur: ${STAGE_LABEL.ordered} → dikirim → diterima pelanggan → pelunasan sisa</span>` : ''}`;
+    const flow = document.getElementById('saleOrderFlow')?.checked;
+    // unwrap tempat DP & alur: tampilkan langkah selanjutnya dengan jelas
+    el.innerHTML = `DP masuk kas <b>${formatCurrency(dp)}</b> • Sisa jadi <b>piutang ${formatCurrency(sisa)}</b>${terms > 1 ? ` • ${terms}× ${formatCurrency(per)}` : ''}${flow ? `<br><span style="color:#2563eb">🚚 Alur pesanan: DP ✅ → pilih barang dari Produk, isi resi saat kirim → tandai diterima → tagih sisa ${formatCurrency(sisa)}</span>` : ''}`;
 }
 export function bindSale(onSave) {
   document.getElementById('closeSaleBtn')?.addEventListener('click', closeSale);
@@ -4312,6 +4312,10 @@ export function bindSale(onSave) {
   document.getElementById('saleCredit')?.addEventListener('change', (e) => {
     const box = document.getElementById('saleCreditFields');
     if (box) box.hidden = !e.target.checked;
+    const oflWrap = document.getElementById('saleOrderFlowWrap');
+    if (oflWrap) oflWrap.hidden = !e.target.checked;
+    const ofl = document.getElementById('saleOrderFlow');
+    if (ofl) { if (!e.target.checked) ofl.checked = false; } // bugfix: jangan biarkan Alur Pesanan nyangkut saat kredit uncheck
     const due = document.getElementById('saleDueDate');
     if (e.target.checked && due && !due.value) {
       const d = new Date(); d.setDate(d.getDate() + 30);
