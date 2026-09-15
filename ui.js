@@ -4161,6 +4161,7 @@ export function openSale() {
   document.getElementById('saleNote').value = '';
   document.getElementById('salePPN').checked = false;
   const ready = document.querySelector('input[name="saleMode"][value="ready"]'); if (ready) ready.checked = true;
+  const creditEl = document.getElementById('saleCredit'); if (creditEl) creditEl.disabled = false;
   const poDep = document.getElementById('poDeposit'); if (poDep) { poDep.value = ''; delete poDep.dataset.touched; }
   const poFields = document.getElementById('salePreorderFields'); if (poFields) poFields.hidden = true;
   const disc = document.getElementById('saleDiscount'); if (disc) disc.value = '';
@@ -4319,11 +4320,12 @@ export function bindSale(onSave) {
   // Penjualan kredit: tampilkan field DP/termin/jatuh tempo
   document.getElementById('saleCredit')?.addEventListener('change', (e) => {
     const box = document.getElementById('saleCreditFields');
-    if (box) box.hidden = !e.target.checked;
+    // golden rule: preorder punya blok sendiri (tanpa termin/jatuh tempo) — blok kredit hanya untuk ready
+    if (box) box.hidden = !e.target.checked || modeValue() === 'preorder';
     const po = document.getElementById('salePreorderFields');
     if (po) po.hidden = modeValue() !== 'preorder';
     const due = document.getElementById('saleDueDate');
-    if (e.target.checked && !(!due.hidden) && due && !due.value) {
+    if (e.target.checked && modeValue() === 'ready' && due && !due.value) {
       const d = new Date(); d.setDate(d.getDate() + 30);
       due.value = d.toISOString().split('T')[0];
     }
@@ -4332,11 +4334,15 @@ export function bindSale(onSave) {
   document.getElementById('poDeposit')?.addEventListener('input', recalcSale);
   document.getElementById('poDeposit')?.addEventListener('blur', (e) => { const v = parseIdrInput(e.target.value); e.target.value = v ? formatIdrInput(v) : ''; recalcSale(); });
   document.querySelectorAll('input[name="saleMode"]').forEach(r => r.addEventListener('change', () => {
-    // UX: preorder otomatis "bayar nanti" (DP → invoice/cicilan), checkbox kredit menyesuaikan
+    // UX: preorder otomatis "bayar nanti" (blok preorder aktif, blok kredit disembunyikan)
+    const mode = modeValue();
     const credit = document.getElementById('saleCredit');
-    if (modeValue() === 'preorder' && credit && !credit.checked) { credit.checked = true; credit.dispatchEvent(new Event('change')); }
+    if (mode === 'preorder' && credit && !credit.checked) { credit.checked = true; credit.dispatchEvent(new Event('change')); }
     const po = document.getElementById('salePreorderFields');
-    if (po) po.hidden = modeValue() !== 'preorder';
+    if (po) po.hidden = mode !== 'preorder';
+    if (credit) credit.disabled = mode === 'preorder';
+    const box = document.getElementById('saleCreditFields');
+    if (box) box.hidden = !credit?.checked || mode === 'preorder';
     recalcSale();
   }));
   document.getElementById('saleDepositPct')?.addEventListener('input', () => {

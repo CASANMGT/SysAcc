@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.91.0] - 2026-09-15
+
+### Fixed — UI preorder: tidak ada DP/termin duplikat
+- Memilih 🌏 Preorder kini menyembunyikan blok kredit (DP %/DP Rp/termin/jatuh tempo) — hanya blok preorder saja: estimasi bulan + `DP sekarang (Rp)` open
+- Checkbox `Bayar nanti` otomatis tercentang & terkunci (disabled) saat preorder — tidak bisa dikacaukan manual
+- Kembali terminating ready: blok kredit muncul normal saat 📦 Barang ready + Bayar nanti
+
 ## [1.90.0] - 2026-09-15
 
 ### Changed — preorder luar negeri: bayar saat barang datang
