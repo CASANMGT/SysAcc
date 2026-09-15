@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.92.0';
+const APP_VERSION = '1.93.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -815,6 +815,10 @@ function bindEvents() {
   document.getElementById('orderStatusSave')?.addEventListener('click', handleOrderStatusSubmit);
   // Titip beli (preorder)
   bindPreorderUI();
+  // Kurs online untuk preorder: saat mode 🌏 dipilih → sinkronkan kurs (bulat ke atas 1.000)
+  document.querySelectorAll('input[name="saleMode"]').forEach(r => r.addEventListener('change', () => {
+    if (r.checked && r.value === 'preorder') kursCnyOnline().then(applyKursToSaleForm);
+  }));
   UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
   document.getElementById('assetOpenBtn')?.addEventListener('click', openAssets);
   document.getElementById('openingOpenBtn')?.addEventListener('click', openOpening);
@@ -2494,16 +2498,20 @@ function renderSalesPage() {
       ${pk.map(k => `<tr><td>${PAY_LABEL[k] || escapeHtml(k)}</td><td class="amount-col income">${fmt(byPay[k])}</td><td class="amount-col">${d.omzet > 0 ? ((byPay[k] / d.omzet) * 100).toFixed(1) : '0.0'}%</td></tr>`).join('')}
       </tbody></table>` : '<p style="color:var(--text-muted)">—</p>';
   }
-  // Struk terbaru
+  // Struk terbaru — tabel rapi
   const recent = document.getElementById('salesRecentList');
   if (recent) {
     const list = entries.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 15);
-    recent.innerHTML = list.length ? list.map(e => {
-      const n = e.sale && Array.isArray(e.sale.lines) ? e.sale.lines.reduce((s, l) => s + (Number(l.qty) || 0), 0) : 0;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-        <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.person || e.description || 'Penjualan')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(e.date)} • ${n} pcs • ${PAY_LABEL[e.payment] || ''}</div></div>
-        <div style="font-size:12px;font-weight:700;white-space:nowrap">${fmt(e.amount)}</div></div>`;
-    }).join('') : '<p style="color:var(--text-muted)">Belum ada struk.</p>';
+    const nOf = (e) => e.sale && Array.isArray(e.sale.lines) ? e.sale.lines.reduce((s, l) => s + (Number(l.qty) || 0), 0) : 0;
+    recent.innerHTML = list.length ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+      <th>Tanggal</th><th>Pelanggan / struk</th><th>Qty</th><th>Cara bayar</th><th class="amount-col">Total</th></tr></thead><tbody>
+      ${list.map(e => `<tr>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(e.date)}</td>
+        <td style="font-size:12px">${escapeHtml(e.person || e.description || 'Penjualan')}</td>
+        <td style="font-size:12px">${nOf(e)} pcs</td>
+        <td style="font-size:11.5px;color:#475569">${PAY_LABEL[e.payment] || escapeHtml(e.payment || '')}</td>
+        <td class="amount-col">${fmt(e.amount)}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada struk.</p>';
   }
   renderCreditSection();
   renderOrdersPanel();
@@ -2744,6 +2752,34 @@ function deleteCreditSalePrompt(id) {
   catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menghapus'); }
 }
 function refreshSalesPage() { try { renderSalesPage(); } catch {} }
+// Kurs online CNY→IDR (round up ke 1000 terdekat), cache 12 jam — offline pakai terakhir / 2300
+const KURS_KEY = 'wynara_kurs_cny';
+async function kursCnyOnline() {
+  const cached = (() => { try { return JSON.parse(localStorage.getItem(KURS_KEY) || 'null'); } catch { return null; } })();
+  if (cached && Number(cached.rate) > 0 && Date.now() - Number(cached.updatedAt || 0) < 12 * 3600000) return cached;
+  try {
+    const r = await fetch('https://open.er-api.com/v6/latest/CNY');
+    const j = await r.json();
+    const idr = Number(j?.rates?.IDR) || 0;
+    if (idr <= 0) throw new Error('no-rate');
+    const rec = { rate: Math.ceil(idr / 1000) * 1000, raw: Math.round(idr), updatedAt: Date.now(), source: 'online' };
+    try { localStorage.setItem(KURS_KEY, JSON.stringify(rec)); } catch {}
+    return rec;
+  } catch {
+    return cached || { rate: 2300, updatedAt: 0, source: 'default' };
+  }
+}
+function applyKursToSaleForm(rec) {
+  const fx = document.getElementById('saleFx');
+  if (!fx) return;
+  if (rec && rec.rate > 0) {
+    fx.value = String(rec.rate);
+    const hint = document.getElementById('saleFxHint');
+    if (hint) hint.textContent = rec.source === 'online'
+      ? `✅ Kurs online ¥1 = Rp${rec.rate.toLocaleString('id-ID')} (bulat ke atas 1.000, ${new Date(rec.updatedAt).toLocaleString('id-ID')})`
+      : rec.source === 'default' ? 'Kurs default — nyalakan internet untuk rate online' : `Kurs terakhir ¥1 = Rp${rec.rate.toLocaleString('id-ID')}`;
+  }
+}
 
 /* ===== Titip Beli / Preorder (beli atas nama pelanggan) ===== */
 function preorderFmt(v) { return 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID'); }

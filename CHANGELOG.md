@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.93.0] - 2026-09-15
+
+### Added — kurs online ¥→Rp + tabel halaman Penjualan
+- **Kurs online ¥→Rp** (er-api.com) sync otomatis saat memilih 🌏 Preorder — dibulatkan **ke atas ke 1.000 terdekat** (mis. rate asli 2.301 → 3.000), cache 12 jam; offline pakai kurs terakhir / default 2.300 (label status ikut diperbarui)
+- **Struk terbaru kini tabel** di halaman (Tanggal / Pelanggan / Qty / Cara bayar / Total) — konsisten dengan tabel Piutang & Status Pesanan
+- Semua list penjualan & preorder kini tampil sebagai tabel penuh di halaman (bukan kartu longgar)
+
 ## [1.92.0] - 2026-09-15
 
 ### Changed — revamp alur Penjualan: DP % + kurs yuan
