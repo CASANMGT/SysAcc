@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.88.0] - 2026-09-15
+
+### Changed — Satu alur penjualan (Bayar Nanti = ready OR preorder)
+- **Satu tombol jual** — modal `＋ Jual` → ✔ *Bayar nanti* memilih jenis pesanan: `📦 Barang ready` atau `🌏 Preorder (beli dari luar negeri)`; modal Titip Beli terpisah & tombol header dihapus
+- **DP (%)** — isi persen, otomatis hitung DP Rp (uang masuk `2101 Customer Deposit`)
+- **Estimasi datang: [n] bulan** — picker angka sederhana untuk preorder (tanpa date picker)
+- **Alur preorder lengkap di Status Pesanan**: `Pesanan → DP → 🛒 Beli → gudang China → 🌏 kirim China→Indo (catat resi) → 🏭 tiba di gudang kita (catat 🧾 biaya kirim Indo) → 🚚 kirim ke pelanggan → 🧾 invoice (immediate / ⏰ janji bayar) → 🏁 lunas`
+- **Alur ready** lebih pendek: DP → kirim → diterima → invoice → bayar
+- Semua status tetap double-entry; penjualan instant (tanpa Bayar nanti) tetap jalan seperti biasa
+
 ## [1.87.0] - 2026-09-15
 
 ### Added — Alur pesanan & Titip Beli (jual + preorder satu alur)
