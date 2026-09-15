@@ -10,7 +10,7 @@ const META_KEY = 'wynara_cloud_meta';
 // Config bawaan (publishable/anon key aman untuk client) agar app langsung jalan.
 const DEFAULT_CLOUD = {
   url: 'https://tqrhgkewildkxivcaujf.supabase.co',
-  anonKey: 'sb_publishable_QVJ4JXW9DOrIKyLwp6nOtA_3ztQb3Ij',
+  anonKey: 'sb_publishable_QVJ4jXW9DOrIKyLwp6nOtA_3ztQb3Ij',
 };
 
 // key localStorage -> kind remote.
