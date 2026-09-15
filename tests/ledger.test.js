@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   accountForPayment, expenseAccountFor, getAccounts, setCustomAccounts,
-  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD, suggestBankAccount, suggestBankAccountFull, BANK_RULE_PRESETS
+  REVENUE_ACCOUNT, AR_ACCOUNT, AP_ACCOUNT, pphFinalForYear, PPH_THRESHOLD, suggestBankAccount, suggestBankAccountFull, BANK_RULE_PRESETS, parseCoaCsv
 } from '../coa.js';
 import {
   buildEntryJournal, buildLoanJournal, buildRepaymentJournal,
@@ -56,6 +56,21 @@ describe('saran akun COA untuk mutasi bank', () => {
     expect(suggestBankAccountFull('GRABFOOD', 'out')).toMatchObject({ code: '5103', source: 'preset' });
     expect(suggestBankAccountFull('TRANSFER GRAB CAR', 'out').code).toBe('5104');
     expect(suggestBankAccountFull('SESUATU TAK DIKENAL', 'out')).toMatchObject({ code: '5199', source: 'default' });
+  });
+});
+
+describe('parseCoaCsv', () => {
+  it('parse kode;nama;kategori + deteksi bentrok bawaan', () => {
+    const r = parseCoaCsv('1106; Bank Lainnya; Asset\n6201; Beban Iklan; Expense\n1101; Bentrok; Asset\nrusak', ['1101']);
+    expect(r.accounts.map(a => a.code)).toEqual(['1106', '6201']);
+    expect(r.accounts[0].type).toBe('asset');
+    expect(r.accounts[1].type).toBe('expense');
+    expect(r.collide.length).toBe(1);
+    expect(r.skipped.length).toBe(1);
+  });
+  it('menerima pemisah koma & kategori Indonesia', () => {
+    const r = parseCoaCsv('6202,Beban Promosi,Beban', []);
+    expect(r.accounts[0]).toMatchObject({ code: '6202', name: 'Beban Promosi', type: 'expense' });
   });
 });
 

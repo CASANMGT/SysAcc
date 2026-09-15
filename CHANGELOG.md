@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.83.0] - 2026-09-14
+
+### Added — Import COA (tempel dari Excel) + template seed COA
+- Daftar Akun: panel **📥 Import COA** — tempel daftar akun (`Kode; Nama Akun; Kategori`) → langsung jadi akun kustom, dengan laporan **ditambah / bentrok kode bawaan / dilewati**
+- Kategori menerima bahasa Inggris & Indonesia (Asset/Aset, Liability/Kewajiban, Equity/Modal, Revenue/Pendapatan, Expense/Beban)
+- Kode akun bawaan **tidak ditimpa** (dilaporkan bentrok) agar tak salah makna
+- `supabase/seed_coa.sql`: template seed akun kustom langsung ke server (untuk pemilik yang ingin data ada di DB sejak awal)
+- +2 test; 321/321 tests ✓
+
+---
+
 ## [1.82.0] - 2026-09-14
 
 ### Added — Penjualan kredit "bayar nanti" (DP + termin + Open/Paid)

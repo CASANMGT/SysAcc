@@ -215,6 +215,32 @@ export function suggestBankAccount(desc, direction) {
   return suggestBankAccountFull(desc, direction).code;
 }
 
+// Parse COA dari tempelan Excel/CSV: "Kode; Nama Akun; Kategori" (pemisah ; TAB ,).
+// Kode yang sudah ada (bawaan/custom) dilaporkan sebagai bentrok, tidak ditimpa.
+export function parseCoaCsv(text, existingCodes) {
+  const TYPE_MAP = {
+    asset: 'asset', aset: 'asset', 'aset lancar': 'asset', 'aset tetap': 'asset',
+    liability: 'liability', kewajiban: 'liability', hutang: 'liability', utang: 'liability',
+    equity: 'equity', modal: 'equity', ekuitas: 'equity',
+    revenue: 'revenue', pendapatan: 'revenue', income: 'revenue', penjualan: 'revenue',
+    expense: 'expense', beban: 'expense', biaya: 'expense', 'harga pokok': 'expense',
+  };
+  const have = new Set((existingCodes || []).map(String));
+  const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const accounts = [], skipped = [], collide = [];
+  lines.forEach(line => {
+    let cols = line.split(/[;\t]/).map(s => s.trim()).filter(s => s !== '');
+    if (cols.length < 2) cols = line.split(',').map(s => s.trim()).filter(s => s !== '');
+    const code = (String(cols[0] || '').match(/\d{4}/) || [])[0];
+    const name = String(cols[1] || '').replace(/[<>"'&]/g, '').trim().slice(0, 60);
+    const type = TYPE_MAP[String(cols[2] || '').toLowerCase().trim()] || 'expense';
+    if (!code || !name) { skipped.push(line); return; }
+    if (have.has(code)) { collide.push(line); return; }
+    accounts.push({ code, name, type });
+  });
+  return { accounts, skipped, collide };
+}
+
 // PPh Final UMKM (PP 23/2018): 0,5% dari omzet bruto bila omzet setahun ≤ Rp4,8 M.
 // Di atas plafon → tidak berhak; wajib tarif umum (konsultasi konsultan pajak).
 export function pphFinalForYear(omzet) {

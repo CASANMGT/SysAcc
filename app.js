@@ -4,7 +4,7 @@ import * as UI from './ui.js';
 import * as IDB from './idb.js';
 import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath.js';
 import * as Charts from './charts.js';
-import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS, expenseAccountFor, REVENUE_ACCOUNT } from './coa.js';
+import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS, expenseAccountFor, REVENUE_ACCOUNT, parseCoaCsv } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
 import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
 import * as Cloud from './supabase.js';
@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.82.0';
+const APP_VERSION = '1.83.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -823,6 +823,7 @@ function bindEvents() {
   });
   document.getElementById('coaOpenBtn')?.addEventListener('click', openCoaModal);
   document.getElementById('coaSearch')?.addEventListener('input', refreshCoa);
+  document.getElementById('coaImportBtn')?.addEventListener('click', handleCoaImport);
   document.getElementById('coaTypeFilter')?.addEventListener('change', refreshCoa);
   document.getElementById('coaType')?.addEventListener('change', (e) => {
     const codeEl = document.getElementById('coaCode');
@@ -4042,6 +4043,21 @@ function handleCoaSave() {
   } catch (err) {
     UI.showError(err && err.message ? err.message : 'Gagal menambah akun');
   }
+}
+function handleCoaImport() {
+  const text = document.getElementById('coaImportText')?.value || '';
+  const existing = getAccounts().map(a => a.code);
+  const parsed = parseCoaCsv(text, existing);
+  let added = 0;
+  parsed.accounts.forEach(acc => {
+    try { Storage.saveCustomAccount(acc); added++; } catch {}
+  });
+  try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
+  refreshCoa();
+  queueMirror();
+  const info = document.getElementById('coaImportInfo');
+  if (info) info.textContent = `${added} ditambah • ${parsed.collide.length} bentrok kode bawaan (tidak diubah) • ${parsed.skipped.length} dilewati`;
+  if (added) UI.showSuccess(`${added} akun COA diimpor`); else UI.showInfo('Tidak ada akun baru yang diimpor');
 }
 function handleCoaRename(code, name) {
   try {
