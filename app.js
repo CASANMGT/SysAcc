@@ -788,20 +788,31 @@ function bindEvents() {
   UI.bindSupplierList(handleSupplierPay, handleSupplierDelete);
   UI.bindSupplierPay(handleSupplierPaySubmit);
   UI.bindSale(handleSaleSave);
-  // Pemeriksaan Pengiriman: delegasi klik untuk aksi per tahap
-  document.getElementById('deliveryList')?.addEventListener('click', (e) => {
+  // Status Pesanan (jual + titip beli): delegasi klik untuk aksi per tahap
+  document.getElementById('orderStatusList')?.addEventListener('click', (e) => {
     const ship = e.target.closest('.order-ship');
     const recv = e.target.closest('.order-recv');
-    const settle = e.target.closest('.order-settle');
-    const del = e.target.closest('.credit-del');
+    const setStatus = e.target.closest('.order-status');
+    const pay = e.target.closest('.open-order-pay');
+    const fee = e.target.closest('.preorder-cost');
+    const delJ = e.target.closest('.credit-del');
+    let delP = e.target.closest('.preorder-del');
     if (ship) openOrderShip(ship.dataset.id);
     else if (recv) handleOrderReceive(recv.dataset.id);
-    else if (settle) openCreditPay(settle.dataset.id);
-    else if (del) deleteCreditSalePrompt(del.dataset.id);
+    else if (e.target.closest('.preorder-ship')) orderShipPrompt(e.target.closest('.preorder-ship').dataset.id);
+    else if (e.target.closest('.preorder-arrive')) orderArrivePrompt(e.target.closest('.preorder-arrive').dataset.id);
+    else if (setStatus) openOrderStatus(setStatus.dataset.kind, setStatus.dataset.id, setStatus.dataset.st || '');
+    else if (pay) (pay.dataset.kind === 'po') ? openPoPay(pay.dataset.id) : openCreditPay(pay.dataset.id);
+    else if (fee) openPoCost(fee.dataset.id);
+    else if (delJ) deleteCreditSalePrompt(delJ.dataset.id);
+    else if (delP) orderDeletePrompt(delP.dataset.id);
   });
   document.getElementById('shipClose')?.addEventListener('click', closeOrderShip);
   document.getElementById('shipCancel')?.addEventListener('click', closeOrderShip);
   document.getElementById('shipSave')?.addEventListener('click', handleOrderShipSubmit);
+  document.getElementById('orderStatusClose')?.addEventListener('click', closeOrderStatus);
+  document.getElementById('orderStatusCancel')?.addEventListener('click', closeOrderStatus);
+  document.getElementById('orderStatusSave')?.addEventListener('click', handleOrderStatusSubmit);
   // Titip beli (preorder)
   bindPreorderUI();
   UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
@@ -2495,102 +2506,154 @@ function renderSalesPage() {
     }).join('') : '<p style="color:var(--text-muted)">Belum ada struk.</p>';
   }
   renderCreditSection();
-  renderPreorderPage();
+  renderOrdersPanel();
 }
 
-/* ===== Pemeriksaan Pengiriman (alur pesanan: DP → kirim → diterima → pelunasan) ===== */
-const ORDER_STAGE_META = {
-  ordered:   { chip: '📦 Pesanan dibuat — DP diterima',       bg: '#fef3c7', fg: '#b45309', need: 'Tindakan: kirim barang ke pelanggan' },
-  shipped:   { chip: '🚚 Sedang dikirim — tunggu sampai',     bg: '#dbeafe', fg: '#1d4ed8', need: 'Tindakan: lacak paket, tandai diterima setelah sampai' },
-  delivered: { chip: '✅ Diterima pelanggan — tunggu pelunasan', bg: '#dcfce7', fg: '#166534', need: 'Tindakan: tagih sisa pembayaran (pelunasan)' },
-  done:      { chip: '🏁 Selesai',                            bg: '#dcfce7', fg: '#166534', need: 'Selesai' },
+/* ===== Status Pesanan — satu alur: Jual (alur pesanan) & Titip Beli ===== */
+const ORDER_STATUS_META = {
+  ordered:  { chip: '📦 Pesanan dibuat', bg: '#fef3c7', fg: '#b45309' },
+  dp_paid:  { chip: '💵 DP dibayar', bg: '#fef3c7', fg: '#b45309' },
+  shipped:  { chip: '🚚 Sedang dikirim', bg: '#dbeafe', fg: '#1d4ed8' },
+  received: { chip: '✅ Diterima di tujuan', bg: '#dcfce7', fg: '#166534' },
+  invoiced: { chip: '🧾 Invoice terkirim — tunggu pembayaran', bg: '#e0e7ff', fg: '#4338ca' },
+  done:     { chip: '🏁 Selesai', bg: '#dcfce7', fg: '#166534' },
 };
-function renderDeliverySection() {
-  const box = document.getElementById('deliveryList');
-  if (!box) return;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
-  const list = Storage.getCreditSales()
-    .filter(cs => cs.flow === 'order' && cs.stage !== 'done')
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+function orderStageU(stage) {
+  const m = { shipping: 'shipped', arrived: 'received', settled: 'done', DPBC: 'ordered' };
+  return m[stage] || stage || 'ordered';
+}
+function renderOrdersPanel() {
+  if (!document.getElementById('orderStatusList')) return;
+  const fmt = preorderFmt;
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  if (!list.length) {
-    box.innerHTML = '<p style="color:var(--text-muted);font-size:12px">Tidak ada pesanan berjalan. Buat penjualan dengan ✔ Bayar nanti + 🚚 Alur pesanan untuk melacak pengiriman.</p>';
-    return;
+  const cssOrders = Storage.getCreditSales().filter(cs => cs.flow === 'order').map(cs => ({
+    kind: 'jual', id: cs.id, no: cs.invoiceNo, stage: orderStageU(cs.stage || 'ordered'), customer: cs.customer,
+    date: cs.date, eta: '', dueDate: cs.dueDate, items: cs.lines || [], sellTotal: cs.total,
+    deposit: cs.deposit, paid: Storage.creditPaidTotal(cs), balance: Storage.creditOutstanding(cs),
+    events: cs.timeline || [], shipment: cs.shipment,
+  }));
+  const poRows = Storage.getPreorders().filter(po => po.stage !== 'settled' && po.stage !== 'cancelled').map(po => ({
+    kind: 'po', id: po.id, no: po.no, stage: orderStageU(po.stage), customer: po.customer,
+    date: po.date, eta: po.eta, dueDate: '', items: po.items || [], sellTotal: po.sellTotal,
+    deposit: po.deposit, paid: Storage.preorderPaidTotal(po), balance: Storage.preorderBalance(po),
+    costTotal: Storage.preorderCostTotal(po), events: po.events || [], shipment: po.shipment,
+  }));
+  // KPI titip beli
+  const kpi = document.getElementById('preorderKpi');
+  if (kpi) {
+    const allPos = Storage.getPreorders();
+    let running = 0, unpaidKpi = 0, costKpi = 0, profitKpi = 0;
+    allPos.forEach(po => {
+      if (po.stage === 'settled') profitKpi += Storage.preorderProfit(po);
+      else { running++; unpaidKpi += Storage.preorderBalance(po); costKpi += Storage.preorderCostTotal(po); }
+    });
+    const tile = (label, value, color) => `<button type="button" style="cursor:default">${label}<b style="color:${color}">${value}</b></button>`;
+    kpi.innerHTML = tile('🌏 Titip beli berjalan', running, '#2563eb')
+      + tile('💵 Belum dibayar pelanggan', fmt(unpaidKpi), '#b45309')
+      + tile('🧾 Biaya sudah keluar', fmt(costKpi), '#475569')
+      + tile('💰 Laba (selesai)', fmt(profitKpi), '#059669');
   }
-  box.innerHTML = `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
-    <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Tahap</th><th>Yang diperlukan</th><th class="amount-col">Sisa</th><th class="amount-col">Total</th><th></th></tr></thead><tbody>
-    ${list.map(cs => {
-      const meta = ORDER_STAGE_META[cs.stage] || ORDER_STAGE_META.ordered;
-      // bugfix: chip tahap 'ordered' harus jujur — DP 0 berarti belum dibayar
-      const out = Storage.creditOutstanding(cs);
-      const overdue = out > 0.01 && cs.dueDate && new Date(cs.dueDate + 'T00:00:00') < today;
-      const ship = cs.stage === 'shipped' && cs.shipment ? `<div style="font-size:10.5px;color:#475569">${escapeHtml(cs.shipment.courier || 'kurir')}${cs.shipment.tracking ? ' • resi ' + escapeHtml(cs.shipment.tracking) : ''} • ${escapeHtml(cs.shipment.date)}</div>` : '';
-      const action = cs.stage === 'ordered'
-        ? ((Number(cs.deposit) || 0) <= 0.01
-            ? `<button class="btn btn-primary credit-pay order-settle" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`
-            : `<button class="btn btn-primary order-ship" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim</button>`)
-        : cs.stage === 'shipped'
-          ? `<button class="btn btn-primary order-recv" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">📦 Diterima</button>`
-          : `<button class="btn btn-primary credit-pay order-settle" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">💰 Pelunasan</button>`;
-      const chip = (cs.stage === 'ordered' && (Number(cs.deposit) || 0) <= 0.01)
-        ? '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-size:11px">⚠️ Pesanan dibuat — DP belum dibayar</span>'
-        : `<span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>`;
-      const need = (cs.stage === 'ordered' && (Number(cs.deposit) || 0) <= 0.01)
-        ? 'Tindakan: terima DP dari pelanggan, lalu beli & kirim barang'
-        : meta.need;
-      return `<tr>
-        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.date)}</td>
-        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.invoiceNo)}</td>
-        <td style="font-size:12px">${escapeHtml(cs.customer || '—')}</td>
-        <td>${chip}${ship}</td>
-        <td style="font-size:11.5px;color:${overdue ? '#b91c1c' : '#475569'}">${escapeHtml(need)}${overdue ? ' • <b style="color:#b91c1c">⚠️ Jatuh tempo</b>' : ''}</td>
-        <td class="amount-col" style="color:#b45309;font-weight:700">${fmt(out)}</td>
-        <td class="amount-col">${fmt(cs.total)}</td>
-        <td style="white-space:nowrap">${action} <button class="btn btn-ghost credit-del" data-id="${cs.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan pesanan">🗑</button></td>
+  const running = cssOrders.filter(r => r.stage !== 'done').concat(poRows)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const history = cssOrders.filter(r => r.stage === 'done')
+    .map(r => ({ kind: 'jual', no: r.no, customer: r.customer, paid: r.paid, total: r.sellTotal }))
+    .concat(Storage.getPreorders().filter(po => po.stage === 'settled')
+      .map(po => ({ kind: 'po', no: po.no, customer: po.customer, paid: Storage.preorderPaidTotal(po), total: po.sellTotal, profit: Storage.preorderProfit(po) })))
+    .sort((a, b) => String(b.no).localeCompare(String(a.no)));
+  const box = document.getElementById('orderStatusList');
+  if (!box) return;
+  const row = (r) => {
+    const st = orderStageU(r.stage);
+    const meta = ORDER_STATUS_META[st] || ORDER_STATUS_META.ordered;
+    const overdue = r.balance > 0.01 && r.dueDate && new Date(r.dueDate + 'T00:00:00') < today;
+    const etaValid = !!(r.eta && /^\d{4}-\d{2}-\d{2}$/.test(r.eta));
+    const etaOver = !!(etaValid && st !== 'done' && new Date(r.eta + 'T00:00:00') < today);
+    const ev = (r.events || []).slice(-1)[0] || null;
+    const itemsTxt = (r.items || []).slice(0, 3).map(l => `${l.qty}× ${escapeHtml(l.name)}`).join(', ') + ((r.items || []).length > 3 ? ` +${r.items.length - 3}` : '');
+    const shipLine = r.shipment && (r.shipment.tracking || r.shipment.courier)
+      ? `<div style="font-size:10.5px;color:#475569">🚛 ${escapeHtml(r.shipment.courier || 'kurir')}${r.shipment.tracking ? ' • resi <b>' + escapeHtml(r.shipment.tracking) + '</b>' : ''}</div>`
+      : '';
+    const noteLine = ev && ev.note ? `<div style="font-size:10.5px;color:#475569">📝 ${escapeHtml(ev.note)}</div>` : '';
+    const sched = ev && ev.schedule ? `<div style="font-size:10.5px;color:#4338ca;font-weight:600;margin-top:2px">⏰ Janji bayar ${escapeHtml(ev.schedule)}</div>` : '';
+    const chip = st === 'ordered' && (Number(r.paid) || 0) <= 0.01 && (Number(r.deposit) || 0) <= 0.01
+      ? '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-size:11px">⚠️ Pesanan dibuat — DP belum dibayar</span>'
+      : `<span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>`;
+    const typeBadge = r.kind === 'jual'
+      ? '<span style="background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">JUAL</span>'
+      : '<span style="background:#f0fdfa;color:#0f766e;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">TITIP BELI</span>';
+    let action = '';
+    if (st === 'ordered' && !(Number(r.paid) > 0.01)) {
+      action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`;
+    } else if (st === 'dp_paid') {
+      action = `<button class="btn btn-primary ${r.kind === 'jual' ? 'order-ship' : 'preorder-ship'}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim / tulis resi</button>`;
+    } else if (st === 'shipped') {
+      action = `<button class="btn btn-primary ${r.kind === 'jual' ? 'order-recv' : 'preorder-arrive'}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">📦 Diterima</button>`;
+    } else if (st === 'received') {
+      action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="invoiced" style="font-size:11px;padding:2px 8px">🧾 Kirim Invoice — tunggu bayar</button>`;
+    } else if (st === 'invoiced') {
+      action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Terima pembayaran</button>`;
+    }
+    const costBtn = r.kind === 'po' ? `<button class="btn btn-ghost preorder-cost" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🧾 Biaya</button>` : '';
+    const statusBtn = `<button class="btn btn-ghost order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="" style="font-size:11px;padding:2px 8px">＋ Status</button>`;
+    const delBtn = `<button class="btn btn-ghost ${r.kind === 'jual' ? 'credit-del' : 'preorder-del'}" data-id="${r.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan/hapus pesanan">🗑</button>`;
+    return `<tr>
+        <td style="font-size:12px;white-space:nowrap">${typeBadge} <div>${escapeHtml(r.date)}</div>${r.eta ? `<div style="font-size:10px;color:${etaOver ? '#b91c1c' : '#64748b'};font-weight:${etaOver ? '700' : '400'}">${etaOver ? '⚠️ ' : ''}Est datang ${escapeHtml(String(r.eta))}${etaOver ? ' (lewat)' : ''}</div>` : ''}</td>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(r.no)}</td>
+        <td style="font-size:12px">${escapeHtml(r.customer || '—')}<div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
+        <td>${chip}${shipLine}${noteLine}${sched}${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
+        <td class="amount-col" style="font-weight:${r.balance > 0.01 ? '700' : '400'};color:${r.balance > 0.01 ? '#b45309' : '#059669'}">${r.balance > 0.01 ? fmt(r.balance) : 'Lunas'}</td>
+        <td style="white-space:nowrap">${action || statusBtn} ${r.balance > 0.01 ? `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''} ${costBtn} ${statusBtn} ${delBtn}</td>
       </tr>`;
-    }).join('')}
-  </tbody></table></div>`;
+  };
+  const runningHtml = running.length
+    ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+        <th>Jenis / Tanggal</th><th>No</th><th>Pelanggan</th><th>Status</th><th class="amount-col">Sisa tagihan</th><th></th></tr></thead><tbody>${running.map(row).join('')}</tbody></table></div>`
+    : '<p style="color:var(--text-muted);font-size:12px">Tanpa pesanan berjalan. Buat dari ＋ Jual (centang Bayar nanti + 🚚 Alur pesanan) atau tombol ＋ Titip Beli.</p>';
+  const historyHtml = history.length
+    ? `<div style="font-size:11px;font-weight:700;color:#64748b;margin:16px 0 4px">🗂 Riwayat selesai</div><div style="overflow-x:auto"><table class="report-table"><thead><tr><th>No</th><th>Pelanggan</th><th class="amount-col">Terbayar</th><th class="amount-col">Total</th><th class="amount-col">Laba</th></tr></thead><tbody>${history.map(h => `<tr><td style="font-size:12px">${escapeHtml(h.no)} <span style="font-size:10px;color:#64748b">${h.kind === 'po' ? 'TITIP' : 'JUAL'}</span></td><td style="font-size:12px">${escapeHtml(h.customer || '-')}</td><td class="amount-col">${fmt(h.paid)}</td><td class="amount-col">${fmt(h.total)}</td><td class="amount-col" style="color:${(h.profit != null ? h.profit : h.total - h.paid) >= 0 ? '#059669' : '#dc2626'};font-weight:700">${fmt(h.profit != null ? h.profit : h.total - h.paid)}</td></tr>`).join('')}</tbody></table></div>`
+    : '';
+  box.innerHTML = runningHtml + historyHtml;
 }
-function openOrderShip(id) {
-  const cs = Storage.getCreditSaleById(id);
-  if (!cs) return;
-  document.getElementById('shipId').value = id;
-  const out = Storage.creditOutstanding(cs);
-  const info = document.getElementById('shipInfo');
-  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${('Rp' + Math.round(cs.total).toLocaleString('id-ID'))} • <b>sisa ${'Rp' + Math.round(out).toLocaleString('id-ID')}</b> dikumpulkan setelah diterima`;
-  const dt = document.getElementById('shipDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
-  const er = document.getElementById('shipError'); if (er) er.textContent = '';
-  const m = document.getElementById('shipModal');
-  if (m && !m.open) {
-    try { m.showModal(); } catch {}
-    setTimeout(() => document.getElementById('shipCourier')?.focus(), 60);
+function openOrderStatus(kind, id, presetStage) {
+  const po = kind === 'po' ? Storage.getPreorderById(id) : Storage.getCreditSaleById(id);
+  if (!po) return;
+  document.getElementById('orderStatusKind').value = kind;
+  document.getElementById('orderStatusId').value = id;
+  const info = document.getElementById('orderStatusInfo');
+  if (info) {
+    const bal = kind === 'po' ? Storage.preorderBalance(po) : Storage.creditOutstanding(po);
+    info.innerHTML = `<b>${escapeHtml(po.no || '')}</b> — ${escapeHtml(po.customer || '')}${bal > 0.01 ? ' • sisa ' + preorderFmt(bal) : ' • lunas'}`;
   }
+  const st = document.getElementById('orderStatusSchedule'); if (st) st.value = '';
+  const tr = document.getElementById('orderStatusTracking'); if (tr) tr.value = (po.shipment && po.shipment.tracking) || '';
+  const sel = document.getElementById('orderStatusStage'); if (sel && presetStage) sel.value = presetStage;
+  const dt = document.getElementById('orderStatusDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
+  const nn = document.getElementById('orderStatusNote'); if (nn) nn.value = '';
+  const er = document.getElementById('orderStatusError'); if (er) er.textContent = '';
+  const m = document.getElementById('orderStatusModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} }
 }
-function closeOrderShip() { const m = document.getElementById('shipModal'); if (m && m.open) { try { m.close(); } catch {} } }
-function handleOrderShipSubmit() {
-  const id = document.getElementById('shipId')?.value || '';
+function closeOrderStatus() { const m = document.getElementById('orderStatusModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function handleOrderStatusSubmit() {
+  const kind = document.getElementById('orderStatusKind')?.value || 'po';
+  const id = document.getElementById('orderStatusId')?.value || '';
+  const stage = document.getElementById('orderStatusStage')?.value || '';
+  const date = document.getElementById('orderStatusDate')?.value || new Date().toISOString().split('T')[0];
+  const note = document.getElementById('orderStatusNote')?.value.trim() || '';
+  const tracking = document.getElementById('orderStatusTracking')?.value.trim() || '';
+  const schedule = document.getElementById('orderStatusSchedule')?.value || '';
   if (!id) return;
   try {
-    Storage.shipCreditSale(id, {
-      courier: document.getElementById('shipCourier')?.value || '',
-      tracking: document.getElementById('shipTracking')?.value || '',
-      date: document.getElementById('shipDate')?.value || new Date().toISOString().split('T')[0],
-    });
-    closeOrderShip();
-    UI.showSuccess('Pesanan ditandai sedang dikirim — pantau sampai diterima pelanggan');
+    if (kind === 'po') Storage.trackPreorder(id, { stage, date, note, tracking, schedule });
+    else Storage.trackCreditOrder(id, { stage, date, note, tracking, schedule });
+    closeOrderStatus();
+    UI.showSuccess('Status pesanan diperbarui');
     refreshSalesPage();
   } catch (e) {
-    const er = document.getElementById('shipError');
-    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan pengiriman';
-    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan pengiriman');
+    const er = document.getElementById('orderStatusError');
+    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan status';
+    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan status');
   }
-}
-function handleOrderReceive(id) {
-  const cs = Storage.getCreditSaleById(id);
-  if (!cs) return;
-  if (!confirm(`Barang ${cs.invoiceNo} sudah diterima pelanggan? Setelah ini tinggal pelunasan.`)) return;
-  try { Storage.receiveCreditSale(id, {}); UI.showSuccess('Paket diterima pelanggan — tunggu pelunasan'); refreshSalesPage(); }
-  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui status'); }
 }
 
 /* ===== Piutang penjualan (kredit) ===== */
@@ -2629,7 +2692,7 @@ function renderCreditSection() {
       </tr>`;
   }).join('')}
   </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada penjualan kredit. Centang "Bayar nanti (kredit)" saat menjual.</p>';
-  renderDeliverySection();
+
 }
 function openCreditPay(id) {
   const cs = Storage.getCreditSaleById(id);
@@ -2671,93 +2734,7 @@ function deleteCreditSalePrompt(id) {
 function refreshSalesPage() { try { renderSalesPage(); } catch {} }
 
 /* ===== Titip Beli / Preorder (beli atas nama pelanggan) ===== */
-const PO_STAGE_META = {
-  ordered:  { chip: '📦 DP diterima — siap beli China', bg: '#fef3c7', fg: '#b45309', need: 'Tindakan: catat biaya beli barang → kirim saat jalan 🚛' },
-  shipping: { chip: '🌏 Barang di jalan China → Indo',  bg: '#dbeafe', fg: '#1d4ed8', need: 'Tindakan: tunggu ~1 bulan, catat biaya kirim/bea masuk 🧾' },
-  arrived:  { chip: '✅ Barang sudah sampai di Indonesia', bg: '#dcfce7', fg: '#166534', need: 'Tindakan: serahkan ke pelanggan + tagih pembayaran penuh 💵' },
-  settled:  { chip: '🏁 Selesai — lunas', bg: '#dcfce7', fg: '#166534', need: 'Riwayat' },
-};
 function preorderFmt(v) { return 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID'); }
-function renderPreorderPage() {
-  if (!document.getElementById('preorderList')) return;
-  const list = Storage.getPreorders();
-  const fmt = preorderFmt;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  let running = 0, unpaid = 0, cost = 0, profit = 0;
-  list.forEach(po => {
-    if (po.stage === 'settled') { profit += Storage.preorderProfit(po); }
-    else {
-      running++;
-      unpaid += Storage.preorderBalance(po);
-      cost += Storage.preorderCostTotal(po);
-    }
-  });
-  const kpi = document.getElementById('preorderKpi');
-  if (kpi) {
-    const tile = (label, value, color) => `<button type="button" style="cursor:default">${label}<b style="color:${color}">${value}</b></button>`;
-    kpi.innerHTML = tile('📋 Pesanan berjalan', running, '#2563eb')
-      + tile('💵 Belum dibayar pelanggan', fmt(unpaid), '#b45309')
-      + tile('🧾 Biaya sudah keluar', fmt(cost), '#475569')
-      + tile('💰 Laba (pesanan selesai)', fmt(profit), '#059669');
-  }
-  const box = document.getElementById('preorderList');
-  if (!box) return;
-  const takLunas = list.filter(po => po.stage !== 'settled').sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  const riwayat = list.filter(po => po.stage === 'settled').sort((a, b) => String(b.settledDate || b.date).localeCompare(String(a.settledDate || a.date)));
-  const row = (po) => {
-    const meta = PO_STAGE_META[po.stage] || PO_STAGE_META.ordered;
-    const bal = Storage.preorderBalance(po);
-    const costTotal = Storage.preorderCostTotal(po);
-    const paid = Storage.preorderPaidTotal(po);
-    const itemsTxt = (po.items || []).map(l => `${l.qty}× ${escapeHtml(l.name)}`).join(', ');
-    const costTxt = (po.costs || []).length
-      ? (po.costs || []).map(c => `<span style="display:inline-block;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:2px 8px;margin:2px 4px 2px 0;font-size:10.5px">${c.kind === 'barang' ? '📦' : c.kind === 'kirim' ? '🚚' : '🧾'} ${preorderFmt(c.amount)}${c.note ? ' • ' + escapeHtml(c.note) : ''}</span>`).join('')
-      : '<span style="font-size:10.5px;color:#94a3b8">Belum ada biaya dicatat</span>';
-    const feeBtn = `<button class="btn btn-ghost preorder-cost" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🧾 Biaya</button>`;
-    const delBtn = po.stage === 'settled' ? '' : ` <button class="btn btn-ghost preorder-del" data-id="${po.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan pesanan">🗑</button>`;
-    // UX: ETA = estimasi tanggal datang; merah kalau sudah lewat & barang belum tiba
-    const etaValid = po.eta && /^\d{4}-\d{2}-\d{2}$/.test(po.eta);
-    const etaOver = !!(etaValid && po.stage !== 'settled' && new Date(po.eta + 'T00:00:00') < today);
-    const etaHtml = po.eta ? `<div style="font-size:10px;color:${etaOver ? '#b91c1c' : '#64748b'};font-weight:${etaOver ? '700' : '400'}">${etaOver ? '⚠️ ' : ''}Est datang ${escapeHtml(String(po.eta))}${etaOver ? ' (lewat)' : ''}</div>` : '';
-    // Chip tahap jujur: 'ordered' tanpa pembayaran = DP belum masuk
-    const chip = (po.stage === 'ordered' && paid <= 0.01)
-      ? '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-size:11px">⚠️ Pesanan dibuat — DP belum dibayar</span>'
-      : `<span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>`;
-    const need = (po.stage === 'ordered' && paid <= 0.01) ? 'Tindakan: terima DP pelanggan dulu, lalu beli barang' : meta.need;
-    // Aksi utama sesuai kondisi: DP masih 0 → terima DP; sudah DP → tandai di jalan / lanjut tahap
-    let action = '';
-    if (po.stage === 'ordered') {
-      action = paid <= 0.01
-        ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`
-        : `<button class="btn btn-primary preorder-ship" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🚛 Barang di jalan</button>${bal > 0.01 ? ` <button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''}`;
-    } else if (po.stage === 'shipping') {
-      action = `${bal > 0.01 ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''} <button class="btn btn-primary preorder-arrive" data-id="${po.id}" style="font-size:11px;padding:2px 8px">📦 Sampai</button>`;
-    } else if (po.stage === 'arrived') {
-      action = `${bal > 0.01 ? `<button class="btn btn-primary preorder-pay" data-id="${po.id}" style="font-size:11px;padding:2px 8px">💵 Bayar sisa ${preorderFmt(bal)}</button>` : ''}<button class="btn btn-primary preorder-settle" data-id="${po.id}" style="font-size:11px;padding:2px 8px">🏁 Lunas & Selesai</button>`;
-    }
-    return `<tr>
-        <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.date)}${etaHtml}</td>
-        <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.no)}</td>
-        <td style="font-size:12px">${escapeHtml(po.customer || '—')}<div style="font-size:10.5px;color:#475569">Total ${preorderFmt(po.sellTotal)} • sudah bayar ${preorderFmt(paid)} • biaya ${preorderFmt(costTotal)}</div><div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
-        <td>${chip}<div style="font-size:10.5px;color:#475569;margin-top:2px">${escapeHtml(need)}</div></td>
-        <td>${costTxt}</td>
-        <td class="amount-col" style="font-weight:${bal > 0.01 ? '700' : '400'};color:${bal > 0.01 ? '#b45309' : '#059669'}">${bal > 0.01 ? preorderFmt(bal) : 'Lunas'}</td>
-        <td style="white-space:nowrap">${action}${feeBtn}${delBtn}</td>
-      </tr>`;
-  };
-  const envOne = (title, arr, autoOpenVal) => arr.length ? `<div style="font-size:11px;font-weight:700;color:#64748b;margin:8px 0 4px">${title}</div><div style="overflow-x:auto"><table class="report-table"><thead><tr>
-    <th>Tanggal</th><th>No</th><th>Pelanggan</th><th>Tahap</th><th>Biaya</th><th class="amount-col">Sisa tagihan</th><th></th></tr></thead><tbody>${arr.map(row).join('')}</tbody></table></div>`
-    : `<p style="color:var(--text-muted);font-size:12px">${title} — belum ada.</p>`;
-  const envTwo = (title2, arr2) => arr2.length ? `<div style="font-size:11px;font-weight:700;color:#64748b;margin:16px 0 4px">${title2}</div><div style="overflow-x:auto"><table class="report-table"><thead><tr>
-    <th>No</th><th>Pelanggan</th><th class="amount-col">Terbayar</th><th class="amount-col">Total biaya</th><th class="amount-col">Laba</th><th></th></tr></thead><tbody>${arr2.map(po => `<tr>
-      <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.no)}</td>
-      <td style="font-size:12px">${escapeHtml(po.customer || '—')}</td>
-      <td class="amount-col">${preorderFmt(Storage.preorderPaidTotal(po))}</td>
-      <td class="amount-col">${preorderFmt(Storage.preorderCostTotal(po))}</td>
-      <td class="amount-col" style="color:${Storage.preorderProfit(po) >= 0 ? '#059669' : '#dc2626'};font-weight:700">${preorderFmt(Storage.preorderProfit(po))}</td>
-      <td></td></tr>`).join('')}</tbody></table></div>` : '';
-  box.innerHTML = envOne('🚀 Pesanan Berjalan', takLunas) + envTwo('🗂 Riwayat (Lunas)', riwayat);
-}
 function openPreorder() {
   const m = document.getElementById('preorderModal');
   if (!m) return;
@@ -2887,7 +2864,7 @@ function handlePoPaySubmit() {
     Storage.payPreorder(id, { amount, date, payment });
     closePoPay();
     UI.showSuccess('Pembayaran diterima — uang muka pelanggan tercatat');
-    refreshPreorderPage();
+    refreshSalesPage();
   } catch (e) {
     const er = document.getElementById('preorderPayError');
     if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan bayar';
@@ -2919,7 +2896,7 @@ function handlePoCostSubmit() {
     Storage.addPreorderCost(id, { amount, kind, date, payment, note });
     closePoCost();
     UI.showSuccess('Biaya dicatat — ' + (kind === 'barang' ? 'masuk nilai barang pesanan' : kind === 'kirim' ? 'beban kirim' : 'beban lainnya'));
-    refreshPreorderPage();
+    refreshSalesPage();
   } catch (e) {
     const er = document.getElementById('preorderCostError');
     if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan biaya';
@@ -2941,14 +2918,13 @@ function handlePreorderSubmit() {
     const po = Storage.createPreorder(d);
     closePreorder();
     UI.showSuccess(`Pesanan ${po.no || po.id} tersimpan — ${preorderFmt(Storage.preorderSellTotal ? Storage.preorderSellTotal(po) : po.sellTotal)} — sisa dibayar saat barang datang`);
-    refreshPreorderPage();
+    refreshSalesPage();
   } catch (e) {
     const er = document.getElementById('preorderError');
     if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan pesanan';
     else UI.showError(e && e.message ? e.message : 'Gagal menyimpan pesanan');
   }
 }
-function refreshPreorderPage() { try { renderPreorderPage(); } catch {} }
 function bindPreorderUI() {
   document.getElementById('preorderNewBtn')?.addEventListener('click', openPreorder);
   document.getElementById('preorderClose')?.addEventListener('click', closePreorder);
@@ -2956,20 +2932,6 @@ function bindPreorderUI() {
   document.getElementById('preorderAddRow')?.addEventListener('click', addPreorderRow);
   document.getElementById('preorderSave')?.addEventListener('click', handlePreorderSubmit);
   document.getElementById('preorderDeposit')?.addEventListener('input', renderPreorderInfo);
-  document.getElementById('preorderList')?.addEventListener('click', (e) => {
-    const ship = e.target.closest('.preorder-ship');
-    const arr = e.target.closest('.preorder-arrive');
-    const stl = e.target.closest('.preorder-settle');
-    const pay = e.target.closest('.preorder-pay');
-    const fee = e.target.closest('.preorder-cost');
-    const del = e.target.closest('.preorder-del');
-    if (ship) orderShipPrompt(ship.dataset.id);
-    else if (arr) orderArrivePrompt(arr.dataset.id);
-    else if (stl) orderSettlePrompt(stl.dataset.id);
-    else if (pay) openPoPay(pay.dataset.id);
-    else if (fee) openPoCost(fee.dataset.id);
-    else if (del) orderDeletePrompt(del.dataset.id);
-  });
   document.getElementById('preorderPayClose')?.addEventListener('click', closePoPay);
   document.getElementById('preorderPayCancel')?.addEventListener('click', closePoPay);
   document.getElementById('preorderPaySave')?.addEventListener('click', handlePoPaySubmit);
@@ -2981,32 +2943,21 @@ function orderShipPrompt(id) {
   const po = Storage.getPreorderById(id);
   if (!po) return;
   if (!confirm(`Barang ${po.no} sudah dibeli dan dikirim dari China?`)) return;
-  try { Storage.shipPreorder(id, {}); UI.showSuccess('Barang dinyatakan di jalan — tunggu sampai tiba (~1 bulan)'); refreshPreorderPage(); }
+  try { Storage.shipPreorder(id, {}); UI.showSuccess('Barang dinyatakan di jalan — tunggu sampai tiba (~1 bulan)'); refreshSalesPage(); }
   catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui tahap'); }
 }
 function orderArrivePrompt(id) {
   const po = Storage.getPreorderById(id);
   if (!po) return;
   if (!confirm(`Paket ${po.no} sudah tiba di Indonesia/di tangan admin?`)) return;
-  try { Storage.arrivePreorder(id, {}); UI.showSuccess('Barang sampai — serahkan ke pelanggan, terima pembayaran penuh'); refreshPreorderPage(); }
+  try { Storage.arrivePreorder(id, {}); UI.showSuccess('Barang sampai — serahkan ke pelanggan, terima pembayaran penuh'); refreshSalesPage(); }
   catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui tahap'); }
-}
-function orderSettlePrompt(id) {
-  const po = Storage.getPreorderById(id);
-  if (!po) return;
-  const bal = Storage.preorderBalance(po);
-  const ok = bal <= 0.01
-    ? confirm(`Tandai ${po.no} SELESAI (lunas)? Barang jadi HPP, uang muka jadi pendapatan.`)
-    : confirm(`Pelunasan ${po.no}: terima sisa ${preorderFmt(bal)} sekaligus & selesaikan?`);
-  if (!ok) return;
-  try { Storage.settlePreorder(id, {}); UI.showSuccess('Pesanan selesai — laba masuk laporan'); refreshPreorderPage(); }
-  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyelesaikan pesanan'); }
 }
 function orderDeletePrompt(id) {
   const po = Storage.getPreorderById(id);
   if (!po) return;
   if (!confirm(`Batalkan & hapus pesanan ${po.no}? Semua jurnal ${po.no} (DP, biaya, bayar) ikut dihapus.`)) return;
-  try { Storage.deletePreorder(id); UI.showSuccess('Pesanan dibatalkan'); refreshPreorderPage(); }
+  try { Storage.deletePreorder(id); UI.showSuccess('Pesanan dibatalkan'); refreshSalesPage(); }
   catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menghapus'); }
 }
 function printSalesPage() {
@@ -7217,3 +7168,44 @@ function saveSettings() {
 
 document.addEventListener('DOMContentLoaded', init);
 
+
+
+
+function openOrderShip(id) {
+  const cs = Storage.getCreditSaleById(id);
+  if (!cs) return;
+  document.getElementById('shipId').value = id;
+  const out = Storage.creditOutstanding(cs);
+  const info = document.getElementById('shipInfo');
+  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${('Rp' + Math.round(cs.total).toLocaleString('id-ID'))} • <b>sisa ${('Rp' + Math.round(out).toLocaleString('id-ID'))}</b> dikumpulkan setelah diterima`;
+  const dt = document.getElementById('shipDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
+  const er = document.getElementById('shipError'); if (er) er.textContent = '';
+  const m = document.getElementById('shipModal');
+  if (m && !m.open) { try { m.showModal(); } catch {} setTimeout(() => document.getElementById('shipCourier')?.focus(), 60); }
+}
+function closeOrderShip() { const m = document.getElementById('shipModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function handleOrderShipSubmit() {
+  const id = document.getElementById('shipId')?.value || '';
+  if (!id) return;
+  try {
+    Storage.shipCreditSale(id, {
+      courier: document.getElementById('shipCourier')?.value || '',
+      tracking: document.getElementById('shipTracking')?.value || '',
+      date: document.getElementById('shipDate')?.value || new Date().toISOString().split('T')[0],
+    });
+    closeOrderShip();
+    UI.showSuccess('Pesanan ditandai sedang dikirim — pantau sampai diterima pelanggan');
+    refreshSalesPage();
+  } catch (e) {
+    const er = document.getElementById('shipError');
+    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan pengiriman';
+    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan pengiriman');
+  }
+}
+function handleOrderReceive(id) {
+  const cs = Storage.getCreditSaleById(id);
+  if (!cs) return;
+  if (!confirm(`Barang ${cs.invoiceNo} sudah diterima pelanggan? Setelah ini tinggal pelunasan.`)) return;
+  try { Storage.receiveCreditSale(id, {}); UI.showSuccess('Paket diterima pelanggan — tunggu pelunasan'); refreshSalesPage(); }
+  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal memperbarui status'); }
+}

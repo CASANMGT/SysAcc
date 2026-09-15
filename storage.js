@@ -2600,7 +2600,8 @@ export function createPreorder({ date, customer, items, deposit, payment, note, 
     id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40),
     customer: String(customer || '').trim().slice(0, 60),
     items: clean, sellTotal, deposit: dp, payment: payment || 'cash',
-    costs: [], payments: [], stage: 'ordered',
+    costs: [], payments: [], stage: dp > 0 ? 'dp_paid' : 'ordered',
+    events: [{ date: d, stage: dp > 0 ? 'dp_paid' : 'ordered', note: customer ? 'Pesanan dibuat' : 'Pesanan dibuat', tracking: '', schedule: '' }],
     note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
   };
   if (dp > 0) {
@@ -2630,6 +2631,8 @@ export function payPreorder(id, { amount, date, payment, note } = {}) {
   const j = buildPreorderPayJournal({ date: d, amount: amt, payment, memo: `Bayar titip beli ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
   if (j) { j.refId = id; postJournal(j); }
   po.payments = (po.payments || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'cash', kind: preorderPaidTotal(po) === 0 ? 'DP' : 'bayar', note: String(note || '').slice(0, 80) });
+  if (po.stage === 'ordered') po.stage = 'dp_paid';
+  po.events = (po.events || []).concat([{ date: d, stage: po.stage, note: `Pembayaran ${('Rp' + Math.round(amt).toLocaleString('id-ID'))}`, tracking: '', schedule: '' }]);
   list[i] = po;
   savePreorders(list);
   logAudit('create', 'preorder-pay', id, null, { amount: amt });
@@ -2657,15 +2660,18 @@ export function addPreorderCost(id, { amount, kind, date, payment, note } = {}) 
   return po;
 }
 // Barang dibeli & dikirim (pengiriman dari China): hanya update tahap.
-export function shipPreorder(id, { note } = {}) {
+export function shipPreorder(id, { note, tracking } = {}) {
   requireCap('ledger');
   const list = getPreorders();
   const i = list.findIndex(x => x.id === id);
   if (i < 0) throw new Error('Pesanan tidak ditemukan');
   const po = list[i];
-  if (po.stage !== 'ordered') throw new Error('Tahap sudah ' + po.stage);
+  if (!['ordered', 'dp_paid'].includes(po.stage)) throw new Error('Tahap sudah ' + po.stage);
+  const d = new Date().toISOString().split('T')[0];
   po.stage = 'shipping';
   po.shipNotes = String(note || '').slice(0, 80);
+  po.shipment = { ...(po.shipment || {}), tracking: String(tracking || '').slice(0, 40), date: d };
+  po.events = (po.events || []).concat([{ date: d, stage: 'shipped', note: `Barang di jalan${note ? ' • ' + note : ''}`, tracking: String(tracking || '').slice(0, 40), schedule: '' }]);
   list[i] = po;
   savePreorders(list);
   logAudit('update', 'preorder', id, null, { stage: 'shipping' });
@@ -2678,7 +2684,7 @@ export function settlePreorder(id, { date, payment, note } = {}) {
   const i = list.findIndex(x => x.id === id);
   if (i < 0) throw new Error('Pesanan tidak ditemukan');
   const po = list[i];
-  if (po.stage !== 'ordered' && po.stage !== 'shipping') throw new Error('Status pesanan: ' + po.stage);
+  if (!['ordered', 'dp_paid', 'shipping', 'shipped', 'arrived', 'received', 'invoiced'].includes(po.stage)) throw new Error('Status pesanan: ' + po.stage);
   const bal = preorderBalance(po);
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
@@ -2694,6 +2700,7 @@ export function settlePreorder(id, { date, payment, note } = {}) {
   cur.stage = 'settled';
   cur.settledDate = d;
   cur.settledNote = String(note || '').slice(0, 80);
+  cur.events = (cur.events || []).concat([{ date: d, stage: 'done', note: 'Lunas & selesai' + (note ? ' • ' + note : ''), tracking: '', schedule: '' }]);
   const out = getPreorders();
   const oi = out.findIndex(x => x.id === id);
   if (oi >= 0) out[oi] = cur; else out.push(cur);
@@ -2701,16 +2708,18 @@ export function settlePreorder(id, { date, payment, note } = {}) {
   logAudit('update', 'preorder', id, null, { stage: 'settled', paid, goods });
   return cur;
 }
-// Selesaikan manual (barang sampai, pembayaran janggal) — tanpa jurnal pelunasan penuh.
-export function arrivePreorder(id, { date } = {}) {
+// Selesaikan manual (barang sampai, pembayaran belum penuh) — tanpa jurnal pelunasan penuh.
+export function arrivePreorder(id, { date, note } = {}) {
   requireCap('ledger');
   const list = getPreorders();
   const i = list.findIndex(x => x.id === id);
   if (i < 0) throw new Error('Pesanan tidak ditemukan');
   const po = list[i];
-  if (po.stage !== 'ordered' && po.stage !== 'shipping') throw new Error('Status pesanan: ' + po.stage);
+  if (!['ordered', 'dp_paid', 'shipping', 'shipped'].includes(po.stage)) throw new Error('Status pesanan: ' + po.stage);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   po.stage = 'arrived';
-  po.arrivedDate = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  po.arrivedDate = d;
+  po.events = (po.events || []).concat([{ date: d, stage: 'received', note: `Barang sampai${note ? ' • ' + note : ''}`, tracking: '', schedule: '' }]);
   list[i] = po;
   savePreorders(list);
   logAudit('update', 'preorder', id, null, { stage: 'arrived' });
@@ -2806,10 +2815,18 @@ export function createCreditSale({ date, dueDate, customer, person, lines, disco
     flow: flow === 'order' ? 'order' : 'credit',
     stage: flow === 'order' ? 'ordered' : '',
     shipment: null, deliveredDate: '',
+    timeline: [],
     status: dp >= total - 0.01 ? 'paid' : 'open',
     note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
   };
-  if (rec.status === 'paid' && rec.flow === 'order') { rec.stage = 'done'; rec.deliveredDate = d; }
+  if (flow === 'order') {
+    rec.timeline = [{ date: d, stage: 'ordered', note: customer ? `Pesanan dibuat${note ? ' — ' + note : ''}` : 'Pesanan dibuat', tracking: '', schedule: '' }];
+    if (dp > 0) {
+      rec.stage = 'dp_paid';
+      rec.timeline.push({ date: d, stage: 'dp_paid', note: `DP diterima ${('Rp' + Math.round(dp).toLocaleString('id-ID'))}`, tracking: '', schedule: '' });
+    }
+  }
+  if (rec.status === 'paid' && rec.flow === 'order') { rec.stage = 'done'; rec.deliveredDate = d; rec.timeline.push({ date: d, stage: 'done', note: 'Lunas di awal — tidak perlu kirim lagung', tracking: '', schedule: '' }); }
   saveCreditSales(getCreditSales().concat(rec));
   logAudit('create', 'credit-sale', id, null, { invoiceNo, total, deposit: dp });
   return rec;
@@ -2830,7 +2847,11 @@ export function payCreditSale(id, { amount, date, payment, note } = {}) {
   if (j) { j.refId = id; postJournal(j); }
   cs.payments = (cs.payments || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'cash', note: String(note || '').slice(0, 80), createdAt: new Date().toISOString() });
   cs.status = creditOutstanding(cs) <= 0.01 ? 'paid' : 'open';
-  if (cs.flow === 'order') cs.stage = creditOutstanding(cs) <= 0.01 ? 'done' : (cs.stage || 'ordered');
+  if (cs.flow === 'order') {
+    if (creditOutstanding(cs) <= 0.01) cs.stage = 'done';
+    else if (cs.stage === 'ordered') cs.stage = 'dp_paid';
+    cs.timeline = (cs.timeline || []).concat([{ date: d, stage: cs.stage, note: `Pembayaran ${('Rp' + Math.round(amt).toLocaleString('id-ID'))}`, tracking: '', schedule: '' }]);
+  }
   list[i] = cs;
   saveCreditSales(list);
   logAudit('create', 'credit-sale-pay', id, null, { amount: amt });
@@ -2844,12 +2865,14 @@ export function shipCreditSale(id, { courier, tracking, date, note } = {}) {
   if (i < 0) throw new Error('Penjualan tidak ditemukan');
   const cs = list[i];
   if (cs.flow !== 'order') throw new Error('Bukan pesanan alur pengiriman');
-  if (cs.stage && cs.stage !== 'ordered') throw new Error('Pesanan sudah dikirim — status: ' + cs.stage);
+  if (cs.stage && !['ordered', 'dp_paid'].includes(cs.stage)) throw new Error('Pesanan sudah dikirim — status: ' + cs.stage);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   cs.stage = 'shipped';
   cs.shipment = {
     courier: String(courier || '').slice(0, 60), tracking: String(tracking || '').slice(0, 40),
-    date: String(date || new Date().toISOString().split('T')[0]).slice(0, 10), note: String(note || '').slice(0, 80),
+    date: d, note: String(note || '').slice(0, 80),
   };
+  cs.timeline = (cs.timeline || []).concat([{ date: d, stage: 'shipped', note: `Dikirim${courier ? ' via ' + courier : ''}${note ? ' • ' + note : ''}`, tracking: String(tracking || '').slice(0, 40), schedule: '' }]);
   list[i] = cs;
   saveCreditSales(list);
   logAudit('update', 'credit-sale', id, null, { stage: 'shipped', shipment: cs.shipment });
@@ -2863,13 +2886,66 @@ export function receiveCreditSale(id, { date } = {}) {
   if (i < 0) throw new Error('Penjualan tidak ditemukan');
   const cs = list[i];
   if (cs.flow !== 'order') throw new Error('Bukan pesanan alur pengiriman');
-  if (cs.stage !== 'shipped') throw new Error('Tandai dulu sebagai dikirim');
-  cs.stage = 'delivered';
-  cs.deliveredDate = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  if (cs.stage && !['dp_paid', 'ordered', 'shipped'].includes(cs.stage)) throw new Error('Status sekarang: ' + cs.stage + ' — barang tidak bisa ditandai diterima pada status ini');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  cs.stage = 'received';
+  cs.deliveredDate = d;
+  cs.timeline = (cs.timeline || []).concat([{ date: d, stage: 'received', note: 'Barang diterima pelanggan', tracking: '', schedule: '' }]);
   list[i] = cs;
   saveCreditSales(list);
-  logAudit('update', 'credit-sale', id, null, { stage: 'delivered', deliveredDate: cs.deliveredDate });
+  logAudit('update', 'credit-sale', id, null, { stage: 'received', deliveredDate: cs.deliveredDate });
   return cs;
+}
+// Update status manual (riwayat bebas): kirim resi, sampai di perusahaan, kirim invoice,
+// jadwal pembayaran, dll. Stage hanya maju; pembayaran tercatat lewat tombol bayar.
+const ORDER_TRACK_STAGES = ['ordered', 'dp_paid', 'shipped', 'received', 'invoiced', 'done'];
+export function trackCreditOrder(id, { stage, date, note, tracking, schedule } = {}) {
+  requireCap('ledger');
+  const list = getCreditSales();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const cs = list[i];
+  if (cs.flow !== 'order') throw new Error('Bukan pesanan alur pesanan');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  let st = stage;
+  if (st === 'done' && creditOutstanding(cs) > 0.01) throw new Error('Belum lunas — tandai Lunas via tombol Bayar, atau pilih status lain');
+  if (st && !ORDER_TRACK_STAGES.includes(st)) throw new Error('Status tidak dikenal: ' + st);
+  if (st === 'shipped') {
+    cs.shipment = { ...(cs.shipment || {}), tracking: String(tracking || '').slice(0, 40), date: (cs.shipment && cs.shipment.date) || d };
+  }
+  cs.stage = st || cs.stage;
+  cs.timeline = (cs.timeline || []).concat([{
+    date: d, stage: cs.stage, note: String(note || '').slice(0, 140),
+    tracking: String(tracking || '').slice(0, 40), schedule: String(schedule || '').slice(0, 10),
+  }]);
+  list[i] = cs;
+  saveCreditSales(list);
+  logAudit('update', 'credit-sale', id, null, { stage: cs.stage, note, tracking, schedule });
+  return cs;
+}
+// Track status pesananya titip beli (vocab sama seperti jual alur pesanan).
+export function trackPreorder(id, { stage, date, note, tracking, schedule } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.stage === 'cancelled') throw new Error('Pesanan dibatalkan');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  let st = stage;
+  if (st && st === 'done' && po.stage !== 'arrived' && po.stage !== 'received' && po.stage !== 'invoiced' && po.stage !== 'shipped') throw new Error('Barang belum dikirim/sampai — gunakan status lain');
+  if (st && !['ordered', 'dp_paid', 'shipped', 'arrived', 'received', 'invoiced'].includes(st)) throw new Error('Status tidak dikenal: ' + st);
+  if (st === 'shipped') po.stage = 'shipping';
+  else if (st === 'received') po.stage = 'arrived';
+  else if (st) po.stage = st;
+  po.events = (po.events || []).concat([{
+    date: d, stage: st || po.stage, note: String(note || '').slice(0, 140),
+    tracking: String(tracking || '').slice(0, 40), schedule: String(schedule || '').slice(0, 10),
+  }]);
+  list[i] = po;
+  savePreorders(list);
+  logAudit('update', 'preorder', id, null, { newStage: st, note, tracking, schedule });
+  return po;
 }
 export function deleteCreditSale(id) {
   requireCap('ledger');

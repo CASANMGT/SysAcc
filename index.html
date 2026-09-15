@@ -637,13 +637,9 @@
             <div id="creditList"></div>
           </div>
           <div class="dash-panel" style="padding:16px;margin-bottom:16px">
-            <h3 style="margin-bottom:8px">🚚 Pemeriksaan Pengiriman <span style="font-size:12px;font-weight:500;color:#64748b">— pesanan berjalan: DP ✅ → kirim → diterima → pelunasan</span></h3>
-            <div id="deliveryList"></div>
-          </div>
-          <div class="dash-panel" style="padding:16px;margin-bottom:16px">
-            <h3 style="margin-bottom:8px">🌏 Titip Beli (Preorder) <span style="font-size:12px;font-weight:500;color:#64748b">— beli atas nama pelanggan: DP → beli & kirim China → barang datang → pelunasan</span></h3>
+            <h3 style="margin-bottom:8px">📦 Status Pesanan <span style="font-size:12px;font-weight:500;color:#64748b">— Jual (alur pesanan) & Titip Beli disatu alur: DP → kirim (resi) → diterima → invoice → tunggu bayar (jadwal) → lunas</span></h3>
             <div id="preorderKpi" class="stock-kpi" aria-label="Ringkasan titip beli" style="margin-bottom:10px"></div>
-            <div id="preorderList"></div>
+            <div id="orderStatusList"></div>
           </div>
           <div class="dashboard-grid">
             <div class="dash-panel dash-panel-chart">
@@ -1888,6 +1884,41 @@
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="shipCancel">Batal</button>
         <button type="button" class="btn btn-primary" id="shipSave">🚚 Simpan — Sedang Dikirim</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog id="orderStatusModal" class="modal">
+    <div class="modal-content" style="max-width:440px">
+      <header class="modal-header">
+        <h2>🔄 Update Status Pesanan</h2>
+        <button type="button" class="modal-close" aria-label="Tutup" id="orderStatusClose">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="orderStatusKind">
+        <input type="hidden" id="orderStatusId">
+        <div id="orderStatusInfo" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
+        <label style="font-size:12px;display:block;margin-bottom:8px">Status baru
+          <select id="orderStatusStage" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:3px">
+            <option value="shipped">🚚 Dikirim — ada nomor resi/kiriman</option>
+            <option value="received">✅ Diterima di tujuan (perusahaan/pelanggan)</option>
+            <option value="invoiced">🧾 Invoice terkirim — tunggu pembayaran</option>
+            <option value="dp_paid">💵 DP dibayar</option>
+            <option value="done">🏁 Selesai (harus lunas)</option>
+          </select></label>
+        <label style="font-size:12px;display:block;margin-bottom:8px">Nomor resi / shipping code (opsional)
+          <input type="text" id="orderStatusTracking" maxlength="40" placeholder="mis. JNT123, SXP887..." style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <label style="font-size:12px;display:block;margin-bottom:8px">Tanggal janji bayar (schedule, opsional)
+          <input type="date" id="orderStatusSchedule" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <label style="font-size:12px;display:block">Tanggal kejadian
+          <input type="date" id="orderStatusDate" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <label style="font-size:12px;display:block;margin-top:8px">Catatan status (mis. "pakai PTtrip", "invoice #12 ke PT Maju — bayar 3 hari")
+          <input type="text" id="orderStatusNote" maxlength="140" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <div id="orderStatusError" role="alert" style="color:#dc2626;font-size:12px;margin-top:8px"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="orderStatusCancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="orderStatusSave">🔄 Simpan Status</button>
       </footer>
     </div>
   </dialog>
