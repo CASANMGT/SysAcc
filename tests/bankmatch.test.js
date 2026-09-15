@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { suggestMatches, reconSummary, entryDirection, suggestRules } from '../bankmatch.js';
 import { upsertBankStatement, getBankStatement, updateBankStatement, getBankRules, addBankRule, deleteBankRule, updateBankRule, matchBankRule, getBankEndBalances, setBankEndBalance } from '../storage.js';
@@ -9,7 +9,7 @@ const ENTRIES = [
 ];
 
 describe('bankmatch engine', () => {
-  it('entryDirection memetakan income→in, expense→out', () => {
+  it('entryDirection memetakan incomeâ†’in, expenseâ†’out', () => {
     expect(entryDirection({ type: 'income' })).toBe('in');
     expect(entryDirection({ type: 'expense' })).toBe('out');
   });
@@ -40,8 +40,8 @@ describe('bankmatch engine', () => {
   });
   it('suggestRules mengelompokkan mutasi nyata & usul akun terpopuler', () => {
     const st = [
-      { key: 'a', desc: 'BIAYA ADM BULANAN', amount: 15000, direction: 'out', counterAccount: '5114' },
-      { key: 'b', desc: 'BIAYA ADM KARTU', amount: 5000, direction: 'out', counterAccount: '5114' },
+      { key: 'a', desc: 'BIAYA ADM BULANAN', amount: 15000, direction: 'out', counterAccount: '6205' },
+      { key: 'b', desc: 'BIAYA ADM KARTU', amount: 5000, direction: 'out', counterAccount: '6205' },
       { key: 'c', desc: 'GRABFOOD', amount: 85000, direction: 'out', counterAccount: '5103' },
       { key: 'd', desc: 'SUDAH DIPROSES', amount: 1000, direction: 'out', counterAccount: '5199', posted: true },
       { key: 'e', desc: 'DIABAIKAN', amount: 1000, direction: 'out', counterAccount: '5199', ignored: true },
@@ -50,7 +50,7 @@ describe('bankmatch engine', () => {
     expect(r[0].keyword).toBe('biaya');
     expect(r[0].count).toBe(2);
     expect(r[0].total).toBe(20000);
-    expect(r[0].code).toBe('5114');
+    expect(r[0].code).toBe('6205');
     expect(r.some(x => x.keyword === 'grabfood')).toBe(true);
     expect(r.some(x => x.keyword === 'diproses')).toBe(false);
     expect(r.some(x => x.keyword === 'diabaikan')).toBe(false);
@@ -76,7 +76,7 @@ describe('bank statement store', () => {
 
 describe('aturan bank & saldo akhir', () => {
   beforeEach(() => localStorage.clear());
-  it('aturan keyword → akun (dipakai saat import)', () => {
+  it('aturan keyword â†’ akun (dipakai saat import)', () => {
     addBankRule('gojek', '5104');
     expect(matchBankRule('TRANSFER GOJEK 123')).toBe('5104');
     expect(matchBankRule('makan siang')).toBe(null);
@@ -94,8 +94,8 @@ describe('aturan bank & saldo akhir', () => {
     expect(getBankRules().length).toBe(0);
   });
   it('aturan berarah: hanya berlaku untuk arah yang cocok', () => {
-    addBankRule('bunga', '5115', 'out');
-    expect(matchBankRule('BUNGA TABUNGAN', 'out')).toBe('5115');
+    addBankRule('bunga', '5113', 'out');
+    expect(matchBankRule('BUNGA TABUNGAN', 'out')).toBe('5113');
     expect(matchBankRule('BUNGA TABUNGAN', 'in')).toBe(null);
   });
   it('kata kunci terpanjang menang (grabfood > grab)', () => {
@@ -118,3 +118,4 @@ describe('aturan bank & saldo akhir', () => {
     expect(getBankEndBalances()['1102']).toBeUndefined();
   });
 });
+

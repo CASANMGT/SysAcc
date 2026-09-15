@@ -6,6 +6,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.86.0] - 2026-09-14
+
+### Changed — Renumber COA ke chart "PT Wynara Living Atelier" (ganti chart total)
+- **Chart baru jadi bawaan** (`coa.js`): `1101 Bank BCA` · `1102 Wallet Shopee` · `1103 Wallet Tokopedia` · `1104 Petty Cash` · `1105 Inventory` · `1106 QRIS` · `1107 Kartu Debit` · `1201 AR` · `1202 Employee Loan` · `1203 Other Receivable` · `2101 Customer Deposit` · `2102 Account Payable` · `2103 PPh 21 Payable` · `2104 PPh 23 Payable` · `3101 Owner Capital` · `4101–4104 Shopee/Tokopedia/Offline/Other Sales` · `6201–6209` beban perusahaan
+- **Migrasi otomatis sekali jalan** (`migrateCoaRenumber`): backup → tulis ulang kode di **jurnal**, **mutasi bank**, **aturan bank**, **saldo awal**, akun custom → versi=2 (re-run aman/skip)
+- Konstanta mesin diperbarui: `INVENTORY 1105`, `AP 2102`, `SALARY 6201`, `INTEREST_INCOME 4190`, `PPH_EXPENSE 6209`; referensi keras disesuaikan
+- Alias lama dibersihkan (nama sudah menyatu di chart)
+- **321/321 tests ✓**
+
+> Rollback: snapshot pra-migrasi tersimpan di `localStorage['wynara_coa_backup']`.
+
+## [1.85.0] - 2026-09-14
+- Peta renumber COA + pratinjau migrasi (dry-run) di Daftar Akun.
+
+## [1.84.1] / [1.84.0] - 2026-09-14
+- Alias nama akun bawaan (ganti nama tampilan) + kode akun saran saat tambah akun.
+
 ## [1.84.0] - 2026-09-14
 
 ### Added — Ganti nama akun bawaan (alias COA) agar chart bisnis cocok

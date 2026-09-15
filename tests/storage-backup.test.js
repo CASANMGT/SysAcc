@@ -209,7 +209,7 @@ describe('retur penjualan (F1)', () => {
     expect(returnedQtyFor(e.id)[it.id]).toBe(1);
     const j = getAllJournals().find(x => x.ref === 'sale-return');
     expect(j.lines.find(l => l.account === '4101').debit).toBe(10000);
-    expect(j.lines.find(l => l.account === '1301').debit).toBe(5000);
+    expect(j.lines.find(l => l.account === '1105').debit).toBe(5000);
     expect(j.lines.find(l => l.account === '5109').credit).toBe(5000);
     expect(getSaleReturns(e.id).length).toBe(1);
   });
@@ -265,7 +265,7 @@ describe('aksi massal & restock (F1)', () => {
 });
 
 describe('dokumen stok: penyesuaian & transfer', () => {
-  it('adjustStock (+/âˆ’) + jurnal Dr/Cr 1301 vs 5199', () => {
+  it('adjustStock (+/âˆ’) + jurnal Dr/Cr 1105 vs 5199', () => {
     saveShops([{ id: 'main', name: 'Toko Utama' }]);
     setActiveShopId('main');
     const it = saveItem({ name: 'Kopi', price: 10000, cost: 5000, stock: 5 });
@@ -273,7 +273,7 @@ describe('dokumen stok: penyesuaian & transfer', () => {
     expect(getItemById(it.id).stock).toBe(3);
     const j = getAllJournals().find(x => x.ref === 'adjust');
     expect(j.lines.find(l => l.account === '5199').debit).toBe(10000);
-    expect(j.lines.find(l => l.account === '1301').credit).toBe(10000);
+    expect(j.lines.find(l => l.account === '1105').credit).toBe(10000);
   });
   it('transferStock pindah antar toko tanpa jurnal', () => {
     saveShops([{ id: 'main', name: 'A' }, { id: 'b', name: 'B' }]);
@@ -430,12 +430,12 @@ describe('perbaikan bug (audit)', () => {
     expect(() => saveCustomAccount({ code: '4101', name: 'X', type: 'asset' })).toThrow(/bawaan|dipakai/);
   });
   it('importBankLines memposting jurnal bankâ†”COA (balance)', () => {
-    const res = importBankLines([{ date: '2026-09-01', amount: 15000, direction: 'out', counterAccount: '5114', memo: 'Biaya adm' }], { bankAccount: '1102' });
+    const res = importBankLines([{ date: '2026-09-01', amount: 15000, direction: 'out', counterAccount: '6205', memo: 'Biaya adm' }], { bankAccount: '1101' });
     expect(res.ok).toBe(1);
     const j = getAllJournals().find(x => x.ref === 'bank');
     expect(j).toBeTruthy();
-    expect(j.lines.find(l => l.account === '5114').debit).toBe(15000);
-    expect(j.lines.find(l => l.account === '1102').credit).toBe(15000);
+    expect(j.lines.find(l => l.account === '6205').debit).toBe(15000);
+    expect(j.lines.find(l => l.account === '1101').credit).toBe(15000);
   });
 });
 
@@ -568,8 +568,8 @@ describe('produk: grup & restock', () => {
     restockItem(it.id, 5, 12000, { date: '2026-08-01', payment: 'cash' });
     expect(getItemById(it.id).stock).toBe(5);
     const j = getAllJournals().find(x => x.ref === 'restock');
-    expect(j.lines.find(l => l.account === '1301').debit).toBe(60000);
-    expect(j.lines.find(l => l.account === '1101').credit).toBe(60000);
+    expect(j.lines.find(l => l.account === '1105').debit).toBe(60000);
+    expect(j.lines.find(l => l.account === '1104').credit).toBe(60000);
   });
 });
 
@@ -653,7 +653,7 @@ describe('kasbon karyawan (storage)', () => {
     expect(rep.source).toBe('payroll');
     expect(getAllRepayments().filter(r => r.loanId === loan.id).reduce((s, r) => s + r.amount, 0)).toBe(300000);
     const j = getAllJournals().find(x => x.ref === 'repayment' && x.refId === rep.id);
-    expect(j.lines.find(l => l.account === '5110').debit).toBe(300000);
+    expect(j.lines.find(l => l.account === '6201').debit).toBe(300000);
     expect(j.lines.find(l => l.account === '1201').credit).toBe(300000);
   });
   it('applyPayrollKasbon dibatasi sisa; lunas â†’ status paid', () => {
@@ -736,3 +736,5 @@ describe('penjualan kredit (bayar nanti)', () => {
     expect(getCreditSales().length).toBe(0);
   });
 });
+
+

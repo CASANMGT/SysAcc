@@ -215,7 +215,7 @@ export function buildPurchasePayJournal({ amount, date, payment, memo, withhold 
   lines.push({ account: AP_ACCOUNT, debit: amt, credit: 0, memo: m });
   if (pph > 0 && pph < amt) {
     lines.push({ account: cash, debit: 0, credit: amt - pph, memo: m });
-    lines.push({ account: '2107', debit: 0, credit: pph, memo: `PPh ${withhold.type === '42' ? '4(2)' : '23'} dipotong ${m}`.trim() });
+    lines.push({ account: '2104', debit: 0, credit: pph, memo: `PPh ${withhold.type === '42' ? '4(2)' : '23'} dipotong ${m}`.trim() });
   } else {
     lines.push({ account: cash, debit: 0, credit: amt, memo: m });
   }

@@ -1,7 +1,7 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, findUnbalanced } from './journals.js';
-import { getAccounts, ACCOUNTS, COA_RENUMBER } from './coa.js';
+import { getAccounts, ACCOUNTS, COA_RENUMBER, INVENTORY_ACCOUNT } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -2705,6 +2705,81 @@ function mapHasDuplicateTarget(map, target) {
   return Object.values(map).filter(v => v === target).length > 1;
 }
 
+// ===== Migrasi renumber COA (sekali). Backup → tulis ulang kode → tandai versi. =====
+const COA_VER_KEY = 'wynara_coa_version';
+const COA_BAK_KEY = 'wynara_coa_backup';
+export function isCoaRenumbered() { return localStorage.getItem(COA_VER_KEY) === '2'; }
+export function migrateCoaRenumber() {
+  if (isCoaRenumbered()) return { skipped: true };
+  const map = COA_RENUMBER;
+  const remap = (c) => (c && map[c]) ? map[c] : c;
+  // 1) backup
+  try {
+    const backup = {
+      at: new Date().toISOString(),
+      journals: getAllJournals(),
+      bankStatement: getBankStatement(),
+      bankRules: getBankRules(),
+      opening: (() => { try { return JSON.parse(localStorage.getItem('wynara_opening') || 'null'); } catch { return null; } })(),
+      customAccounts: getCustomAccounts(),
+      aliases: getCoaAliases(),
+    };
+    localStorage.setItem(COA_BAK_KEY, JSON.stringify(backup));
+  } catch {}
+  let lines = 0, journals = 0;
+  // 2) jurnal
+  try {
+    const js = getAllJournals().map(j => {
+      let touched = false;
+      const nl = (j.lines || []).map(l => {
+        const nc = remap(l.account);
+        if (nc !== l.account) { lines++; touched = true; return { ...l, account: nc }; }
+        return l;
+      });
+      if (touched) journals++;
+      return { ...j, lines: nl };
+    });
+    localStorage.setItem(JOURN_KEY, JSON.stringify(js));
+  } catch {}
+  // 3) mutasi bank
+  try {
+    saveBankStatement(getBankStatement().map(s => ({ ...s, counterAccount: remap(s.counterAccount), bankAccount: remap(s.bankAccount) })));
+  } catch {}
+  // 4) aturan bank (dedupe setelah merge)
+  try {
+    const seen = new Set();
+    saveBankRules(getBankRules().map(r => ({ ...r, code: remap(r.code) }))
+      .filter(r => { const k = `${r.keyword}|${r.direction || ''}`; if (seen.has(k)) return false; seen.add(k); return true; }));
+  } catch {}
+  // 5) saldo awal
+  try {
+    const op = JSON.parse(localStorage.getItem('wynara_opening') || 'null');
+    if (op && op.rows) {
+      const nrows = {};
+      Object.keys(op.rows).forEach(c => {
+        const nc = remap(c); const v = op.rows[c] || { debit: 0, credit: 0 };
+        if (nrows[nc]) nrows[nc] = { debit: (Number(nrows[nc].debit) || 0) + (Number(v.debit) || 0), credit: (Number(nrows[nc].credit) || 0) + (Number(v.credit) || 0) };
+        else nrows[nc] = v;
+      });
+      op.rows = nrows;
+      localStorage.setItem('wynara_opening', JSON.stringify(op));
+    }
+  } catch {}
+  // 6) akun custom: remap + buang yang kini jadi akun bawaan + dedupe
+  try {
+    const builtins = new Set(ACCOUNTS.map(a => a.code));
+    const seen = new Set();
+    const cust = getCustomAccounts().map(a => ({ ...a, code: remap(a.code) }))
+      .filter(a => !builtins.has(a.code) && !seen.has(a.code) && (seen.add(a.code), true));
+    localStorage.setItem(COA_KEY, JSON.stringify(cust));
+  } catch {}
+  // 7) alias lama tidak diperlukan lagi (nama sudah di chart baru)
+  try { localStorage.removeItem('wynara_coa_alias'); } catch {}
+  try { localStorage.setItem(COA_VER_KEY, '2'); } catch {}
+  logAudit('update', 'coa-renumber', '', null, { lines, journals });
+  return { lines, journals, done: true };
+}
+
 export function purchaseOutstanding(p) {
   return Math.max((Number(p.totalCost) || 0) - purchasePaidTotal(p), 0);
 }
@@ -3171,7 +3246,7 @@ export function adjustStock(itemId, { qty, reason, date, shop } = {}) {
   if (n > 0) applyStockMove(itemId, { qtyIn: n, unitCost, keepCost: true, shop: shopId, note: reason || 'penyesuaian', type: 'adjust' });
   else applyStockMove(itemId, { qtyOut: -n, shop: shopId, note: reason || 'penyesuaian', type: 'adjust' });
   try {
-    const j = buildAdjustJournal({ account: '1301', amount: Math.abs(n) * unitCost, date: d, memo: `Penyesuaian ${it.name} (${n > 0 ? '+' : ''}${n})${reason ? ': ' + reason : ''}`, increase: n > 0 });
+    const j = buildAdjustJournal({ account: INVENTORY_ACCOUNT, amount: Math.abs(n) * unitCost, date: d, memo: `Penyesuaian ${it.name} (${n > 0 ? '+' : ''}${n})${reason ? ': ' + reason : ''}`, increase: n > 0 });
     if (j) postJournal(j);
   } catch {}
   logAudit('create', 'stock-adjust', itemId, null, { qty: n, reason: reason || '', shop: shopId, date: d });

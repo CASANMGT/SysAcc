@@ -1,4 +1,8 @@
 -- ============================================================================
+-- OBSOLETE (v1.86.0): chart "PT Wynara Living Atelier" kini menjadi COA BAWAAN
+-- aplikasi (lihat coa.js ACCOUNTS). File ini hanya untuk REFERENSI pemetaan.
+-- Data lama otomatis di-renumber saat aplikasi dibuka (migrateCoaRenumber()).
+-- ============================================================================
 -- Wynara — Seed COA "PT WYNARA LIVING ATELIER" (2026)
 -- Menyatukan chart perusahaan ke aplikasi:
 --   * ALIAS  : ganti NAMA TAMPILAN akun bawaan (kode & tipe tetap) → laporan
