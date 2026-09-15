@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.84.0';
+const APP_VERSION = '1.84.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -446,6 +446,7 @@ function showApp() {
 
 function loadData() {
   try { setCustomAccounts(Storage.getCustomAccounts()); } catch {}
+  try { setCoaAliases(Storage.getCoaAliases()); } catch {}
   currentEntries = Storage.getAllEntries();
   const categories = Storage.getCategories();
   UI.renderCategoryFilterChips(categories);
