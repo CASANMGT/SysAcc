@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.82.0] - 2026-09-14
+
+### Added — Penjualan kredit "bayar nanti" (DP + termin + Open/Paid)
+- Di modal **Jual**: centang **🕒 Bayar nanti (kredit)** → isi **DP (%)** dan/atau **DP (Rp)**, **jumlah termin**, dan **jatuh tempo**; pratinjau sisa piutang & cicilan/termin
+- **Akuntansi**: pendapatan diakui penuh saat jual; **DP masuk kas**, **sisa jadi Piutang Usaha (1201)**; stok & HPP tetap diakui (`buildCreditSaleJournal`)
+- **Terima pembayaran** (`payCreditSale`) → **Dr kas / Cr 1201**, mendukung bayar sebagian; **status otomatis Open → Paid**; overpay ditolak
+- Halaman **Penjualan**: KPI **🕒 Belum dibayar · ⚠️ Jatuh tempo · ✅ Pelunasan 30 hari** + tabel piutang (Nomor/INV, Pelanggan, Jatuh tempo, **Status Open/Paid**, Sisa tagihan, Total) dengan aksi **💰 Bayar** & hapus (stok kembali)
+- +3 test; 319/319 tests ✓
+
+---
+
 ## [1.81.0] - 2026-09-14
 
 ### Added — Aturan bank belajar dari mutasi Anda (saran dari data nyata)

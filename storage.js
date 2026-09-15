@@ -1,6 +1,6 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, findUnbalanced } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, findUnbalanced } from './journals.js';
 import { getAccounts, ACCOUNTS } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
@@ -306,7 +306,7 @@ export function clearAllData() {
     ITEM_KEY, EMP_KEY, 'wynara_equity', 'wynara_lastBackup', COA_KEY, LOCK_KEY, PURCH_KEY, DRAFT_KEY,
     SALE_RET_KEY, MOVE_KEY, 'wynara_assets', SHOP_KEY, ACTIVE_SHOP_KEY,
     'wynara_leave', 'wynara_ump', 'wynara_selfTest', 'wynara_ppn', 'wynara_payroll_rates',
-    BANK_STMT_KEY, BANK_RULES_KEY, BANK_ENDBAL_KEY
+    BANK_STMT_KEY, BANK_RULES_KEY, BANK_ENDBAL_KEY, CREDIT_KEY
   ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   // Mirror IDB ikut kosong saat refresh berikutnya (queueMirror di app.js)
 }
@@ -2536,6 +2536,124 @@ export function setBankEndBalance(code, amount) {
   if (!isFinite(n) || n === 0) delete all[c]; else all[c] = Math.round(n);
   try { localStorage.setItem(BANK_ENDBAL_KEY, JSON.stringify(all)); } catch {}
   return all;
+}
+
+// ===== Penjualan kredit (jual dulu, bayar nanti) =====
+const CREDIT_KEY = 'wynara_credit_sales';
+export function getCreditSales() {
+  try { const v = JSON.parse(localStorage.getItem(CREDIT_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+function saveCreditSales(list) { try { localStorage.setItem(CREDIT_KEY, JSON.stringify(list)); } catch {} }
+export function getCreditSaleById(id) { return getCreditSales().find(x => x.id === id) || null; }
+export function creditPaidTotal(cs) {
+  const pay = ((cs && cs.payments) || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  return pay + (Number(cs && cs.deposit) || 0);
+}
+export function creditOutstanding(cs) {
+  if (!cs) return 0;
+  return Math.max((Number(cs.total) || 0) - creditPaidTotal(cs), 0);
+}
+export function creditSalesSummary() {
+  const list = getCreditSales();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const cutoff = Date.now() - 30 * 86400000;
+  let outstanding = 0, overdue = 0, openCount = 0, overdueCount = 0, received30 = 0;
+  list.forEach(cs => {
+    const out = creditOutstanding(cs);
+    if (out > 0.01) {
+      outstanding += out; openCount++;
+      if (cs.dueDate && new Date(cs.dueDate + 'T00:00:00') < today) { overdue += out; overdueCount++; }
+    }
+    (cs.payments || []).forEach(p => {
+      const t = Date.parse(p.date || p.createdAt || '');
+      if (Number.isFinite(t) && t >= cutoff) received30 += Number(p.amount) || 0;
+    });
+  });
+  return { outstanding, overdue, openCount, overdueCount, received30, count: list.length };
+}
+function nextCreditInvoiceNo() {
+  const list = getCreditSales();
+  const d = new Date();
+  return `INV-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${String(list.length + 1).padStart(3, '0')}`;
+}
+// Penjualan kredit: pendapatan penuh + DP masuk kas + sisa jadi Piutang (1201), stok & HPP diakui.
+export function createCreditSale({ date, dueDate, customer, person, lines, discount, ppn, deposit, depositPct, terms, payment, note }) {
+  requireCap('ledger');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const cleanLines = (Array.isArray(lines) ? lines : []).filter(l => l && l.itemId && Number(l.qty) > 0).map(l => {
+    const it = getItemById(l.itemId) || {};
+    const qty = Math.floor(Number(l.qty) || 0);
+    const cost = (l.avgCost != null) ? Number(l.avgCost) || 0 : Number(it.cost) || 0;
+    return { itemId: String(l.itemId), qty, price: Math.max(Number(l.price) || 0, 0), name: String(l.name || it.name || '').slice(0, 80), avgCost: cost };
+  });
+  if (!cleanLines.length) throw new Error('Tambahkan minimal satu barang');
+  const sub = cleanLines.reduce((s, l) => s + l.qty * l.price, 0);
+  const disc = Math.min(Math.max(Number(discount) || 0, 0), sub);
+  const total = Math.max(sub - disc, 0);
+  if (total <= 0) throw new Error('Total penjualan harus lebih dari 0');
+  const pct = Math.min(Math.max(Number(depositPct) || 0, 0), 100);
+  const rawDp = (deposit !== undefined && deposit !== null && deposit !== '') ? Number(deposit) : Math.round(total * pct / 100);
+  const dp = Math.min(Math.max(Math.round(rawDp || 0), 0), total);
+  const id = generateId();
+  const invoiceNo = nextCreditInvoiceNo();
+  const rate = getPpn().rate;
+  const cogs = cleanLines.reduce((s, l) => s + Math.round(l.qty * l.avgCost), 0);
+  const applied = [];
+  try {
+    cleanLines.forEach(l => { applyStockMove(l.itemId, { qtyOut: l.qty, ref: id, type: 'sale' }); applied.push(l); });
+  } catch (e) {
+    applied.forEach(l => { try { applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: 0, keepCost: true, ref: id, note: 'reversal', type: 'reversal' }); } catch {} });
+    throw e;
+  }
+  try {
+    const j = buildCreditSaleJournal({ date: d, total, ppn: !!ppn, ppnRate: rate, deposit: dp, payment, cogs, memo: `Penjualan kredit ${invoiceNo}${customer ? ' — ' + customer : ''}` });
+    if (j) { j.refId = id; postJournal(j); }
+  } catch {}
+  const rec = {
+    id, invoiceNo, date: d, dueDate: String(dueDate || '').slice(0, 10),
+    customer: String(customer || '').slice(0, 60), person: String(person || customer || '').slice(0, 60),
+    lines: cleanLines, subtotal: sub, discount: disc, ppn: !!ppn, total, deposit: dp,
+    terms: Math.max(Math.floor(Number(terms) || 1), 1), payments: [],
+    status: dp >= total - 0.01 ? 'paid' : 'open',
+    note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
+  };
+  saveCreditSales(getCreditSales().concat(rec));
+  logAudit('create', 'credit-sale', id, null, { invoiceNo, total, deposit: dp });
+  return rec;
+}
+export function payCreditSale(id, { amount, date, payment, note } = {}) {
+  requireCap('ledger');
+  const list = getCreditSales();
+  const i = list.findIndex(x => x.id === id);
+  if (i < 0) throw new Error('Penjualan kredit tidak ditemukan');
+  const cs = list[i];
+  const amt = Math.round(Number(amount) || 0);
+  if (amt <= 0) throw new Error('Jumlah bayar harus > 0');
+  const out = creditOutstanding(cs);
+  if (amt > out + 0.01) throw new Error(`Melebihi sisa tagihan (Rp${Math.round(out).toLocaleString('id-ID')})`);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const j = buildCreditPaymentJournal({ date: d, amount: amt, payment, memo: `Bayar ${cs.invoiceNo}${cs.customer ? ' — ' + cs.customer : ''}` });
+  if (j) { j.refId = id; postJournal(j); }
+  cs.payments = (cs.payments || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'cash', note: String(note || '').slice(0, 80), createdAt: new Date().toISOString() });
+  cs.status = creditOutstanding(cs) <= 0.01 ? 'paid' : 'open';
+  list[i] = cs;
+  saveCreditSales(list);
+  logAudit('create', 'credit-sale-pay', id, null, { amount: amt });
+  return cs;
+}
+export function deleteCreditSale(id) {
+  requireCap('ledger');
+  const list = getCreditSales();
+  const cs = list.find(x => x.id === id);
+  if (!cs) return false;
+  (cs.lines || []).forEach(l => { try { applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: 0, keepCost: true, ref: id, note: 'reversal', type: 'reversal' }); } catch {} });
+  deleteJournalsByRef('credit-sale', id);
+  deleteJournalsByRef('credit-pay', id);
+  saveCreditSales(list.filter(x => x.id !== id));
+  logAudit('delete', 'credit-sale', id, null, null);
+  return true;
 }
 
 export function purchaseOutstanding(p) {

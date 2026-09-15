@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.81.0';
+const APP_VERSION = '1.82.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -943,6 +943,15 @@ function bindEvents() {
   document.getElementById('salesNewBtn')?.addEventListener('click', () => UI.openSale());
   document.getElementById('salesExcel')?.addEventListener('click', exportSalesExcel);
   document.getElementById('salesPrint')?.addEventListener('click', printSalesPage);
+  document.getElementById('creditPayClose')?.addEventListener('click', closeCreditPay);
+  document.getElementById('creditPayCancel')?.addEventListener('click', closeCreditPay);
+  document.getElementById('creditPaySave')?.addEventListener('click', handleCreditPaySubmit);
+  document.getElementById('creditList')?.addEventListener('click', (e) => {
+    const p = e.target.closest('.credit-pay');
+    const d = e.target.closest('.credit-del');
+    if (p) openCreditPay(p.dataset.id);
+    else if (d) deleteCreditSalePrompt(d.dataset.id);
+  });
   document.getElementById('salesPeriod')?.addEventListener('change', (e) => { salesPeriodValue = e.target.value; renderSalesPage(); });
   document.getElementById('lihatSemua')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewTransaksi'); });
   // Bottom nav mobile
@@ -2459,7 +2468,84 @@ function renderSalesPage() {
         <div style="font-size:12px;font-weight:700;white-space:nowrap">${fmt(e.amount)}</div></div>`;
     }).join('') : '<p style="color:var(--text-muted)">Belum ada struk.</p>';
   }
+  renderCreditSection();
 }
+
+/* ===== Piutang penjualan (kredit) ===== */
+function renderCreditSection() {
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const kpi = document.getElementById('creditKpi');
+  if (kpi) {
+    const s = Storage.creditSalesSummary();
+    const tile = (label, value, color) => `<button type="button" style="cursor:default">${label}<b style="color:${color}">${value}</b></button>`;
+    kpi.innerHTML = tile('🕒 Belum dibayar', `${fmt(s.outstanding)} (${s.openCount})`, '#b45309')
+      + tile('⚠️ Jatuh tempo', `${fmt(s.overdue)} (${s.overdueCount})`, '#dc2626')
+      + tile('✅ Pelunasan 30 hari', fmt(s.received30), '#059669');
+  }
+  const box = document.getElementById('creditList');
+  if (!box) return;
+  const list = Storage.getCreditSales().slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  box.innerHTML = list.length ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+    <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Jatuh tempo</th><th>Status</th><th class="amount-col">Sisa tagihan</th><th class="amount-col">Total</th><th></th></tr></thead><tbody>
+    ${list.map(cs => {
+    const out = Storage.creditOutstanding(cs);
+    const overdue = out > 0.01 && cs.dueDate && new Date(cs.dueDate + 'T00:00:00') < today;
+    const paid = out <= 0.01;
+    const status = paid
+      ? '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9999px;font-size:11px">Paid</span>'
+      : `<span style="background:${overdue ? '#fee2e2' : '#fef3c7'};color:${overdue ? '#b91c1c' : '#b45309'};padding:2px 8px;border-radius:9999px;font-size:11px">${overdue ? 'Jatuh tempo' : 'Open'}</span>`;
+    return `<tr>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.date)}</td>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.invoiceNo)}</td>
+        <td style="font-size:12px">${escapeHtml(cs.customer || '—')}</td>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(cs.dueDate || '—')}</td>
+        <td>${status}</td>
+        <td class="amount-col">${fmt(out)}</td>
+        <td class="amount-col">${fmt(cs.total)}</td>
+        <td style="white-space:nowrap">${out > 0.01 ? `<button class="btn btn-primary credit-pay" data-id="${cs.id}" style="font-size:11px;padding:2px 8px">💰 Bayar</button>` : ''} <button class="btn btn-ghost credit-del" data-id="${cs.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Hapus">🗑</button></td>
+      </tr>`;
+  }).join('')}
+  </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada penjualan kredit. Centang "Bayar nanti (kredit)" saat menjual.</p>';
+}
+function openCreditPay(id) {
+  const cs = Storage.getCreditSaleById(id);
+  if (!cs) return;
+  document.getElementById('creditPayId').value = id;
+  const out = Storage.creditOutstanding(cs);
+  const info = document.getElementById('creditPayInfo');
+  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${'Rp' + Math.round(cs.total).toLocaleString('id-ID')} • sudah dibayar ${'Rp' + Math.round(Storage.creditPaidTotal(cs)).toLocaleString('id-ID')} • <b>sisa Rp${Math.round(out).toLocaleString('id-ID')}</b>`;
+  const amt = document.getElementById('creditPayAmount'); if (amt) amt.value = String(Math.round(out));
+  const dt = document.getElementById('creditPayDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
+  const err = document.getElementById('creditPayError'); if (err) err.textContent = '';
+  const m = document.getElementById('creditPayModal'); if (m && !m.open) { try { m.showModal(); } catch {} }
+}
+function closeCreditPay() { const m = document.getElementById('creditPayModal'); if (m && m.open) { try { m.close(); } catch {} } }
+function handleCreditPaySubmit() {
+  const id = document.getElementById('creditPayId')?.value || '';
+  const amount = Math.round(Number(UI.parseIdrInput(document.getElementById('creditPayAmount')?.value || '')) || 0);
+  const date = document.getElementById('creditPayDate')?.value || new Date().toISOString().split('T')[0];
+  const payment = document.getElementById('creditPayPayment')?.value || 'cash';
+  if (!id) return;
+  try {
+    Storage.payCreditSale(id, { amount, date, payment });
+    closeCreditPay();
+    UI.showSuccess('Pembayaran diterima — piutang berkurang');
+    refreshSalesPage();
+  } catch (e) {
+    const err = document.getElementById('creditPayError');
+    if (err) err.textContent = e && e.message ? e.message : 'Gagal menyimpan pembayaran';
+    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan pembayaran');
+  }
+}
+function deleteCreditSalePrompt(id) {
+  const cs = Storage.getCreditSaleById(id);
+  if (!cs) return;
+  if (!confirm(`Hapus penjualan kredit ${cs.invoiceNo}? Stok dikembalikan.`)) return;
+  try { Storage.deleteCreditSale(id); UI.showSuccess('Penjualan kredit dihapus'); refreshSalesPage(); }
+  catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menghapus'); }
+}
+function refreshSalesPage() { try { renderSalesPage(); } catch {} }
 function printSalesPage() {
   const src = document.getElementById('salesContent');
   const label = document.getElementById('salesPeriod')?.selectedOptions?.[0]?.textContent || '';
@@ -5047,6 +5133,26 @@ function handleSaleSave() {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const descBase = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
   const desc = d.discount > 0 ? `${descBase} • diskon ${fmt(d.discount)}` : descBase;
+  // Penjualan KREDIT (bayar nanti): DP + termin + sisa piutang.
+  if (d.credit) {
+    if (!d.customer) return UI.showError('Penjualan kredit perlu nama pelanggan');
+    if (!d.dueDate) return UI.showError('Isi tanggal jatuh tempo');
+    try {
+      const cs = Storage.createCreditSale({
+        date: d.date, dueDate: d.dueDate, customer: d.customer, person: d.customer,
+        lines: d.lines.map(l => ({ itemId: l.itemId, qty: l.qty, price: l.price, name: l.name })),
+        discount: d.discount, ppn: d.ppn, deposit: d.deposit, depositPct: d.depositPct,
+        terms: d.terms, payment: d.payment, note: d.note,
+      });
+      Storage.logAudit('create', 'credit-sale', cs.id, null, { total: cs.total, deposit: cs.deposit });
+      UI.closeSale();
+      UI.showSuccess(`Penjualan kredit ${fmt(cs.total)} tersimpan • sisa ${fmt(Storage.creditOutstanding(cs))}`);
+      refresh();
+    } catch (err) {
+      UI.showError(err && err.message ? err.message : 'Gagal menyimpan penjualan kredit');
+    }
+    return;
+  }
   try {
     const entry = Storage.createEntry({
       date: d.date, type: 'income', category: 'jualan', payment: d.payment,

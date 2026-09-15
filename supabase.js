@@ -26,6 +26,7 @@ export const RECORD_TABLES = {
   wynara_assets: 'asset',
   wynara_bank_statement: 'bank_stmt',
   wynara_bank_rules: 'bank_rule',
+  wynara_credit_sales: 'credit_sale',
 };
 // Blob singleton (disimpan utuh per kunci).
 export const KV_KEYS = [

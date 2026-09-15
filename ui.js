@@ -4223,6 +4223,7 @@ export function addSaleRow(preselectId) {
 }
 export function recalcSale() {
   const data = readSaleRows();
+  updateSaleCreditInfo(data);
   const el = document.getElementById('saleTotal');
   if (el) el.textContent = 'Total ' + formatCurrency(data.total) + ` (${data.lines.length} barang)`;
   document.querySelectorAll('#saleRows .sale-row').forEach((row, i) => {
@@ -4277,8 +4278,23 @@ export function getSaleData() {
     payment: document.getElementById('salePayment')?.value || 'transfer',
     note: document.getElementById('saleNote')?.value.trim() || '',
     ppn: !!document.getElementById('salePPN')?.checked,
+    credit: !!document.getElementById('saleCredit')?.checked,
+    depositPct: Math.min(Math.max(Number(document.getElementById('saleDepositPct')?.value) || 0, 0), 100),
+    deposit: Number(parseIdrInput(document.getElementById('saleDeposit')?.value || '')) || 0,
+    terms: Math.max(parseInt(document.getElementById('saleTerms')?.value || '1', 10) || 1, 1),
+    dueDate: document.getElementById('saleDueDate')?.value || '',
     subtotal, discount, total, lines
   };
+}
+function updateSaleCreditInfo(data) {
+  const el = document.getElementById('saleCreditInfo');
+  if (!el) return;
+  if (!document.getElementById('saleCredit')?.checked) { el.textContent = ''; return; }
+  const dp = Math.min(Math.max(Number(parseIdrInput(document.getElementById('saleDeposit')?.value || '')) || 0, 0), data.total);
+  const sisa = Math.max(data.total - dp, 0);
+  const terms = Math.max(parseInt(document.getElementById('saleTerms')?.value || '1', 10) || 1, 1);
+  const per = terms > 1 ? Math.round(sisa / terms) : sisa;
+  el.innerHTML = `DP masuk kas <b>${formatCurrency(dp)}</b> • Sisa jadi <b>piutang ${formatCurrency(sisa)}</b>${terms > 1 ? ` • ${terms}× ${formatCurrency(per)}` : ''}`;
 }
 export function bindSale(onSave) {
   document.getElementById('closeSaleBtn')?.addEventListener('click', closeSale);
@@ -4288,6 +4304,28 @@ export function bindSale(onSave) {
   document.getElementById('saleDiscount')?.addEventListener('input', recalcSale);
   document.getElementById('saleSave')?.addEventListener('click', onSave);
   document.getElementById('salePPN')?.addEventListener('change', recalcSale);
+  // Penjualan kredit: tampilkan field DP/termin/jatuh tempo
+  document.getElementById('saleCredit')?.addEventListener('change', (e) => {
+    const box = document.getElementById('saleCreditFields');
+    if (box) box.hidden = !e.target.checked;
+    const due = document.getElementById('saleDueDate');
+    if (e.target.checked && due && !due.value) {
+      const d = new Date(); d.setDate(d.getDate() + 30);
+      due.value = d.toISOString().split('T')[0];
+    }
+    recalcSale();
+  });
+  document.getElementById('saleDepositPct')?.addEventListener('input', () => {
+    const dep = document.getElementById('saleDeposit');
+    if (dep && !dep.dataset.touched) {
+      const total = readSaleRows().total;
+      const pct = Math.min(Math.max(Number(document.getElementById('saleDepositPct')?.value) || 0, 0), 100);
+      dep.value = String(Math.round(total * pct / 100));
+    }
+    recalcSale();
+  });
+  document.getElementById('saleDeposit')?.addEventListener('input', (e) => { e.target.dataset.touched = '1'; recalcSale(); });
+  document.getElementById('saleTerms')?.addEventListener('input', recalcSale);
   // POS: scan/kode/nama + Enter → tambah atau tambah qty
   document.getElementById('saleSearch')?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;

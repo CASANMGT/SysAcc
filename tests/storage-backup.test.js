@@ -1,6 +1,6 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, creditPaidTotal, payCreditSale, deleteCreditSale, creditSalesSummary } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -15,15 +15,15 @@ const goodBackup = JSON.stringify({
 });
 
 describe('validateBackupJSON', () => {
-  it('backup valid → ok', () => {
+  it('backup valid â†’ ok', () => {
     expect(validateBackupJSON(goodBackup).ok).toBe(true);
   });
-  it('bukan JSON → pesan jelas', () => {
+  it('bukan JSON â†’ pesan jelas', () => {
     const r = validateBackupJSON('{{{bukan json');
     expect(r.ok).toBe(false);
     expect(r.errors[0]).toMatch(/JSON/i);
   });
-  it('JSON tapi bukan backup → ditolak', () => {
+  it('JSON tapi bukan backup â†’ ditolak', () => {
     expect(validateBackupJSON('"cuma string"').ok).toBe(false);
     expect(validateBackupJSON('{"hello":1}').ok).toBe(false);
     expect(validateBackupJSON('null').ok).toBe(false);
@@ -48,12 +48,12 @@ describe('importEntries', () => {
     expect(added).toHaveLength(1);
     expect(getAllEntries()).toHaveLength(1);
   });
-  it('impor kedua = duplikat → 0 baru', () => {
+  it('impor kedua = duplikat â†’ 0 baru', () => {
     const rows = [{ date: '2026-08-01', type: 'income', category: 'gaji', amount: 5000000 }];
     importEntries(JSON.stringify(rows));
     expect(importEntries(JSON.stringify(rows))).toHaveLength(0);
   });
-  it('file rusak → throw pesan jelas', () => {
+  it('file rusak â†’ throw pesan jelas', () => {
     expect(() => importEntries('bukan json')).toThrow(/invalid/i);
     expect(() => clearAllEntries()).not.toThrow();
   });
@@ -158,7 +158,7 @@ describe('purchase flow', () => {
     const it = saveItem({ name: 'Teh', cost: 3000, price: 5000, stock: 0 });
     const p = createPurchase({ supplier: 'S2', date: '2026-09-01', lines: [{ itemId: it.id, qty: 5, unitCost: 3000 }] });
     expect(getItemById(it.id).stock).toBe(5);
-    // jual 5 via entry langsung? simulasi: kurangi stok manual lalu hapus → gagal
+    // jual 5 via entry langsung? simulasi: kurangi stok manual lalu hapus â†’ gagal
     saveItem({ id: it.id, name: 'Teh', cost: 3000, price: 5000, stock: 0 });
     expect(() => deletePurchase(p.id)).toThrow();
   });
@@ -265,7 +265,7 @@ describe('aksi massal & restock (F1)', () => {
 });
 
 describe('dokumen stok: penyesuaian & transfer', () => {
-  it('adjustStock (+/−) + jurnal Dr/Cr 1301 vs 5199', () => {
+  it('adjustStock (+/âˆ’) + jurnal Dr/Cr 1301 vs 5199', () => {
     saveShops([{ id: 'main', name: 'Toko Utama' }]);
     setActiveShopId('main');
     const it = saveItem({ name: 'Kopi', price: 10000, cost: 5000, stock: 5 });
@@ -429,7 +429,7 @@ describe('perbaikan bug (audit)', () => {
   it('akun custom tidak boleh memakai kode akun bawaan', () => {
     expect(() => saveCustomAccount({ code: '4101', name: 'X', type: 'asset' })).toThrow(/bawaan|dipakai/);
   });
-  it('importBankLines memposting jurnal bank↔COA (balance)', () => {
+  it('importBankLines memposting jurnal bankâ†”COA (balance)', () => {
     const res = importBankLines([{ date: '2026-09-01', amount: 15000, direction: 'out', counterAccount: '5114', memo: 'Biaya adm' }], { bankAccount: '1102' });
     expect(res.ok).toBe(1);
     const j = getAllJournals().find(x => x.ref === 'bank');
@@ -440,13 +440,13 @@ describe('perbaikan bug (audit)', () => {
 });
 
 describe('kesehatan data (F4)', () => {
-  it('data bersih (backup baru) → ok tanpa isu', () => {
+  it('data bersih (backup baru) â†’ ok tanpa isu', () => {
     localStorage.setItem('wynara_lastBackup', new Date().toISOString());
     const r = dataHealthCheck();
     expect(r.ok).toBe(true);
     expect(r.issues.length).toBe(0);
   });
-  it('akun tak dikenal di jurnal → peringatan', () => {
+  it('akun tak dikenal di jurnal â†’ peringatan', () => {
     postJournal({ id: 'JX', date: '2026-08-01', memo: 'uji', lines: [{ account: '9999', debit: 1000, credit: 0, memo: 'x' }, { account: '1101', debit: 0, credit: 1000, memo: 'x' }] });
     const r = dataHealthCheck();
     expect(r.issues.some(i => /tak dikenal/.test(i.label))).toBe(true);
@@ -554,8 +554,8 @@ describe('cuti & UMP (storage)', () => {
 
 describe('produk: grup & restock', () => {
   it('getStockGroups mengelompokkan varian + total/harga', () => {
-    saveItem({ name: 'Kaos • S • Hitam', sku: 'K-1', size: 'S', color: 'Hitam', price: 100000, stock: 3, groupId: 'G1', baseName: 'Kaos' });
-    saveItem({ name: 'Kaos • M • Hitam', sku: 'K-2', size: 'M', color: 'Hitam', price: 110000, stock: 2, groupId: 'G1', baseName: 'Kaos' });
+    saveItem({ name: 'Kaos â€¢ S â€¢ Hitam', sku: 'K-1', size: 'S', color: 'Hitam', price: 100000, stock: 3, groupId: 'G1', baseName: 'Kaos' });
+    saveItem({ name: 'Kaos â€¢ M â€¢ Hitam', sku: 'K-2', size: 'M', color: 'Hitam', price: 110000, stock: 2, groupId: 'G1', baseName: 'Kaos' });
     const g = getStockGroups().find(x => x.key === 'g1');
     expect(g).toBeTruthy();
     expect(g.variants.length).toBe(2);
@@ -582,7 +582,7 @@ describe('produk: varian & diskon', () => {
     expect(itemNetPrice(it)).toBe(75000);
     expect(itemVariantLabel(it)).toBe('L / Hitam');
   });
-  it('diskon dibatasi 0–100', () => {
+  it('diskon dibatasi 0â€“100', () => {
     expect(saveItem({ name: 'X', price: 1000, discountPct: 150 }).discountPct).toBe(100);
     expect(saveItem({ name: 'Y', price: 1000, discountPct: -5 }).discountPct).toBe(0);
   });
@@ -612,8 +612,8 @@ describe('produk: varian & diskon', () => {
   });
 });
 
-describe('stok & penjualan (regresi #1 — sale.lines)', () => {
-  it('penjualan via sale.lines MENGURANGI stok + tercatat di kartu stok; hapus → stok balik', () => {
+describe('stok & penjualan (regresi #1 â€” sale.lines)', () => {
+  it('penjualan via sale.lines MENGURANGI stok + tercatat di kartu stok; hapus â†’ stok balik', () => {
     const it = saveItem({ name: 'Kopi', stock: 10, cost: 10000, price: 15000 });
     const e = createEntry({ date: '2026-08-01', type: 'income', category: 'jualan', amount: 50000, sale: { lines: [{ itemId: it.id, qty: 2, price: 25000 }] } });
     expect(getItemById(it.id).stock).toBe(8);
@@ -656,7 +656,7 @@ describe('kasbon karyawan (storage)', () => {
     expect(j.lines.find(l => l.account === '5110').debit).toBe(300000);
     expect(j.lines.find(l => l.account === '1201').credit).toBe(300000);
   });
-  it('applyPayrollKasbon dibatasi sisa; lunas → status paid', () => {
+  it('applyPayrollKasbon dibatasi sisa; lunas â†’ status paid', () => {
     const emp = saveEmployee({ name: 'Clamp Kasbon', baseSalary: 4000000 });
     const loan = createLoan({ direction: 'given', person: 'Clamp Kasbon', amount: 500000, date: '2026-08-01' });
     const rep = applyPayrollKasbon(loan.id, 9999999, '2026-08-31', '2026-08');
@@ -693,5 +693,46 @@ describe('JKK anti-racun (regresi Rp4.050.000)', () => {
     const { computeSlip } = await import('../payroll.js');
     const s = computeSlip({ baseSalary: 4000000, allowance: 1000000, jkkRate: 0.012 }, {});
     expect(s.comp.jkk).toBe(60000);
+  });
+});
+
+describe('penjualan kredit (bayar nanti)', () => {
+  it('DP + sisa piutang + jurnal seimbang + stok turun', () => {
+    saveShops([{ id: 'main', name: 'A' }]); setActiveShopId('main');
+    const it = saveItem({ name: 'KreditItem', price: 100000, cost: 60000, stock: 5 });
+    const cs = createCreditSale({ date: '2026-09-01', dueDate: '2026-10-01', customer: 'Budi', lines: [{ itemId: it.id, qty: 1, price: 100000 }], discount: 0, ppn: false, depositPct: 20, terms: 2, payment: 'cash' });
+    expect(cs.total).toBe(100000);
+    expect(cs.deposit).toBe(20000);
+    expect(creditOutstanding(cs)).toBe(80000);
+    expect(getItemById(it.id).stock).toBe(4);
+    const j = getAllJournals().find(x => x.ref === 'credit-sale');
+    expect(j).toBeTruthy();
+    const deb = j.lines.reduce((s, l) => s + (Number(l.debit) || 0), 0);
+    const cred = j.lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
+    expect(deb).toBe(cred);
+    expect(j.lines.find(l => l.account === '1201').debit).toBe(80000);
+  });
+  it('bayar sebagian open; lunas paid; overpay ditolak', () => {
+    saveShops([{ id: 'main', name: 'A' }]); setActiveShopId('main');
+    const it = saveItem({ name: 'K2', price: 50000, cost: 30000, stock: 3 });
+    const cs = createCreditSale({ date: '2026-09-01', dueDate: '2026-10-01', customer: 'Ani', lines: [{ itemId: it.id, qty: 1, price: 50000 }], deposit: 0, terms: 1, payment: 'cash' });
+    expect(creditOutstanding(cs)).toBe(50000);
+    payCreditSale(cs.id, { amount: 20000, date: '2026-09-02', payment: 'cash' });
+    expect(creditOutstanding(getCreditSaleById(cs.id))).toBe(30000);
+    expect(getCreditSaleById(cs.id).status).toBe('open');
+    expect(() => payCreditSale(cs.id, { amount: 999999, date: '2026-09-03' })).toThrow(/Melebihi/);
+    payCreditSale(cs.id, { amount: 30000, date: '2026-09-03', payment: 'cash' });
+    expect(getCreditSaleById(cs.id).status).toBe('paid');
+    const s = creditSalesSummary();
+    expect(s.received30).toBe(50000);
+  });
+  it('hapus penjualan kredit mengembalikan stok', () => {
+    saveShops([{ id: 'main', name: 'A' }]); setActiveShopId('main');
+    const it = saveItem({ name: 'K3', price: 10000, cost: 5000, stock: 2 });
+    const cs = createCreditSale({ date: '2026-09-01', dueDate: '2026-10-01', customer: 'C', lines: [{ itemId: it.id, qty: 2, price: 10000 }], deposit: 0, terms: 1, payment: 'cash' });
+    expect(getItemById(it.id).stock).toBe(0);
+    deleteCreditSale(cs.id);
+    expect(getItemById(it.id).stock).toBe(2);
+    expect(getCreditSales().length).toBe(0);
   });
 });

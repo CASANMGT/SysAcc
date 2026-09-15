@@ -296,3 +296,45 @@ export function buildBankLineJournal({ date, amount, direction, bankAccount, cou
   const j = { id: jid('J'), date, memo: m, ref: 'bank', refId: null, lines };
   return balanced(lines) ? j : null;
 }
+
+// Penjualan kredit (jual dulu, bayar nanti): pendapatan diakui penuh saat jual,
+// DP masuk kas, sisa menjadi Piutang Usaha (1201); HPP tetap diakui.
+export function buildCreditSaleJournal({ date, total, ppn, ppnRate, deposit = 0, payment, cogs = 0, memo }) {
+  const amt = Math.round(Number(total) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const dp = Math.min(Math.max(Math.round(Number(deposit) || 0), 0), amt);
+  const cash = accountForPayment(payment || 'cash');
+  const m = memo || 'Penjualan kredit';
+  const lines = [];
+  if (ppn) {
+    const { dpp, ppn: tax } = splitPPN(amt, ppnRate);
+    lines.push({ account: REVENUE_ACCOUNT, debit: 0, credit: dpp, memo: m });
+    lines.push({ account: PPN_OUT, debit: 0, credit: tax, memo: m });
+  } else {
+    lines.push({ account: REVENUE_ACCOUNT, debit: 0, credit: amt, memo: m });
+  }
+  if (dp > 0) lines.push({ account: cash, debit: dp, credit: 0, memo: `${m} (DP)` });
+  const rest = amt - dp;
+  if (rest > 0) lines.push({ account: AR_ACCOUNT, debit: rest, credit: 0, memo: m });
+  const c = Math.round(Number(cogs) || 0);
+  if (c > 0) {
+    lines.push({ account: COGS_ACCOUNT, debit: c, credit: 0, memo: 'HPP penjualan' });
+    lines.push({ account: INVENTORY_ACCOUNT, debit: 0, credit: c, memo: 'HPP penjualan' });
+  }
+  const j = { id: jid('J'), date, memo: m, ref: 'credit-sale', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
+
+// Penerimaan pembayaran piutang penjualan: Dr kas / Cr Piutang Usaha.
+export function buildCreditPaymentJournal({ date, amount, payment, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const cash = accountForPayment(payment || 'cash');
+  const m = memo || 'Pembayaran piutang penjualan';
+  const lines = [
+    { account: cash, debit: amt, credit: 0, memo: m },
+    { account: AR_ACCOUNT, debit: 0, credit: amt, memo: m },
+  ];
+  const j = { id: jid('J'), date, memo: m, ref: 'credit-pay', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
