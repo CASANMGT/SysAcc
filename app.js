@@ -11,6 +11,7 @@ import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
+import * as Freight from './freight.js';
 import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
 
 let currentEntries = [];
@@ -40,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.13.0';
+const APP_VERSION = '2.14.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3968,10 +3969,34 @@ function openBelanjaModal(preorderId = null) {
       <option value="">📦 Stok gudang</option>
       ${pos.map((po) => `<option value="${po.id}"${po.id === preorderId ? ' selected' : ''}>👤 ${escapeHtml(po.customer || po.no)} (${escapeHtml(po.no)})</option>`).join('')}
     </select>${forOrder ? `<div style="font-size:10.5px;color:#475569;margin-top:3px">Belanja ini untuk pesanan <b>${escapeHtml(forOrder.no)}</b>${forOrder.customer ? ' — ' + escapeHtml(forOrder.customer) : ''}</div>` : ''}</label>
-    <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan dalam Perjalanan (1211) / Cr kas. Ongkir laud (freight) <b>belum termasuk</b> — ditambahkan saat muatan tiba (alokasi otomatis).</div>
+    <div id="belanjaEstimate" style="font-size:11.5px;color:#0f172a;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:8px 10px"></div>
+    <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan dalam Perjalanan (1211) / Cr kas. Ongkir laut (freight) <b>belum termasuk</b> di jurnal — ditambahkan saat muatan tiba (alokasi otomatis).</div>
     <button type="submit" class="btn btn-primary" id="belanjaSave">🛍 Simpan belanja (bayar penuh)</button>
   </form>`;
   UI.openInfoModal(forOrder ? `🛍 Beli untuk pesanan ${forOrder.no}` : '🛍 Belanja marketplace', html);
+  // Estimasi langsung (barang + ongkir China + estimasi laut). Selalu ditandai estimasi.
+  const est = document.getElementById('belanjaEstimate');
+  const im = (() => { try { return Storage.getImporSettings(); } catch { return { kurs: 2250, ratePerCbm: 3100000, minCbm: 0.1 }; } })();
+  const drawEst = () => {
+    if (!est) return;
+    try {
+      const lines = String(document.getElementById('belanjaLines').value || '').split('\n').map((s) => s.trim()).filter(Boolean).map((s) => {
+        const p = s.split(';').map((x) => x.trim());
+        return { name: p[0], qty: Number(p[1]) || 0, cnyUnit: Number(p[2]) || 0 };
+      });
+      const kurs = Number(document.getElementById('belanjaKurs').value) || im.kurs;
+      const ongkir = Number(document.getElementById('belanjaOngkir').value) || 0;
+      const k = Freight.estimateBelanja({ lines, kurs, ongkirCny: ongkir, cbm: 0, seaRatePerCbm: im.ratePerCbm, minCbm: im.minCbm });
+      const goodsCny = k.goodsCny, qty = k.qty;
+      est.innerHTML = `Harga barang ¥${goodsCny.toLocaleString('id-ID')}${qty ? ' × ' + qty + ' pcs' : ''} × Rp${kurs.toLocaleString('id-ID')} → <b>${fmt(k.goodsIdr)}</b><br>
+        Ongkir China ¥${ongkir.toLocaleString('id-ID')} → <b>${fmt(k.ongkirIdr)}</b><br>
+        <span style="color:#64748b">Estimasi modal barang (belum ongkir laut) → <b>${fmt(k.goodsIdr + k.ongkirIdr)}</b>${qty ? ' · ' + fmt(Math.round((k.goodsIdr + k.ongkirIdr) / qty)) + '/pcs' : ''}</span><br>
+        <span style="color:#b45309">⚠ Estimasi — ongkir laut (${(im.ratePerCbm / 1e6).toFixed(1)}jt/CBM) & biaya final dihitung saat barang tiba.</span>`;
+    } catch { est.textContent = ''; }
+  };
+  ['belanjaLines', 'belanjaKurs', 'belanjaOngkir'].forEach((id) => document.getElementById(id)?.addEventListener('input', drawEst));
+  document.getElementById('belanjaMp')?.addEventListener('change', drawEst);
+  drawEst();
   document.getElementById('belanjaSave')?.addEventListener('click', saveBelanja);
   const form = document.getElementById('belanjaForm');
   form?.addEventListener('submit', (e) => { e.preventDefault(); saveBelanja(); });
@@ -7799,6 +7824,13 @@ function openSettings() {
   }
   const notif = document.getElementById('settingNotif');
   if (notif) notif.checked = safeLocalGet('wynara_notif') !== 'false';
+  // Nilai default impor
+  try {
+    const im = Storage.getImporSettings();
+    const setV = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = String(v).replace('.', ','); };
+    setV('imporKurs', im.kurs); setV('imporRateCbm', im.ratePerCbm);
+    setV('imporRateKg', im.ratePerKg); setV('imporDivisor', im.divisor); setV('imporMinCbm', im.minCbm);
+  } catch {}
   const themeBox = document.getElementById('settingTheme');
   if (themeBox) themeBox.checked = document.body.classList.contains('dark-mode');
   const ppnInput = document.getElementById('ppnRateInput');
@@ -8095,6 +8127,17 @@ function saveSettings() {
   if (umpInput) {
     try { Storage.saveUmp(umpInput.value); } catch (err) { UI.showError(err && err.message ? err.message : 'UMP tidak valid'); }
   }
+  // Pengaturan Impor (default; bisa ditimpa per muatan/belanja)
+  try {
+    const g = (id) => UI.parseIdrInput(document.getElementById(id)?.value || '');
+    Storage.saveImporSettings({
+      kurs: Number(g('imporKurs')) || undefined,
+      ratePerCbm: Number(g('imporRateCbm')) || 0,
+      ratePerKg: Number(g('imporRateKg')) || 0,
+      divisor: Number(g('imporDivisor')) || undefined,
+      minCbm: Number(String(document.getElementById('imporMinCbm')?.value || '').replace(',', '.')) || undefined,
+    });
+  } catch {}
   closeSettings();
   UI.showSuccess('Pengaturan disimpan');
   render();

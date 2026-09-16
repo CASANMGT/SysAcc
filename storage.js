@@ -2056,6 +2056,39 @@ export function receiveStockBySource(itemId, qty, unitCost, { date, payment, sou
   return updated;
 }
 
+// ===== Pengaturan Impor (default per batch; selalu bisa ditimpa di muatan/belanja) =====
+const IMPOR_KEY = 'wynara_impor';
+export const IMPOR_DEFAULTS = { kurs: 2250, ratePerCbm: 3100000, ratePerKg: 0, divisor: 6000, minCbm: 0.1 };
+export function getImporSettings() {
+  try {
+    const o = JSON.parse(localStorage.getItem(IMPOR_KEY) || 'null');
+    if (o && typeof o === 'object') {
+      const num = (v, d) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : d);
+      return {
+        kurs: num(o.kurs, IMPOR_DEFAULTS.kurs) || IMPOR_DEFAULTS.kurs,
+        ratePerCbm: num(o.ratePerCbm, IMPOR_DEFAULTS.ratePerCbm),
+        ratePerKg: num(o.ratePerKg, IMPOR_DEFAULTS.ratePerKg),
+        divisor: num(o.divisor, IMPOR_DEFAULTS.divisor) || IMPOR_DEFAULTS.divisor,
+        minCbm: num(o.minCbm, IMPOR_DEFAULTS.minCbm) || IMPOR_DEFAULTS.minCbm,
+      };
+    }
+  } catch {}
+  return { ...IMPOR_DEFAULTS };
+}
+export function saveImporSettings(patch = {}) {
+  requireCap('settings');
+  const cur = getImporSettings();
+  const next = {
+    kurs: Math.max(Number(patch.kurs ?? cur.kurs) || 0, 1),
+    ratePerCbm: Math.max(Number(patch.ratePerCbm ?? cur.ratePerCbm) || 0, 0),
+    ratePerKg: Math.max(Number(patch.ratePerKg ?? cur.ratePerKg) || 0, 0),
+    divisor: Math.max(Number(patch.divisor ?? cur.divisor) || 6000, 1),
+    minCbm: Math.max(Number(patch.minCbm ?? cur.minCbm) || 0.1, 0.01),
+  };
+  try { localStorage.setItem(IMPOR_KEY, JSON.stringify(next)); } catch {}
+  return next;
+}
+
 // ===== Toko / lokasi (multi-toko) =====
 const SHOP_KEY = 'wynara_shops';
 const ACTIVE_SHOP_KEY = 'wynara_active_shop';

@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.13.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.14.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -542,7 +542,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.13.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.14.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2234,6 +2234,24 @@
           </div>
         </div>
         <div class="form-group">
+          <label>🌏 Impor — nilai default (bisa ditimpa per muatan)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Kurs ¥ → Rp
+              <input type="text" id="imporKurs" inputmode="numeric" placeholder="2250" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <label style="flex:1;min-width:130px;font-size:11px;color:#64748b">Rate laut / CBM (Rp)
+              <input type="text" id="imporRateCbm" inputmode="numeric" placeholder="3100000" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <label style="flex:1;min-width:130px;font-size:11px;color:#64748b">Rate udara / kg (Rp)
+              <input type="text" id="imporRateKg" inputmode="numeric" placeholder="opsional" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Pembagi berat volumetrik
+              <input type="text" id="imporDivisor" inputmode="numeric" placeholder="6000" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+            <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Minimum CBM / koli
+              <input type="text" id="imporMinCbm" inputmode="decimal" placeholder="0,1" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Dipakai untuk <b>estimasi</b> saat membeli. Angka final dihitung dari CBM/berat nyata saat muatan tiba.</div>
+        </div>
+        <div class="form-group">
           <label>UMP / upah minimum (Rp/bulan) — untuk validasi gaji</label>
           <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
             <input type="text" id="umpInput" placeholder="mis. 3.500.000" inputmode="numeric" style="flex:1;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
@@ -2738,7 +2756,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.13.0';
+    window.__htmlVersion = '2.14.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

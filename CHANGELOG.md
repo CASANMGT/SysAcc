@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.14.0] - 2026-09-16
+
+### Redesign Penjualan/Pembelian — langkah 1: kalkulator ongkir & estimasi biaya
+- **Modul baru `freight.js`** (dipakai kedua pintu: preorder & pembelian): `cbmFromDims` (P×L×T cm → CBM), `volumetricKg` (÷ pembagi, default 6000), `seaFreight` (billable = max(CBM, 0,1 per koli) + **flag `raisedByMinimum`** saat minimum menaikkan tagihan), `airFreight` (berat tertagih = max(aktual, volumetrik) + penanda pemenang), `estimateBelanja` (barang + ongkir China + estimasi laut, `perUnit`, `provisional: true`).
+- **Pengaturan → Impor** (default, bisa ditimpa per muatan): Kurs ¥→Rp, Rate laut/CBM, Rate udara/kg, Pembagi volumetrik, Minimum CBM/koli — disimpan di `wynara_impor`.
+- **Panel estimasi langsung di form Belanja**: saat admin mengetik barang/kurs/ongkir, muncul harga barang ¥→Rp, ongkir China → Rp, subtotal modal + per pcs, dan **"⚠ Estimasi — ongkir laut & biaya final dihitung saat barang tiba."** (wajib, karena admin akan mengutip harga ke pelanggan dari sini).
+- Uji: **352 lulus** (18 berkas) — termasuk 40×30×25 cm = 0,03 CBM & 5 kg volumetrik, 0,06 CBM → 0,1, udara memilih volumetrik, dan contoh kerja Rp 6.341.250 / Rp 158.531 per unit.
+
+## [2.13.0] - 2026-09-16
+
+### Stage 5.6, 5.8, 4.7 (sisa) — konsistensi terakhir
+- **5.6 Satu format uang**: `preorderFmt` (dipakai kartu pesanan, Papan Muatan, Detail Pesanan, tabel pembelian) kini memakai `Reports.formatCurrency` — **"Rp 105.000"**, spasi setelah Rp, tanpa desimal. Tidak ada lagi campuran `Rp105.000` / `Rp0`.
+- **5.8 Nama kontak**: spasi ganda/tepi dirapikan saat simpan & ubah (`cleanPersonName`), dan daftar kontak disimpan dengan urutan **case-insensitive** (`localeCompare(..., 'id', {sensitivity:'base'})`) — "Aan" dan "aan" kini bersebelahan, tidak jadi kontak ganda.
+- **4.7 Catatan temuan**: dua blok "Akun utama" adalah pasangan responsif (`desktop-only` / `mobile-only`, ditukar oleh media query) — bukan duplikasi nyata. Ikon 💾 dan ☁️ sudah punya `title` + `aria-label` dinamis (mis. "Cadangan terakhir 12 Sep 14:03", "Sinkron online: mati").
+
 ## [2.12.0] - 2026-09-16
 
 ### Stage 3.2 / C2 — Detail Pesanan (sisi jual + sisi beli + muatan dalam satu tampilan)
