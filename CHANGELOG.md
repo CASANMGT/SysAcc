@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.12.0] - 2026-09-16
+
+### Stage 3.2 / C2 — Detail Pesanan (sisi jual + sisi beli + muatan dalam satu tampilan)
+- **Klik nama pelanggan pada baris pesanan → Detail Pesanan.** Satu layar memuat:
+  - **Uang**: jual ke pelanggan · sudah dibayar · sisa tagihan (hijau bila lunas)
+  - **Laba nyata** untuk preorder: `jual − biaya mendarat` dengan persen, berlabel "(biaya mendarat)" bila muatan sudah dialokasi atau "(perkiraan)" bila belum
+  - **Sisi beli**: daftar Belanja marketplace (nilai ¥/Rp + biaya mendarat) dan baris muatan — **kode batch, mode, ETA, status alokasi** — inilah jawaban "pesanan ini di container mana dan kapan tiba"
+  - **Pembayaran pelanggan** (tabel DP/pelunasan) dan **riwayat kejadian** bertanggal
+  - Aksi cepat: Terima pembayaran · Catat biaya · Ubah status… · Papan Muatan
+- Menutup temuan 3.2 ("sisi jual di Penjualan, sisi beli di Pembelian") tanpa halaman baru — memakai modal yang ada.
+
 ## [2.11.0] - 2026-09-16
 
 ### Stage 7 — migrasi data Titip Beli lama (tanpa menghapus apa pun)

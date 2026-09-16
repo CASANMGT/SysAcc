@@ -11,7 +11,7 @@ import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
-import { getBelanjas, getKolis, getMuatans, getMuatanById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
+import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.11.0';
+const APP_VERSION = '2.12.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2762,7 +2762,7 @@ function renderOrdersPanel() {
     return `<tr>
         <td style="font-size:12px;white-space:nowrap">${typeBadge} <div>${escapeHtml(r.date)}</div>${ageTxt}${etaMonths ? `<div style="font-size:10px;color:#64748b">Est datang ${escapeHtml(String(etaMonths))} bln</div>` : ''}</td>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(r.no)}</td>
-        <td style="font-size:12px">${escapeHtml(r.customer || '—')}<div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
+        <td style="font-size:12px"><button type="button" class="order-open" data-kind="${r.kind}" data-id="${r.id}" style="background:none;border:none;padding:0;font:inherit;font-weight:600;color:#1d4ed8;cursor:pointer;text-align:left" title="Buka detail pesanan">${escapeHtml(r.customer || '—')}</button><div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
         <td>${chip}${shipLine}${noteLine}${sched}${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
         <td class="amount-col" style="font-weight:${r.balance > 0.01 ? '700' : '400'};color:${r.balance > 0.01 ? '#b45309' : '#059669'}">${r.balance > 0.01 ? fmt(r.balance) : 'Lunas'}</td>
         <td class="order-actions">${action || ''}${moreBtn}</td>
@@ -3590,6 +3590,70 @@ function openOrderMoreMenu(kind, id) {
   </div>`;
   UI.openInfoModal('⋯ Aksi pesanan', html);
 }
+// 3.2 / C2 Detail pesanan: sisi jual + sisi beli + muatan/ETA + margin nyata dalam satu tampilan.
+function openOrderDetail(kind, id) {
+  const isPo = kind === 'po';
+  const r = isPo ? Storage.getPreorderById(id) : Storage.getCreditSaleById(id);
+  if (!r) return;
+  const fmt = preorderFmt;
+  const sell = isPo ? Storage.preorderSellTotal(r) : Number(r.total) || 0;
+  const paid = isPo ? Storage.preorderPaidTotal(r) : Storage.creditPaidTotal(r);
+  const bal = isPo ? Storage.preorderBalance(r) : Storage.creditOutstanding(r);
+  const belanjas = isPo ? getBelanjas().filter((b) => b.preorderId === r.id) : [];
+  const lclCost = isPo ? preorderLclCost(r.id) : 0;
+  const legacyCost = isPo ? Storage.preorderCostTotal(r) : 0;
+  const cost = lclCost > 0 ? lclCost : legacyCost;
+  const landed = belanjas.reduce((s, b) => s + (b.landedTotal != null ? b.landedTotal : 0), 0);
+  const margin = sell - (landed > 0 ? landed : cost);
+  const pct = sell > 0 ? Math.round((margin / sell) * 100) : 0;
+  const stage = orderStageU(r.stage);
+  const meta = ORDER_STATUS_META[stage] || ORDER_STATUS_META.ordered;
+  const age = r.date ? Math.max(Math.floor((new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00') - new Date(String(r.date).slice(0, 10) + 'T00:00:00')) / 86400000), 0) : null;
+  const koli = belanjas.map((b) => getKoliById(b.koliId)).filter(Boolean);
+  const batches = koli.map((k) => getMuatanById(k.muatanId)).filter(Boolean);
+  const batchLine = batches.length
+    ? batches.map((m) => `<div style="font-size:11.5px;color:#1d4ed8;font-weight:600">🚢 ${escapeHtml(m.code)} • ${m.mode === 'air' ? 'udara' : 'LCL laut'}${m.eta ? ' • ETA ' + escapeHtml(m.eta) : ''}${m.allocated ? ' • ✅ biaya sudah dialokasi' : ' • belum dialokasi'}</div>`).join('')
+    : (koli.length ? '<div style="font-size:11.5px;color:#475569">🧾 Koli sudah di gudang China — belum masuk muatan</div>' : '<div style="font-size:11.5px;color:#64748b">Belum ada koli/muatan tercatat</div>');
+  const payRows = (isPo ? (r.payments || []) : (r.payments || [])).map((p) => `<tr><td style="font-size:11.5px">${escapeHtml(p.date || '')}</td><td style="font-size:11.5px">${escapeHtml(p.kind || 'bayar')}</td><td class="amount-col" style="font-size:11.5px">${fmt(p.amount)}</td></tr>`).join('');
+  const evRows = (isPo ? (r.events || []) : (r.timeline || [])).map((ev) => `<div style="font-size:11.5px;color:#475569;margin-bottom:3px">• ${escapeHtml(ev.date || '')} — ${escapeHtml(ev.note || ev.stage || '')}${ev.tracking ? ' <b>' + escapeHtml(ev.tracking) + '</b>' : ''}</div>`).join('');
+  const belanjaRows = belanjas.length ? belanjas.map((b) => `<tr>
+      <td style="font-size:11.5px">${escapeHtml(b.no)}</td>
+      <td style="font-size:11.5px">${escapeHtml(MARKETPLACES.find((m) => m.id === b.marketplace)?.label || b.marketplace)} • ${escapeHtml(b.seller || '—')}</td>
+      <td class="amount-col" style="font-size:11.5px">${fmt(b.totalIdr)}</td>
+      <td class="amount-col" style="font-size:11.5px">${b.landedTotal != null ? fmt(b.landedTotal) : '—'}</td>
+    </tr>`).join('') : '';
+  const html = `<div style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <div><b>${escapeHtml(r.no || r.invoiceNo || '')}</b> — ${escapeHtml(r.customer || '—')}</div>
+      <span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>
+    </div>
+    <div style="font-size:11.5px;color:#64748b">${escapeHtml(r.date || '')}${age != null ? ` • ⏱ ${age} hari` : ''}${r.eta ? ' • ETA ' + escapeHtml(r.eta) : ''}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px;background:#f8fafc;border-radius:10px;padding:8px 10px"><div style="font-size:10.5px;color:#64748b">Jual ke pelanggan</div><b style="font-size:13px">${fmt(sell)}</b></div>
+      <div style="flex:1;min-width:120px;background:#f8fafc;border-radius:10px;padding:8px 10px"><div style="font-size:10.5px;color:#64748b">Sudah dibayar</div><b style="font-size:13px">${fmt(paid)}</b></div>
+      <div style="flex:1;min-width:120px;background:${bal > 0.01 ? '#fffbeb' : '#ecfdf5'};border-radius:10px;padding:8px 10px"><div style="font-size:10.5px;color:#64748b">Sisa tagihan</div><b style="font-size:13px">${bal > 0.01 ? fmt(bal) : 'Lunas'}</b></div>
+    </div>
+    ${isPo ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px;background:#f8fafc;border-radius:10px;padding:8px 10px"><div style="font-size:10.5px;color:#64748b">Biaya keluar (belanja LCL)</div><b style="font-size:13px">${fmt(cost)}</b></div>
+      <div style="flex:1;min-width:120px;background:${margin >= 0 ? '#ecfdf5' : '#fef2f2'};border-radius:10px;padding:8px 10px"><div style="font-size:10.5px;color:#64748b">Laba nyata ${landed > 0 ? '(biaya mendarat)' : '(perkiraan)'}</div><b style="font-size:13px;color:${margin >= 0 ? '#047857' : '#b91c1c'}">${fmt(margin)} • ${pct}%</b></div>
+    </div>` : ''}
+    ${isPo ? `<div><b style="font-size:12px">Sisi beli</b>${batchLine}
+      ${belanjaRows ? `<div style="overflow-x:auto;margin-top:4px"><table class="report-table"><thead><tr><th>Belanja</th><th>Seller</th><th class="amount-col">Nilai</th><th class="amount-col">Mendarat</th></tr></thead><tbody>${belanjaRows}</tbody></table></div>` : '<div style="font-size:11.5px;color:#64748b;margin-top:4px">Belum ada belanja marketplace untuk pesanan ini.</div>'}
+    </div>` : ''}
+    <div><b style="font-size:12px">Pembayaran pelanggan</b>
+      ${payRows ? `<div style="overflow-x:auto;margin-top:4px"><table class="report-table"><thead><tr><th>Tanggal</th><th>Jenis</th><th class="amount-col">Jumlah</th></tr></thead><tbody>${payRows}</tbody></table></div>` : '<div style="font-size:11.5px;color:#64748b;margin-top:4px">Belum ada pembayaran.</div>'}
+    </div>
+    <div><b style="font-size:12px">Riwayat</b><div style="margin-top:4px">${evRows || '<div style="font-size:11.5px;color:#64748b">Belum ada kejadian.</div>'}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${bal > 0.01 ? `<button type="button" class="btn btn-primary detail-pay" data-kind="${kind}" data-id="${id}">💵 Terima pembayaran</button>` : ''}
+      ${isPo ? `<button type="button" class="btn btn-ghost detail-cost" data-kind="${kind}" data-id="${id}">🧾 Catat biaya</button>
+      <button type="button" class="btn btn-ghost detail-status" data-kind="${kind}" data-id="${id}">＋ Ubah status…</button>
+      <button type="button" class="btn btn-ghost detail-muatan">🚢 Papan Muatan</button>` : ''}
+    </div>
+  </div>`;
+  UI.openInfoModal(`📄 Pesanan ${escapeHtml(r.no || r.invoiceNo || '')}`, html);
+}
+
 function renderPembelianPage() {
   if (!document.getElementById('viewPembelian')) return;
   const purchases = Storage.getAllPurchases();
@@ -4146,6 +4210,8 @@ function fmtCnyLoc(v) { return '¥' + Math.round(Number(v) || 0).toLocaleString(
 
   // 6.4 Menu ⋯ per baris pesanan
   document.getElementById('orderStatusList')?.addEventListener('click', (e) => {
+    const openD = e.target.closest('.order-open');
+    if (openD) { openOrderDetail(openD.dataset.kind, openD.dataset.id); return; }
     const more = e.target.closest('.order-more');
     if (!more) return;
     openOrderMoreMenu(more.dataset.kind, more.dataset.id);
@@ -4156,6 +4222,14 @@ function fmtCnyLoc(v) { return '¥' + Math.round(Number(v) || 0).toLocaleString(
     const stat = e.target.closest('.order-more-status');
     const del = e.target.closest('.order-more-del');
     const mut = e.target.closest('.order-more-muatan');
+    const dPay = e.target.closest('.detail-pay');
+    const dCost = e.target.closest('.detail-cost');
+    const dStat = e.target.closest('.detail-status');
+    const dMut = e.target.closest('.detail-muatan');
+    if (dPay) { UI.closeInfoModal(); if (dPay.dataset.kind === 'po') openPoPay(dPay.dataset.id); else openCreditPay(dPay.dataset.id); return; }
+    if (dCost) { UI.closeInfoModal(); openPoCost(dCost.dataset.id); return; }
+    if (dStat) { UI.closeInfoModal(); openOrderStatus(dStat.dataset.kind, dStat.dataset.id, ''); return; }
+    if (dMut) { UI.closeInfoModal(); document.getElementById('muatanBtnSidebar')?.click(); return; }
     if (pay) { UI.closeInfoModal(); if (pay.dataset.kind === 'po') openPoPay(pay.dataset.id); else openCreditPay(pay.dataset.id); return; }
     if (cost) { UI.closeInfoModal(); openPoCost(cost.dataset.id); return; }
     if (stat) { UI.closeInfoModal(); openOrderStatus(stat.dataset.kind, stat.dataset.id, ''); return; }
