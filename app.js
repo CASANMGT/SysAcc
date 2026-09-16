@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -944,6 +944,15 @@ function bindEvents() {
     });
     sidebar?.classList.remove('open');
     overlay?.classList.add('hidden');
+    // 4.7: placeholder pencarian mengikuti halaman (bukan selalu "transaksi")
+    const scope = {
+      viewTransaksi: 'Cari transaksi…', viewRingkasan: 'Cari transaksi…',
+      viewStock: 'Cari produk / SKU…', viewPembelian: 'Cari pembelian / supplier…',
+      viewMuatan: 'Cari belanja / koli / muatan…', viewBiaya: 'Cari biaya…',
+      viewSales: 'Cari struk / pelanggan…', viewPayroll: 'Cari karyawan…',
+    }[viewId] || 'Cari di halaman ini…';
+    const sTop = document.getElementById('searchInputTop');
+    if (sTop) { sTop.placeholder = scope; sTop.setAttribute('aria-label', scope.replace('…', '')); }
     if (viewId === 'viewTransaksi') renderFullTransaksi();
     if (viewId === 'viewSales') renderSalesPage();
 
@@ -2617,7 +2626,7 @@ function renderSalesPage() {
     const pk = Object.keys(byPay).sort((a, b) => byPay[b] - byPay[a]);
     pay.innerHTML = pk.length ? `<table class="report-table"><thead><tr><th>Metode</th><th class="amount-col">Omzet</th><th class="amount-col">Porsi</th></tr></thead><tbody>
       ${pk.map(k => `<tr><td>${PAY_LABEL[k] || escapeHtml(k)}</td><td class="amount-col income">${fmt(byPay[k])}</td><td class="amount-col">${d.omzet > 0 ? ((byPay[k] / d.omzet) * 100).toFixed(1) : '0.0'}%</td></tr>`).join('')}
-      </tbody></table>` : '<p style="color:var(--text-muted)">—</p>';
+      </tbody></table>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada pembayaran pada periode ini. Catat penjualan lewat ＋ Jual.</p>';
   }
   // Struk terbaru — tabel rapi
   const recent = document.getElementById('salesRecentList');
