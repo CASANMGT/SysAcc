@@ -4334,10 +4334,15 @@ export function bindSale(onSave) {
   document.querySelectorAll('input[name="saleMode"]').forEach(r => r.addEventListener('change', () => {
     const mode = modeValue();
     const credit = document.getElementById('saleCredit');
-    if (mode === 'preorder' && credit && !credit.checked) { credit.checked = true; credit.dispatchEvent(new Event('change')); }
+    if (mode === 'preorder' && credit && !credit.checked) { credit.checked = true; }
+    if (credit) credit.disabled = mode === 'preorder';
+    // tampilkan langsung (tanpa bergantung pada event change yang mungkin diblokir)
     const po = document.getElementById('salePreorderFields');
     if (po) po.hidden = mode !== 'preorder';
-    if (credit) credit.disabled = mode === 'preorder';
+    const box = document.getElementById('saleCreditFields');
+    if (box) box.hidden = !credit?.checked;
+    const termsRow = document.getElementById('saleReadyTerms');
+    if (termsRow) termsRow.hidden = mode === 'preorder' || !credit?.checked;
     recalcSale();
   }));
   document.getElementById('saleDepositPct')?.addEventListener('input', () => {

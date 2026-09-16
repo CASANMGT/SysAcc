@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.94.0';
+const APP_VERSION = '1.95.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2586,7 +2586,7 @@ function renderOrdersPanel() {
     const itemsTxt = (r.items || []).slice(0, 3).map(l => `${l.qty}× ${escapeHtml(l.name)}`).join(', ') + ((r.items || []).length > 3 ? ` +${r.items.length - 3}` : '');
     const trackShow = (ev && ev.tracking) || (r.shipment && (r.shipment.tracking || r.shipment.courier)) || '';
     const shipLine = trackShow
-      ? `<div style="font-size:10.5px;color:#475569">🚛 resi/kiriman: <b>${escapeHtml(trackShow)}</b></div>`
+      ? `<div style="font-size:10.5px;color:#475569">🚛 resi/kiriman: <b>${escapeHtml(trackShow)}</b> <a href="https://t.17track.net/id#nums=${encodeURIComponent(trackShow)}" target="_blank" rel="noopener" title="Cek status via 17track" style="font-size:10px;color:#2563eb;font-weight:600">🔍 cek status</a></div>`
       : '';
     const noteLine = ev && ev.note ? `<div style="font-size:10.5px;color:#475569">📝 ${escapeHtml(ev.note)}</div>` : '';
     const sched = ev && ev.schedule ? `<div style="font-size:10.5px;color:#4338ca;font-weight:600;margin-top:2px">⏰ Janji bayar ${escapeHtml(ev.schedule)}</div>` : '';
@@ -2595,7 +2595,7 @@ function renderOrdersPanel() {
       : `<span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>`;
     const typeBadge = r.kind === 'jual'
       ? '<span style="background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">JUAL</span>'
-      : '<span style="background:#f0fdfa;color:#0f766e;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">TITIP BELI</span>';
+      : '<span style="background:#fef9c3;color:#a16206;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">🌏 PRE-ORDER CHINA</span>';
     let action = '';
     if (st === 'ordered' && !(Number(r.paid) > 0.01)) {
       action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`;
@@ -2651,6 +2651,11 @@ function openOrderStatus(kind, id, presetStage) {
   }
   const st = document.getElementById('orderStatusSchedule'); if (st) st.value = '';
   const tr = document.getElementById('orderStatusTracking'); if (tr) tr.value = (po.shipment && po.shipment.tracking) || '';
+  // blok dinamis sesuai tahap: 'sent' → cara kirim gudang; 'invoiced' → janji bayar
+  const shipTypeWrap = document.getElementById('orderShipTypeWrap');
+  if (shipTypeWrap) shipTypeWrap.hidden = presetStage !== 'sent';
+  const schedWrap = document.getElementById('orderSchedWrap');
+  if (schedWrap) schedWrap.hidden = presetStage !== 'invoiced';
   const sel = populateOrderStatusSelect(kind);
   if (sel && presetStage) sel.value = presetStage;
   else if (sel) sel.selectedIndex = 0;
@@ -2664,17 +2669,28 @@ function closeOrderStatus() { const m = document.getElementById('orderStatusModa
 function handleOrderStatusSubmit() {
   const kind = document.getElementById('orderStatusKind')?.value || 'po';
   const id = document.getElementById('orderStatusId')?.value || '';
-  const stage = document.getElementById('orderStatusStage')?.value || '';
+  let stage = document.getElementById('orderStatusStage')?.value || '';
   const date = document.getElementById('orderStatusDate')?.value || new Date().toISOString().split('T')[0];
-  const note = document.getElementById('orderStatusNote')?.value.trim() || '';
-  const tracking = document.getElementById('orderStatusTracking')?.value.trim() || '';
+  let note = document.getElementById('orderStatusNote')?.value.trim() || '';
+  let tracking = document.getElementById('orderStatusTracking')?.value.trim() || '';
   const schedule = document.getElementById('orderStatusSchedule')?.value || '';
   if (!id) return;
   try {
-    if (kind === 'po') Storage.trackPreorder(id, { stage, date, note, tracking, schedule });
-    else Storage.trackCreditOrder(id, { stage, date, note, tracking, schedule });
+    // tahap 'sent' → catat cara kirim gudang; 'invoiced' → janji bayar (hari/jam) + faktur opsional
+    if (stage === 'sent') {
+      const how = document.getElementById('orderShipType')?.value || '';
+      const det = document.getElementById('orderShipTypeDetail')?.value.trim() || '';
+      note = `${how ? 'Kirim via ' + how : ''}${det ? ' — ' + det : ''}${note ? ' • ' + note : ''}`.trim();
+    }
+    const faktur = document.getElementById('orderStatusFaktur')?.value.trim() || '';
+    if (stage === 'invoiced' && schedule) {
+      const n2 = `Janji bayar ${new Date(schedule).toLocaleString('id-ID')}${faktur ? ' • faktur ' + faktur : ' • tanpa faktur'}`;
+      note = note ? `${note} • ${n2}` : n2;
+    }
+    if (kind === 'po') Storage.trackPreorder(id, { stage, date, note, tracking, schedule: schedule.slice(0, 10) });
+    else Storage.trackCreditOrder(id, { stage, date, note, tracking, schedule: schedule.slice(0, 10) });
     closeOrderStatus();
-    UI.showSuccess('Status pesanan diperbarui');
+    UI.showSuccess(stage === 'invoiced' && schedule ? 'Invoice terkirim — janji bayar tercatat' : 'Status pesanan diperbarui');
     refreshSalesPage();
   } catch (e) {
     const er = document.getElementById('orderStatusError');
@@ -7288,7 +7304,8 @@ function handleOrderShipSubmit() {
         Storage.addPreorderCost(id, { amount: Math.round(yuan * fx), kind: 'barang', payment: 'transfer', note: `¥${yuan.toLocaleString('id-ID')} yuan × kurs ${fx.toLocaleString('id-ID')} = Rp${Math.round(yuan * fx).toLocaleString('id-ID')}` });
       }
       if (cbm * cbmRate > 0) {
-        Storage.addPreorderCost(id, { amount: Math.round(cbm * cbmRate), kind: 'kirim', payment: 'transfer', note: `Kirim China→Indo ${cbm} CBM × Rp${cbmRate.toLocaleString('id-ID')}` });
+        const freight = document.getElementById('shipFreight')?.value || 'Laut';
+        Storage.addPreorderCost(id, { amount: Math.round(cbm * cbmRate), kind: 'kirim', payment: 'transfer', note: `Kirim China→Indo ${freight} ${cbm} CBM × Rp${cbmRate.toLocaleString('id-ID')}` });
       }
       closeOrderShip();
       UI.showSuccess('Barang dibeli & dicatat di gudang China (biaya barang/kirim masuk pesanan) — langkah berikutnya kirim China → Indonesia');

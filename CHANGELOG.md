@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.95.0] - 2026-09-15
+
+### Added — pelacakan resi & cara kirim lengkap
+- **DP % kini selalu tampil di preorder** (bug tampilan pada SW lama) — input persen → auto `DP (Rp)`
+- **Preorder tidak pernah menyentuh stok lama** — barang dari China selalu stok baru (masuk via biaya pesanan)
+- Badge di Status Pesanan jelas: **🌏 PRE-ORDER CHINA** vs `JUAL`
+- **🔍 Cek status resi**: link ke 17track (`t.17track.net/id#nums=<resi>`) langsung dari baris pesanan
+- **Kirim China→Indo**: pilih **🚢 Sea freight** atau **✈️ Air freight** saat memasukkan CBM/rate — tercatat di catatan biaya
+- **Gudang → pelanggan**: saat status "Kirim ke pelanggan" pilih cara kirim — **Self shipping / Online (aplikasi) / Ekspedisi (tulis type)** + detail, tersimpan di riwayat status
+- **Bekerja sampai**: moda pembayaran **Transfer langsung** lewat kolom 💵 *Bayar* (Transfer/Tunai/QRIS/E-wallet), atau **Janji bayar nanti**: tanggal + **jam** (datetime-local) + catatan faktur (opsional, boleh kosong) — semuanya masuk riwayat status
+
 ## [1.94.0] - 2026-09-15
 
 ### Fixed & Changed — form preorder & update status fokus lokasi
