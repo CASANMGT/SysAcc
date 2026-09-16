@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.5.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1040,7 +1040,6 @@ function bindEvents() {
     if (sel) handleStockReceive(sel.value);
   });
   document.getElementById('biayaAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); setTimeout(() => { const b = document.querySelector('#typeGroup .select-btn[data-value="expense"], #typeGroup .chip[data-value="expense"]'); if (b) b.click(); }, 30); });
-  document.getElementById('biayaPeriod')?.addEventListener('change', (e) => { biayaPeriodValue = e.target.value; renderBiayaPage(); });
   document.getElementById('salesNewBtn')?.addEventListener('click', () => UI.openSale());
   document.getElementById('salesExcel')?.addEventListener('click', exportSalesExcel);
   document.getElementById('salesPrint')?.addEventListener('click', printSalesPage);
@@ -1053,7 +1052,6 @@ function bindEvents() {
     if (p) openCreditPay(p.dataset.id);
     else if (d) deleteCreditSalePrompt(d.dataset.id);
   });
-  document.getElementById('salesPeriod')?.addEventListener('change', (e) => { salesPeriodValue = e.target.value; renderSalesPage(); });
   document.getElementById('lihatSemua')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewTransaksi'); });
   // Bottom nav mobile
   document.getElementById('bottomNav')?.addEventListener('click', (ev) => {
@@ -1585,10 +1583,10 @@ function bindEvents() {
   UI.bindInfoModal();
   document.querySelector('.sidebar-help-btn')?.addEventListener('click', () => {
     UI.openInfoModal('❓ Bantuan Wynara',
-      `<p><b>Mulai dalam 3 langkah:</b> 1️⃣ Tambah transaksi → 2️⃣ Coba Pinjemin → 3️⃣ Lihat laporan.</p>` +
-      `<p><b>Alur uang:</b> 📤 keluar = Kasih pinjam & Balikin. 📥 masuk = Dibalikin & Pinjam uang.</p>` +
-      `<p><b>Keyboard:</b> <kbd>Ctrl+N</kbd> tambah · <kbd>/</kbd> cari · <kbd>Esc</kbd> tutup.</p>` +
-      `<p><b>Data aman:</b> Pengaturan → JSON Backup tiap bulan. Cadangan otomatis tersimpan di browser ini.</p>`);
+      '<p><b>Alur harian:</b> Ringkasan → catat penjualan/biaya → pesanan preorder dipantau di <b>Pesanan Berjalan</b> (Penjualan).</p>' +
+      '<p><b>Pesanan preorder China:</b> DP masuk → 🛍 Beli di marketplace → 🧾 tempel daftar koli dari forwarder → muat &amp; berangkat di <b>Papan Muatan</b> → tiba (biaya mendarat otomatis masuk harga modal) → kirim ke pelanggan.</p>' +
+      '<p><b>Periode:</b> satu kontrol di kanan atas (mis. “Bulan ini ▾”) — Penjualan, Biaya, dan Ringkasan mengikuti periode itu. Pesanan Berjalan sengaja <b>semua periode</b>.</p>' +
+      '<p><b>Data aman:</b> Pengaturan → JSON Backup tiap bulan, atau nyalakan Sinkron Online. Status penyimpanan selalu tampak di kanan atas.</p>');
   });
 
 function loadChangelogPage() {
@@ -2527,7 +2525,7 @@ function renderTopProductsInto(containerId, entries, returnFilter) {
 }
 
 /* ===== Halaman Penjualan (gabungan semua laporan penjualan) ===== */
-let salesPeriodValue = 'this-month';
+
 const PAY_LABEL = { cash: '💵 Tunai', transfer: '🏦 Transfer', qris: '📱 QRIS', ewallet: '📲 E-Wallet', debit: '💳 Debit', other: '📦 Lainnya' };
 // Retur penjualan (bukan entry) difilter seperti entry: bungkus dgn type/category agar filterEntries bekerja.
 function periodReturns(filter) {
@@ -2535,8 +2533,13 @@ function periodReturns(filter) {
   const pseudo = Storage.getSaleReturns().map(r => ({ ...r, type: 'income', category: 'jualan' }));
   return Reports.filterEntries(pseudo, filter);
 }
+// 4.4 Satu kontrol periode: Penjualan & Biaya mengikuti periode di header.
+function pagePeriodOpts() {
+  return { period: currentFilters.period || 'all', startDate: currentFilters.startDate, endDate: currentFilters.endDate };
+}
 function salesEntries() {
-  return Reports.filterEntries(Storage.getAllEntries(), { period: salesPeriodValue, type: 'income', category: 'jualan' });
+  const pp = pagePeriodOpts();
+  return Reports.filterEntries(Storage.getAllEntries(), { period: pp.period, startDate: pp.startDate, endDate: pp.endDate, type: 'income', category: 'jualan' });
 }
 function computeSales(entries) {
   const items = {};
@@ -2559,7 +2562,7 @@ function computeSales(entries) {
     });
   });
   // Net retur periode berjalan (kurangi qty/omzet/HPP).
-  const rets = periodReturns({ period: salesPeriodValue, type: 'income', category: 'jualan' });
+  const rets = periodReturns({ ...pagePeriodOpts(), type: 'income', category: 'jualan' });
   rets.forEach(r => (r.lines || []).forEach(l => {
     const key = l.itemId || l.name || '—';
     if (!byItem[key]) byItem[key] = { name: l.name || (items[l.itemId] && items[l.itemId].name) || '(barang terhapus)', qty: 0, omzet: 0, hpp: 0 };
@@ -2588,7 +2591,7 @@ function renderSalesPage() {
   }
   // Grafik + terlaris (pakai data periode terpilih)
   Charts.renderSalesDailyChart(entries, { days: 14, ids: { svg: 'salesPageChart', labels: 'salesPageLabels', total: 'salesPageTotal', avg: 'salesPageAvg', best: 'salesPageBest' } });
-  renderTopProductsInto('salesTopList', entries, { period: salesPeriodValue, type: 'income', category: 'jualan' });
+  renderTopProductsInto('salesTopList', entries, { ...pagePeriodOpts(), type: 'income', category: 'jualan' });
   // Tabel per produk
   const tbl = document.getElementById('salesProductTable');
   if (tbl) {
@@ -4081,10 +4084,11 @@ document.getElementById('muatanKoliBtn')?.addEventListener('click', () => openKo
 document.getElementById('muatanBatchBtn')?.addEventListener('click', () => openMuatanCreateModal());
 
 /* ===== Halaman Biaya ===== */
-let biayaPeriodValue = 'this-month';
+
 function renderBiayaPage() {
   if (!document.getElementById('viewBiaya')) return;
-  const entries = Reports.filterEntries(Storage.getAllEntries(), { period: biayaPeriodValue, type: 'expense' });
+  const _pp = pagePeriodOpts();
+  const entries = Reports.filterEntries(Storage.getAllEntries(), { period: _pp.period, startDate: _pp.startDate, endDate: _pp.endDate, type: 'expense' });
   const total = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const cats = (Reports.computeCategoryBreakdown(entries) || []).filter(c => c.type === 'expense').sort((a, b) => b.total - a.total);

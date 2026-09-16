@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.5.0] - 2026-09-16
+
+### Stage 4.4 — satu kontrol periode
+- **Kontrol periode terpisah di Penjualan & Biaya dihapus**; kedua halaman kini **mengikuti kontrol periode di header** (kanan atas) lewat `pagePeriodOpts()` (termasuk rentang tanggal kustom). Tidak ada lagi header bilang "Semua waktu" sementara halaman bilang "Bulan ini".
+- Bagian yang sengaja tidak ikut periode tetap berlabel sendiri: **Pesanan Berjalan (semua periode)**.
+- Salinan bantuan sidebar disesuaikan alur nyata + menjelaskan aturan periode.
+
 ## [2.4.0] - 2026-09-16
 
 ### Stage 5 (awal) — navigasi bawah mengikuti pekerjaan harian
