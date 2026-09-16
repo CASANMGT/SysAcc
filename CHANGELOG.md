@@ -6,6 +6,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.10.0] - 2026-09-16
+
+### Stage 7 (lanjutan) — Pembelian dilebur ke Papan Muatan
+- **Papan Muatan jadi rumah pembelian**, bertab: **📋 Papan · 🛍 Belanja · 🧾 Koli · 🚢 Muatan · 🏪 Lokal & Hutang**. Satu tempat untuk pembelian impor dan lokal, sesuai cara bisnis bekerja (impor = pembelian utama).
+- **Tab Lokal & Hutang** membawa seluruh isi halaman Pembelian lama (KPI hutang, daftar pembelian/aging, sisi beli preorder). Tab **Koli** dan **Muatan** menambah dua tabel ringkas yang sebelumnya tidak ada.
+- **Pembelian keluar dari sidebar** (item disembunyikan; rute lama tetap bekerja dan mengarahkan ke tab Lokal & Hutang). Menu Lainnya → Pembelian kini membuka tab itu.
+- Tombol aksi pembelian (＋ Beli lokal) pindah ke header Papan Muatan; "Beli barang (buat stok)" lama digantikan alur Belanja marketplace + Terima Barang.
+
+#### Hitungan sebelum → sesudah
+| | Sebelum | Sesudah |
+|---|---|---|
+| Item sidebar | 14 | **13** |
+| Halaman pembelian | 2 (Pembelian + Papan Muatan) | **1** (Papan Muatan, 5 tab) |
+| Tabel pembelian | 1 | 3 (pembelian, koli, muatan) |
+
+## [2.9.0] - 2026-09-16
+
+### Stage 4.7 & 5.7 — pencarian ber-scope & empty state
+- **Placeholder pencarian mengikuti halaman**: Transaksi/Ringkasan "Cari transaksi…", Produk "Cari produk / SKU…", Pembelian "Cari pembelian / supplier…", Papan Muatan "Cari belanja / koli / muatan…", Biaya, Penjualan, Gaji masing-masing. `aria-label` ikut berubah.
+- **Empty state Metode Pembayaran** tak lagi sekadar "—": "Belum ada pembayaran pada periode ini. Catat penjualan lewat ＋ Jual."
+- Empty state Produk Terlaris / Penjualan per Produk / Struk Terbaru sudah ada sebelumnya (diverifikasi).
+
 ## [2.8.0] - 2026-09-16
 
 ### Phase 3 close-out — biaya mendarat masuk ke modal produk (HPP benar)
