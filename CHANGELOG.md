@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.7.0] - 2026-09-16
+
+### Stage 3.1 — Restock jadi "Terima Barang" dengan pemilih sumber
+- **Tidak ada lagi redirect "pakai menu Beli"**. Modal restock kini bertanya **"Dari mana barang ini masuk?"** dengan empat pilihan, dan menyatakan konsekuensi jurnalnya dalam satu kalimat:
+  - **Beli lokal tunai** → Dr Persediaan / Cr Kas
+  - **Hutang supplier lokal** → Dr Persediaan / Cr Hutang Supplier (uang keluar belakangan; "Bayar pakai" disembunyikan)
+  - **Dari muatan impor (biaya dari alokasi)** → kolom modal & bayar disembunyikan, tombol berubah "🚢 Buka Papan Muatan"; biaya tidak pernah diketik manual
+  - **Stok awal** → Dr Persediaan / Cr Modal Pemilik
+- Storage baru `receiveStockBySource()` (tunai/hutang/awal) — jurnal seimbang diuji; `restockItem()` lama tetap ada untuk kompatibilitas.
+- Uji: 339 lulus (tambah 1 pengujian jurnal per sumber).
+
 ## [2.6.0] - 2026-09-16
 
 ### Stage 6.4 & 4.5 — satu aksi utama + menu ⋯ per pesanan

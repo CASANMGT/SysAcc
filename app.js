@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.7.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1311,6 +1311,8 @@ function bindEvents() {
   });
   document.getElementById('restockClose')?.addEventListener('click', closeRestock);
   document.getElementById('restockCancel')?.addEventListener('click', closeRestock);
+  document.getElementById('restockSource')?.addEventListener('change', applyRestockSource);
+  applyRestockSource();
   document.getElementById('restockSave')?.addEventListener('click', handleRestockSubmit);
   document.getElementById('returnClose')?.addEventListener('click', closeReturn);
   document.getElementById('returnCancel')?.addEventListener('click', closeReturn);
@@ -5519,16 +5521,49 @@ function handleRestockSubmit() {
   const cost = Math.round(Number(UI.parseIdrInput(document.getElementById('restockCost')?.value || '')) || 0);
   const date = document.getElementById('restockDate')?.value || new Date().toISOString().split('T')[0];
   const payment = document.getElementById('restockPayment')?.value || 'cash';
+  const source = document.getElementById('restockSource')?.value || 'tunai';
   if (!itemId) return UI.showError('Pilih varian dulu');
-  if (qty <= 0) return UI.showError('Jumlah restock harus > 0');
+  if (qty <= 0) return UI.showError('Jumlah masuk harus > 0');
+  if (source === 'muatan') {
+    closeRestock();
+    UI.showInfo('Barang dari muatan impor: buka Papan Muatan → muatan yang tiba → Alokasi. Biaya mendarat dihitung otomatis, tidak diketik di sini.');
+    document.getElementById('muatanBtnSidebar')?.click();
+    return;
+  }
   try {
-    const it = Storage.restockItem(itemId, qty, cost, { date, payment });
-    UI.showSuccess(`Stok ${it.name} +${qty} (modal Rp${cost.toLocaleString('id-ID')}/pcs)`);
+    const it = Storage.receiveStockBySource(itemId, qty, cost, { date, payment, source });
+    const note = source === 'hutang' ? 'hutang supplier' : source === 'awal' ? 'stok awal' : 'beli tunai';
+    UI.showSuccess(`Stok ${it.name} +${qty} (${note}, modal Rp${cost.toLocaleString('id-ID')}/pcs)`);
     closeRestock();
     refreshStock();
     refresh();
     queueMirror();
-  } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal restock'); }
+  } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal terima barang'); }
+}
+function applyRestockSource() {
+  const src = document.getElementById('restockSource')?.value || 'tunai';
+  const costWrap = document.getElementById('restockCostWrap');
+  const payWrap = document.getElementById('restockPayWrap');
+  const hint = document.getElementById('restockSourceHint');
+  const save = document.getElementById('restockSave');
+  if (src === 'muatan') {
+    if (costWrap) costWrap.hidden = true;
+    if (payWrap) payWrap.hidden = true;
+    if (save) save.textContent = '🚢 Buka Papan Muatan';
+  } else {
+    if (costWrap) costWrap.hidden = false;
+    if (payWrap) payWrap.hidden = src === 'hutang' || src === 'awal';
+    if (save) save.textContent = 'Tambah stok';
+  }
+  if (hint) {
+    hint.textContent = src === 'hutang'
+      ? 'Dr Persediaan / Cr Hutang Supplier — stok bertambah, belum ada uang keluar; bayar belakangan di Pembelian → Lokal & Hutang.'
+      : src === 'awal'
+        ? 'Dr Persediaan / Cr Modal Pemilik — tidak ada kas keluar; untuk saldo stok yang sudah ada sebelum pakai aplikasi.'
+        : src === 'muatan'
+          ? 'Biaya tidak diketik di sini — angka berasal dari alokasi muatan (harga barang + ongkir + freight dibagi CBM).'
+          : 'Dr Persediaan / Cr Kas — uang keluar sekarang, stok bertambah.';
+  }
 }
 function handleStockSave() {
   const d = UI.getStockFormData();

@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.6.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.7.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -542,7 +542,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.6.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.7.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2645,12 +2645,19 @@
       </header>
       <div class="modal-body">
         <div id="restockInfo" style="font-size:12px;color:#475569;margin-bottom:8px"></div>
+        <label style="font-size:12px;display:block;margin-bottom:6px">Dari mana barang ini masuk?
+          <select id="restockSource" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px">
+            <option value="tunai">Beli lokal tunai</option>
+            <option value="hutang">Hutang supplier lokal</option>
+            <option value="muatan">Dari muatan impor (biaya dari alokasi)</option>
+            <option value="awal">Stok awal</option>
+          </select></label>
         <label style="font-size:12px;display:block;margin-bottom:6px">Varian<select id="restockVariant" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></select></label>
         <label style="font-size:12px;display:block;margin-bottom:6px">Jumlah masuk (pcs)<input type="number" id="restockQty" min="1" step="1" placeholder="0" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
-        <label style="font-size:12px;display:block;margin-bottom:6px">Modal / pcs (Rp)<input type="text" id="restockCost" inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
+        <label id="restockCostWrap" style="font-size:12px;display:block;margin-bottom:6px">Modal / pcs (Rp)<input type="text" id="restockCost" inputmode="decimal" placeholder="Rp" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
         <label style="font-size:12px;display:block;margin-bottom:6px">Tanggal<input type="date" id="restockDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
-        <label style="font-size:12px;display:block">Bayar pakai<select id="restockPayment" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"><option value="cash">Tunai</option><option value="transfer">Transfer</option><option value="qris">QRIS</option><option value="ewallet">E-Wallet</option><option value="debit">Debit</option><option value="other">Lainnya</option></select></label>
-        <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Restock = beli tunai (Dr Persediaan / Cr Kas). Untuk hutang supplier, pakai menu Beli.</p>
+        <label id="restockPayWrap" style="font-size:12px;display:block">Bayar pakai<select id="restockPayment" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"><option value="cash">Tunai</option><option value="transfer">Transfer</option><option value="qris">QRIS</option><option value="ewallet">E-Wallet</option><option value="debit">Debit</option><option value="other">Lainnya</option></select></label>
+        <p id="restockSourceHint" style="font-size:11px;color:#475569;background:#f8fafc;border-radius:8px;padding:8px 10px;margin-top:8px">Dr Persediaan / Cr Kas — uang keluar sekarang, stok bertambah.</p>
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="restockCancel">Batal</button>
@@ -2709,7 +2716,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.6.0';
+    window.__htmlVersion = '2.7.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

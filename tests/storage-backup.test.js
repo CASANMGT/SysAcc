@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, creditPaidTotal, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, creditPaidTotal, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -581,6 +581,17 @@ describe('produk: varian & diskon', () => {
     expect(it.discountPct).toBe(25);
     expect(itemNetPrice(it)).toBe(75000);
     expect(itemVariantLabel(it)).toBe('L / Hitam');
+  });
+  it('3.1 terima barang per sumber: hutang → Cr 2102, awal → Cr 3101', () => {
+    const it = saveItem({ name: 'Kabel', price: 20000, stock: 0 });
+    receiveStockBySource(it.id, 5, 12000, { date: '2026-08-10', source: 'hutang' });
+    let j = getAllJournals().slice(-1)[0];
+    expect(j.lines[0].account).toBe('1105');
+    expect(j.lines[1].account).toBe('2102');
+    receiveStockBySource(it.id, 2, 10000, { date: '2026-08-11', source: 'awal' });
+    j = getAllJournals().slice(-1)[0];
+    expect(j.lines[1].account).toBe('3101');
+    expect(getAllJournals().every(x => x.lines.reduce((s, l) => s + (l.debit || 0) - (l.credit || 0), 0) === 0)).toBe(true);
   });
   it('A3: varian identik dibuang (30cm + 30cm → 30cm)', () => {
     const it = saveItem({ name: 'Ph5 • 30cm', price: 120000, size: '30cm', color: '30cm', stock: 2 });

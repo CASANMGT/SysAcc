@@ -1,7 +1,7 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, buildPreorderPayJournal, buildPreorderCostJournal, buildPreorderSettleJournal, findUnbalanced } from './journals.js';
-import { getAccounts, ACCOUNTS, COA_RENUMBER, INVENTORY_ACCOUNT } from './coa.js';
+import { getAccounts, ACCOUNTS, COA_RENUMBER, INVENTORY_ACCOUNT, accountForPayment } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -2010,6 +2010,46 @@ export function fullItemName(item) {
       return true;
     });
   return extra.length ? `${base} ${extra.join(' ')}` : base;
+}
+
+// 3.1 Terima Barang dengan sumber eksplisit: tunai lokal / hutang supplier / stok awal.
+// (Sumber 'muatan' tidak lewat sini — biaya dari alokasi muatan, lihat Papan Muatan.)
+export function receiveStockBySource(itemId, qty, unitCost, { date, payment, source } = {}) {
+  requireCap('ledger');
+  const it = getItemById(itemId);
+  if (!it) throw new Error('Barang tidak ditemukan');
+  const q = Math.max(Math.floor(Number(qty) || 0), 0);
+  if (q <= 0) throw new Error('Jumlah masuk harus > 0');
+  const cost = Math.max(Number(unitCost) || 0, 0);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const src = ['tunai', 'hutang', 'awal'].includes(source) ? source : 'tunai';
+  const updated = applyStockMove(itemId, { qtyIn: q, unitCost: cost, ref: 'receive', note: `Terima barang (${src})`, type: 'receive' });
+  const amount = Math.round(q * cost);
+  const memo = `Terima barang ${it.name} ${q} pcs`;
+  if (amount > 0) {
+    let lines;
+    if (src === 'hutang') {
+      lines = [
+        { account: INVENTORY_ACCOUNT, debit: amount, credit: 0, memo },
+        { account: '2102', debit: 0, credit: amount, memo: 'Hutang supplier lokal' },
+      ];
+    } else if (src === 'awal') {
+      lines = [
+        { account: INVENTORY_ACCOUNT, debit: amount, credit: 0, memo },
+        { account: '3101', debit: 0, credit: amount, memo: 'Stok awal (modal)' },
+      ];
+    } else {
+      const cash = accountForPayment(payment || 'cash');
+      lines = [
+        { account: INVENTORY_ACCOUNT, debit: amount, credit: 0, memo },
+        { account: cash, debit: 0, credit: amount, memo: 'Beli lokal tunai' },
+      ];
+    }
+    postJournal({ id: generateId(), date: d, memo, ref: 'receive-stock', refId: itemId, lines });
+  }
+  logAudit('create', 'receive-stock', itemId, null, { qty: q, cost, source: src });
+  return updated;
 }
 
 // ===== Toko / lokasi (multi-toko) =====
