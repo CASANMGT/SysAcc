@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.97.0] - 2026-09-16
+
+### Added — rantai belanja LCL konsolidasi (marketplace → koli → muatan → penerimaan)
+- **Belanja**: satu order marketplace (Taobao / Pinduoduo / 1688 / lainnya) dengan ¥ unit, ongkir China, fee agen, **kurs agen** terpisah dari kurs bank — semua tercatat Rp + ¥. Bayar penuh saat buat (saldo agen / tunai).
+- **Uang Muka Agen (1212)**: top-up saldo agen sekarang punya akun sendiri.
+- **Koli**: paket dicek masuk gudang China — CBM **diukur di sini**, bukan saat beli. Tanpa jurnal (kondisi saja).
+- **Muatan (batch LCL)**: kode batch, forwarder, tarif per CBM (laut) / per kg (udara, volumetrik 1 CBM = 167 kg), CBM minimum, ETD/ETA. Berangkat → satu jurnal ongkos muatan: Dr Persediaan dalam Perjalanan (1211) / Cr kas atau hutang forwarder.
+- **Penerimaan + alokasi 3 tingkat**: muatan → koli (bagian CBM) → belanja (bagian nilai) → satuan. Aturan residu pembulatan: ke koli terbesar. Neraca tetap balance sebelum & sesudah tiba. Barang stok otomatis masuk stok (type `muatan`).
+- **Refund seller dalam ¥**: Dr kas/saldo agen; beda kurs beli vs refund → **Selisih Kurs (5197)**.
+- **Persediaan dalam Perjalanan (1211)** baru di Neraca — uang yang sudah keluar tetapi barang masih di China/di kapal kini terlihat.
+- Backup JSON v3 kini membawa `belanjas`, `kolis`, `muatans`; backup lama tetap bisa dipulihkan (additive).
+- Kompatibel Supabase: 3 KV key baru ikut sinkron.
+
 ## [1.95.0] - 2026-09-15
 
 ### Added — pelacakan resi & cara kirim lengkap

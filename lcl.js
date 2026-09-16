@@ -1,0 +1,423 @@
+// lcl.js — Alur belanja LCL konsolidasi untuk importir marketplace.
+// Rantai: Belanja (order marketplace) → Koli (paket di gudang China)
+//         → Muatan (batch LCL) → Penerimaan (alokasi biaya mendarat).
+// Uang yang sudah dibayar tapi belum sampai gudang lokal = 1211 Persediaan dalam Perjalanan.
+// Saldo ke agen pembayaran = 1212 Uang Muka Agen. Selisih kurs = 5197 (SAK EMKM, modalisasi biaya).
+import { assertUnlocked, postJournal, logAudit, applyStockMove } from './storage.js';
+import { accountForPayment } from './coa.js';
+
+export const TRANSIT_ACCOUNT = '1211';   // Persediaan dalam Perjalanan
+export const AGENT_ACCOUNT = '1212';     // Uang Muka Agen / Saldo Agen
+export const FX_ACCOUNT = '5197';        // Selisih Kurs
+export const INVENTORY_ACCOUNT = '1105';
+export const AP_ACCOUNT = '2102';
+
+const BELANJA_KEY = 'wynara_belanja';
+const KOLI_KEY = 'wynara_koli';
+const MUATAN_KEY = 'wynara_muatan';
+
+function jid(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
+function load(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } }
+function save(key, list) { try { localStorage.setItem(key, JSON.stringify(list)); } catch { throw new Error('Gagal simpan data'); } }
+function num(v) { const n = Math.round(Number(v) || 0); return n > 0 ? n : 0; }
+function nextNo(list, prefix) {
+  const d = new Date();
+  return `${prefix}-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${String(list.length + 1).padStart(3, '0')}`;
+}
+
+export const MARKETPLACES = [
+  { id: 'taobao', label: 'Taobao' },
+  { id: 'pinduoduo', label: 'Pinduoduo' },
+  { id: '1688', label: '1688' },
+  { id: 'other', label: 'Lainnya' },
+];
+
+// ---------- BELANJA ----------
+export function getBelanjas() { return load(BELANJA_KEY); }
+export function getBelanjaById(idv) { return getBelanjas().find((x) => x.id === idv) || null; }
+
+// Satu order marketplace: bayar penuh saat buat (saldo agen / kontan).
+// lines: [{name, qty, cnyUnit}]; kursAgen = Rp per ¥ sesuai agen (lebih tinggi dari kurs bank — spread jadi biaya nyata).
+export function createBelanja({ date, marketplace, seller, orderNo, lines, ongkirCny, agentFee, kursAgen, payment, purpose, customerNote, chinaTracking } = {}) {
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const clean = (Array.isArray(lines) ? lines : [])
+    .filter((l) => l && String(l.name || '').trim() && Number(l.qty) > 0 && Number(l.cnyUnit) >= 0)
+    .map((l) => ({ name: String(l.name).trim().slice(0, 80), qty: Math.floor(Number(l.qty) || 1), cnyUnit: Number(l.cnyUnit) || 0 }));
+  if (!clean.length) throw new Error('Tambahkan minimal satu barang belanja');
+  const kurs = Number(kursAgen) || 0;
+  if (kurs <= 0) throw new Error('Isi kurs agen (Rp per ¥)');
+  const goodsCny = clean.reduce((s, l) => s + l.qty * l.cnyUnit, 0);
+  const ongCny = Number(ongkirCny) || 0;
+  const totalCny = goodsCny + ongCny;
+  const totalIdr = Math.round(totalCny * kurs) + num(agentFee);
+  const list = getBelanjas();
+  const rec = {
+    id: jid('BLJ'), no: nextNo(list, 'BLJ'), date: d,
+    marketplace: MARKETPLACES.some((m) => m.id === marketplace) ? marketplace : 'other',
+    seller: String(seller || '').trim().slice(0, 60),
+    orderNo: String(orderNo || '').trim().slice(0, 40),
+    lines: clean, goodsCny, ongkirCny: ongCny, totalCny,
+    agentFee: num(agentFee), kursAgen: kurs, totalIdr,
+    payment: payment || 'agent',
+    purpose: purpose === 'stock' ? 'stock' : 'preorder',
+    customerNote: String(customerNote || '').slice(0, 80),
+    chinaTracking: String(chinaTracking || '').trim().slice(0, 40),
+    koliId: null, stage: 'paid',
+    createdAt: new Date().toISOString(),
+  };
+  const j = {
+    id: jid('J'), date: d, memo: `Belanja ${rec.no}${rec.seller ? ' — ' + rec.seller : ''}`,
+    ref: 'lcl-belanja', refId: rec.id,
+    lines: [
+      { account: TRANSIT_ACCOUNT, debit: totalIdr, credit: 0, memo: 'Belanja marketplace (dalam perjalanan)' },
+      { account: rec.payment === 'agent' ? AGENT_ACCOUNT : accountForPayment(rec.payment), debit: 0, credit: totalIdr, memo: rec.payment === 'agent' ? 'Pakai saldo agen' : 'Bayar belanja' },
+    ],
+  };
+  postJournal(j);
+  const out = list.concat(rec);
+  save(BELANJA_KEY, out);
+  logAudit('create', 'lcl-belanja', rec.id, null, { no: rec.no, totalIdr, totalCny });
+  return rec;
+}
+
+// Refund/kembalian dari seller (dalam ¥, kurs saat refund): Dr kas/saldo agen Cr 1211;
+// beda kurs dibeli vs refund → 5197 Selisih Kurs.
+export function refundBelanja(idv, { date, amountCny, kursRefund, payment } = {}) {
+  const list = getBelanjas();
+  const i = list.findIndex((x) => x.id === idv);
+  if (i < 0) throw new Error('Belanja tidak ditemukan');
+  const b = list[i];
+  const cny = Number(amountCny) || 0;
+  if (cny <= 0) throw new Error('Jumlah refund ¥ harus > 0');
+  const kr = Number(kursRefund) > 0 ? Number(kursRefund) : b.kursAgen;
+  const refundIdr = Math.round(cny * kr);
+  const costIdr = Math.round(cny * b.kursAgen);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const lines = [
+    { account: payment === 'agent' ? AGENT_ACCOUNT : accountForPayment(payment || 'agent'), debit: refundIdr, credit: 0, memo: 'Refund seller' },
+    { account: TRANSIT_ACCOUNT, debit: 0, credit: refundIdr, memo: 'Refund seller' },
+  ];
+  const diff = costIdr - refundIdr; // >0 = rugi kurs
+  if (diff !== 0) {
+    lines.push({ account: FX_ACCOUNT, debit: diff, credit: 0, memo: 'Selisih kurs refund' });
+    lines.push({ account: TRANSIT_ACCOUNT, debit: 0, credit: diff, memo: 'Selisih kurs refund' });
+  }
+  postJournal({ id: jid('J'), date: d, memo: `Refund ${b.no}`, ref: 'lcl-refund', refId: b.id, lines });
+  b.refunds = (b.refunds || []).concat({ date: d, amountCny: cny, kursRefund: kr, refundIdr, costIdr });
+  list[i] = b;
+  save(BELANJA_KEY, list);
+  logAudit('create', 'lcl-refund', b.id, null, { refundIdr, cny });
+  return b;
+}
+
+// ---------- KOLI ----------
+export function getKolis() { return load(KOLI_KEY); }
+export function getKoliById(idv) { return getKolis().find((x) => x.id === idv) || null; }
+
+// Paket dicek masuk gudang China — CBM diukur DI SINI (bukan saat beli).
+export function checkInKoli({ parcelNo, arrivalDate, cbm, weightKg, note } = {}) {
+  const cb = Number(cbm) || 0;
+  if (cb <= 0) throw new Error('CBM ukuran gudang wajib diisi (mis. 0,25)');
+  const list = getKolis();
+  const rec = {
+    id: jid('K'), parcelNo: String(parcelNo || '').trim().slice(0, 40) || nextNo(list, 'K'),
+    arrivalDate: String(arrivalDate || new Date().toISOString().split('T')[0]).slice(0, 10),
+    cbm: cb, weightKg: Number(weightKg) || 0, note: String(note || '').slice(0, 80),
+    belanjaIds: [], muatanId: null, deferred: false, createdAt: new Date().toISOString(),
+  };
+  const out = list.concat(rec);
+  save(KOLI_KEY, out);
+  logAudit('create', 'lcl-koli', rec.id, null, { parcelNo: rec.parcelNo, cbm: cb });
+  return rec; // tanpa jurnal — hanya perubahan kondisi
+}
+
+export function updateKoli(idv, patch) {
+  const list = getKolis();
+  const i = list.findIndex((x) => x.id === idv);
+  if (i < 0) throw new Error('Koli tidak ditemukan');
+  const k = list[i];
+  if (patch.cbm != null) k.cbm = Math.max(Number(patch.cbm) || 0, 0);
+  if (patch.weightKg != null) k.weightKg = Math.max(Number(patch.weightKg) || 0, 0);
+  if (patch.parcelNo != null) k.parcelNo = String(patch.parcelNo).trim().slice(0, 40);
+  if (patch.note != null) k.note = String(patch.note).slice(0, 80);
+  if (patch.deferred != null) k.deferred = !!patch.deferred;
+  list[i] = k;
+  save(KOLI_KEY, list);
+  logAudit('update', 'lcl-koli', idv, null, patch);
+  return k;
+}
+
+// Belanja masuk koli (versi ringkas: 1 belanja utuh ke 1 koli per event).
+export function assignBelanjaToKoli(koliId, belanjaId) {
+  const kolis = getKolis();
+  const i = kolis.findIndex((x) => x.id === koliId);
+  if (i < 0) throw new Error('Koli tidak ditemukan');
+  const b = getBelanjaById(belanjaId);
+  if (!b) throw new Error('Belanja tidak ditemukan');
+  if (b.koliId && b.koliId !== koliId) throw new Error('Belanja sudah masuk koli lain');
+  kolis[i].belanjaIds = (kolis[i].belanjaIds || []).concat(belanjaId);
+  save(KOLI_KEY, kolis);
+  const bels = getBelanjas();
+  const bi = bels.findIndex((x) => x.id === belanjaId);
+  if (bi >= 0) { bels[bi].koliId = koliId; bels[bi].stage = 'china'; save(BELANJA_KEY, bels); }
+  logAudit('update', 'lcl-koli', koliId, null, { assign: belanjaId });
+  return kolis[i];
+}
+
+// ---------- MUATAN ----------
+export function getMuatans() { return load(MUATAN_KEY); }
+export function getMuatanById(idv) { return getMuatans().find((x) => x.id === idv) || null; }
+
+export function createMuatan({ code, forwarder, mode, ratePerCbm, ratePerKg, minCbm, etd, eta, charges } = {}) {
+  const rate = Number(mode === 'air' ? ratePerKg : ratePerCbm) || 0;
+  if (rate <= 0) throw new Error('Tarif per CBM (laut) atau per kg (udara) wajib diisi');
+  const list = getMuatans();
+  const rec = {
+    id: jid('MUT'), code: String(code || '').trim().slice(0, 40) || nextNo(list, 'MUT'),
+    forwarder: String(forwarder || '').trim().slice(0, 60),
+    mode: mode === 'air' ? 'air' : 'sea',
+    ratePerCbm: mode === 'air' ? 0 : Number(ratePerCbm) || 0,
+    ratePerKg: mode === 'air' ? Number(ratePerKg) || 0 : 0,
+    minCbm: Math.max(Number(minCbm) || 0, 0),
+    etd: String(etd || '').slice(0, 10), eta: String(eta || '').slice(0, 10),
+    charges: (Array.isArray(charges) ? charges : []).filter((c) => c && c.label)
+      .map((c) => ({ label: String(c.label).slice(0, 40), amount: num(c.amount) })),
+    koliIds: [], departed: '', arrived: '', freightBilled: 0, allocated: false,
+    createdAt: new Date().toISOString(),
+  };
+  const out = list.concat(rec);
+  save(MUATAN_KEY, out);
+  logAudit('create', 'lcl-muatan', rec.id, null, { code: rec.code, rate });
+  return rec;
+}
+
+export function updateMuatan(idv, patch) {
+  const list = getMuatans();
+  const i = list.findIndex((x) => x.id === idv);
+  if (i < 0) throw new Error('Muatan tidak ditemukan');
+  const m = list[i];
+  for (const f of ['ratePerCbm', 'ratePerKg', 'minCbm']) if (patch[f] != null) m[f] = Math.max(Number(patch[f]) || 0, 0);
+  for (const f of ['forwarder', 'etd', 'eta']) if (patch[f] != null) m[f] = String(patch[f]).slice(0, 60);
+  if (patch.code) m.code = String(patch.code).trim().slice(0, 40);
+  if (patch.charges) {
+    m.charges = (Array.isArray(patch.charges) ? patch.charges : []).filter((c) => c && c.label)
+      .map((c) => ({ label: String(c.label).slice(0, 40), amount: num(c.amount) }));
+  }
+  list[i] = m;
+  save(MUATAN_KEY, list);
+  logAudit('update', 'lcl-muatan', idv, null, patch);
+  return m;
+}
+
+// Muat / bongkar koli.
+export function loadKoli(muatanId, koliId) {
+  const muats = getMuatans();
+  const i = muats.findIndex((x) => x.id === muatanId);
+  if (i < 0) throw new Error('Muatan tidak ditemukan');
+  const k = getKoliById(koliId);
+  if (!k) throw new Error('Koli tidak ditemukan');
+  if (k.muatanId && k.muatanId !== muatanId) throw new Error('Koli sudah termuat di muatan lain');
+  if (k.deferred) throw new Error('Koli ditunda — batalkan tunda dulu');
+  muats[i].koliIds = (muats[i].koliIds || []).concat(koliId);
+  save(MUATAN_KEY, muats);
+  const kolis = getKolis();
+  const ki = kolis.findIndex((x) => x.id === koliId);
+  kolis[ki].muatanId = muatanId;
+  save(KOLI_KEY, kolis);
+  const bels = getBelanjas();
+  for (const bid of (k.belanjaIds || [])) {
+    const bi = bels.findIndex((x) => x.id === bid);
+    if (bi >= 0) { bels[bi].stage = 'batch'; }
+  }
+  save(BELANJA_KEY, bels);
+  logAudit('update', 'lcl-muatan', muatanId, null, { load: koliId });
+  return muats[i];
+}
+
+export function unloadKoli(muatanId, koliId) {
+  const muats = getMuatans();
+  const i = muats.findIndex((x) => x.id === muatanId);
+  if (i < 0) throw new Error('Muatan tidak ditemukan');
+  muats[i].koliIds = (muats[i].koliIds || []).filter((x) => x !== koliId);
+  save(MUATAN_KEY, muats);
+  const kolis = getKolis();
+  const ki = kolis.findIndex((x) => x.id === koliId);
+  if (ki >= 0) { kolis[ki].muatanId = null; save(KOLI_KEY, kolis); }
+  logAudit('update', 'lcl-muatan', muatanId, null, { unload: koliId });
+  return muats[i];
+}
+
+// Muatan berangkat: tagih ongkos = chargeable CBM × tarif (+ extra batch). Dr 1211 Cr kas/hutang forwarder.
+export function departMuatan(muatanId, { date, payment, delegateAp } = {}) {
+  const m = getMuatanById(muatanId);
+  if (!m) throw new Error('Muatan tidak ditemukan');
+  if (m.freightBilled > 0) throw new Error('Muatan sudah berangkat');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const kolis = getKolis().filter((k) => (m.koliIds || []).includes(k.id) && !k.deferred);
+  if (!kolis.length) throw new Error('Belum ada koli termuat');
+  const alloc = allocateBatch(m, kolis);
+  m.freightBilled = alloc.freightBill;
+  m.chargeableCbm = alloc.chargeable;
+  m.departed = d;
+  const j = {
+    id: jid('J'), date: d, memo: `Muatan berangkat ${m.code}`,
+    ref: 'lcl-freight', refId: m.id,
+    lines: [
+      { account: TRANSIT_ACCOUNT, debit: alloc.batchFreight, credit: 0, memo: 'Ongkos muatan (freight + biaya lain)' },
+      { account: delegateAp ? AP_ACCOUNT : accountForPayment(payment || 'cash'), debit: 0, credit: alloc.batchFreight, memo: delegateAp ? 'Hutang forwarder' : 'Bayar muatan' },
+    ],
+  };
+  postJournal(j);
+  const bels = getBelanjas();
+  for (const k of kolis) for (const bid of (k.belanjaIds || [])) {
+    const bi = bels.findIndex((x) => x.id === bid);
+    if (bi >= 0) bels[bi].stage = 'ship';
+  }
+  save(BELANJA_KEY, bels);
+  const list = getMuatans();
+  const oi = list.findIndex((x) => x.id === muatanId);
+  list[oi] = m; save(MUATAN_KEY, list);
+  logAudit('update', 'lcl-muatan', muatanId, null, { departed: d, freight: alloc.batchFreight });
+  return m;
+}
+
+// ---------- ALLOCATION ENGINE ----------
+// Kaskade 3 tingkat: muatan → koli (bagian CBM/kg) → belanja (bagian nilai FOB) → unit.
+// Pembulatan tingkat muatan: chargeable = max(ceil(total×100)/100, min total) — laut dgn batas 100g.
+// Selisih pembulatan tingkat muatan diberikan ke koli terbesar (aturan residual).
+
+// Kaskade 3 tingkat: muatan → koli (bagian CBM) → belanja (bagian nilai) → unit.
+// Aturan residual: selisih pembulatan → koli dengan CBM terbesar; residu tingkat belanja →
+// belanja dengan nilai FOB terbesar dalam koli tersebut.
+export function allocateBatch(muatan, kolis, { basis = 'cbm', arrivedKoliIds = null, alreadyBilled = false } = {}) {
+  const mode = muatan.mode === 'air' ? 'air' : 'sea';
+  const loaded = kolis.filter((k) => !k.deferred && (arrivedKoliIds ? arrivedKoliIds.includes(k.id) : true));
+  const deferred = kolis.filter((k) => k.deferred);
+  if (!loaded.length) return { batchFreight: 0, chargeable: 0, koliAlloc: [], lineAlloc: [], deferredCount: deferred.length };
+
+  const measure = (k) => (mode === 'air' ? Math.max(k.weightKg || 0, (k.cbm || 0) * 167) : (k.cbm || 0));
+  const rawTotal = loaded.reduce((s, k) => s + measure(k), 0);
+  const minChg = mode === 'air' ? 0 : (muatan.minCbm || 0);
+  const chargeable = mode === 'air' ? Math.ceil(rawTotal) : Math.max(Math.ceil(rawTotal * 100) / 100, minChg);
+  const rate = mode === 'air' ? (muatan.ratePerKg || 0) : (muatan.ratePerCbm || 0);
+  const freightBill = alreadyBilled && muatan.freightBilled > 0 ? muatan.freightBilled : Math.round(chargeable * rate);
+  const extras = (muatan.charges || []).reduce((s, c) => s + num(c.amount), 0);
+  const batchFreight = freightBill + extras;
+
+  // Tingkat 1: muatan → koli, bagian ukuran; residu → koli terbesar
+  let koliAlloc = loaded.map((k) => {
+    const share = rawTotal > 0 ? measure(k) / rawTotal : 0;
+    return { koli: k, measure: measure(k), alloc: Math.round(share * batchFreight) };
+  });
+  const resid1 = batchFreight - koliAlloc.reduce((s, a) => s + a.alloc, 0);
+  if (resid1 !== 0 && koliAlloc.length) {
+    const biggest = koliAlloc.reduce((a, b) => (b.measure > a.measure ? b : a));
+    biggest.alloc += resid1;
+  }
+
+  // Tingkat 2: koli → belanja di dalamnya, bagian nilai FOB+ongkir+fee (kurs agen koli ini)
+  const belanjaMap = new Map(getBelanjas().map((b) => [b.id, b]));
+  const lineAlloc = [];
+  for (const a of koliAlloc) {
+    const bels = (a.koli.belanjaIds || []).map((bid) => belanjaMap.get(bid)).filter(Boolean);
+    if (!bels.length) continue;
+    const vals = bels.map((b) => Math.max(1, b.totalIdr || (b.totalCny || 0) * b.kursAgen || 1));
+    const vTot = vals.reduce((s, v) => s + v, 0);
+    const parts = bels.map((b, ix) => ({ b, alloc: Math.round((vals[ix] / vTot) * a.alloc) }));
+    const resid = a.alloc - parts.reduce((s, p) => s + p.alloc, 0);
+    if (resid !== 0 && parts.length) {
+      const bi = vals.reduce((mi, v, ix) => (v > vals[mi] ? ix : mi), 0);
+      parts[bi].alloc += resid;
+    }
+    for (const p of parts) lineAlloc.push({ belanja: p.b, koli: a.koli, freightAlloc: p.alloc });
+  }
+
+  // Tingkat 3: belanja → satuan
+  for (const la of lineAlloc) {
+    const b = la.belanja;
+    const kurs = b.kursAgen || 0;
+    const goodsIdr = Math.round((b.goodsCny || 0) * kurs);
+    const ongIdr = Math.round((b.ongkirCny || 0) * kurs);
+    const feeIdr = num(b.agentFee);
+    const baseCost = goodsIdr + ongIdr + feeIdr;
+    const totQty = (b.lines || []).reduce((s, l) => s + l.qty, 0);
+    // ongkir + fee dibagi porsi unit; barang per satuan + freight alokasi per unit
+    const unitBase = totQty > 0 ? Math.round(baseCost / totQty) : 0;
+    const unitFreight = la.freightAlloc && totQty > 0 ? Math.round(la.freightAlloc / totQty) : 0;
+    la.unitCost = unitBase + unitFreight;
+    const landed = unitBase * totQty + unitFreight * totQty;
+    la.baseCost = baseCost;
+    la.goodsIdr = goodsIdr;
+    la.ongIdr = ongIdr;
+    la.feeIdr = feeIdr;
+    la.landedTotal = landed;
+    la.residual = la.freightAlloc + baseCost - landed; // residu pembulatan tingkat item
+  }
+  return { batchFreight, chargeable, koliAlloc, lineAlloc, deferredCount: deferred.length, freightBill };
+}
+
+// ---------- PENERIMAAN (batch tiba di gudang lokal) ----------
+// Alokasi hanya atas koli yang benar-benar tiba; koli tertunda tetap duduk di 1211
+// dengan biaya pra-freight-nya. Jurnal: Dr 1105 / Cr 1211 per belanja
+// (baseCost + freightAlloc) — Neraca tetap balance.
+export function receiveMuatan(muatanId, { date, koliIds = null } = {}) {
+  const m = getMuatanById(muatanId);
+  if (!m) throw new Error('Muatan tidak ditemukan');
+  if (!(m.freightBilled > 0)) throw new Error('Muatan belum berangkat — record berangkat dulu');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const allKolis = getKolis().filter((k) => (m.koliIds || []).includes(k.id) && !k.deferred);
+  const prev = new Set(m.arrivedKoliIds || []);
+  const nowIn = (koliIds && koliIds.length ? allKolis.filter((k) => koliIds.includes(k.id)) : allKolis)
+    .filter((k) => !prev.has(k.id));
+  if (!nowIn.length) throw new Error('Tidak ada koli baru yang tiba');
+  for (const k of nowIn) prev.add(k.id);
+  const arrivedArr = allKolis.filter((k) => prev.has(k.id));
+  lastAlloc = allocateBatch(m, allKolis, { arrivedKoliIds: arrivedArr.map((k) => k.id), alreadyBilled: true });
+
+  const lines = [];
+  const stockMoves = [];
+  for (const la of lastAlloc.lineAlloc || []) {
+    const amt = (la.baseCost || 0) + (la.freightAlloc || 0);
+    if (amt <= 0) continue;
+    lines.push({ account: INVENTORY_ACCOUNT, debit: amt, credit: 0, memo: `${la.belanja.no} ${la.koli.parcelNo}` });
+    lines.push({ account: TRANSIT_ACCOUNT, debit: 0, credit: amt, memo: `${la.belanja.no} sampai gudang lokal` });
+    const unit = la.belanja.lines.length && la.belanja.lines.reduce((s, l) => s + l.qty, 0) > 0
+      ? Math.round(amt / la.belanja.lines.reduce((s, l) => s + l.qty, 0)) : 0;
+    for (const l of la.belanja.lines) {
+      if (l.itemId) stockMoves.push({ itemId: l.itemId, qty: l.qty, unitCost: unit });
+    }
+  }
+  if (lines.length) {
+    postJournal({
+      id: jid('J'), date: d, memo: `Terima muatan ${m.code} dari perjalanan`,
+      ref: 'lcl-receive', refId: m.id, lines,
+    });
+    for (const sm of stockMoves) {
+      try {
+        applyStockMove(sm.itemId, { qtyIn: sm.qty, unitCost: sm.unitCost, ref: 'muatan', note: `muatan ${m.code}`, type: 'muatan' });
+      } catch {}
+    }
+  }
+  m.arrivedKoliIds = Array.from(prev);
+  m.arrived = m.arrived || d;
+  m.allocated = m.arrivedKoliIds.length >= allKolis.length;
+  const list = getMuatans();
+  const oi = list.findIndex((x) => x.id === muatanId);
+  list[oi] = m; save(MUATAN_KEY, list);
+  // belanja lines: stage 'arrived'
+  const bels = getBelanjas();
+  for (const k of nowIn) for (const bid of (k.belanjaIds || [])) {
+    const bi = bels.findIndex((x) => x.id === bid);
+    if (bi >= 0) bels[bi].stage = 'arrived';
+  }
+  save(BELANJA_KEY, bels);
+  logAudit('update', 'lcl-muatan', muatanId, null, { received: nowIn.map((k) => k.id) });
+  return m;
+}
+
+export let lastAlloc = null;
+export function getLastAllocation() { return lastAlloc; }

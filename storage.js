@@ -1570,6 +1570,9 @@ export function snapshotAll() {
     shops: getShops(),
     saleReturns: getSaleReturns(),
     preorders: getPreorders(),
+    belanjas: (() => { try { return JSON.parse(localStorage.getItem('wynara_belanja') || '[]'); } catch { return []; } })(),
+    kolis: (() => { try { return JSON.parse(localStorage.getItem('wynara_koli') || '[]'); } catch { return []; } })(),
+    muatans: (() => { try { return JSON.parse(localStorage.getItem('wynara_muatan') || '[]'); } catch { return []; } })(),
     exportedAt: new Date().toISOString(),
     version: 3
   };
@@ -1657,6 +1660,9 @@ export function restoreAll(snap) {
   if (Array.isArray(snap.shops) && snap.shops.length) { try { saveShops(snap.shops); } catch {} }
   if (Array.isArray(snap.saleReturns)) { try { saveSaleReturns(snap.saleReturns); } catch {} }
   if (Array.isArray(snap.preorders)) { try { savePreorders(snap.preorders); } catch {} }
+  if (Array.isArray(snap.belanjas)) { try { localStorage.setItem('wynara_belanja', JSON.stringify(snap.belanjas)); } catch {} }
+  if (Array.isArray(snap.kolis)) { try { localStorage.setItem('wynara_koli', JSON.stringify(snap.kolis)); } catch {} }
+  if (Array.isArray(snap.muatans)) { try { localStorage.setItem('wynara_muatan', JSON.stringify(snap.muatans)); } catch {} }
   let cE = 0, cL = 0, cR = 0, cP = 0;
   if (Array.isArray(snap.entries)) {
     const valid = snap.entries.map(sanitizeEntry).filter(Boolean);

@@ -23,6 +23,8 @@ export const ACCOUNTS = [
   { code: '1201', name: 'Account Receivable', type: 'asset' },
   { code: '1202', name: 'Employee Loan', type: 'asset' },
   { code: '1203', name: 'Other Receivable', type: 'asset' },
+  { code: '1211', name: 'Persediaan dalam Perjalanan', type: 'asset' },
+  { code: '1212', name: 'Uang Muka Agen (Saldo Agen)', type: 'asset' },
   { code: '1302', name: 'Perlengkapan (Supplies)', type: 'asset' },
   { code: '1401', name: 'PPN Masukan', type: 'asset' },
   // Aset tetap & akumulasi penyusutan (kontra-aset, tampil minus di Neraca)
@@ -75,6 +77,7 @@ export const ACCOUNTS = [
   { code: '5122', name: 'Beban Pajak & Retribusi', type: 'expense', category: 'pajak' },
   { code: '5123', name: 'Beban Sumbangan', type: 'expense', category: 'sumbangan' },
   { code: '5129', name: 'Beban Penyusutan', type: 'expense' },
+  { code: '5197', name: 'Selisih Kurs', type: 'expense' },
   { code: '5199', name: 'Beban Lainnya', type: 'expense' },
   // Beban perusahaan (62xx)
   { code: '6201', name: 'Salary Expense', type: 'expense', category: 'gaji-out' },
