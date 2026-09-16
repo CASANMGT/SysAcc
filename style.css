@@ -3956,3 +3956,13 @@ body.no-hrd .form-group:has(#hrdPinInput) { display: none !important; }
 body.mstore-off .form-group:has(#shopList),
 body.mstore-off #shopSelect,
 body.mstore-off #transferOpenBtn { display: none !important; }
+
+/* 1.1 Indikator penyimpanan data — jujur, selalu terlihat di header */
+.topbar-storage {
+  border: 1px solid #e2e8f0; background: #f8fafc; color: #475569;
+  font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 9999px;
+  cursor: pointer; white-space: nowrap;
+}
+.topbar-storage.ok { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+.topbar-storage.warn { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+@media (max-width: 640px) { .topbar-storage { font-size: 10px; padding: 3px 8px; } }

@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.1.0] - 2026-09-16
+
+### Stage 0 (audit) + Stage 1/3 — kejujuran penyimpanan data & mata rantai mati
+- **Stage 0 temuan**: **0 ID duplikat** dari 920 id (5.1 tidak terulang); kolom kartu kredit/debit punya id berbeda (`paymentCCLast4`/`paymentDebitLast4`) — label tidak salah-bind. Autentikasi ditegakkan **server-side** (Supabase Auth token + RLS `auth.uid()=user_id`); markup yang ikut terkirim bukan kebocoran data. `/CHANGELOG.md` terlayani 200 (104 KB). Default tanggal form memakai `new Date()` — bukan bulan basi.
+- **1.1 Satu pernyataan jujur**: pil status di header — **"☁️ Tersimpan di server"** atau **"📱 Hanya di perangkat ini"** (kuning bila belum pernah backup); klik → Pengaturan. Hint login tak lagi mengklaim data di server bila sinkron belum dinyalakan.
+- **1.2 Lupa kata sandi**: bukan lagi tautan mati — panduan pemulihan akun online (Supabase → Authentication → Reset password); reset lokal hanya untuk akun lama admin/admin.
+- **1.4 Kunci API**: input URL/anon key disembunyikan di balik **"Pengaturan lanjutan (hanya untuk teknisi)"** dengan peringatan service_role.
+- **2.1 Changelog**: render dibatasi 8 rilis terbaru (file 100 KB bikin DOM berat di HP) + batas waktu 8 detik → selalu ada keadaan akhir (memuat/isi/gagal).
+- **2.2 Toggle ID/EN dihapus** (aplikasi berbahasa Indonesia saja).
+- **Bantuan login**: isi disesuaikan alur nyata (preorder → Papan Muatan), bukan lagi alur Pinjemin yang sudah diarsipkan.
+
 ## [2.0.0] - 2026-09-16
 
 ### Audit UI/UX v1.98.0 — Section A & awal B (angka-raisa + konsistensi)

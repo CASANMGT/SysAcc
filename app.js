@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -275,6 +275,26 @@ async function handleSignup() {
   }
 }
 
+// 1.1 Satu pernyataan jujur: di mana data buku tersimpan saat ini
+function updateStorageState() {
+  const el = document.getElementById('storageState');
+  if (!el) return;
+  let online = false;
+  try { online = !!Cloud.getCloudSession(); } catch { online = false; }
+  const lastBackup = (() => { try { return localStorage.getItem('wynara_last_backup') || ''; } catch { return ''; } })();
+  if (online) {
+    el.textContent = '☁️ Tersimpan di server';
+    el.className = 'topbar-storage ok';
+    el.title = 'Data buku tersinkron ke server (Supabase) — bisa dibuka dari perangkat lain.';
+  } else {
+    el.textContent = '📱 Hanya di perangkat ini';
+    el.className = 'topbar-storage warn';
+    el.title = lastBackup
+      ? `Data buku hanya ada di browser ini. Backup terakhir: ${lastBackup}. Nyalakan Sinkron Online atau unduh JSON Backup.`
+      : 'Data buku hanya ada di browser ini dan BELUM pernah di-backup. Bila data browser dibersihkan, pembukuan hilang. Buka Pengaturan → JSON Backup / Sinkron Online.';
+  }
+}
+
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('appRoot').classList.add('hidden');
@@ -289,7 +309,8 @@ function showLogin() {
     hint.style.display = pristine ? '' : 'none';
   }
   // Server-authoritative: masuk pakai akun online (email + kata sandi).
-  if (hint) { hint.textContent = 'Masuk dengan email & kata sandi akun online Anda — data tersimpan di server.'; hint.style.display = ''; }
+  if (hint) { hint.innerHTML = 'Masuk dengan <b>email &amp; kata sandi</b>. Data buku disimpan <b>di perangkat ini</b> sampai Anda menyalakan Sinkron Online di Pengaturan — unduh JSON Backup berkala.'; hint.style.display = ''; }
+  updateStorageState();
   if (!loginListenerAdded) {
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('loginSignup')?.addEventListener('click', (e) => { e.preventDefault(); handleSignup(); });    const eye = document.getElementById('loginEye');
@@ -306,22 +327,36 @@ function showLogin() {
         document.getElementById('loginError')?.classList.add('hidden');
       });
     });
-    document.querySelector('.login-forgot')?.addEventListener('click', (e) => {
+    // 1.2 Lupa sandi: login memakai akun online (Supabase) — reset dilakukan di sisi akun, bukan lokal.
+    document.querySelector('.login-forgot-btn')?.addEventListener('click', (e) => {
       e.preventDefault();
-      if (confirm('Lupa kata sandi? Klik OK untuk reset ke default admin / admin.')) {
-        Storage.resetAuth();
-        UI.showSuccess('Direset. Masuk dengan admin / admin, lalu ganti di Pengaturan → Keamanan.');
-        document.getElementById('loginUser').value = 'admin';
-        document.getElementById('loginPass').value = 'admin';
+      const a = Storage.getAuth();
+      const legacyLocal = a && a.alg === 'plain' && String(a.user || '') === 'admin';
+      if (legacyLocal) {
+        if (confirm('Akun lama admin/admin masih dipakai. Reset kata sandi lokal ke admin/admin?')) {
+          Storage.resetAuth();
+          UI.showSuccess('Direset. Masuk admin / admin, lalu ganti di Pengaturan → Keamanan.');
+          document.getElementById('loginUser').value = 'admin';
+          document.getElementById('loginPass').value = 'admin';
+        }
+        return;
       }
+      UI.openInfoModal('🔑 Lupa kata sandi',
+        '<p>Kata sandi login adalah kata sandi <b>akun online</b> (email Anda). Cara pulih:</p>' +
+        '<ul style="padding-left:20px;margin:6px 0">' +
+        '<li>Minta <b>reset kata sandi</b> ke pemilik akun (yang memegang email terdaftar) di dashboard Supabase → Authentication → Users → Reset password.</li>' +
+        '<li>Setelah kata sandi baru dibuat, masuk lagi dengan email &amp; kata sandi itu di layar ini.</li>' +
+        '<li>Data buku di perangkat ini tidak terhapus — log in hanya membuka akses.</li>' +
+        '</ul>' +
+        '<p style="font-size:12px;color:#64748b">Bila ini instalasi tanpa akun online, gunakan akun lama <b>admin / admin</b> yang diatur pemilik.</p>');
     });
     document.getElementById('loginHelp')?.addEventListener('click', (e) => {
       e.preventDefault();
       UI.openInfoModal('❓ Bantuan Wynara',
-        `<p><b>Mulai dalam 3 langkah:</b> 1️⃣ Tambah transaksi → 2️⃣ Coba Pinjemin → 3️⃣ Lihat laporan.</p>` +
-        `<p><b>Alur uang:</b> 📤 keluar = Kasih pinjam & Balikin. 📥 masuk = Dibalikin & Pinjam uang.</p>` +
-        `<p><b>Keyboard:</b> <kbd>Ctrl+N</kbd> tambah · <kbd>/</kbd> cari · <kbd>Esc</kbd> tutup.</p>` +
-        `<p><b>Data aman:</b> Pengaturan → JSON Backup tiap bulan. Login default <b>admin / admin</b> — segera ganti di Pengaturan → Keamanan.</p>`);
+        '<p><b>Alur harian:</b> Ringkasan → catat penjualan/biaya → pesanan preorder dipantau di <b>Pesanan Berjalan</b> (Penjualan).</p>' +
+        '<p><b>Pesanan preorder China:</b> DP masuk → 🛍 Beli di marketplace → 🧾 tempel daftar koli dari forwarder → muat &amp; berangkat di <b>Papan Muatan</b> → tiba (biaya mendarat otomatis masuk harga modal) → kirim ke pelanggan.</p>' +
+        '<p><b>Keyboard:</b> <kbd>Ctrl+N</kbd> tambah transaksi · <kbd>/</kbd> cari · <kbd>Esc</kbd> tutup.</p>' +
+        '<p><b>Data aman:</b> Pengaturan → JSON Backup tiap bulan, atau nyalakan Sinkron Online. Status penyimpanan selalu tampak di kanan atas.</p>');
     });
     loginListenerAdded = true;
   }
@@ -401,11 +436,13 @@ function showApp() {
   try { if (safeLocalGet('wynara_sb') === '1') document.body.classList.add('sb-collapsed'); } catch {}
   updateBackupDot();
   updateCloudDot();
+  updateStorageState();
+  document.getElementById('storageState')?.addEventListener('click', () => openSettings());
   nudgeBackupExport();
   // Sinkron online awal (bila terhubung) — diam-diam di background
   if (Cloud.isCloudConfigured() && Cloud.getCloudSession()) {
     setTimeout(() => {
-      Cloud.syncNow().then(() => { try { updateCloudDot(); } catch {} }).catch(() => { try { updateCloudDot(); } catch {} });
+      Cloud.syncNow().then(() => { try { updateCloudDot(); updateStorageState(); } catch {} }).catch(() => { try { updateCloudDot(); updateStorageState(); } catch {} });
     }, 4000);
   }
   // version display
@@ -1557,12 +1594,27 @@ function loadChangelogPage() {
   if (!box) return;
   box.innerHTML = '<p style="color:#94a3b8">Memuat…</p>';
   const fallback = `<p>Sedang berjalan <b>v${APP_VERSION}</b>. Riwayat lengkap ada di file <code>CHANGELOG.md</code> pada repo.</p>`;
+  let settled = false;
+  const timer = setTimeout(() => { if (!settled) { settled = true; box.innerHTML = fallback; } }, 8000);
   fetch('CHANGELOG.md').then(r => {
     if (!r.ok) throw new Error('not-found');
     return r.text();
   }).then(t => {
-    box.innerHTML = renderChangelogMd(t);
+    if (settled) return;
+    settled = true; clearTimeout(timer);
+    // Batasi tampilan ke rilis terbaru saja: file besar membuat DOM berat di HP.
+    const lines = String(t).split('\n');
+    let seen = 0, cut = lines.length;
+    for (let i = 0; i < lines.length; i++) {
+      if (/^## \[/.test(lines[i])) { seen++; if (seen > 8) { cut = i; break; } }
+    }
+    const head = lines.slice(0, cut).join('\n');
+    const more = cut < lines.length
+      ? '<p style="font-size:12px;color:#64748b;margin-top:12px">…rilis lama disembunyikan. Berkas lengkap: <code>CHANGELOG.md</code> di repo.</p>' : '';
+    box.innerHTML = renderChangelogMd(head) + more;
   }).catch(() => {
+    if (settled) return;
+    settled = true; clearTimeout(timer);
     box.innerHTML = fallback;
   });
 }

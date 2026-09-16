@@ -145,8 +145,6 @@
 
     <div class="login-right">
       <div class="login-top-links">
-        <div class="login-lang" role="group" aria-label="Bahasa"><button type="button" class="active">ID</button><button type="button">EN</button></div>
-        <span class="login-top-sep" aria-hidden="true"></span>
         <a href="#" id="loginHelp">❓ Bantuan</a>
       </div>
       <div class="login-card-new">
@@ -172,12 +170,12 @@
           </div>
           <div class="login-row">
             <label class="login-check"><input type="checkbox" id="loginRemember" checked> Ingat saya</label>
-            <a href="#" class="login-forgot">Lupa kata sandi?</a>
+            <button type="button" class="login-forgot login-forgot-btn">Lupa kata sandi?</button>
           </div>
           <div id="loginError" class="login-error hidden" role="alert">Email atau kata sandi salah</div>
           <button type="submit" class="btn btn-primary login-btn-new">Masuk <span>→</span></button>
         </form>
-        <p class="login-hint" id="loginHint">Masuk dengan <b>email &amp; kata sandi</b>. Data disimpan di server — buka dari perangkat mana pun, data tetap sama.</p>
+        <p class="login-hint" id="loginHint">Masuk dengan <b>email &amp; kata sandi</b>. Data buku disimpan <b>di perangkat ini</b> sampai Anda menyalakan sinkron online di Pengaturan — unduh JSON Backup secara berkala.</p>
         <p style="text-align:center;font-size:12px;margin-top:8px">Belum punya akun? <a href="#" id="loginSignup" style="color:#2563eb">Daftar dengan email</a></p>
       </div>
       <p class="login-terms">Syarat layanan &nbsp;•&nbsp; Kebijakan privasi</p>
@@ -226,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.0.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.1.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -254,6 +252,7 @@
           </div>
           <span id="backupDot" title="Cadangan otomatis" aria-label="Status cadangan" style="cursor:default">💾</span>
           <span id="cloudDot" title="Sinkron online: mati" aria-label="Status sinkron online" style="cursor:default;opacity:.35">☁️</span>
+          <button type="button" id="storageState" class="topbar-storage" title="Menyatakan dengan jujur di mana data buku Anda disimpan" aria-label="Status penyimpanan data">Memeriksa…</button>
           <button class="topbar-icon-btn" id="notifBtn" aria-label="Notifikasi"><span>🔔</span><span class="notif-badge" style="display:none">0</span></button>
           <div class="topbar-avatar-main" role="img" title="Profil pemilik" aria-label="Profil pemilik">AD</div>
           <div class="topbar-actions-hidden" style="display:none">
@@ -543,7 +542,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.0.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.1.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2289,10 +2288,14 @@
         </div>
         <div class="form-group" data-owner-only>
           <label>☁️ Sinkron Online (Supabase) — multi-HP</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            <input type="text" id="cloudUrl" placeholder="https://xxx.supabase.co" autocomplete="off" style="flex:2;min-width:180px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-            <input type="password" id="cloudKey" placeholder="anon/public key" autocomplete="off" style="flex:2;min-width:160px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          </div>
+          <details style="margin-top:8px">
+            <summary style="font-size:11px;color:#64748b;cursor:pointer">Pengaturan lanjutan (hanya untuk teknisi)</summary>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <input type="text" id="cloudUrl" placeholder="https://xxx.supabase.co" autocomplete="off" style="flex:2;min-width:180px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+              <input type="password" id="cloudKey" placeholder="anon/public key" autocomplete="off" style="flex:2;min-width:160px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
+            </div>
+            <div style="font-size:11px;color:#b45309;margin-top:4px">Tempel <b>anon/public key</b> saja — JANGAN service_role key (dapat membuka seluruh database). Umumnya tidak perlu diisi: aplikasi sudah membawa kunci bawaannya.</div>
+          </details>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
             <button type="button" class="btn" id="cloudAnonBtn">👻 Masuk tanpa email</button>
             <button type="button" class="btn btn-ghost" id="cloudSyncBtn">🔄 Sinkron sekarang</button>
@@ -2757,7 +2760,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.0.0';
+    window.__htmlVersion = '2.1.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
