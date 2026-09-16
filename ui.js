@@ -4177,6 +4177,7 @@ export function openSale(presetStock) {
   const poFields = document.getElementById('salePreorderFields'); if (poFields) poFields.hidden = true;
   const disc = document.getElementById('saleDiscount'); if (disc) disc.value = '';
   const srch = document.getElementById('saleSearch'); if (srch) srch.value = '';
+  applySaleMode();
   document.getElementById('saleRows').innerHTML = '';
   addSaleRow();
   addSaleRow();
@@ -4305,6 +4306,31 @@ mode,
   };
 }
 function modeValue() { return document.querySelector('input[name="saleMode"]:checked')?.value || 'ready'; }
+// 4.1 Keputusan paling menentukan ada di paling atas; sisa form mengikuti jawabannya.
+function applySaleMode() {
+  const mode = modeValue();
+  const credit = document.getElementById('saleCredit');
+  if (mode === 'preorder' && credit && !credit.checked) credit.checked = true;
+  if (credit) credit.disabled = mode === 'preorder';
+  const po = document.getElementById('salePreorderFields');
+  if (po) po.hidden = mode !== 'preorder';
+  const box = document.getElementById('saleCreditFields');
+  if (box) box.hidden = !credit?.checked;
+  const termsRow = document.getElementById('saleReadyTerms');
+  if (termsRow) termsRow.hidden = mode === 'preorder' || !credit?.checked;
+  // Preorder tidak butuh "dibayar pakai" saat dibuat — uang masuk lewat DP/bayar nanti.
+  const payLbl = document.getElementById('salePaymentLabel');
+  if (payLbl) payLbl.hidden = mode === 'preorder';
+  const hint = document.getElementById('saleModeHint');
+  if (hint) {
+    hint.textContent = mode === 'preorder'
+      ? 'Alur preorder: pesanan → DP → beli di marketplace → gudang China → muat LCL → tiba → kirim → lunas. Harga modal dihitung otomatis saat barang tiba.'
+      : 'Alur ready: stok berkurang sekarang, pembayaran/pelunasan dicatat di sini. Tidak ada proses impor.';
+  }
+  document.querySelectorAll('#saleModeRow .sale-mode-card').forEach(c => {
+    c.classList.toggle('selected', c.querySelector('input')?.checked);
+  });
+}
 function updateSaleCreditInfo(data) {
   const el = document.getElementById('saleCreditInfo');
   if (!el) return;
@@ -4343,17 +4369,7 @@ export function bindSale(onSave) {
     recalcSale();
   });
   document.querySelectorAll('input[name="saleMode"]').forEach(r => r.addEventListener('change', () => {
-    const mode = modeValue();
-    const credit = document.getElementById('saleCredit');
-    if (mode === 'preorder' && credit && !credit.checked) { credit.checked = true; }
-    if (credit) credit.disabled = mode === 'preorder';
-    // tampilkan langsung (tanpa bergantung pada event change yang mungkin diblokir)
-    const po = document.getElementById('salePreorderFields');
-    if (po) po.hidden = mode !== 'preorder';
-    const box = document.getElementById('saleCreditFields');
-    if (box) box.hidden = !credit?.checked;
-    const termsRow = document.getElementById('saleReadyTerms');
-    if (termsRow) termsRow.hidden = mode === 'preorder' || !credit?.checked;
+    applySaleMode();
     recalcSale();
   }));
   // DP % ↔ amount: dua arah (ketik % → Rp; ketik Rp → %).

@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.1.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.2.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -542,7 +542,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.1.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.2.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1794,12 +1794,23 @@
         <button type="button" class="modal-close" aria-label="Tutup" id="closeSaleBtn">&times;</button>
       </header>
       <div class="modal-body">
+        <div id="saleModeRow" class="sale-mode-row" role="radiogroup" aria-label="Jenis penjualan">
+          <label role="button" tabindex="0" class="sale-mode-card">
+            <input type="radio" name="saleMode" value="ready" checked style="accent-color:#2563eb">
+            <span><b>📦 Barang ready</b><br><span class="sale-mode-sub">Jual dari stok sekarang — stok berkurang, tidak ada proses impor</span></span>
+          </label>
+          <label role="button" tabindex="0" class="sale-mode-card">
+            <input type="radio" name="saleMode" value="preorder">
+            <span><b>🌏 Preorder</b><br><span class="sale-mode-sub">Barang dibeli dulu (China/lokal) — masuk alur impor, harga modal menyusul saat tiba</span></span>
+          </label>
+        </div>
+        <div id="saleModeHint" style="font-size:11px;color:#475569;margin:6px 0 10px"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <label style="flex:2;min-width:140px;font-size:11px;color:#64748b">Jual ke siapa? <span style="opacity:.6">(boleh kosong)</span>
             <input type="text" id="saleCustomer" placeholder="Nama pembeli" maxlength="60" list="peopleList" autocomplete="off" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
           <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Tanggal
             <input type="date" id="saleDate" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:2px"></label>
-          <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Dibayar pakai?
+          <label id="salePaymentLabel" style="flex:1;min-width:120px;font-size:11px;color:#64748b">Dibayar pakai?
             <select id="salePayment" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:2px">
               <option value="transfer">🏦 Transfer</option>
               <option value="cash">💵 Tunai</option>
@@ -1827,15 +1838,6 @@
           <div id="saleTotal" style="font-size:17px;font-weight:800;text-align:right">Total Rp0</div>
         </div>
         <div style="margin-top:12px;border-top:1px dashed #e2e8f0;padding-top:10px">
-          <div id="saleModeRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-            <label role="button" tabindex="0" class="sale-mode-card" style="flex:1;min-width:170px;cursor:pointer;border:2px solid #e2e8f0;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;background:#f8fafc">
-              <input type="radio" name="saleMode" value="ready" checked style="accent-color:#2563eb">
-              <span><b style="font-size:12.5px">📦 Barang ready</b><br><span style="font-size:10.5px;color:#64748b">Jual dari stok sekarang</span></span>
-            </label>
-            <label role="button" tabindex="0" class="sale-mode-card" style="flex:1;min-width:170px;cursor:pointer;border:2px solid #e2e8f0;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;background:#f8fafc">
-              <input type="radio" name="saleMode" value="preorder"> <span><b style="font-size:12.5px">🌏 Preorder</b><br><span style="font-size:10.5px;color:#64748b">Beli dari luar negeri (China)</span></span>
-            </label>
-          </div>
           <label class="login-check" style="font-size:13px;font-weight:600"><input type="checkbox" id="saleCredit"> 🕒 Bayar nanti (kredit) — <span style="font-weight:500;color:#64748b">sisa jadi piutang, DP boleh % atau kosong</span></label>
           <div id="saleCreditFields" hidden style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
@@ -2760,7 +2762,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.1.0';
+    window.__htmlVersion = '2.2.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

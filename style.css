@@ -3966,3 +3966,15 @@ body.mstore-off #transferOpenBtn { display: none !important; }
 .topbar-storage.ok { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
 .topbar-storage.warn { background: #fffbeb; border-color: #fde68a; color: #b45309; }
 @media (max-width: 640px) { .topbar-storage { font-size: 10px; padding: 3px 8px; } }
+
+/* 4.1 Jenis penjualan di paling atas form — kartu besar & bisa ditap */
+.sale-mode-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.sale-mode-card {
+  flex: 1; min-width: 200px; cursor: pointer; border: 2px solid #e2e8f0; border-radius: 12px;
+  padding: 12px; display: flex; align-items: flex-start; gap: 10px; background: #f8fafc;
+  min-height: 60px; transition: border-color .12s, background .12s;
+}
+.sale-mode-card b { font-size: 13.5px; }
+.sale-mode-sub { font-size: 11px; color: #64748b; line-height: 1.35; }
+.sale-mode-card.selected { border-color: #2563eb; background: #eff6ff; }
+.sale-mode-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }

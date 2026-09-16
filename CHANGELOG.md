@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.2.0] - 2026-09-16
+
+### Stage 4.1 — keputusan paling menentukan naik ke atas form Jual
+- **Ready vs Preorder kini di paling atas** `Jual Barang`, di atas nama pelanggan, sebagai **dua kartu besar yang bisa ditap** (bukan radio kecil di bagian bawah form).
+- **Sisa form mengikuti jawaban**: mode **Preorder** menyembunyikan "Dibayar pakai?" (uang masuk lewat DP / bayar saat barang datang), otomatis masuk mode kredit, menampilkan kolom impor (target, sumber, shop ID, estimasi, kurs) dan menyembunyikan termin/jatuh tempo. Mode **Ready** menyembunyikan kolom impor, menampilkan pembayaran + termin.
+- **Baris petunjuk di bawah kartu** menyatakan konsekuensi dalam satu kalimat ("harga modal menyusul saat tiba" vs "stok berkurang sekarang").
+- Kartu terpilih ditandai biru (`border-color #2563eb`), target sentuh ≥44px, satu fungsi `applySaleMode()` dipakai saat buka form dan saat ganti mode (tidak ada lagi logika visibilitas tersebar di dua handler).
+
 ## [2.1.0] - 2026-09-16
 
 ### Stage 0 (audit) + Stage 1/3 — kejujuran penyimpanan data & mata rantai mati
