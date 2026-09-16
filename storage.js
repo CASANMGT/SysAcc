@@ -2975,7 +2975,7 @@ export function trackCreditOrder(id, { stage, date, note, tracking, schedule } =
   logAudit('update', 'credit-sale', id, null, { stage: cs.stage, note, tracking, schedule });
   return cs;
 }
-const PO_TRACK_STAGES = ['ordered', 'dp_paid', 'china', 'to_indo', 'in_wh', 'sent', 'invoiced', 'shipping', 'arrived', 'received', 'shipped'];
+const PO_TRACK_STAGES = ['ordered', 'dp_paid', 'paid', 'china', 'to_indo', 'in_wh', 'sent', 'invoiced', 'shipping', 'arrived', 'received', 'shipped'];
 // Update status manual (riwayat bebas): barang dibeli→gudang China, China→Indo (bayar kirim),
 // gudang kita, dikirim ke pelanggan, invoice terkirim (immediate/scheduled), dll.
 export function trackPreorder(id, { stage, date, note, tracking, schedule } = {}) {

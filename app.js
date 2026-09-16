@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.96.0';
+const APP_VERSION = '1.96.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2697,7 +2697,17 @@ function handleOrderStatusSubmit() {
       const n2 = `Janji bayar ${new Date(schedule).toLocaleString('id-ID')}${faktur ? ' • faktur ' + faktur : ' • tanpa faktur'}`;
       note = note ? `${note} • ${n2}` : n2;
     }
-    if (kind === 'po') Storage.trackPreorder(id, { stage, date, note, tracking, schedule: schedule.slice(0, 10) });
+    if (kind === 'po') {
+      const po = Storage.getPreorderById(id);
+      if (po && po.target === 'stock' && stage === 'received') {
+        Storage.receivePreorderStock(id, { date, note, tracking });
+      } else if (stage === 'paid' && po && po.target === 'stock') {
+        // 'paid' untuk order stok = catat pelunasan ke supplier sebagai biaya via addPreorderCost
+        Storage.trackPreorder(id, { stage: 'ordered', date, note: note || 'Dibayar ke supplier', tracking, schedule: schedule.slice(0, 10) });
+      } else {
+        Storage.trackPreorder(id, { stage, date, note, tracking, schedule: schedule.slice(0, 10) });
+      }
+    }
     else Storage.trackCreditOrder(id, { stage, date, note, tracking, schedule: schedule.slice(0, 10) });
     closeOrderStatus();
     UI.showSuccess(stage === 'invoiced' && schedule ? 'Invoice terkirim — janji bayar tercatat' : 'Status pesanan diperbarui');
@@ -7399,9 +7409,15 @@ function handleOrderReceive(id) {
 function populateOrderStatusSelect(kind) {
   const sel = document.getElementById('orderStatusStage');
   if (!sel) return null;
-  const opts = kind === 'po'
-    ? [['china', '🛒 Barang dibeli — masuk gudang China'], ['to_indo', '🌏 Dikirim gudang China → Indonesia'], ['in_wh', '🏭 Barang di gudang kita'], ['sent', '🚚 Dikirim ke pelanggan'], ['invoiced', '🧾 Invoice terkirim — tunai / jadwal bayar']]
-    : [['shipped', '🚚 Dikirim ke pelanggan (resi)'], ['received', '✅ Diterima pelanggan'], ['invoiced', '🧾 Invoice terkirim — tunai / jadwal bayar']];
+  // Cek target order dari data (stock order = pembelian, bukan jual)
+  const id = document.getElementById('orderStatusId')?.value || '';
+  const po = kind === 'po' && id ? Storage.getPreorderById(id) : null;
+  const isStock = !!(po && po.target === 'stock');
+  const opts = isStock
+    ? [['ordered', '🧾 Dipesan ke supplier'], ['paid', '💰 Dibayar ke supplier'], ['china', '🏭 Barang dibeli — masuk gudang China (luar negeri)'], ['to_indo', '🚚 Dikirim China → Indonesia'], ['arrived', '📦 Sampai gudang kita'], ['received', '✅ Stok masuk (tercatat)']]
+    : kind === 'po'
+      ? [['china', '🏭 Barang dibeli — masuk gudang China'], ['to_indo', '🚚 Dikirim gudang China → Indonesia'], ['in_wh', '🏬 Barang di gudang kita'], ['sent', '📦 Dikirim ke pelanggan'], ['invoiced', '🧾 Invoice terkirim — tunai / jadwal bayar']]
+      : [['shipped', '📦 Dikirim ke pelanggan (resi)'], ['received', '✅ Diterima pelanggan'], ['invoiced', '🧾 Invoice terkirim — tunai / jadwal bayar']];
   sel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
   return sel;
 }
