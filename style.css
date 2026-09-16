@@ -3939,3 +3939,20 @@ img { max-width: 100%; height: auto; }
   .stock-chip, .chip { border-color: #64748b; }
   .stock-card { border-color: #94a3b8; }
 }
+
+/* 5.1 Status Pajak Non-PKP (default): seluruh permukaan PPN disembunyikan; PPh 23 di Bayar Supplier tetap jalan */
+body.tax-nonpkp .form-group:has(#ppnRateInput),
+body.tax-nonpkp label:has(> #entryPPN),
+body.tax-nonpkp label:has(> #salePPN),
+body.tax-nonpkp label:has(> #receiptPPN),
+body.tax-nonpkp .report-tab[data-report="ppn"],
+body.tax-nonpkp .page-report-tab[data-report="ppn"] { display: none !important; }
+
+/* 5.4 Peran yang tidak ada: Mode Kasir & PIN HRD disembunyikan; Akuntan tetap */
+body.no-kasir .form-group:has(#kasirPinInput) { display: none !important; }
+body.no-hrd .form-group:has(#hrdPinInput) { display: none !important; }
+
+/* 5.5 Multi-toko mati (default): pilih toko & transfer antar toko disembunyikan */
+body.mstore-off .form-group:has(#shopList),
+body.mstore-off #shopSelect,
+body.mstore-off #transferOpenBtn { display: none !important; }

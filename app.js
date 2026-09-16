@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.99.0';
+const APP_VERSION = '1.99.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1441,6 +1441,39 @@ function bindEvents() {
   });
   applyDensity();
   applyPayCol();
+
+  // 5.1 Status Pajak: Non-PKP (default) menyembunyikan seluruh permukaan PPN
+  const applyTaxStatus = () => {
+    const pkp = safeLocalGet('wynara_taxpkp') === '1';
+    document.body.classList.toggle('tax-nonpkp', !pkp);
+    const cb = document.getElementById('settingTaxPKP');
+    if (cb) cb.checked = pkp;
+  };
+  document.getElementById('settingTaxPKP')?.addEventListener('change', (e) => {
+    safeLocalSet('wynara_taxpkp', e.target.checked ? '1' : '0');
+  applyTaxStatus();
+
+  // 5.5 Multi-toko di balik sakelar (default mati): satu gudang saja
+  const applyMultiStore = () => {
+    const on = safeLocalGet('wynara_multistore') === '1';
+    document.body.classList.toggle('mstore-off', !on);
+    const cb = document.getElementById('settingMultiStore');
+    if (cb) cb.checked = on;
+  };
+  document.getElementById('settingMultiStore')?.addEventListener('change', (e) => {
+    safeLocalSet('wynara_multistore', e.target.checked ? '1' : '0');
+  applyMultiStore();
+
+  // 5.4 Peran yang tidak ada: Mode Kasir & PIN HRD disembunyikan permanen; Akuntan tetap
+  document.body.classList.add('no-kasir', 'no-hrd');
+
+    UI.showInfo(e.target.checked ? 'Multi-toko aktif' : 'Multi-toko mati — satu gudang');
+  });
+  applyMultiStore();
+
+    UI.showInfo(e.target.checked ? 'Status pajak: PKP — permukaan PPN tampil' : 'Status pajak: Non-PKP — seluruh PPN disembunyikan');
+  });
+  applyTaxStatus();
 
   // P2: arus kas range + toggle
   document.querySelectorAll('#arusRange .chip').forEach(btn => {

@@ -226,7 +226,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.99.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.99.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -543,7 +543,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.99.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.99.1</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2270,6 +2270,9 @@
           <div style="font-size:11px;color:#64748b;margin-top:4px">Isi UMP provinsi/daerahmu — karyawan dengan upah pokok+tunjangan di bawah UMP akan diberi peringatan. Kosongkan bila tidak dipakai.</div>
         </div>
         <div class="form-group">
+          <label class="login-check"><input type="checkbox" id="settingTaxPKP"> 🧾 Terdaftar PKP (centang bila PKP; default Non-PKP — seluruh PPN disembunyikan, PPh 23 tetap jalan)</label>
+        </div>
+        <div class="form-group">
           <label class="login-check"><input type="checkbox" id="settingModeSederhana"> 🎭 Mode Sederhana (sembunyikan jurnal/kertas kerja akuntan)</label>
           <div style="font-size:11px;color:#64748b;margin-top:4px">Untuk pemilik tanpa latar akuntansi: tab Jurnal/Buku Besar/Neraca Saldo & tombol Penutupan disembunyikan. LR & Neraca tetap ada.</div>
         </div>
@@ -2372,6 +2375,9 @@
         </div>
         <div class="form-group" data-owner-only>
           <label>🏬 Toko / Lokasi (multi-toko)</label>
+          <div style="margin-top:6px">
+            <label class="login-check"><input type="checkbox" id="settingMultiStore"> Aktifkan multi-toko (default mati — satu gudang)</label>
+          </div>
           <div id="shopList" style="display:flex;flex-direction:column;gap:6px;margin-top:6px"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <input type="text" id="shopNameInput" placeholder="Nama toko baru" maxlength="40" style="flex:1;min-width:140px;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
@@ -2751,7 +2757,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.99.0';
+    window.__htmlVersion = '1.99.1';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

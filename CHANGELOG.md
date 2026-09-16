@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.99.1] - 2026-09-16
+
+### Phase 1 (Subtract) — pendaraban #2
+- **5.1 Status Pajak**: pengaturan baru "Terdaftar PKP" (default **Non-PKP**) — Non-PKP menyembunyikan seluruh permukaan PPN: tarif di Pengaturan, toggle di Tambah Transaksi & Jual Barang, toggle Kwitansi, tab PPN di Laporan (halaman & modal). Jalur kode tetap; PPh 23/4(2) di Bayar Supplier tetap jalan.
+- **5.4 Peran yang tidak ada**: Mode Kasir & PIN HRD disembunyikan permanen dari Pengaturan (logika internal tak disentuh — data & guard tetap); **PIN Akuntan dipertahankan**.
+- **5.5 Multi-toko di balik sakelar** (default mati): "Aktifkan multi-toko" di Pengaturan; mati = pilih toko di Produk & tombol Transfer antar toko disembunyikan (satu gudang).
+
 ## [1.99.0] - 2026-09-16
 
 ### Phase 1 (Subtract) — pendaraban #1
