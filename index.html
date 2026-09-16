@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.17.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.18.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -542,7 +542,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.17.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.18.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -618,17 +618,28 @@
             </div>
           </div>
           <div id="salesContent">
+          <div class="chip-group" id="salesTabs" role="tablist" aria-label="Bagian penjualan" style="margin:0 0 12px;flex-wrap:wrap">
+            <button type="button" class="chip selected" data-stab="pesanan" role="tab" aria-selected="true">📄 Pesanan</button>
+            <button type="button" class="chip" data-stab="piutang" role="tab" aria-selected="false">🧾 Piutang</button>
+            <button type="button" class="chip" data-stab="produk" role="tab" aria-selected="false">📦 Produk</button>
+            <button type="button" class="chip" data-stab="ringkasan" role="tab" aria-selected="false">📊 Ringkasan</button>
+          </div>
           <div id="salesKpi" class="stock-kpi" aria-label="Ringkasan penjualan"></div>
-          <div id="creditKpi" class="stock-kpi" aria-label="Ringkasan piutang penjualan" style="margin-top:-4px"></div>
-          <div class="dash-panel" style="padding:16px;margin-bottom:16px">
-            <h3 style="margin-bottom:8px">🧾 Piutang Penjualan (Bayar Nanti)</h3>
-            <div id="creditList"></div>
+          <div id="sTabPesanan">
+            <div class="dash-panel" style="padding:16px;margin-bottom:16px">
+              <h3 style="margin-bottom:8px">📄 Pesanan Berjalan <span style="font-size:12px;font-weight:500;color:#64748b">(semua periode) — alur: pesanan → DP → beli marketplace → gudang China → muat LCL → tiba → kirim → lunas</span> <button type="button" id="orderFlowHelp" class="btn btn-ghost" style="font-size:11px;padding:2px 8px" title="Alur lengkap" aria-label="Penjelasan alur pesanan">?</button></h3>
+              <div id="preorderKpi" class="stock-kpi" aria-label="Ringkasan pesanan" style="margin-bottom:10px"></div>
+              <div id="orderStatusList"></div>
+            </div>
           </div>
-          <div class="dash-panel" style="padding:16px;margin-bottom:16px">
-            <h3 style="margin-bottom:8px">📄 Pesanan Berjalan <span style="font-size:12px;font-weight:500;color:#64748b">(semua periode) — alur: pesanan → DP → beli marketplace → gudang China → muat LCL → tiba → kirim → lunas</span> <button type="button" id="orderFlowHelp" class="btn btn-ghost" style="font-size:11px;padding:2px 8px" title="Alur lengkap" aria-label="Penjelasan alur pesanan">?</button></h3>
-            <div id="preorderKpi" class="stock-kpi" aria-label="Ringkasan pesanan" style="margin-bottom:10px"></div>
-            <div id="orderStatusList"></div>
+          <div id="sTabPiutang" hidden>
+            <div id="creditKpi" class="stock-kpi" aria-label="Ringkasan piutang penjualan"></div>
+            <div class="dash-panel" style="padding:16px;margin-bottom:16px">
+              <h3 style="margin-bottom:8px">🧾 Piutang Penjualan (Bayar Nanti)</h3>
+              <div id="creditList"></div>
+            </div>
           </div>
+          <div id="sTabProduk" hidden>
           <div class="dashboard-grid">
             <div class="dash-panel dash-panel-chart">
               <div class="dash-panel-head"><div><h3>Penjualan Harian</h3><p>14 hari terakhir</p></div></div>
@@ -652,6 +663,8 @@
             <h3 style="margin-bottom:8px">📦 Penjualan per Produk</h3>
             <div id="salesProductTable"></div>
           </div>
+          </div>
+          <div id="sTabRingkasan" hidden>
           <div class="dashboard-grid">
             <div class="dash-panel" style="padding:16px">
               <h3 style="margin-bottom:8px">💳 Metode Pembayaran</h3>
@@ -661,6 +674,7 @@
               <h3 style="margin-bottom:8px">🧾 Struk Terbaru</h3>
               <div id="salesRecentList"></div>
             </div>
+          </div>
           </div>
           </div>
         </div>
@@ -715,7 +729,7 @@
               <button class="btn btn-primary" id="muatanBelanjaBtn">＋ Belanja marketplace</button>
               <button class="btn btn-ghost" id="muatanKoliBtn">🧾 Cek-in koli</button>
               <button class="btn btn-ghost" id="muatanBatchBtn">🚢 Muatan baru</button>
-              <button class="btn btn-ghost" id="pembelianBuyBtn">＋ Beli lokal</button>
+              <button class="btn btn-ghost" id="pembelianBuyBtn" title="Beli / terima barang: supplier lokal · impor China · stok awal">＋ Beli</button>
             </div>
           </div>
           <div class="chip-group" id="muatanTabs" role="tablist" aria-label="Bagian pembelian" style="margin:4px 0 12px;flex-wrap:wrap">
@@ -2760,7 +2774,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.17.0';
+    window.__htmlVersion = '2.18.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

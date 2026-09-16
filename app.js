@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.17.0';
+const APP_VERSION = '2.18.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1041,7 +1041,7 @@ function bindEvents() {
     else if (dr) Storage.updateBankRule(dr.dataset.id, { direction: dr.value });
     if (c || dr) { UI.showSuccess('Aturan diperbarui'); renderBankRules(); }
   });
-  document.getElementById('pembelianBuyBtn')?.addEventListener('click', () => UI.openBuy());
+  document.getElementById('pembelianBuyBtn')?.addEventListener('click', () => openBeliChooser());
   document.getElementById('pembelianSupplierBtn')?.addEventListener('click', () => UI.openSupplier());
   document.getElementById('pembelianPoList')?.addEventListener('click', (e) => {
     const recv = e.target.closest('.stock-receive');
@@ -2592,6 +2592,24 @@ function computeSales(entries) {
   const qty = rows.reduce((s, x) => s + x.qty, 0);
   return { entries, rows, omzet, hpp, qty, laba: omzet - hpp, orders: entries.length, avgOrder: entries.length ? omzet / entries.length : 0 };
 }
+// 6.1 Bagian Penjualan: Pesanan · Piutang · Produk · Ringkasan
+let salesTab = 'pesanan';
+function showSalesTab(tab) {
+  salesTab = ['pesanan', 'piutang', 'produk', 'ringkasan'].includes(tab) ? tab : 'pesanan';
+  const map = { pesanan: 'sTabPesanan', piutang: 'sTabPiutang', produk: 'sTabProduk', ringkasan: 'sTabRingkasan' };
+  Object.entries(map).forEach(([k, id]) => { const el = document.getElementById(id); if (el) el.hidden = k !== salesTab; });
+  document.querySelectorAll('#salesTabs .chip').forEach((b) => {
+    const on = b.dataset.stab === salesTab;
+    b.classList.toggle('selected', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  try { renderSalesPage(); } catch {}
+}
+document.getElementById('salesTabs')?.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-stab]');
+  if (b) showSalesTab(b.dataset.stab);
+});
+
 function renderSalesPage() {
   if (!document.getElementById('viewSales')) return;
   const entries = salesEntries();
@@ -2605,9 +2623,11 @@ function renderSalesPage() {
     const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
     kpi.innerHTML = tile('Omzet', fmt(d.omzet)) + tile('Barang terjual', d.qty + ' pcs') + tile('HPP', fmt(d.hpp)) + tile('Laba kotor', fmt(d.laba));
   }
-  // Grafik + terlaris (pakai data periode terpilih)
-  Charts.renderSalesDailyChart(entries, { days: 14, ids: { svg: 'salesPageChart', labels: 'salesPageLabels', total: 'salesPageTotal', avg: 'salesPageAvg', best: 'salesPageBest' } });
-  renderTopProductsInto('salesTopList', entries, { ...pagePeriodOpts(), type: 'income', category: 'jualan' });
+  // Grafik + terlaris (hanya saat tab Produk terlihat — hemat render)
+  if (salesTab === 'produk') {
+    Charts.renderSalesDailyChart(entries, { days: 14, ids: { svg: 'salesPageChart', labels: 'salesPageLabels', total: 'salesPageTotal', avg: 'salesPageAvg', best: 'salesPageBest' } });
+    renderTopProductsInto('salesTopList', entries, { ...pagePeriodOpts(), type: 'income', category: 'jualan' });
+  }
   // Tabel per produk
   const tbl = document.getElementById('salesProductTable');
   if (tbl) {
@@ -3735,6 +3755,26 @@ function preorderSettlePrompt(id) {
     queueMirror();
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menutup pesanan'); }
 }
+// §6.2 Satu pintu "＋ Beli" dengan tiga sumber eksplisit (dua di antaranya jalur impor yang sama).
+function openBeliChooser() {
+  const card = (cls, icon, title, sub) => `<button type="button" class="btn btn-ghost ${cls}" style="display:block;width:100%;text-align:left;border:2px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:8px;min-height:60px">
+    <b style="font-size:13.5px">${icon} ${title}</b><br><span style="font-size:11px;color:#64748b">${sub}</span></button>`;
+  UI.openInfoModal('＋ Beli / terima barang',
+    card('beli-local', '🏠', 'Supplier lokal', 'Tunai atau hutang — barang sudah ada di Indonesia') +
+    card('beli-import', '🌏', 'Impor dari China', 'Belanja marketplace → koli → muatan → biaya mendarat otomatis') +
+    card('beli-opening', '⚖️', 'Stok awal / koreksi', 'Tanpa pembelian — Dr Persediaan / Cr Modal'));
+}
+document.getElementById('infoModalBody')?.addEventListener('click', (e) => {
+  if (e.target.closest('.beli-local')) { UI.closeInfoModal(); UI.openBuy(); return; }
+  if (e.target.closest('.beli-import')) { UI.closeInfoModal(); openBelanjaModal(); return; }
+  if (e.target.closest('.beli-opening')) {
+    UI.closeInfoModal();
+    document.getElementById('stockBtnSidebar')?.click();
+    setTimeout(() => { try { openRestockForItem(''); } catch {} }, 200);
+    return;
+  }
+});
+
 /* ===== Papan Muatan (LCL consolidation) ===== */
 // Stage 7: Papan Muatan jadi rumah pembelian — tab Papan/Belanja/Koli/Muatan/Lokal & Hutang
 let muatanTab = 'papan';

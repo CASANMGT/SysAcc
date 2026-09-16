@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.18.0] - 2026-09-16
+
+### Redesign langkah 5 — tab Penjualan & satu pintu "＋ Beli"
+- **Penjualan bertab** (§6.1): **📄 Pesanan · 🧾 Piutang · 📦 Produk · 📊 Ringkasan** — tidak lagi satu halaman gulir panjang. KPI periode tetap di atas; grafik & Produk Terlaris hanya dirender saat tab Produk aktif (lebih ringan di HP).
+- **Satu pintu Beli** (§6.2): tombol "＋ Beli" membuka tiga sumber eksplisit — **🏠 Supplier lokal** (tunai/hutang → form pembelian lama), **🌏 Impor dari China** (→ form Belanja, mesin impor yang sama), **⚖️ Stok awal / koreksi** (→ Terima Barang sumber stok awal). Tiga jalur tambah stok yang dulu berbeda tooltip kini satu pintu dengan konsekuensi jurnal yang dinyatakan.
+- Uji: **354 lulus**.
+
+## [2.17.0] - 2026-09-16
+
+### Redesign langkah 4 — jalur udara & badge draft
+- **Mode estimasi ongkir di form Belanja**: pilih 🚢 Laut LCL (per CBM) atau ✈️ Udara (per kg). Mode udara menghitung dari **total berat kg** tiap baris (`nama; qty; harga¥; kg`) × rate/kg di Pengaturan → Impor, dan menampilkan estimasi modal termasuk ongkir udara; bila rate udara belum diatur, panel memberi tahu.
+- **Berat volumetrik**: alokasi muatan udara memakai `kgPerCbm` (default 167 kg/CBM = pembagi 6000) yang kini bisa ditimpa per muatan, bukan angka terkunci.
+- **Badge DRAFT** di katalog Produk (kartu & tabel) — produk hasil pembelian China terlihat sebagai draft sampai barang tiba dan statusnya berubah otomatis jadi Aktif.
+- Uji: **354 lulus**.
+
 ## [2.16.0] - 2026-09-16
 
 ### Redesign langkah 3 — estimasi vs aktual (dua angka, satu selisih)
