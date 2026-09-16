@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.11.0] - 2026-09-16
+
+### Stage 7 — migrasi data Titip Beli lama (tanpa menghapus apa pun)
+- **`migrateLegacyTitipBeli()`** (idempoten, dijalankan sekali saat aplikasi dibuka): setiap pesanan lama yang punya daftar biaya dibentuk menjadi **Belanja** (barang + kirim + lain, kurs dari pesanan), dibungkus **Koli** (CBM perkiraan minimum 0,1 dengan catatan "CBM asli tidak tercatat") dan **Muatan** bertanda `legacy`.
+- **Tidak ada jurnal baru** — biaya historis sudah dijurnal saat dulu; migrasi hanya memberi bentuk baru agar biaya & riwayat tetap terbaca dan **margin pesanan lama ikut terhitung** (`landedTotal` diset). Total jurnal sebelum = sesudah (diuji).
+- **Idempoten & aman**: penanda `po.lclMigrated` mencegah duplikat; setiap pesanan dapat jejak acara "Data biaya dipindah ke Papan Muatan". Pengguna diberi notifikasi sekali saat migrasi berjalan.
+- Uji: 341 lulus (tambah 1: bentuk legacy, total jurnal tak berubah, jalankan kedua kali → 0).
+
 ## [2.10.0] - 2026-09-16
 
 ### Stage 7 (lanjutan) — Pembelian dilebur ke Papan Muatan

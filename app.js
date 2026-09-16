@@ -11,7 +11,7 @@ import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
-import { getBelanjas, getKolis, getMuatans, getMuatanById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, MIN_CBM } from './lcl.js';
+import { getBelanjas, getKolis, getMuatans, getMuatanById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.10.0';
+const APP_VERSION = '2.11.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -438,6 +438,11 @@ function showApp() {
   updateCloudDot();
   updateStorageState();
   document.getElementById('storageState')?.addEventListener('click', () => openSettings());
+  // Stage 7: migrasi sekali jalan data Titip Beli lama → Belanja/Koli/Muatan (tanpa jurnal baru)
+  try {
+    const r = migrateLegacyTitipBeli();
+    if (r && r.migrated) UI.showInfo(`${r.migrated} pesanan lama dipindah ke Papan Muatan (biaya & riwayat tetap ada)`, 'Migrasi data');
+  } catch {}
   nudgeBackupExport();
   // Sinkron online awal (bila terhubung) — diam-diam di background
   if (Cloud.isCloudConfigured() && Cloud.getCloudSession()) {

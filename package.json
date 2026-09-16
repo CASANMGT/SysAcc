@@ -1,6 +1,6 @@
 {
   "name": "wynara-accounting",
-  "version": "2.10.0",
+  "version": "2.11.0",
   "description": "Clean, offline-first accounting for UMKM Indonesia.",
   "type": "module",
   "scripts": {

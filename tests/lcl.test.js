@@ -3,10 +3,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getBelanjas, createBelanja, refundBelanja,
   getKolis, checkInKoli, updateKoli, assignBelanjaToKoli,
-  getMuatanById, createMuatan, loadKoli,
-  departMuatan, allocateBatch, receiveMuatan, getLastAllocation,
+  getMuatans, getMuatanById, createMuatan, loadKoli,
+  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli,
 } from '../lcl.js';
-import { getAllJournals, postJournal, saveItem, getItemById } from '../storage.js';
+import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -127,6 +127,30 @@ describe('koli & muatan', () => {
     const alloc = allocateBatch(muatan, [kolis.find((x) => x.id === k.id)]);
     expect(alloc.chargeable).toBe(0.1);
     expect(alloc.batchFreight).toBe(310000);
+  });
+});
+
+describe('migrasi Titip Beli lama', () => {
+  it('membuat Belanja/Koli/Muatan legacy tanpa jurnal baru; idempoten', () => {
+    const po = createPreorder({ date: '2026-07-01', customer: 'Budi', items: [{ name: 'X', qty: 2, price: 500000 }], fx: 2300, months: 1 });
+    postJournal({ id: 'J-C1', date: '2026-07-02', memo: 'biaya lama', ref: 'preorder', refId: po.id, lines: [
+      { account: '1105', debit: 700000, credit: 0, memo: 'barang' },
+      { account: '1101', debit: 0, credit: 700000, memo: 'barang' },
+    ] });
+    addPreorderCost(po.id, { amount: 700000, kind: 'barang', date: '2026-07-02', payment: 'transfer' });
+    const jBefore = getAllJournals().length;
+    const r1 = migrateLegacyTitipBeli();
+    expect(r1.migrated).toBe(1);
+    expect(getBelanjas().filter((b) => b.legacy).length).toBe(1);
+    expect(getKolis().filter((k) => k.legacy).length).toBe(1);
+    expect(getMuatans().filter((m) => m.legacy).length).toBe(1);
+    expect(getAllJournals().length).toBe(jBefore); // tidak ada jurnal baru
+    const b = getBelanjas().find((x) => x.legacy);
+    expect(b.landedTotal).toBe(700000);
+    expect(b.preorderId).toBe(po.id);
+    const r2 = migrateLegacyTitipBeli();
+    expect(r2.migrated).toBe(0); // idempoten
+    expect(getBelanjas().filter((x) => x.legacy).length).toBe(1);
   });
 });
 

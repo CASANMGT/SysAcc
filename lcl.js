@@ -444,6 +444,67 @@ export function receiveMuatan(muatanId, { date, koliIds = null } = {}) {
   return m;
 }
 
+// ---------- Migrasi data lama: Titip Beli → Belanja/Koli/Muatan (Stage 7, idempoten) ----------
+// Paket lama hanya punya daftar biaya di pesanan. Kita bentuk Belanja (barang + ongkir + lain),
+// bungkus jadi Koli (CBM perkiraan minimum 0,1) dan Muatan bertanda legacy agar TIDAK memposting
+// jurnal lagi (biaya historis sudah dijurnal) — riwayat tetap membawa biayanya.
+export function migrateLegacyTitipBeli() {
+  let changed = 0;
+  let pos = [];
+  try { pos = JSON.parse(localStorage.getItem('wynara_preorders') || '[]'); } catch { return { migrated: 0 }; }
+  const bels = getBelanjas();
+  const kolis = getKolis();
+  const muats = getMuatans();
+  let dirtyB = false, dirtyK = false, dirtyM = false;
+  pos.forEach((po) => {
+    if (!po || po.lclMigrated) return;
+    const costs = Array.isArray(po.costs) ? po.costs : [];
+    if (!costs.length) return;
+    const barang = costs.filter((c) => c.kind === 'barang').reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const kirim = costs.filter((c) => c.kind === 'kirim').reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const lain = costs.reduce((s, c) => s + (Number(c.amount) || 0), 0) - barang - kirim;
+    const kurs = Number(po.fx) || 2300;
+    const lines = (po.items || []).map((l) => ({ name: l.name, qty: l.qty, cnyUnit: kurs > 0 ? Math.round(((Number(l.price) || 0) * l.qty) / kurs / Math.max(l.qty, 1)) : 0 }));
+    const b = {
+      id: jid('BLJ'), no: `BLJ-LEGACY-${String(pos.indexOf(po) + 1).padStart(3, '0')}`, date: po.date || '',
+      marketplace: 'other', seller: 'Migrasi data lama', orderNo: po.no || '', lines,
+      goodsCny: lines.reduce((s, l) => s + l.qty * l.cnyUnit, 0), ongkirCny: 0,
+      totalCny: lines.reduce((s, l) => s + l.qty * l.cnyUnit, 0),
+      agentFee: Math.round(lain), kursAgen: kurs, totalIdr: Math.round(barang + kirim + lain),
+      payment: 'transfer', purpose: po.target === 'stock' ? 'stock' : 'preorder', preorderId: po.id,
+      customerNote: '', chinaTracking: '', koliId: null, stage: 'arrived',
+      landedTotal: Math.round(barang + kirim + lain), legacy: true, note: 'Migrasi otomatis dari Titip Beli',
+      createdAt: new Date().toISOString(),
+    };
+    const k = {
+      id: jid('K'), parcelNo: `K-LEGACY-${String(pos.indexOf(po) + 1).padStart(3, '0')}`,
+      arrivalDate: po.date || '', cbm: MIN_CBM, weightKg: 0,
+      note: 'Perkiraan migrasi — CBM asli tidak tercatat', belanjaIds: [b.id], muatanId: null, deferred: false,
+      legacy: true, createdAt: new Date().toISOString(),
+    };
+    const m = {
+      id: jid('MUT'), code: `MUT-LEGACY-${String(pos.indexOf(po) + 1).padStart(3, '0')}`,
+      forwarder: 'Migrasi data lama', mode: 'sea', ratePerCbm: 0, ratePerKg: 0, minCbm: MIN_CBM,
+      etd: '', eta: '', charges: [], koliIds: [k.id], departed: po.date || '', arrived: po.date || '',
+      freightBilled: 0, allocated: true, arrivedKoliIds: [k.id], legacy: true, createdAt: new Date().toISOString(),
+    };
+    k.muatanId = m.id;
+    bels.push(b); kolis.push(k); muats.push(m);
+    dirtyB = dirtyK = dirtyM = true;
+    po.lclMigrated = true;
+    po.events = (po.events || []).concat([{ date: new Date().toISOString().split('T')[0], stage: 'migrated', note: 'Data biaya dipindah ke Papan Muatan (Belanja/Koli/Muatan)', tracking: '', schedule: '' }]);
+    changed++;
+  });
+  if (dirtyB) save(BELANJA_KEY, bels);
+  if (dirtyK) save(KOLI_KEY, kolis);
+  if (dirtyM) save(MUATAN_KEY, muats);
+  if (changed) {
+    try { localStorage.setItem('wynara_preorders', JSON.stringify(pos)); } catch {}
+    logAudit('create', 'lcl-migrate', 'legacy', null, { migrated: changed });
+  }
+  return { migrated: changed };
+}
+
 export let lastAlloc = null;
 export function getLastAllocation() { return lastAlloc; }
 
