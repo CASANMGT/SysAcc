@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.99.0] - 2026-09-16
+
+### Phase 1 (Subtract) — pendaraban #1
+- **Copy basi diganti**: heading Status Pesanan kini menggambarkan alur nyata (pesanan → DP → beli marketplace → gudang China → berangkat LCL → tiba ~3–4 minggu → kirim → lunas).
+- **Pengaturan mikro pindah dari layar kerja**: chip Padat/Nyaman & tombol "Cara Bayar: ON" pindah ke Pengaturan → Tampilan (fungsionalitas & penyimpanan tetap sama).
+- **Pinjemin keluar dari harian**: disembunyikan dari sidebar & dashboard & menu Lainnya; riwayat tetap bisa dibuka baca-saja via Pengaturan → Arsip → "Riwayat pinjaman lama". Data lama utuh dan tetap ikut backup.
+
 ## [1.98.0] - 2026-09-16
 
 ### Added — Papan Muatan (UI) + tautan belanja ↔ pesanan & margin nyata

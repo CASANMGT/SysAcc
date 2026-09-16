@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.98.0';
+const APP_VERSION = '1.99.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1029,7 +1029,6 @@ function bindEvents() {
     else if (t === 'more') {
       const links = [
         { goto: 'contacts', icon: '👥', label: 'Kontak', aria: 'Kontak' },
-        { goto: 'loans', icon: '🤝', label: 'Pinjemin', aria: 'Pinjemin' },
         { goto: 'stock', icon: '📦', label: 'Produk', aria: 'Produk dan stok' },
         { goto: 'sales', icon: '🛒', label: 'Penjualan', aria: 'Laporan penjualan' },
         { goto: 'pembelian', icon: '🧺', label: 'Pembelian', aria: 'Pembelian dan hutang supplier' },
@@ -1155,6 +1154,9 @@ function bindEvents() {
   document.getElementById('settingsModal')?.addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
+  document.getElementById('loansArchiveBtn')?.addEventListener('click', () => {
+    UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople());
+  });
   document.getElementById('backupShareBtn')?.addEventListener('click', handleBackupShare);
   document.getElementById('backupSelfTestBtn')?.addEventListener('click', handleBackupSelfTest);
   document.getElementById('dataHealthBtn')?.addEventListener('click', handleDataHealth);
