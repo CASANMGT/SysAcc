@@ -4202,7 +4202,7 @@ export function addSaleRow(preselectId) {
   row.innerHTML = `
     <select class="sale-item" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
       <option value="">— Pilih barang —</option>
-      ${items.map(i => { const q = shopStockOf(i, getActiveShopId()); return `<option value="${i.id}">${escapeHtml(fullItemName(i))} (stok ${q})</option>`; }).join('')}
+      ${items.filter(i => i.status !== 'draft').map(i => { const q = shopStockOf(i, getActiveShopId()); return `<option value="${i.id}">${escapeHtml(fullItemName(i))} (stok ${q})</option>`; }).join('')}
     </select>
     <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px">
       <button type="button" class="btn btn-ghost sale-minus" aria-label="Kurangi" style="font-size:14px;padding:2px 8px">−</button>

@@ -6,7 +6,7 @@ import {
   getMuatans, getMuatanById, createMuatan, loadKoli,
   departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli,
 } from '../lcl.js';
-import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost } from '../storage.js';
+import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, createDraftProductFromBelanja } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -151,6 +151,24 @@ describe('migrasi Titip Beli lama', () => {
     const r2 = migrateLegacyTitipBeli();
     expect(r2.migrated).toBe(0); // idempoten
     expect(getBelanjas().filter((x) => x.legacy).length).toBe(1);
+  });
+});
+
+describe('produk draft dari belanja China', () => {
+  it('draft → aktif otomatis saat barang tiba, modal/pcs ikut alokasi', () => {
+    const { muatan, belanja } = setupWorkedExample();
+    const draft = createDraftProductFromBelanja({ name: 'Produk X', cost: 63000, weightKg: 0.35 });
+    expect(draft.status).toBe('draft');
+    const bels = getBelanjas();
+    const bi = bels.findIndex((b) => b.id === belanja.id);
+    bels[bi].lines = bels[bi].lines.map((l) => ({ ...l, itemId: draft.id }));
+    localStorage.setItem('wynara_belanja', JSON.stringify(bels));
+    departMuatan(muatan.id, { date: '2026-03-10', payment: 'cash' });
+    receiveMuatan(muatan.id, { date: '2026-04-05' });
+    const after = getItemById(draft.id);
+    expect(after.status).toBe('aktif');
+    expect(after.cost).toBe(158531);
+    expect(after.stock).toBe(40);
   });
 });
 

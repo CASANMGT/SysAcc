@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.14.0';
+const APP_VERSION = '2.15.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3955,7 +3955,7 @@ function openBelanjaModal(preorderId = null) {
       <label style="flex:1;min-width:120px;font-size:12px">Marketplace<br><select id="belanjaMp" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px">${MARKETPLACES.map((m) => `<option value="${m.id}">${m.label}</option>`).join('')}</select></label>
       <label style="flex:1;min-width:120px;font-size:12px">Seller<br><input id="belanjaSeller" placeholder="nama toko" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
     </div>
-    <label style="font-size:12px">Barang — satu baris per barang: <b>nama; qty; harga ¥</b><textarea id="belanjaLines" rows="3" placeholder="Case iPhone 15; 40; 28" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px"></textarea></label>
+    <label style="font-size:12px">Barang — satu baris per barang: <b>nama; qty; harga ¥; berat kg (opsional)</b><textarea id="belanjaLines" rows="3" placeholder="Case iPhone 15; 40; 28; 0,35" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px"></textarea></label>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <label style="flex:1;min-width:110px;font-size:12px">Ongkir China (¥)<br><input type="number" id="belanjaOngkir" min="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
       <label style="flex:1;min-width:110px;font-size:12px">Biaya lain (Rp)<br><input type="number" id="belanjaFee" min="0" value="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
@@ -3969,6 +3969,7 @@ function openBelanjaModal(preorderId = null) {
       <option value="">📦 Stok gudang</option>
       ${pos.map((po) => `<option value="${po.id}"${po.id === preorderId ? ' selected' : ''}>👤 ${escapeHtml(po.customer || po.no)} (${escapeHtml(po.no)})</option>`).join('')}
     </select>${forOrder ? `<div style="font-size:10.5px;color:#475569;margin-top:3px">Belanja ini untuk pesanan <b>${escapeHtml(forOrder.no)}</b>${forOrder.customer ? ' — ' + escapeHtml(forOrder.customer) : ''}</div>` : ''}</label>
+    <label class="login-check" style="font-size:12px"><input type="checkbox" id="belanjaNewProducts" checked> 🆕 Buat produk <b>draft</b> untuk baris yang belum ada di katalog (aktif otomatis saat barang tiba)</label>
     <div id="belanjaEstimate" style="font-size:11.5px;color:#0f172a;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:8px 10px"></div>
     <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan dalam Perjalanan (1211) / Cr kas. Ongkir laut (freight) <b>belum termasuk</b> di jurnal — ditambahkan saat muatan tiba (alokasi otomatis).</div>
     <button type="submit" class="btn btn-primary" id="belanjaSave">🛍 Simpan belanja (bayar penuh)</button>
@@ -4004,9 +4005,24 @@ function openBelanjaModal(preorderId = null) {
     try {
       const lines = String(document.getElementById('belanjaLines').value || '').split('\n').map((s) => s.trim()).filter(Boolean).map((s) => {
         const parts = s.split(';').map((x) => x.trim());
-        return { name: parts[0], qty: Number(parts[1]) || 1, cnyUnit: Number(parts[2]) || 0 };
+        return { name: parts[0], qty: Number(parts[1]) || 1, cnyUnit: Number(parts[2]) || 0, weightKg: Number((parts[3] || '').replace(',', '.')) || 0 };
       });
       const poSel = document.getElementById('belanjaFor').value;
+      const makeDrafts = !!document.getElementById('belanjaNewProducts')?.checked;
+      const kurs = Number(document.getElementById('belanjaKurs').value) || 0;
+      // 2.1: produk baru dari China langsung dibuat sebagai draft (tidak menghambat pembelian).
+      if (makeDrafts) {
+        try {
+          const existing = Storage.getAllItems();
+          lines.forEach((l) => {
+            const hit = existing.find((i) => String(i.name).toLowerCase() === String(l.name).toLowerCase());
+            if (hit) { l.itemId = hit.id; return; }
+            const est = Math.round((Number(l.cnyUnit) || 0) * kurs);
+            const dup = Storage.createDraftProductFromBelanja({ name: l.name, cost: est, weightKg: l.weightKg || 0, price: est });
+            l.itemId = dup.id;
+          });
+        } catch (err) { UI.showError('Produk draft gagal dibuat: ' + (err && err.message ? err.message : '')); }
+      }
       const b = createBelanja({
         date: document.getElementById('belanjaDate').value,
         marketplace: document.getElementById('belanjaMp').value,
@@ -4014,14 +4030,15 @@ function openBelanjaModal(preorderId = null) {
         orderNo: '',
         lines, ongkirCny: Number(document.getElementById('belanjaOngkir').value) || 0,
         agentFee: Number(document.getElementById('belanjaFee').value) || 0,
-        kursAgen: Number(document.getElementById('belanjaKurs').value) || 0,
+        kursAgen: kurs,
         payment: document.getElementById('belanjaPay').value,
         purpose: poSel ? 'preorder' : 'stock',
         preorderId: poSel || null,
         chinaTracking: document.getElementById('belanjaTracking').value,
       });
       UI.closeInfoModal();
-      UI.showSuccess(`Belanja ${b.no} tersimpan — ${fmt(b.totalIdr)}`);
+      const nDraft = lines.filter((l) => l.itemId).length;
+      UI.showSuccess(`Belanja ${b.no} tersimpan — ${fmt(b.totalIdr)}${nDraft ? ` • ${nDraft} produk siap (draft jadi aktif saat tiba)` : ''}`);
       renderMuatanPage();
       refresh();
       queueMirror();

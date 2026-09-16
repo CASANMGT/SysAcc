@@ -2056,6 +2056,28 @@ export function receiveStockBySource(itemId, qty, unitCost, { date, payment, sou
   return updated;
 }
 
+// ===== Produk draft (dibuat dari pembelian China; jadi aktif saat barang tiba) =====
+// Draft: tampil di katalog & pipeline dengan badge, TIDAK dihitung sebagai stok siap jual.
+export function isDraft(item) { return !!(item && item.status === 'draft'); }
+export function setItemStatus(id, status) {
+  requireCap('ledger');
+  const list = getItems();
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) throw new Error('Barang tidak ditemukan');
+  list[i].status = status === 'draft' ? 'draft' : 'aktif';
+  list[i].updatedAt = new Date().toISOString();
+  localStorage.setItem(ITEM_KEY, JSON.stringify(list));
+  return list[i];
+}
+// Buat produk draft dari satu baris belanja China. cost = estimasi modal/pcs (ditimpa saat tiba).
+export function createDraftProductFromBelanja({ name, cost = 0, weightKg = 0, price = 0 } = {}) {
+  requireCap('ledger');
+  const nm = String(name || '').trim().slice(0, 60);
+  if (!nm) throw new Error('Nama produk wajib');
+  const it = saveItem({ name: nm, cost: Math.max(Number(cost) || 0, 0), price: Math.max(Number(price) || 0, 0), stock: 0, weight: Math.max(Number(weightKg) || 0, 0), status: 'draft' });
+  return it;
+}
+
 // ===== Pengaturan Impor (default per batch; selalu bisa ditimpa di muatan/belanja) =====
 const IMPOR_KEY = 'wynara_impor';
 export const IMPOR_DEFAULTS = { kurs: 2250, ratePerCbm: 3100000, ratePerKg: 0, divisor: 6000, minCbm: 0.1 };
@@ -2185,6 +2207,7 @@ export function saveItem(item) {
     height: Math.max(Number(item.height) || 0, 0),
     discountPct,
     stocks, stock, cost, price, minStock,
+    status: item.status === 'draft' ? 'draft' : (prevItem && item.status === undefined ? (prevItem.status || 'aktif') : 'aktif'),
     active: item.active !== false,
     updatedAt: new Date().toISOString()
   };

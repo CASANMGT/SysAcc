@@ -3,7 +3,7 @@
 //         → Muatan (batch LCL) → Penerimaan (alokasi biaya mendarat).
 // Uang yang sudah dibayar tapi belum sampai gudang lokal = 1211 Persediaan dalam Perjalanan.
 // Saldo ke agen pembayaran = 1212 Uang Muka Agen. Selisih kurs = 5197 (SAK EMKM, modalisasi biaya).
-import { assertUnlocked, postJournal, logAudit, applyStockMove } from './storage.js';
+import { assertUnlocked, postJournal, logAudit, applyStockMove, setItemStatus } from './storage.js';
 import { accountForPayment } from './coa.js';
 
 export const TRANSIT_ACCOUNT = '1211';   // Persediaan dalam Perjalanan
@@ -407,6 +407,8 @@ export function receiveMuatan(muatanId, { date, koliIds = null } = {}) {
       try {
         applyStockMove(sm.itemId, { qtyIn: sm.qty, unitCost: sm.unitCost, ref: 'muatan', note: `muatan ${m.code}`, type: 'muatan' });
       } catch {}
+      // Produk draft jadi aktif begitu barangnya benar-benar tiba.
+      try { setItemStatus(sm.itemId, 'aktif'); } catch {}
     }
   }
   m.arrivedKoliIds = Array.from(prev);
