@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.95.1';
+const APP_VERSION = '1.96.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -984,6 +984,16 @@ function bindEvents() {
   });
   document.getElementById('pembelianBuyBtn')?.addEventListener('click', () => UI.openBuy());
   document.getElementById('pembelianSupplierBtn')?.addEventListener('click', () => UI.openSupplier());
+  document.getElementById('pembelianPoList')?.addEventListener('click', (e) => {
+    const recv = e.target.closest('.stock-receive');
+    const st = e.target.closest('.po-status');
+    if (recv) handleStockReceive(recv.dataset.id);
+    else if (st) openOrderStatus('po', st.dataset.id, '');
+  });
+  document.getElementById('pembelianPoList')?.addEventListener('change', (e) => {
+    const sel = e.target.closest('.stock-receive');
+    if (sel) handleStockReceive(sel.value);
+  });
   document.getElementById('biayaAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); setTimeout(() => { const b = document.querySelector('#typeGroup .select-btn[data-value="expense"], #typeGroup .chip[data-value="expense"]'); if (b) b.click(); }, 30); });
   document.getElementById('biayaPeriod')?.addEventListener('change', (e) => { biayaPeriodValue = e.target.value; renderBiayaPage(); });
   document.getElementById('salesNewBtn')?.addEventListener('click', () => UI.openSale());
@@ -3460,7 +3470,7 @@ function renderPembelianPage() {
     if (poSub) poSub.textContent = `${active.length} pesanan aktif • biaya barang ${fmt(barang)} • kirim ${fmt(kirim)} • lainnya ${fmt(lain)} — daftar pembayaran pelanggan di halaman Penjualan`;
     const STAGE = { ordered: 'Dipesan', dp_paid: 'DP terbayar', china: 'Gudang China', shipping: 'Kirim ke Indo', shipped: 'Dikirim', arrived: 'Sampai Indo', received: 'Di gudang', invoiced: 'Teredi invoice', settled: 'Selesai', cancelled: 'Batal' };
     poBox.innerHTML = pos.length ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
-        <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Tahap beli</th><th class="amount-col">Barang</th><th class="amount-col">Kirim</th><th class="amount-col">Total biaya</th><th>Resi</th></tr></thead><tbody>
+        <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Tahap beli</th><th class="amount-col">Barang</th><th class="amount-col">Kirim</th><th class="amount-col">Total biaya</th><th>Resi</th><th>Aksi</th></tr></thead><tbody>
         ${pos.map(po => {
       const costs = po.costs || [];
       const b = costs.filter(c => c.kind === 'barang').reduce((s, c) => s + (Number(c.amount) || 0), 0);
@@ -3473,12 +3483,25 @@ function renderPembelianPage() {
           <td class="amount-col">${fmt(b)}</td>
           <td class="amount-col">${fmt(k)}</td>
           <td class="amount-col">${fmt(Storage.preorderCostTotal(po))}</td>
-          <td style="font-size:11px">${escapeHtml((po.shipment || {}).tracking || '—')}</td></tr>`;
+          <td style="font-size:11px">${escapeHtml((po.shipment || {}).tracking || '—')}</td>
+          <td style="white-space:nowrap">
+            <button type="button" class="btn btn-ghost po-status" data-id="${po.id}" style="font-size:11px;padding:2px 8px" title="Update status">⏱</button>
+            ${po.target === 'stock' && !po.stockReceived ? `<button type="button" class="btn btn-primary stock-receive" data-id="${po.id}" style="font-size:11px;padding:2px 8px">📥 Terima stok</button>` : po.stockReceived ? '<span style="font-size:10px;color:#059669;font-weight:700">✔ stok masuk</span>' : ''}
+          </td></tr>`;
     }).join('')}
         </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada titip beli (preorder).</p>';
   }
 }
 
+function handleStockReceive(id) {
+  try {
+    const po = Storage.receivePreorderStock(id, { date: new Date().toISOString().split('T')[0] });
+    UI.showSuccess(`Stok masuk gudang — ${po.items.reduce((s, l) => s + (Number(l.qty) || 0), 0)} pcs ditambahkan`);
+    renderPembelianPage();
+    refresh();
+    queueMirror();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menerima stok'); }
+}
 /* ===== Halaman Biaya ===== */
 let biayaPeriodValue = 'this-month';
 function renderBiayaPage() {
@@ -5727,11 +5750,21 @@ function handleSaleSave() {
     // Preorder (beli dari luar negeri): tanpa ambil stok — barang dibeli setelah DP.
     if (isPreorder) {
       try {
+        const poTarget = document.getElementById('salePoTarget')?.value === 'stock' ? 'stock' : 'customer';
+        const poChannel = document.getElementById('salePoChannel')?.value === 'lokal' ? 'lokal' : 'luar';
+        if (poTarget === 'stock' && d.lines.some(l => !l.itemId)) return UI.showError('Order stok: pilih barang dari daftar produk');
+        if (poTarget === 'stock' && !d.customer) return UI.showError('Order stok: isi nama supplier/toko pada kolom pelanggan');
         const po = Storage.createPreorder({
-          date: d.date, customer: d.customer, items: d.lines.map(l => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })),
+          target: poTarget, channel: poChannel,
+          date: d.date, customer: d.customer || (poTarget === 'stock' ? 'Pembelian stok' : ''), items: d.lines.map(l => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })),
           deposit: d.deposit, payment: d.payment, note: d.note, months: d.monthsEta || 1, discount: d.discount, fx: d.fx,
-        });        UI.closeSale();
-        UI.showSuccess(`Preorder ${fmt(po.sellTotal)} tersimpan${po.deposit > 0 ? ` • DP ${fmt(po.deposit)} masuk kas` : ''} • est datang ${po.monthsEta || 1} bulan • pantau di Status Pesanan`);
+        });
+        UI.closeSale();
+        if (poTarget === 'stock') {
+          UI.showSuccess(`Order stok ${fmt(po.sellTotal)} tersimpan (${poChannel === 'lokal' ? 'lokal' : 'luar negeri'})  pantau di Pembelian → sisi beli`);
+        } else {
+        UI.showSuccess(`Preorder ${fmt(po.sellTotal)} tersimpan${po.deposit > 0 ? ` DP ${fmt(po.deposit)} masuk kas` : ''} est datang ${po.monthsEta || 1} bulan  pantau di Status Pesanan`);
+        }
         refresh();
         refreshSalesPage();
       } catch (err) {

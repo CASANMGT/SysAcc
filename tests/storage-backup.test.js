@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, creditPaidTotal, payCreditSale, deleteCreditSale, creditSalesSummary } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, importItemsBulk, dataHealthCheck, applyStockMove, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, creditPaidTotal, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -738,3 +738,27 @@ describe('penjualan kredit (bayar nanti)', () => {
 });
 
 
+
+describe('order stok (beli untuk gudang, alur seperti preorder)', () => {
+  it('luar negeri: biaya barang -> stok masuk saat diterima (sekali saja)', () => {
+    saveShops([{ id: 'main', name: 'A' }]); setActiveShopId('main');
+    const it = saveItem({ name: 'Lampu Order', sku: 'ORD-1', price: 50000, cost: 20000, stock: 0 });
+    const po = createPreorder({ date: '2026-09-01', target: 'stock', channel: 'luar', customer: 'Supplier Guangzhou', items: [{ itemId: it.id, name: it.name, qty: 10, price: 20000 }], deposit: 0, payment: 'cash' });
+    addPreorderCost(po.id, { amount: 150000, kind: 'barang', date: '2026-09-02', payment: 'transfer' });
+    addPreorderCost(po.id, { amount: 30000, kind: 'kirim', date: '2026-09-03', payment: 'transfer' });
+    const r = receivePreorderStock(po.id);
+    expect(r.stage).toBe('received');
+    expect(getItemById(it.id).stock).toBe(10);
+    expect(() => receivePreorderStock(po.id)).toThrow(/sudah/);
+  });
+  it('lokal: dibaca sama, BUKAN pendapatan (persediaan)', () => {
+    saveShops([{ id: 'main', name: 'A' }]); setActiveShopId('main');
+    const it = saveItem({ name: 'Kaos Lokal', sku: 'LKL-1', price: 30000, cost: 12000, stock: 0 });
+    const beforeRevenue = getAllJournals().filter(x => (x.lines || []).some(l => l.account === '4101')).length;
+    const po = createPreorder({ date: '2026-09-05', target: 'stock', channel: 'lokal', customer: 'Toko Gilang', items: [{ itemId: it.id, name: it.name, qty: 4, price: 12000 }], deposit: 0, payment: 'cash' });
+    receivePreorderStock(po.id);
+    expect(getItemById(it.id).stock).toBe(4);
+    const afterRevenue = getAllJournals().filter(x => (x.lines || []).some(l => l.account === '4101')).length;
+    expect(afterRevenue).toBe(beforeRevenue);
+  });
+});

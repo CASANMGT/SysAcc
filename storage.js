@@ -2590,8 +2590,15 @@ function nextPreorderNo() {
 // months = estimasi berapa bulan barang tiba (preorder luar negeri).
 // Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
 // months = estimasi berapa bulan barang tiba (preorder luar negeri); fx = kurs Rp per ¥.
-export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx } = {}) {
+export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx, target, channel } = {}) {
   requireCap('ledger');
+  const isStock = target === 'stock';
+  if (isStock) {
+    // Order stok: item WAJIB terhubung ke produk (barang masuk stok saat diterima)
+    const bad = (Array.isArray(items) ? items : []).some(l => !l || !l.itemId);
+    if (bad) throw new Error('Pesanan stok perlu barang dari daftar produk');
+  }
+  const wantDp = !isStock; // order stok: pembayaran ke supplier dicatat sebagai biaya, bukan DP
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
   const clean = (Array.isArray(items) ? items : []).filter(l => l && String(l.name || '').trim() && Number(l.qty) > 0)
@@ -2602,12 +2609,14 @@ export function createPreorder({ date, customer, items, deposit, payment, note, 
   const sellTotal = Math.max(sub - disc, 0);
   if (sellTotal <= 0) throw new Error('Total pesanan harus > 0');
   let dp = Math.min(Math.max(Math.round(Number(deposit) || 0), 0), sellTotal);
+  if (!wantDp) dp = 0;
   const id = generateId();
   const cleanItems = clean.map(l => ({ ...(l.itemId ? { itemId: String(l.itemId) } : {}), name: l.name, qty: l.qty, price: l.price }));
   const monthsEta = Math.max(Number(months) || 0, 0);
   const fxRate = Math.max(Number(fx) || 2300, 1);
   const rec = {
     id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40), monthsEta, fx: fxRate,
+    target: isStock ? 'stock' : 'customer', channel: (channel === 'lokal' || channel === 'luar') ? channel : 'luar',
     customer: String(customer || '').trim().slice(0, 60),
     items: cleanItems, subtotal: sub, discount: disc, sellTotal, deposit: dp, payment: payment || 'cash',
     costs: [], payments: [], stage: dp > 0 ? 'dp_paid' : 'ordered',
@@ -2735,9 +2744,41 @@ export function arrivePreorder(id, { date, note } = {}) {
   logAudit('update', 'preorder', id, null, { stage: 'arrived' });
   return po;
 }
-// Batalkan & hapus pesanan: jurnal terkait dihapus agar kas & laba konsisten.
-export function deletePreorder(id) {
+// Order stok: barang sampai → masuk gudang (kuantitas). Uang sudah dicatat sbg biaya.
+export function receivePreorderStock(id, { date, note, tracking } = {}) {
   requireCap('ledger');
+  const po = getPreorderById(id);
+  if (!po) throw new Error('Pesanan tidak ditemukan');
+  if (po.target !== 'stock') throw new Error('Bukan pesanan stok');
+  if (po.stockReceived) throw new Error('Stok sudah diterima untuk pesanan ini');
+  if (po.stage === 'cancelled') throw new Error('Pesanan dibatalkan');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  const list = getPreorders();
+  const i = list.findIndex(x => x.id === id);
+  const applied = [];
+  try {
+    (po.items || []).forEach(l => {
+      if (!l.itemId) return;
+      applyStockMove(l.itemId, { qtyIn: l.qty, unitCost: 0, keepCost: true, ref: id, note: 'order stok diterima', type: 'restock' });
+      applied.push(l);
+    });
+  } catch (e) {
+    applied.forEach(l => { try { applyStockMove(l.itemId, { qtyOut: l.qty, keepCost: true, ref: id, note: 'reversal', type: 'reversal' }); } catch {} });
+    throw e;
+  }
+  const cur = list[i];
+  cur.stage = 'received';
+  cur.stockReceived = true;
+  cur.receivedDate = d;
+  cur.shipment = { ...(cur.shipment || {}), ...(tracking ? { tracking: String(tracking).slice(0, 40) } : {}), date: (cur.shipment || {}).date || d };
+  cur.events = (cur.events || []).concat([{ date: d, stage: 'received', note: 'Stok masuk gudang', tracking: String(tracking || '').slice(0, 40), schedule: '' }]);
+  list[i] = cur;
+  savePreorders(list);
+  logAudit('update', 'preorder-stock', id, null, { items: applied.length });
+  return cur;
+}
+// Batalkan & hapus pesanan: jurnal terkait dihapus agar kas & laba konsisten.
+export function deletePreorder(id) {  requireCap('ledger');
   const list = getPreorders();
   const po = list.find(x => x.id === id);
   if (!po) return false;
