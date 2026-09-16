@@ -3499,7 +3499,7 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
         <td class="amount-col">${fmt(r.net)}</td>
         <td class="amount-col">${fmt(Number(r.v.cost) || 0)}</td>
         <td class="amount-col">${fmt(r.value)}</td>
-        <td class="stock-status">${r.v.active === false ? '<span class="chip" style="font-size:10px">Arsip</span>' : 'Aktif'}</td>
+        <td class="stock-status">${r.v.active === false ? '<span class="chip" style="font-size:10px">Arsip</span>' : (r.v.status === 'draft' ? '<span class="chip" style="font-size:10px;background:#fef3c7;color:#92400e;border-color:#fcd34d">Draft</span>' : 'Aktif')}</td>
         <td class="stock-actions"><button type="button" class="btn btn-ghost stock-row-edit" data-id="${r.v.id}" aria-label="Edit ${esc(r.g.name)}" title="Edit" style="font-size:11px;padding:4px 10px">✎ Edit</button> <button type="button" class="btn btn-ghost stock-row-qr" data-id="${r.v.id}" aria-label="Barcode ${esc(r.g.name)}" title="Cetak barcode produk" style="font-size:11px;padding:4px 10px">🏷️ Barcode</button></td></tr>`).join('')}
       </tbody></table></div>`;
     return;
@@ -3518,7 +3518,7 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
       <div class="stock-card-head">
         ${g.variants[0] && g.variants[0].image ? `<img src="${g.variants[0].image}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;flex:0 0 auto">` : ''}
         <div style="flex:1;min-width:0">
-          <div class="stock-card-title">${esc(g.name)}</div>
+          <div class="stock-card-title">${esc(g.name)}${g.variants.some(v => v.status === 'draft') ? ' <span class="chip" style="font-size:9.5px;background:#fef3c7;color:#92400e;border-color:#fcd34d" title="Draft: dibuat dari pembelian China, jadi aktif saat barang tiba">DRAFT</span>' : ''}</div>
           <div class="stock-card-sub">${g.sku ? esc(g.sku) + ' • ' : ''}${g.variants[0] && g.variants[0].category ? esc(g.variants[0].category) + ' • ' : ''}${g.variants[0] && g.variants[0].unit ? esc(g.variants[0].unit) + ' • ' : ''}${g.variants.length} varian • stok${shopName ? ' ' + esc(shopName) : ''}: ${g.shopStock} • total ${g.totalStock} • ${priceTxt}${lowV ? ` • <span style="color:#b45309">${lowV} menipis</span>` : ''}</div>
         </div>
         <div class="stock-card-actions">

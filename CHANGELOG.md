@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.16.0] - 2026-09-16
+
+### Redesign langkah 3 — estimasi vs aktual (dua angka, satu selisih)
+- **Modal estimasi disimpan saat beli** (`estimatedIdr` = ¥ × kurs + ongkir China, dari panel estimasi). **Modal aktual** tetap `landedTotal` hasil alokasi. Helper baru **`costVariance(belanja)`** → `{estimated, actual, diff, pct, ready}`.
+- **Pratinjau tiba kini 5 kolom**: Belanja · Estimasi · Aktual · **Selisih (+Rp, +%)** · HPP/pcs — admin melihat dampak sebelum menekan posting.
+- **Laporan "Selisih estimasi vs aktual"** di Papan Muatan → tab Muatan: per belanja + baris total, dengan catatan bahwa selisih positif terus-menerus berarti rate di Pengaturan → Impor terlalu rendah dan harga jual kemungkinan kurang.
+- **`landedTotal` kini persis** (= baseCost + alokasi freight, bukan hasil pembulatan per unit) sehingga laporan cocok dengan invoice forwarder; `unitCost` tetap dibulatkan hanya untuk tampilan/HPP.
+- Uji: **354 lulus** — contoh kerja: estimasi Rp 2.621.250 → aktual Rp 6.341.250 (+Rp 3.720.000, +141,9%).
+
 ## [2.15.0] - 2026-09-16
 
 ### Redesign langkah 2 — produk draft dari China (tanpa memblokir pembelian)

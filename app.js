@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.16.0';
+const APP_VERSION = '2.17.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3978,6 +3978,7 @@ function openBelanjaModal(preorderId = null) {
       <label style="flex:1;min-width:110px;font-size:12px">Ongkir China (¥)<br><input type="number" id="belanjaOngkir" min="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
       <label style="flex:1;min-width:110px;font-size:12px">Biaya lain (Rp)<br><input type="number" id="belanjaFee" min="0" value="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
       <label style="flex:1;min-width:110px;font-size:12px">Kurs dibayar (Rp/¥)<br><input type="number" id="belanjaKurs" min="1" value="2300" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:120px;font-size:12px">Estimasi ongkir<br><select id="belanjaFreightMode" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"><option value="sea">🚢 Laut LCL (per CBM)</option><option value="air">✈️ Udara (per kg)</option></select></label>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <label style="flex:1;min-width:110px;font-size:12px">Bayar dengan<br><select id="belanjaPay" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"><option value="transfer">Bank BCA (transfer)</option><option value="cash">Tunai (1104)</option><option value="qris">QRIS</option><option value="agent">Saldo agen — data lama (1212)</option></select></label>
@@ -4005,15 +4006,22 @@ function openBelanjaModal(preorderId = null) {
       });
       const kurs = Number(document.getElementById('belanjaKurs').value) || im.kurs;
       const ongkir = Number(document.getElementById('belanjaOngkir').value) || 0;
+      const mode = document.getElementById('belanjaFreightMode')?.value || 'sea';
       const k = Freight.estimateBelanja({ lines, kurs, ongkirCny: ongkir, cbm: 0, seaRatePerCbm: im.ratePerCbm, minCbm: im.minCbm });
+      const totalKg = lines.reduce((s, l) => s + (Number(l.weightKg) || 0) * (Number(l.qty) || 0), 0);
+      const air = mode === 'air' && im.ratePerKg > 0 && totalKg > 0
+        ? Freight.airFreight({ weightKg: totalKg, ratePerKg: im.ratePerKg, divisor: im.divisor })
+        : null;
+      const subtotal = k.goodsIdr + k.ongkirIdr + (air ? air.amount : 0);
       const goodsCny = k.goodsCny, qty = k.qty;
       est.innerHTML = `Harga barang ¥${goodsCny.toLocaleString('id-ID')}${qty ? ' × ' + qty + ' pcs' : ''} × Rp${kurs.toLocaleString('id-ID')} → <b>${fmt(k.goodsIdr)}</b><br>
-        Ongkir China ¥${ongkir.toLocaleString('id-ID')} → <b>${fmt(k.ongkirIdr)}</b><br>
-        <span style="color:#64748b">Estimasi modal barang (belum ongkir laut) → <b>${fmt(k.goodsIdr + k.ongkirIdr)}</b>${qty ? ' · ' + fmt(Math.round((k.goodsIdr + k.ongkirIdr) / qty)) + '/pcs' : ''}</span><br>
-        <span style="color:#b45309">⚠ Estimasi — ongkir laut (${(im.ratePerCbm / 1e6).toFixed(1)}jt/CBM) & biaya final dihitung saat barang tiba.</span>`;
+        Ongkir China ¥${ongkir.toLocaleString('id-ID')} → <b>${fmt(k.ongkirIdr)}</b>${air ? `<br>Estimasi udara ${Math.round(totalKg * 100) / 100} kg × Rp${im.ratePerKg.toLocaleString('id-ID')}/kg → <b>${fmt(air.amount)}</b>` : ''}<br>
+        <span style="color:#64748b">${air ? 'Estimasi modal' : 'Estimasi modal barang (belum ongkir laut)'} → <b>${fmt(subtotal)}</b>${qty ? ' · ' + fmt(Math.round(subtotal / qty)) + '/pcs' : ''}</span><br>
+        <span style="color:#b45309">⚠ Estimasi — ${air ? 'berat tertagih final & nilai volumetrik' : 'ongkir laut (' + (im.ratePerCbm / 1e6).toFixed(1) + 'jt/CBM)'} dihitung saat barang tiba${!air && mode === 'air' ? ' (rate udara belum diatur di Pengaturan → Impor)' : ''}.</span>`;
     } catch { est.textContent = ''; }
   };
-  ['belanjaLines', 'belanjaKurs', 'belanjaOngkir'].forEach((id) => document.getElementById(id)?.addEventListener('input', drawEst));
+  ['belanjaLines', 'belanjaKurs', 'belanjaOngkir', 'belanjaFreightMode'].forEach((id) => document.getElementById(id)?.addEventListener('input', drawEst));
+  document.getElementById('belanjaFreightMode')?.addEventListener('change', drawEst);
   document.getElementById('belanjaMp')?.addEventListener('change', drawEst);
   drawEst();
   document.getElementById('belanjaSave')?.addEventListener('click', saveBelanja);

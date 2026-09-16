@@ -301,7 +301,9 @@ export function allocateBatch(muatan, kolis, { basis = 'cbm', arrivedKoliIds = n
   const deferred = kolis.filter((k) => k.deferred);
   if (!loaded.length) return { batchFreight: 0, chargeable: 0, koliAlloc: [], lineAlloc: [], deferredCount: deferred.length };
 
-  const measure = (k) => (mode === 'air' ? Math.max(k.weightKg || 0, (k.cbm || 0) * 167) : Math.max(k.cbm || 0, MIN_CBM));
+  // Udara: berat tertagih = max(kg aktual, volumetrik). 1 CBM ≈ 166,7 kg (pembagi 6000) — bisa ditimpa per muatan.
+  const kgPerCbm = Number(muatan.kgPerCbm) > 0 ? Number(muatan.kgPerCbm) : 167;
+  const measure = (k) => (mode === 'air' ? Math.max(k.weightKg || 0, (k.cbm || 0) * kgPerCbm) : Math.max(k.cbm || 0, MIN_CBM));
   const rawTotal = loaded.reduce((s, k) => s + measure(k), 0);
   const minChg = mode === 'air' ? 0 : (muatan.minCbm || 0);
   const chargeable = mode === 'air' ? Math.ceil(rawTotal) : Math.max(Math.ceil(rawTotal * 100) / 100, minChg);
