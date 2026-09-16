@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.4.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -936,7 +936,7 @@ function bindEvents() {
     if (sel) document.querySelector(sel)?.classList.add('active');
     document.querySelectorAll('.sidebar-item').forEach(b => b.removeAttribute('aria-current'));
     if (sel) document.querySelector(sel)?.setAttribute('aria-current', 'page');
-    const bnView = { viewRingkasan: 'ringkasan', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewStock: 'stock', viewLaporan: 'reports' }[viewId];
+    const bnView = { viewRingkasan: 'ringkasan', viewMuatan: 'muatan', viewSales: 'sales', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewStock: 'stock', viewLaporan: 'reports' }[viewId];
     document.querySelectorAll('#bottomNav .bn-item').forEach(b => {
       const on = b.dataset.bnav === bnView;
       b.classList.toggle('active', on);
@@ -1061,6 +1061,8 @@ function bindEvents() {
     if (!b) return;
     const t = b.dataset.bnav;
     if (t === 'ringkasan') showView('viewRingkasan');
+    else if (t === 'muatan') showView('viewMuatan');
+    else if (t === 'sales') showView('viewSales');
     else if (t === 'transaksi') showView('viewTransaksi');
     else if (t === 'gaji') showView('viewPayroll');
     else if (t === 'reports') showView('viewLaporan');

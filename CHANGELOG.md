@@ -6,6 +6,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.4.0] - 2026-09-16
+
+### Stage 5 (awal) — navigasi bawah mengikuti pekerjaan harian
+- **4.6 Bottom nav diubah**: **Beranda · 📦 Papan Muatan · ＋ · 🛒 Penjualan · ⋯ Lainnya** (sebelumnya Gaji menempati slot utama padahal satu karyawan, sementara Papan Muatan — layar harian admin — tidak ada). Transaksi, Laporan, Gaji, Produk, Kas, dll tetap terjangkau lewat **Lainnya**.
+- Pemetaan status aktif bottom-nav ikut `showView` (Papan Muatan & Penjualan menyala sesuai halaman).
+
 ## [2.3.0] - 2026-09-16
 
 ### Stage 4.2 & 4.3 — satu modal kirim lokal, satu modal terima pembayaran

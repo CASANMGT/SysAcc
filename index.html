@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.3.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.4.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -542,7 +542,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.3.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.4.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2391,10 +2391,9 @@
 
 <nav class="bottomnav" id="bottomNav" aria-label="Navigasi utama">
   <button type="button" class="bn-item active" data-bnav="ringkasan"><span aria-hidden="true">🏠</span>Beranda</button>
-  <button type="button" class="bn-item" data-bnav="transaksi"><span aria-hidden="true">🧾</span>Transaksi</button>
+  <button type="button" class="bn-item" data-bnav="muatan"><span aria-hidden="true">📦</span>Papan Muatan</button>
   <button type="button" class="bn-add" data-bnav="add" aria-label="Tambah transaksi" title="Tambah transaksi">＋</button>
-  <button type="button" class="bn-item" data-bnav="reports"><span aria-hidden="true">📊</span>Laporan</button>
-  <button type="button" class="bn-item" data-bnav="gaji"><span aria-hidden="true">👥</span>Gaji</button>
+  <button type="button" class="bn-item" data-bnav="sales"><span aria-hidden="true">🛒</span>Penjualan</button>
   <button type="button" class="bn-item" data-bnav="more" aria-haspopup="dialog"><span aria-hidden="true">⋯</span>Lainnya</button>
 </nav>
 
@@ -2720,7 +2719,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.3.0';
+    window.__htmlVersion = '2.4.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
