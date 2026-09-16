@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  createBelanja, refundBelanja,
+  getBelanjas, createBelanja, refundBelanja,
   getKolis, checkInKoli, updateKoli, assignBelanjaToKoli,
   getMuatanById, createMuatan, loadKoli,
   departMuatan, allocateBatch, receiveMuatan, getLastAllocation,
 } from '../lcl.js';
-import { getAllJournals, postJournal } from '../storage.js';
+import { getAllJournals, postJournal, saveItem, getItemById } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -131,6 +131,21 @@ describe('koli & muatan', () => {
 });
 
 describe('penerimaan & stok', () => {
+  it('alokasi menulis balik modal/pcs ke produk (weighted average)', () => {
+    const { muatan, belanja } = setupWorkedExample();
+    // produk terkait baris belanja
+    const it = saveItem({ name: 'Produk X', price: 250000, cost: 0, stock: 0 });
+    const bels = getBelanjas();
+    const bi = bels.findIndex((b) => b.id === belanja.id);
+    bels[bi].lines = bels[bi].lines.map((l) => ({ ...l, itemId: it.id }));
+    localStorage.setItem('wynara_belanja', JSON.stringify(bels));
+    departMuatan(muatan.id, { date: '2026-03-10', payment: 'cash' });
+    receiveMuatan(muatan.id, { date: '2026-04-05' });
+    const after = getItemById(it.id);
+    expect(after.stock).toBe(40);
+    // modal/pcs = Σbiaya / 40 = 158.531 (dibulatkan)
+    expect(after.cost).toBe(158531);
+  });
   it('residual pembulatan di berikan ke koli terbesar', () => {
     const muatan = createMuatan({ forwarder: 'F', ratePerCbm: 333333 });
     const k1 = checkInKoli({ cbm: 1.1 });

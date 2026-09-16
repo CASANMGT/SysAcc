@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.8.0] - 2026-09-16
+
+### Phase 3 close-out — biaya mendarat masuk ke modal produk (HPP benar)
+- **Alokasi menulis balik modal/pcs**: saat muatan diterima, biaya tiap belanja dibagi ke **baris menurut porsi nilai barang**, lalu ÷ qty → **modal per pcs**, dan masuk ke produk lewat **weighted-average** yang sudah ada (`applyStockMove`). Jadi HPP, Laba kotor di Penjualan, Produk Terlaris, dan pembalikan HPP retur penjualan otomatis benar untuk stok yang datang dari impor.
+- Harga modal **selalu dihitung**, tidak pernah diketik (onng kos/laut sudah termasuk freight hasil alokasi CBM).
+- Jurnal barang tetap total-per-belanja (Dr 1105 / Cr 1211) sehingga Neraca balance; yang berubah hanya distribusi ke tiap produk.
+- Uji: produk terkait baris belanja → setelah tiba, `stock 40`, `cost Rp 158.531` (contoh kerja). Suite **340 lulus**.
+
 ## [2.7.0] - 2026-09-16
 
 ### Stage 3.1 — Restock jadi "Terima Barang" dengan pemilih sumber

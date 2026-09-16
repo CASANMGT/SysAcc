@@ -387,10 +387,15 @@ export function receiveMuatan(muatanId, { date, koliIds = null } = {}) {
     if (amt <= 0) continue;
     lines.push({ account: INVENTORY_ACCOUNT, debit: amt, credit: 0, memo: `${la.belanja.no} ${la.koli.parcelNo}` });
     lines.push({ account: TRANSIT_ACCOUNT, debit: 0, credit: amt, memo: `${la.belanja.no} sampai gudang lokal` });
-    const unit = la.belanja.lines.length && la.belanja.lines.reduce((s, l) => s + l.qty, 0) > 0
-      ? Math.round(amt / la.belanja.lines.reduce((s, l) => s + l.qty, 0)) : 0;
-    for (const l of la.belanja.lines) {
-      if (l.itemId) stockMoves.push({ itemId: l.itemId, qty: l.qty, unitCost: unit });
+    // 4.4: biaya belanja → baris menurut porsi nilai barang, lalu ÷ qty → modal/pcs (weighted-average).
+    const b = la.belanja;
+    const goodsCny = b.goodsCny || 0;
+    const totQty = (b.lines || []).reduce((s, l) => s + l.qty, 0);
+    for (const l of b.lines || []) {
+      if (!l.itemId) continue;
+      const share = goodsCny > 0 ? (l.qty * l.cnyUnit) / goodsCny : (totQty > 0 ? l.qty / totQty : 0);
+      const lineCost = Math.round(amt * share);
+      stockMoves.push({ itemId: l.itemId, qty: l.qty, unitCost: l.qty > 0 ? Math.round(lineCost / l.qty) : 0 });
     }
   }
   if (lines.length) {
