@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.19.0] - 2026-09-16
+
+### Redesign langkah 6 — pengecualian §5.3 (jurnalnya sendiri)
+- **Kurang kirim · Rusak · Hilang di perjalanan** (`markBelanjaLoss`): barang yang tidak sampai utuh **tidak pernah masuk persediaan**. Jurnal **Dr 5199 Beban Lainnya / Cr 1211 Persediaan dalam Perjalanan** sebelum tiba, atau **Cr 1105** bila sudah diterima; `landedTotal` ikut turun dan kuantitas produk terkait dikurangi (mutasi stok `loss`). UI: tombol ⚠️ pada baris Belanja → pilih jenis → nilai Rp + pcs.
+- **Ditolak pelanggan** (`refusePreorder`): barang kembali ke stok siap jual, pesanan jadi `cancelled`, **tanpa jurnal pendapatan** karena pendapatan belum diakui. Bila pesanan sudah selesai, aplikasi menolak dan mengarahkan ke **retur penjualan** agar pendapatan & HPP dibalik dengan benar.
+- **Ditunda ke muatan berikutnya** sudah ada sejak dulu (koli `deferred` tidak ikut alokasi batch yang berangkat).
+- Uji: **356 lulus** — termasuk jurnal kerugian seimbang, peralihan 1211→1105 setelah tiba, dan pembatalan tanpa jurnal.
+
 ## [2.18.0] - 2026-09-16
 
 ### Redesign langkah 5 — tab Penjualan & satu pintu "＋ Beli"

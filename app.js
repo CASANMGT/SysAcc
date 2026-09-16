@@ -12,7 +12,7 @@ import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, bui
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
 import * as Freight from './freight.js';
-import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, costVariance, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
+import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, costVariance, markBelanjaLoss, refusePreorder, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.18.0';
+const APP_VERSION = '2.19.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3606,6 +3606,7 @@ function openOrderMoreMenu(kind, id) {
     <p style="font-size:12px;color:#475569;margin:0 0 10px"><b>${no}</b> — ${cust}</p>
     ${bal > 0.01 ? item('order-more-pay', `💵 Terima pembayaran (sisa ${preorderFmt(bal)})`) : ''}
     ${kind === 'po' ? item('order-more-cost', '🧾 Catat biaya pesanan') : ''}
+    ${kind === 'po' ? item('order-more-refuse', '🚫 Ditolak pelanggan (barang balik ke stok)') : ''}
     ${item('order-more-status', '＋ Ubah status…')}
     ${kind === 'po' ? '<button type="button" class="btn btn-ghost order-more-muatan" style="display:block;width:100%;text-align:left;font-size:13px;padding:10px 12px;margin-bottom:6px">🚢 Buka Papan Muatan</button>' : ''}
     <button type="button" class="btn btn-ghost order-more-del" data-kind="${kind}" data-id="${id}" style="display:block;width:100%;text-align:left;font-size:13px;padding:10px 12px;color:#ef4444">${kind === 'po' ? '🗑 Batalkan pesanan' : '🗑 Hapus penjualan kredit'}</button>
@@ -3891,6 +3892,7 @@ function renderMuatanPage() {
         <td style="white-space:nowrap">
           ${!b.koliId ? `<button type="button" class="btn btn-ghost belanja-koli" data-id="${b.id}" style="font-size:11px;padding:2px 8px">🧾 Koli</button>` : ''}
           ${b.stage !== 'done' ? `<button type="button" class="btn btn-ghost belanja-refund" data-id="${b.id}" style="font-size:11px;padding:2px 8px" title="Refund seller / kurang kirim">↩️</button>` : ''}
+          <button type="button" class="btn btn-ghost belanja-loss" data-id="${b.id}" style="font-size:11px;padding:2px 8px" title="Kurang kirim / rusak / hilang di perjalanan">⚠️</button>
         </td></tr>`;
     }).join('')}
       </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada belanja. Klik “＋ Belanja marketplace” untuk order pertama.</p>';
@@ -4306,6 +4308,33 @@ function openReceiveModal(muatanId) {
   });
 }
 
+function openBelanjaLossPrompt(belanjaId) {
+  const b = getBelanjas().find((x) => x.id === belanjaId);
+  if (!b) return;
+  const card = (cls, icon, title, sub) => `<button type="button" class="btn btn-ghost ${cls}" style="display:block;width:100%;text-align:left;border:2px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:8px;min-height:56px"><b style="font-size:13px">${icon} ${title}</b><br><span style="font-size:11px;color:#64748b">${sub}</span></button>`;
+  UI.openInfoModal(`⚠️ Masalah barang ${b.no}`,
+    card('loss-short', '📦', 'Kurang kirim', 'Seller mengirim lebih sedikit — Dr Beban Lainnya / Cr Persediaan dalam Perjalanan') +
+    card('loss-damaged', '💥', 'Rusak', 'Barang tiba rusak — nilainya dibebankan, tidak masuk stok') +
+    card('loss-lost', '🕳️', 'Hilang di perjalanan', 'Tidak sampai bersama muatan — dibebankan') +
+    '<div style="font-size:11px;color:#64748b">Nilai kerugian dihitung dari porsi harga barang yang hilang. Kuantitas produk ikut dikurangi bila baris terkait produk.</div>');
+}
+document.getElementById('infoModalBody')?.addEventListener('click', (e) => {
+  const map = { 'loss-short': 'short', 'loss-damaged': 'damaged', 'loss-lost': 'lost' };
+  const hit = Object.keys(map).find((c) => e.target.closest('.' + c));
+  if (!hit) return;
+  const type = map[hit];
+  const amount = prompt('Nilai kerugian (Rp) — porsi harga barang yang hilang/rusak:', '0');
+  if (amount == null) return;
+  const qty = prompt('Berapa pcs yang hilang/rusak? (0 bila tidak terkait produk)', '0');
+  try {
+    markBelanjaLoss(openBelanjaLossId || '', { type, amount: Number(String(amount).replace(/\./g, '')) || 0, qty: Number(qty) || 0, note: '' });
+    UI.closeInfoModal();
+    UI.showSuccess('Kerugian dicatat — dibebankan ke Beban Lainnya, bukan ke stok');
+    renderMuatanPage(); refresh(); queueMirror();
+  } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal mencatat kerugian'); }
+});
+let openBelanjaLossId = '';
+
 function openBelanjaRefundPrompt(belanjaId) {
   const b = getBelanjas().find((x) => x.id === belanjaId);
   if (!b) return;
@@ -4345,6 +4374,18 @@ function fmtCnyLoc(v) { return '¥' + Math.round(Number(v) || 0).toLocaleString(
     if (dCost) { UI.closeInfoModal(); openPoCost(dCost.dataset.id); return; }
     if (dStat) { UI.closeInfoModal(); openOrderStatus(dStat.dataset.kind, dStat.dataset.id, ''); return; }
     if (dMut) { UI.closeInfoModal(); document.getElementById('muatanBtnSidebar')?.click(); return; }
+    const refuse = e.target.closest('.order-more-refuse');
+    if (refuse) {
+      const note = prompt('Ditolak pelanggan — alasan (opsional):', '');
+      if (note == null) return;
+      try {
+        refusePreorder(refuse.dataset.id, { note });
+        UI.closeInfoModal();
+        UI.showSuccess('Pesanan dibatalkan — barang kembali ke stok siap jual');
+        refreshSalesPage(); refresh(); queueMirror();
+      } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal membatalkan'); }
+      return;
+    }
     if (pay) { UI.closeInfoModal(); if (pay.dataset.kind === 'po') openPoPay(pay.dataset.id); else openCreditPay(pay.dataset.id); return; }
     if (cost) { UI.closeInfoModal(); openPoCost(cost.dataset.id); return; }
     if (stat) { UI.closeInfoModal(); openOrderStatus(stat.dataset.kind, stat.dataset.id, ''); return; }
@@ -4354,6 +4395,8 @@ function fmtCnyLoc(v) { return '¥' + Math.round(Number(v) || 0).toLocaleString(
 document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
   const openMut = e.target.closest('.mtab-open-muatan');
   if (openMut) { openMuatanDetailModal(openMut.dataset.id); return; }
+  const loss = e.target.closest('.belanja-loss');
+  if (loss) { openBelanjaLossId = loss.dataset.id; openBelanjaLossPrompt(loss.dataset.id); return; }
   const del = e.target.closest('.belanja-refund');
   if (del) { openBelanjaRefundPrompt(del.dataset.id); return; }
   const koli = e.target.closest('.belanja-koli');

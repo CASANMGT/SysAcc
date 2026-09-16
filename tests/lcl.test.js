@@ -4,7 +4,7 @@ import {
   getBelanjas, createBelanja, refundBelanja,
   getKolis, checkInKoli, updateKoli, assignBelanjaToKoli,
   getMuatans, getMuatanById, createMuatan, loadKoli,
-  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance,
+  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder,
 } from '../lcl.js';
 import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, createDraftProductFromBelanja } from '../storage.js';
 
@@ -151,6 +151,35 @@ describe('migrasi Titip Beli lama', () => {
     const r2 = migrateLegacyTitipBeli();
     expect(r2.migrated).toBe(0); // idempoten
     expect(getBelanjas().filter((x) => x.legacy).length).toBe(1);
+  });
+});
+
+describe('§5.3 pengecualian', () => {
+  it('kurang kirim/rusak/hilang: Dr 5199 / Cr 1211 (belum tiba) dan landedTotal turun setelah tiba', () => {
+    const { muatan, belanja } = setupWorkedExample();
+    const jBefore = getAllJournals().length;
+    markBelanjaLoss(belanja.id, { type: 'short', amount: 200000, qty: 0, date: '2026-03-20' });
+    const j = getAllJournals().slice(-1)[0];
+    expect(getAllJournals().length).toBe(jBefore + 1);
+    expect(j.lines[0].account).toBe('5199');
+    expect(j.lines[1].account).toBe('1211');
+    expect(j.lines.reduce((s, l) => s + (l.debit || 0) - (l.credit || 0), 0)).toBe(0);
+    departMuatan(muatan.id, { date: '2026-03-10', payment: 'cash' });
+    receiveMuatan(muatan.id, { date: '2026-04-05' });
+    const b = getBelanjas().find((x) => x.id === belanja.id);
+    markBelanjaLoss(belanja.id, { type: 'damaged', amount: 100000, qty: 0, date: '2026-04-06' });
+    const b2 = getBelanjas().find((x) => x.id === belanja.id);
+    expect(getAllJournals().slice(-1)[0].lines[1].account).toBe('1105'); // setelah tiba → dari persediaan
+    expect(b2.landedTotal).toBe(Number(b.landedTotal) - 100000);
+    expect((b2.losses || []).length).toBe(2);
+  });
+
+  it('ditolak pelanggan sebelum selesai: stage cancelled, tanpa jurnal baru', () => {
+    const po = createPreorder({ date: '2026-07-01', customer: 'Siti', items: [{ name: 'Y', qty: 1, price: 300000 }], fx: 2300, months: 1 });
+    const jBefore = getAllJournals().length;
+    const out = refusePreorder(po.id, { note: 'salah ukuran' });
+    expect(out.stage).toBe('cancelled');
+    expect(getAllJournals().length).toBe(jBefore);
   });
 });
 

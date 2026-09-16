@@ -512,6 +512,76 @@ export function migrateLegacyTitipBeli() {
   return { migrated: changed };
 }
 
+// §5.3 Exceptions: kurang kirim · rusak · hilang di perjalanan.
+// Barang tidak sampai utuh → bagian yang hilang TIDAK boleh jadi persediaan.
+// Jurnal: Dr 5199 Beban Lainnya / Cr 1211 Persediaan dalam Perjalanan (atau 1105 bila sudah diterima).
+export function markBelanjaLoss(belanjaId, { type = 'short', amount = 0, qty = 0, date, note } = {}) {
+  const list = getBelanjas();
+  const i = list.findIndex((x) => x.id === belanjaId);
+  if (i < 0) throw new Error('Belanja tidak ditemukan');
+  const b = list[i];
+  const amt = Math.round(Number(amount) || 0);
+  if (amt <= 0) throw new Error('Nilai kerugian harus > 0');
+  const kind = ['short', 'damaged', 'lost'].includes(type) ? type : 'short';
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const arrived = b.landedTotal != null;
+  const label = kind === 'short' ? 'Kurang kirim' : kind === 'damaged' ? 'Rusak' : 'Hilang di perjalanan';
+  const q = Math.max(Math.floor(Number(qty) || 0), 0);
+  postJournal({
+    id: jid('J'), date: d, memo: `${label} ${b.no}${note ? ' — ' + note : ''}`,
+    ref: 'lcl-loss', refId: b.id,
+    lines: [
+      { account: '5199', debit: amt, credit: 0, memo: `${label} (barang tidak masuk)` },
+      { account: arrived ? INVENTORY_ACCOUNT : TRANSIT_ACCOUNT, debit: 0, credit: amt, memo: label },
+    ],
+  });
+  b.losses = (b.losses || []).concat({ date: d, type: kind, amount: amt, qty: q, note: String(note || '').slice(0, 80) });
+  if (arrived) b.landedTotal = Math.max((Number(b.landedTotal) || 0) - amt, 0);
+  // Kuantitas produk ikut dikurangi bila baris terkait produk.
+  if (q > 0) {
+    const totQty = (b.lines || []).reduce((s, l) => s + l.qty, 0);
+    for (const l of b.lines || []) {
+      if (!l.itemId || !totQty) continue;
+      const cut = Math.min(Math.round((l.qty / totQty) * q), l.qty);
+      if (cut > 0) {
+        l.qty -= cut;
+        try { applyStockMove(l.itemId, { qtyOut: cut, ref: 'loss', note: `${label} ${b.no}`, type: 'loss' }); } catch {}
+      }
+    }
+  }
+  list[i] = b;
+  save(BELANJA_KEY, list);
+  logAudit('update', 'lcl-loss', b.id, null, { type: kind, amount: amt, qty: q });
+  return b;
+}
+
+// Ditolak pelanggan SEBELUM pendapatan diakui (belum lunas/selesai): barang balik ke stok, tanpa jurnal pendapatan.
+// Bila pesanan sudah selesai (pendapatan & HPP sudah diakui), arahkan ke retur penjualan, jangan dibalik di sini.
+export function refusePreorder(poId, { date, note } = {}) {
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const list = (() => { try { return JSON.parse(localStorage.getItem('wynara_preorders') || '[]'); } catch { return []; } })();
+  const i = list.findIndex((p) => p.id === poId);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.stage === 'settled') throw new Error('Pesanan sudah selesai — catat lewat retur penjualan agar pendapatan & HPP dibalik dengan benar');
+  // Barang yang sudah di gudang lokal dikembalikan ke stok untuk dijual lagi.
+  const bels = getBelanjas();
+  for (const b of bels.filter((x) => x.preorderId === poId)) {
+    for (const l of b.lines || []) {
+      if (!l.itemId) continue;
+      try { applyStockMove(l.itemId, { qtyIn: Math.max(l.qty, 0), ref: 'refuse', note: `Ditolak pelanggan ${po.no}`, type: 'refuse' }); } catch {}
+    }
+  }
+  po.stage = 'cancelled';
+  po.events = (po.events || []).concat([{ date: d, stage: 'cancelled', note: `Ditolak pelanggan${note ? ' — ' + note : ''}`, tracking: '', schedule: '' }]);
+  list[i] = po;
+  try { localStorage.setItem('wynara_preorders', JSON.stringify(list)); } catch {}
+  logAudit('update', 'preorder', poId, null, { stage: 'cancelled', reason: 'ditolak pelanggan' });
+  return po;
+}
+
 export let lastAlloc = null;
 export function getLastAllocation() { return lastAlloc; }
 
