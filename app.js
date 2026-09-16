@@ -11,6 +11,7 @@ import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
+import { getBelanjas, getKolis, getMuatans, getMuatanById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin } from './lcl.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -39,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.97.0';
+const APP_VERSION = '1.98.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -891,7 +892,7 @@ function bindEvents() {
     const target = document.getElementById(viewId) || document.getElementById('viewRingkasan');
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewSales: '#salesBtnSidebar', viewKas: '#kasBtnSidebar', viewPembelian: '#pembelianBtnSidebar', viewBiaya: '#biayaBtnSidebar', viewPayroll: '#payrollBtnSidebar', viewStock: '#stockBtnSidebar', viewLaporan: '#reportBtnSidebar', viewChangelog: '#changelogLink' };
+    const map = { viewRingkasan: '[data-nav="ringkasan"]', viewTransaksi: '#sidebarTransaksi', viewSales: '#salesBtnSidebar', viewKas: '#kasBtnSidebar', viewPembelian: '#pembelianBtnSidebar', viewMuatan: '#muatanBtnSidebar', viewBiaya: '#biayaBtnSidebar', viewPayroll: '#payrollBtnSidebar', viewStock: '#stockBtnSidebar', viewLaporan: '#reportBtnSidebar', viewChangelog: '#changelogLink' };
     const sel = map[viewId];
     if (sel) document.querySelector(sel)?.classList.add('active');
     document.querySelectorAll('.sidebar-item').forEach(b => b.removeAttribute('aria-current'));
@@ -909,6 +910,7 @@ function bindEvents() {
 
     if (viewId === 'viewKas') renderKasPage();
     if (viewId === 'viewPembelian') renderPembelianPage();
+    if (viewId === 'viewMuatan') renderMuatanPage();
     if (viewId === 'viewBiaya') renderBiayaPage();
     if (viewId === 'viewPayroll') renderPayrollView();
     if (viewId === 'viewStock') refreshStockPage();
@@ -921,6 +923,7 @@ function bindEvents() {
   document.getElementById('salesBtnSidebar')?.addEventListener('click', () => showView('viewSales'));
   document.getElementById('kasBtnSidebar')?.addEventListener('click', () => showView('viewKas'));
   document.getElementById('pembelianBtnSidebar')?.addEventListener('click', () => showView('viewPembelian'));
+  document.getElementById('muatanBtnSidebar')?.addEventListener('click', () => showView('viewMuatan'));
   document.getElementById('biayaBtnSidebar')?.addEventListener('click', () => showView('viewBiaya'));
   document.getElementById('assetBtnSidebar')?.addEventListener('click', () => openAssets());
   document.getElementById('coaBtnSidebar')?.addEventListener('click', openCoaModal);
@@ -1030,6 +1033,7 @@ function bindEvents() {
         { goto: 'stock', icon: '📦', label: 'Produk', aria: 'Produk dan stok' },
         { goto: 'sales', icon: '🛒', label: 'Penjualan', aria: 'Laporan penjualan' },
         { goto: 'pembelian', icon: '🧺', label: 'Pembelian', aria: 'Pembelian dan hutang supplier' },
+        { goto: 'muatan', icon: '📦', label: 'Papan Muatan', aria: 'Belanja China dan muatan LCL' },
         { goto: 'preorder', icon: '🌏', label: 'Titip Beli', aria: 'Titip beli pelanggan' },
         { goto: 'biaya', icon: '💸', label: 'Biaya', aria: 'Pengeluaran operasional' },
         { goto: 'kas', icon: '💳', label: 'Kas', aria: 'Kas dan rekonsiliasi' },
@@ -1072,6 +1076,7 @@ function bindEvents() {
     else if (target === 'stock') showView('viewStock');
     else if (target === 'sales') showView('viewSales');
     else if (target === 'pembelian') showView('viewPembelian');
+    else if (target === 'muatan') showView('viewMuatan');
     else if (target === 'preorder') showView('viewSales');
     else if (target === 'biaya') showView('viewBiaya');
     else if (target === 'kas') { refreshKas(); UI.openKas(); }
@@ -3539,6 +3544,390 @@ function preorderSettlePrompt(id) {
     queueMirror();
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menutup pesanan'); }
 }
+/* ===== Papan Muatan (LCL consolidation) ===== */
+function renderMuatanPage() {
+  if (!document.getElementById('viewMuatan')) return;
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const bels = getBelanjas();
+  const kolis = getKolis();
+  const muats = getMuatans();
+
+  // KPI
+  let agentBalance = 0;
+  Storage.getAllJournals().forEach((j) => (j.lines || []).forEach((l) => {
+    if (l.account === '1212') agentBalance += (Number(l.debit) || 0) - (Number(l.credit) || 0);
+  }));
+  const belInChina = bels.filter((b) => ['paid', 'china'].includes(b.stage)).reduce((s, b) => s + (b.totalIdr || 0), 0);
+  const belAtSea = bels.filter((b) => ['batch', 'ship'].includes(b.stage)).reduce((s, b) => s + (b.totalIdr || 0), 0);
+  const freightAtSea = muats.filter((m) => m.freightBilled > 0 && !m.arrivedKoliIds?.length).reduce((s, m) => s + (m.freightBilled || 0), 0);
+  const gerbong = (m) => kolis.filter((k) => (m.koliIds || []).includes(k.id));
+  const nextMuat = muats.filter((m) => !m.departed).sort((a, b) => String(a.etd).localeCompare(String(b.etd)))[0];
+  const nextCb = nextMuat ? gerbong(nextMuat).reduce((s, k) => s + (k.cbm || 0), 0) : 0;
+
+  const kpi = document.getElementById('muatanKpi');
+  if (kpi) {
+    const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
+    kpi.innerHTML = tile('Saldo agen', fmt(agentBalance)) + tile('💵 Barang di gudang China', fmt(belInChina)) + tile('🚢 Barang di kapal', fmt(belAtSea + freightAtSea)) + tile(nextMuat ? `Muatan berikut ${escapeHtml(nextMuat.code)}` : 'Muatan berikut', nextMuat ? `${nextCb.toFixed(2)} CBM${nextMuat.etd ? ' • ETD ' + escapeHtml(nextMuat.etd) : ''}` : '—');
+  }
+  const sub = document.getElementById('muatanSubtitle');
+  if (sub) sub.textContent = `${bels.length} belanja • ${kolis.length} koli • ${muats.length} muatan — cek "di mana uang saya sekarang"`;
+
+  // Papan 3 kolom
+  const chinaBox = document.getElementById('muatanColChina');
+  const seaBox = document.getElementById('muatanColSea');
+  const arrivedBox = document.getElementById('muatanColArrived');
+  const chip = (t, c) => `<span style="background:${c};color:#fff;font-size:10px;font-weight:700;border-radius:9999px;padding:2px 8px">${t}</span>`;
+  const colCard = (title, sub2, right, muatId) => `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px;background:#fff"${muatId ? ` data-muatan="${muatId}" role="button" style="cursor:pointer"` : ''}>
+    <div style="display:flex;justify-content:space-between;gap:6px;align-items:center"><b style="font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(title)}</b><span style="font-size:12px;white-space:nowrap;font-weight:700">${right}</span></div>
+    <div style="font-size:11px;color:#64748b;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(sub2)}</div></div>`;
+
+  function kolisBelanjaStage(k) {
+    const b = (k.belanjaIds || []).map((bid) => bels.find((x) => x.id === bid)).filter(Boolean);
+    return b.length ? b[0].stage : '';
+  }
+  function belanjaIdrOf(k) {
+    return (k.belanjaIds || []).reduce((s, bid) => s + (bels.find((x) => x.id === bid)?.totalIdr || 0), 0);
+  }
+  if (chinaBox) {
+    const inHouse = kolis.filter((k) => !k.muatanId && kolisBelanjaStage(k) !== 'arrived');
+    const pureBels = bels.filter((b) => !b.koliId && ['paid', 'china'].includes(b.stage));
+    const html = inHouse.map((k) => colCard(`Koli ${k.parcelNo}`, `${(k.cbm || 0).toFixed(2)} CBM${k.weightKg ? ' • ' + k.weightKg + ' kg' : ''} • ${k.belanjaIds.length} belanja`, fmt(belanjaIdrOf(k)))).join('')
+      + pureBels.map((b) => colCard(`${b.no}`, `${escapeHtml(b.seller || b.marketplace)} • ${fmtCnyLoc(b.totalCny)} @${b.kursAgen}`, fmt(b.totalIdr))).join('');
+    chinaBox.innerHTML = (html || '<p style="color:var(--text-muted);font-size:12px">Belum ada paket di gudang China. Cek-in koli setelah agent menerimanya.</p>');
+  }
+  if (seaBox) {
+    const atSea = muats.filter((m) => m.departed && !m.allocated);
+    const html = atSea.map((m) => colCard(m.code || m.id, `${escapeHtml(m.forwarder || 'forwarder')} • ${(getChargeableOf(m, gerbong(m)) || 0).toFixed(2)} ${m.mode === 'air' ? 'kg' : 'CBM'}${m.eta ? ' • ETA ' + escapeHtml(m.eta) : ''}`, fmt((m.freightBilled || 0)), m.id)).join('');
+    seaBox.innerHTML = (html || '<p style="color:var(--text-muted);font-size:12px">Tidak ada muatan di perjalanan.</p>');
+  }
+  function getChargeableOf(m, ks) {
+    if (!ks.length) return 0;
+    const mode = m.mode === 'air' ? 'air' : 'sea';
+    const measure = (k) => (mode === 'air' ? Math.max(k.weightKg || 0, (k.cbm || 0) * 167) : (k.cbm || 0));
+    const raw = ks.reduce((s, k) => s + measure(k), 0);
+    return mode === 'air' ? Math.ceil(raw) : Math.max(Math.ceil(raw * 100) / 100, m.minCbm || 0);
+  }
+  if (arrivedBox) {
+    const arrived = muats.filter((m) => m.arrivedKoliIds?.length && !m.allocated);
+    const html = arrived.map((m) => {
+      const arrivedKolis = gerbong(m).filter((k) => (m.arrivedKoliIds || []).includes(k.id));
+      return colCard(m.code || m.id, `${arrivedKolis.length} koli tiba • ${m.allocated ? 'selesai' : 'perlu alokasi biaya'}`, fmt(m.freightBilled || 0), m.id);
+    }).join('');
+    arrivedBox.innerHTML = (html || '<p style="color:var(--text-muted);font-size:12px">Belum ada muatan tiba.</p>');
+  }
+
+  // Daftar belanja
+  const listBox = document.getElementById('muatanBelanjaList');
+  if (listBox) {
+    const STAGE = { paid: 'Dipesan', china: 'Di gudang China', batch: 'Muat ke muatan', ship: 'Di kapal', arrived: 'Sampai gudang', done: 'Selesai' };
+    const COLOR = { paid: '#94a3b8', china: '#f59e0b', batch: '#8b5cf6', ship: '#3b82f6', arrived: '#059669', done: '#64748b' };
+    const pos = Storage.getPreorders();
+    listBox.innerHTML = bels.length ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+      <th>Tanggal</th><th>Nomor</th><th>Marketplace / Seller</th><th>Untuk</th><th class="amount-col">¥ Total</th><th class="amount-col">Rp Total</th><th class="amount-col">Mother cost</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
+      ${bels.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).map((b) => {
+      const po = b.preorderId ? pos.find((p) => p.id === b.preorderId) : null;
+      const mar = po ? preorderRealisedMargin(po) : null;
+      const target = b.purpose === 'stock' ? '📦 Stok' : po ? `👤 ${escapeHtml(po.customer || po.no)}` : '👤 Preorder';
+      const marginTxt = po && mar.landed > 0 ? `<br><span style="color:${mar.margin >= 0 ? '#059669' : '#dc2626'};font-weight:700">margin ${fmt(mar.margin)} (${mar.pct >= 0 ? '+' : ''}${Math.round(mar.pct * 100)}%)</span>` : '';
+      return `<tr>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(b.date)}</td>
+        <td style="font-size:12px;white-space:nowrap">${escapeHtml(b.no)}</td>
+        <td style="font-size:12px">${escapeHtml(MARKETPLACES.find((mk) => mk.id === b.marketplace)?.label || b.marketplace)} • ${escapeHtml(b.seller || '—')}</td>
+        <td style="font-size:11px">${target}${marginTxt}</td>
+        <td class="amount-col">${fmtCnyLoc(b.totalCny)} <span style="font-size:10px;color:#64748b">@${b.kursAgen}</span></td>
+        <td class="amount-col">${fmt(b.totalIdr)}</td>
+        <td class="amount-col">${b.landedTotal != null ? fmt(b.landedTotal) : '—'}</td>
+        <td style="font-size:11px">${chip(STAGE[b.stage] || b.stage, COLOR[b.stage] || '#94a3b8')}</td>
+        <td style="white-space:nowrap">
+          ${!b.koliId ? `<button type="button" class="btn btn-ghost belanja-koli" data-id="${b.id}" style="font-size:11px;padding:2px 8px">🧾 Koli</button>` : ''}
+          ${b.stage !== 'done' ? `<button type="button" class="btn btn-ghost belanja-refund" data-id="${b.id}" style="font-size:11px;padding:2px 8px" title="Refund seller / kurang kirim">↩️</button>` : ''}
+        </td></tr>`;
+    }).join('')}
+      </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada belanja. Klik “＋ Belanja marketplace” untuk order pertama.</p>';
+  }
+}
+
+function openBelanjaModal() {
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const pos = Storage.getPreorders().filter((po) => po.stage !== 'cancelled' && po.stage !== 'settled');
+  const html = `<form id="belanjaForm" style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <label style="flex:1;min-width:120px;font-size:12px">Tanggal<br><input type="date" id="belanjaDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:120px;font-size:12px">Marketplace<br><select id="belanjaMp" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px">${MARKETPLACES.map((m) => `<option value="${m.id}">${m.label}</option>`).join('')}</select></label>
+      <label style="flex:1;min-width:120px;font-size:12px">Seller<br><input id="belanjaSeller" placeholder="nama toko" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+    </div>
+    <label style="font-size:12px">Barang — satu baris per barang: <b>nama; qty; harga ¥</b><textarea id="belanjaLines" rows="3" placeholder="Case iPhone 15; 40; 28" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px"></textarea></label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label style="flex:1;min-width:110px;font-size:12px">Ongkir China (¥)<br><input type="number" id="belanjaOngkir" min="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Fee agen (Rp)<br><input type="number" id="belanjaFee" min="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Kurs agen (Rp/¥)<br><input type="number" id="belanjaKurs" min="1" value="2300" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label style="flex:1;min-width:110px;font-size:12px">Bayar dengan<br><select id="belanjaPay" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"><option value="agent">Saldo agen (1212)</option><option value="cash">Tunai (1104)</option><option value="transfer">Bank BCA (1101)</option></select></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Kurir China (resi)<br><input id="belanjaTracking" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+    </div>
+    <label style="font-size:12px">Untuk (tujuan barang)<br><select id="belanjaFor" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px">
+      <option value="">📦 Stok gudang</option>
+      ${pos.map((po) => `<option value="${po.id}">👤 ${escapeHtml(po.customer || po.no)} (${escapeHtml(po.no)})</option>`).join('')}
+    </select></label>
+    <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan dalam Perjalanan (1211) / Cr saldo agen atau kas. Barang bisa campuran stok + pesanan pelanggan dalam satu belanja.</div>
+    <button type="submit" class="btn btn-primary" id="belanjaSave">🛍 Simpan belanja (bayar penuh)</button>
+  </form>`;
+  UI.openInfoModal('🛍 Belanja marketplace', html);
+  document.getElementById('belanjaSave')?.addEventListener('click', saveBelanja);
+  const form = document.getElementById('belanjaForm');
+  form?.addEventListener('submit', (e) => { e.preventDefault(); saveBelanja(); });
+  function saveBelanja() {
+    try {
+      const lines = String(document.getElementById('belanjaLines').value || '').split('\n').map((s) => s.trim()).filter(Boolean).map((s) => {
+        const parts = s.split(';').map((x) => x.trim());
+        return { name: parts[0], qty: Number(parts[1]) || 1, cnyUnit: Number(parts[2]) || 0 };
+      });
+      const poSel = document.getElementById('belanjaFor').value;
+      const b = createBelanja({
+        date: document.getElementById('belanjaDate').value,
+        marketplace: document.getElementById('belanjaMp').value,
+        seller: document.getElementById('belanjaSeller').value,
+        orderNo: '',
+        lines, ongkirCny: Number(document.getElementById('belanjaOngkir').value) || 0,
+        agentFee: Number(document.getElementById('belanjaFee').value) || 0,
+        kursAgen: Number(document.getElementById('belanjaKurs').value) || 0,
+        payment: document.getElementById('belanjaPay').value,
+        purpose: poSel ? 'preorder' : 'stock',
+        preorderId: poSel || null,
+        chinaTracking: document.getElementById('belanjaTracking').value,
+      });
+      UI.closeInfoModal();
+      UI.showSuccess(`Belanja ${b.no} tersimpan — ${fmt(b.totalIdr)}`);
+      renderMuatanPage();
+      refresh();
+      queueMirror();
+    } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal simpan belanja'); }
+  }
+}
+
+function openKoliModal() {
+  const bels = getBelanjas().filter((b) => !b.koliId);
+  const html = `<form id="koliForm" style="display:flex;flex-direction:column;gap:10px">
+    <label style="font-size:12px">Nomor paket (opsional — auto)<input id="koliNo" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+    <div style="display:flex;gap:10px">
+      <label style="flex:1;font-size:12px">Tiba di gudang China<br><input type="date" id="koliDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;font-size:12px">CBM diukur<br><input type="number" step="0.01" id="koliCbm" placeholder="0.35" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;font-size:12px">Berat kg<br><input type="number" step="0.1" id="koliKg" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+    </div>
+    <label style="font-size:12px">💡 Cek-in banyak paket sekaligus — satu baris per paket: <b>no;CBM;kg</b><textarea id="koliBulk" rows="4" placeholder="K-201;0.35;4.2&#10;K-202;0.8;9" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px"></textarea></label>
+    <label style="font-size:12px">Catat belanja yang ikut paket ini (opsional)<br><select id="koliBelanja" multiple size="3" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;font-size:12px">
+      ${bels.map((b) => `<option value="${b.id}">${b.no} — ${escapeHtml(b.seller || b.marketplace)}</option>`).join('')}
+    </select></label>
+    <button type="submit" class="btn btn-primary">📥 Cek-in (batch ok)</button>
+  </form>`;
+  UI.openInfoModal('🧾 Cek-in koli (gudang China)', html);
+  document.getElementById('koliForm')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    try {
+      const bulk = String(document.getElementById('koliBulk').value || '').split('\n').map((s) => s.trim()).filter(Boolean);
+      if (bulk.length) {
+        bulk.forEach((line) => {
+          const [no, cbm, kg] = line.split(';').map((x) => x.trim());
+          checkInKoli({ parcelNo: no || undefined, cbm: Number(cbm) || 0, weightKg: Number(kg) || 0, arrivalDate: document.getElementById('koliDate').value });
+        });
+        const sel = Array.from(document.getElementById('koliBelanja').selectedOptions || []).map((o) => o.value);
+        const kolis = getKolis();
+        const newKolis = kolis.slice(-bulk.length);
+        sel.forEach((bid, ix) => { try { assignBelanjaToKoli(newKolis[ix % newKolis.length].id, bid); } catch {} });
+      } else {
+        const k = checkInKoli({ parcelNo: document.getElementById('koliNo').value, cbm: Number(document.getElementById('koliCbm').value) || 0, weightKg: Number(document.getElementById('koliKg').value) || 0, arrivalDate: document.getElementById('koliDate').value });
+        const bid = document.getElementById('koliBelanja') ;
+        if (bid.value) { try { assignBelanjaToKoli(k.id, bid.value); } catch {} }
+      }
+      UI.closeInfoModal();
+      UI.showSuccess('Paket tercatat di gudang China');
+      renderMuatanPage();
+      queueMirror();
+    } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal cek-in koli'); }
+  });
+}
+
+function openMuatanCreateModal() {
+  const html = `<form id="muatanCreateForm" style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label style="flex:1;min-width:110px;font-size:12px">Kode batch<br><input id="mutCode" placeholder="LCL-2026-04" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Forwarder<br><input id="mutFwd" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Mode<br><select id="mutMode" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"><option value="sea">Laut LCL (per CBM)</option><option value="air">Air (per kg)</option></select></label>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label style="flex:1;min-width:110px;font-size:12px">Tarif per CBM/kg (Rp)<br><input type="number" id="mutRate" min="1" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:110px;font-size:12px">CBM minimum<br><input type="number" id="mutMin" step="0.01" min="0" value="0.5" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label style="flex:1;min-width:120px;font-size:12px">ETD<br><input type="date" id="mutEtd" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:120px;font-size:12px">ETA<br><input type="date" id="mutEta" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+    </div>
+    <button type="submit" class="btn btn-primary">🚢 Simpan muatan</button>
+  </form>`;
+  UI.openInfoModal('🚢 Muatan baru (batch LCL)', html);
+  document.getElementById('muatanCreateForm')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    try {
+      const m = createMuatan({
+        code: document.getElementById('mutCode').value,
+        forwarder: document.getElementById('mutFwd').value,
+        mode: document.getElementById('mutMode').value === 'air' ? 'air' : 'sea',
+        ratePerCbm: Number(document.getElementById('mutRate').value) || 0,
+        minCbm: Number(document.getElementById('mutMin').value) || 0,
+        etd: document.getElementById('mutEtd').value,
+        eta: document.getElementById('mutEta').value,
+      });
+      UI.closeInfoModal();
+      UI.showSuccess(`Muatan ${m.code} dibuat — muat koli di detail`);
+      openMuatanDetailModal(m.id);
+    } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal buat muatan'); }
+  });
+}
+
+function openMuatanDetailModal(muatanId) {
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const render = () => {
+    const m = getMuatanById(muatanId);
+    if (!m) return;
+    const kolis = getKolis();
+    const loaded = kolis.filter((k) => (m.koliIds || []).includes(k.id));
+    const waiting = kolis.filter((k) => !k.muatanId && !k.deferred);
+    const measure = (k) => (m.mode === 'air' ? Math.max(k.weightKg || 0, (k.cbm || 0) * 167) : (k.cbm || 0));
+    const raw = loaded.filter(k => !k.deferred).reduce((s, k) => s + measure(k), 0);
+    const unit = m.mode === 'air' ? 'kg' : 'CBM';
+    const chargeable = m.mode === 'air' ? Math.ceil(raw) : Math.max(Math.ceil(raw * 100) / 100, m.minCbm || 0);
+    const rate = m.mode === 'air' ? m.ratePerKg : m.ratePerCbm;
+    const est = Math.round(chargeable * (rate || 0)) + (m.charges || []).reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const projPerCbm = chargeable > 0 ? Math.round(est / chargeable) : 0;
+    const html = `<div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px">
+        <b>${escapeHtml(m.code || '')}</b> ${escapeHtml(m.forwarder || '')} • ${m.mode === 'air' ? 'Air' : 'Laut LCL'} • tarif ${fmt(rate)}/${unit}${m.minCbm ? ' • min ' + m.minCbm : ''}
+      </div>
+      <div style="background:#f8fafc;border-radius:10px;padding:10px;font-size:12px">
+        <b>Isi muatan:</b> ${raw.toFixed(2)} ${unit} terkumpul → chargeable ${chargeable.toFixed(2)} ${unit} • estimasi biaya <b>${fmt(est)}</b> • per ${unit} ${fmt(projPerCbm)}
+      </div>
+      <div><b style="font-size:12px">Koli di muatan</b><div>
+        ${loaded.length ? loaded.map((k) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
+          <span>🧾 ${escapeHtml(k.parcelNo)} • ${(k.cbm || 0).toFixed(2)} CBM</span>
+          ${!m.departed ? `<button type="button" class="btn btn-ghost koli-unload" data-id="${k.id}" style="font-size:11px;padding:2px 8px">↩ Bongkar</button>` : `<span style="font-size:11px;color:#64748b">${(k.belanjaIds || []).length} belanja</span>`}
+        </div>`).join('') : '<p style="font-size:12px;color:#64748b;margin:4px 0">Kosong — muat koli di bawah.</p>'}
+      </div></div>
+      ${!m.departed ? `<div><b style="font-size:12px">Koli menunggu</b><div>
+        ${waiting.length ? waiting.map((k) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
+          <span>🧾 ${escapeHtml(k.parcelNo)} • ${(k.cbm || 0).toFixed(2)} CBM</span>
+          <button type="button" class="btn btn-ghost koli-load" data-id="${k.id}" style="font-size:11px;padding:2px 8px">＋ Muat</button>
+        </div>`).join('') : '<p style="font-size:12px;color:#64748b;margin:4px 0">Semua koli sudah termuat (cek-in dulu di gudang China).</p>'}
+      </div></div>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${!m.departed ? `<button type="button" class="btn btn-primary muatan-depart" data-id="${m.id}">🚢 Tandai Berangkat</button>` : ''}
+        ${m.departed && !m.allocated ? `<button type="button" class="btn btn-primary muatan-receive" data-id="${m.id}">📥 Tandai Tiba + Alokasi</button>` : ''}
+        ${m.allocated ? '<span style="font-size:12px;color:#059669;font-weight:700">✔ Biaya sudah dialokasi</span>' : ''}
+      </div>
+      ${m.freightBilled ? `<div style="font-size:11px;color:#64748b">Ongkos dibill <b>${fmt(m.freightBilled)}</b>${m.departed ? ' • berangkat ' + escapeHtml(m.departed) : ''}</div>` : ''}
+    </div>`;
+    UI.openInfoModal(`🚢 Muatan ${m.code || m.id}`, html);
+    document.querySelectorAll('.koli-load').forEach((el) => el.addEventListener('click', () => { try { loadKoli(muatanId, el.dataset.id); openMuatanDetailModal(muatanId); } catch (e) { UI.showError(e.message); } }));
+    document.querySelectorAll('.koli-unload').forEach((el) => el.addEventListener('click', () => { try { unloadKoli(muatanId, el.dataset.id); openMuatanDetailModal(muatanId); } catch (e) { UI.showError(e.message); } }));
+    document.querySelectorAll('.muatan-depart').forEach((el) => el.addEventListener('click', () => openDepartModal(el.dataset.id)));
+    document.querySelectorAll('.muatan-receive').forEach((el) => el.addEventListener('click', () => openReceiveModal(el.dataset.id)));
+  };
+  render();
+}
+
+function openDepartModal(muatanId) {
+  const m = getMuatanById(muatanId);
+  const html = `<form id="mutDepartForm" style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;color:#64748b">Jurnal saat berangkat: <b>Dr Persediaan dalam Perjalanan (1211) / Cr kas atau hutang forwarder</b>. Ongkos = chargeable ${m.mode === 'air' ? 'kg' : 'CBM'} × tarif + biaya batch.</div>
+    <label style="font-size:12px">Tanggal berangkat<br><input type="date" id="mutDepartDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+    <label style="font-size:12px">Ongkos dibayar dengan<br><select id="mutDepartPay" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"><option value="cash">Tunai</option><option value="transfer">Bank BCA</option><option value="apputaran">Hutang forwarder</option></select></label>
+    <button type="submit" class="btn btn-primary">🚢 Konfirmasi Berangkat</button>
+  </form>`;
+  UI.openInfoModal(`🚢 Berangkat ${m.code}`, html);
+  document.getElementById('mutDepartForm')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    try {
+      const pay = document.getElementById('mutDepartPay').value;
+      departMuatan(muatanId, { date: document.getElementById('mutDepartDate').value, payment: pay === 'apputaran' ? 'cash' : pay, delegateAp: pay === 'apputaran' });
+      UI.closeInfoModal();
+      UI.showSuccess(`Muatan berangkat — ongkos dibook ke Persediaan dalam Perjalanan`);
+      renderMuatanPage();
+      queueMirror();
+    } catch (e) { UI.showError(e.message); }
+  });
+}
+
+function openReceiveModal(muatanId) {
+  const m = getMuatanById(muatanId);
+  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const kolis = getKolis();
+  const allKolis = kolis.filter((k) => (m.koliIds || []).includes(k.id) && !k.deferred);
+  const arrivedIds = new Set(m.arrivedKoliIds || []);
+  const nowKolis = allKolis.filter((k) => !arrivedIds.has(k.id));
+  if (!nowKolis.length) { UI.showError('Semua koli sudah diterima'); return; }
+  // PREVIEW alokasi (belum posting!)
+  const alloc = allocateBatch(m, allKolis, { arrivedKoliIds: allKolis.filter((k) => arrivedIds.has(k.id) || nowKolis.includes(k)).map((k) => k.id), alreadyBilled: true });
+  const rows = (alloc.lineAlloc || []).map((la) => {
+    const qty = la.belanja.lines.reduce((s, l) => s + l.qty, 0);
+    return `<tr>
+      <td style="font-size:11px">${escapeHtml(la.belanja.no)} • ${escapeHtml(la.belanja.seller || '')}</td>
+      <td class="amount-col">${fmt(la.landedTotal)}</td>
+      <td class="amount-col" style="font-size:11px;color:#059669"><b>${fmt(Math.round(la.landedTotal / Math.max(qty, 1)))}/unit</b></td></tr>`;
+  }).join('');
+  const html = `<div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;color:#64748b">Perkiraan biaya mendarat per belanja (alokasi: CBM share, residu ke koli terbesar). <b>Tidak menyimpan apa pun sebelum dikonfirmasi.</b></div>
+    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Belanja</th><th class="amount-col">Biaya mendarat</th><th class="amount-col">HPP/unit</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <label style="font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="mutRcvAll" checked> Terima semua ${nowKolis.length} koli belum tiba (kosongkan untuk pilih manual selanjutnya)</label>
+    <button type="button" class="btn btn-primary" id="mutRcvGo">📥 Konfirmasi tiba &amp; posting</button>
+    <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan (1105) / Cr Persediaan dalam Perjalanan (1211). Stok otomatis masuk untuk belanja bertanda produk.</div>
+  </div>`;
+  UI.openInfoModal(`📥 Tiba ${m.code}`, html);
+  document.getElementById('mutRcvGo')?.addEventListener('click', () => {
+    try {
+      receiveMuatan(muatanId, { date: new Date().toISOString().split('T')[0], koliIds: null });
+      UI.closeInfoModal();
+      UI.showSuccess('Biaya mendarat diposting ke stok — Neraca tetap balance');
+      renderMuatanPage();
+      refresh();
+      queueMirror();
+    } catch (e) { UI.showError(e.message); }
+  });
+}
+
+function openBelanjaRefundPrompt(belanjaId) {
+  const b = getBelanjas().find((x) => x.id === belanjaId);
+  if (!b) return;
+  const amount = prompt(`Refund dari seller untuk ${b.no}.\nJumlah dalam ¥ (misal 20) dan kurs saat refund (misal 2250).\nFormat: jumlah;kurs`, `0;${b.kursAgen}`);
+  if (!amount) return;
+  const [cny, kr] = String(amount).split(';').map((x) => Number(x.trim()) || 0);
+  try {
+    refundBelanja(belanjaId, { amountCny: cny, kursRefund: kr || b.kursAgen });
+    UI.showSuccess('Refund dicatat — selisih kurs masuk 5197');
+    renderMuatanPage();
+    refresh();
+    queueMirror();
+  } catch (e) { UI.showError(e.message); }
+}
+
+function fmtCnyLoc(v) { return '¥' + Math.round(Number(v) || 0).toLocaleString('id-ID'); }
+
+document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
+  const del = e.target.closest('.belanja-refund');
+  if (del) { openBelanjaRefundPrompt(del.dataset.id); return; }
+  const koli = e.target.closest('.belanja-koli');
+  if (koli) {
+    openKoliModal();
+    const sel = document.getElementById('koliBelanja');
+    if (sel) Array.from(sel.options).forEach((o) => { if (o.value === koli.dataset.id) o.selected = true; });
+    return;
+  }
+  const card = e.target.closest('[data-muatan]');
+  if (card) openMuatanDetailModal(card.dataset.muatan);
+});
+document.getElementById('muatanBelanjaBtn')?.addEventListener('click', () => openBelanjaModal());
+document.getElementById('muatanKoliBtn')?.addEventListener('click', () => openKoliModal());
+document.getElementById('muatanBatchBtn')?.addEventListener('click', () => openMuatanCreateModal());
+
 /* ===== Halaman Biaya ===== */
 let biayaPeriodValue = 'this-month';
 function renderBiayaPage() {

@@ -38,12 +38,12 @@ export function getBelanjaById(idv) { return getBelanjas().find((x) => x.id === 
 
 // Satu order marketplace: bayar penuh saat buat (saldo agen / kontan).
 // lines: [{name, qty, cnyUnit}]; kursAgen = Rp per ¥ sesuai agen (lebih tinggi dari kurs bank — spread jadi biaya nyata).
-export function createBelanja({ date, marketplace, seller, orderNo, lines, ongkirCny, agentFee, kursAgen, payment, purpose, customerNote, chinaTracking } = {}) {
+export function createBelanja({ date, marketplace, seller, orderNo, lines, ongkirCny, agentFee, kursAgen, payment, purpose, customerNote, chinaTracking, preorderId } = {}) {
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
   const clean = (Array.isArray(lines) ? lines : [])
     .filter((l) => l && String(l.name || '').trim() && Number(l.qty) > 0 && Number(l.cnyUnit) >= 0)
-    .map((l) => ({ name: String(l.name).trim().slice(0, 80), qty: Math.floor(Number(l.qty) || 1), cnyUnit: Number(l.cnyUnit) || 0 }));
+    .map((l) => ({ ...(l.itemId ? { itemId: String(l.itemId) } : {}), name: String(l.name).trim().slice(0, 80), qty: Math.floor(Number(l.qty) || 1), cnyUnit: Number(l.cnyUnit) || 0 }));
   if (!clean.length) throw new Error('Tambahkan minimal satu barang belanja');
   const kurs = Number(kursAgen) || 0;
   if (kurs <= 0) throw new Error('Isi kurs agen (Rp per ¥)');
@@ -61,6 +61,7 @@ export function createBelanja({ date, marketplace, seller, orderNo, lines, ongki
     agentFee: num(agentFee), kursAgen: kurs, totalIdr,
     payment: payment || 'agent',
     purpose: purpose === 'stock' ? 'stock' : 'preorder',
+    preorderId: String(preorderId || '').slice(0, 60) || null,
     customerNote: String(customerNote || '').slice(0, 80),
     chinaTracking: String(chinaTracking || '').trim().slice(0, 40),
     koliId: null, stage: 'paid',
@@ -412,7 +413,11 @@ export function receiveMuatan(muatanId, { date, koliIds = null } = {}) {
   const bels = getBelanjas();
   for (const k of nowIn) for (const bid of (k.belanjaIds || [])) {
     const bi = bels.findIndex((x) => x.id === bid);
-    if (bi >= 0) bels[bi].stage = 'arrived';
+    if (bi >= 0) {
+      bels[bi].stage = 'arrived';
+      const laA = (lastAlloc && lastAlloc.lineAlloc || []).find((z) => z.belanja.id === bid);
+      if (laA) { bels[bi].landedTotal = laA.landedTotal; bels[bi].freightAlloc = laA.freightAlloc; }
+    }
   }
   save(BELANJA_KEY, bels);
   logAudit('update', 'lcl-muatan', muatanId, null, { received: nowIn.map((k) => k.id) });
@@ -421,3 +426,21 @@ export function receiveMuatan(muatanId, { date, koliIds = null } = {}) {
 
 export let lastAlloc = null;
 export function getLastAllocation() { return lastAlloc; }
+
+// ---------- Tautan belanja ↔ pesanan pelanggan ----------
+export function belanjasForPreorder(poId) {
+  return getBelanjas().filter((b) => b.preorderId === poId);
+}
+// Total biaya mendarat untuk pesanan pelanggan (alokasi bila muatan sudah tiba, else biaya dasar).
+export function preorderLandedTotal(poId) {
+  return belanjasForPreorder(poId).reduce((s, b) => s + (b.landedTotal != null ? b.landedTotal : b.totalIdr || 0), 0);
+}
+// Margin nyata: harga jual − biaya mendarat. Angka terpenting utk bisnis ini.
+export function preorderRealisedMargin(po) {
+  if (!po) return { sell: 0, landed: 0, margin: 0, pct: 0 };
+  const sell = po.sellTotal != null ? po.sellTotal : (po.items || []).reduce((s, l) => s + l.qty * l.price, 0);
+  const landed = preorderLandedTotal(po.id) || StoragePreorderGoods(po);
+  const margin = sell - landed;
+  return { sell, landed, margin, pct: sell > 0 ? margin / sell : 0 };
+}
+function StoragePreorderGoods(po) { return ((po && po.costs) || []).filter((c) => c.kind === 'barang').reduce((s, c) => s + c.amount, 0); }

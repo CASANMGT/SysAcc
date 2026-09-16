@@ -201,6 +201,7 @@
           <button class="sidebar-item" id="kasBtnSidebar">💳 Kas &amp; Bank</button>
           <button class="sidebar-item" id="salesBtnSidebar">🛒 Penjualan</button>
           <button class="sidebar-item" id="pembelianBtnSidebar">🧺 Pembelian</button>
+          <button class="sidebar-item" id="muatanBtnSidebar">📦 Papan Muatan</button>
           <button class="sidebar-item" id="biayaBtnSidebar">💸 Biaya</button>
           <button class="sidebar-item" id="assetBtnSidebar">🏢 Aset Tetap</button>
         </nav>
@@ -225,7 +226,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.97.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.98.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -547,7 +548,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.97.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.98.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -729,6 +730,27 @@
             <h3 style="margin-bottom:2px">🛒 Titip Beli / Preorder (sisi beli)</h3>
             <p id="pembelianPoSubtitle" style="font-size:11px;color:#64748b;margin:0 0 8px">Pesanan pelanggan yang kita belikan — biaya &amp; tahap belinya tampil di sini, daftar pembayaran di halaman Penjualan.</p>
             <div id="pembelianPoList"></div>
+          </div>
+        </div>
+
+        <div id="viewMuatan" class="view-section hidden">
+          <div class="view-header">
+            <div><h1>📦 Papan Muatan</h1><p id="muatanSubtitle">Belanja di marketplace China &amp; kirim LCL ke gudang</p></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="muatanBelanjaBtn">＋ Belanja marketplace</button>
+              <button class="btn btn-ghost" id="muatanKoliBtn">🧾 Cek-in koli</button>
+              <button class="btn btn-ghost" id="muatanBatchBtn">🚢 Muatan baru</button>
+            </div>
+          </div>
+          <div id="muatanKpi" class="stock-kpi" aria-label="Ringkasan muatan"></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">
+            <div class="dash-panel" style="flex:1;min-width:260px;padding:14px"><h3 style="margin-bottom:8px">🏬 Di gudang China</h3><div id="muatanColChina"></div></div>
+            <div class="dash-panel" style="flex:1;min-width:260px;padding:14px"><h3 style="margin-bottom:8px">🚢 Dalam perjalanan</h3><div id="muatanColSea"></div></div>
+            <div class="dash-panel" style="flex:1;min-width:260px;padding:14px"><h3 style="margin-bottom:8px">📥 Tiba — alokasi biaya</h3><div id="muatanColArrived"></div></div>
+          </div>
+          <div class="dash-panel" style="padding:16px;margin-top:16px">
+            <h3 style="margin-bottom:8px">🛒 Daftar Belanja (order marketplace)</h3>
+            <div id="muatanBelanjaList"></div>
           </div>
         </div>
 
@@ -2718,7 +2740,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.97.0';
+    window.__htmlVersion = '1.98.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

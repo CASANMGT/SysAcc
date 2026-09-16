@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.98.0] - 2026-09-16
+
+### Added — Papan Muatan (UI) + tautan belanja ↔ pesanan & margin nyata
+- **Papan Muatan** halaman baru: 3 kolom — 🏬 Di gudang China (paket + CBM + nilai), 🚢 Dalam perjalanan (batch + ETA + bill), 📥 Tiba (siap alokasi biaya). KPI: saldo agen, barang di China, barang di kapal, muatan berikutnya (CBM terkumpul + ETD) — jawab "di mana uang saya sekarang" sekali pandang. Entri baru di sidebar & menu Lainnya.
+- **Belanja marketplace (modal)**: Taobao/Pinduoduo/1688, barang via teks `nama; qty; harga¥`, ongkir China ¥, fee agen, kurs agen di samping total Rp, bayar saldo agen/kas, tujuan (📦 Stok / 👤 pesanan pelanggan) — belanja tertaut ke preorder dari sini.
+- **Cek-in koli batch**: satu baris per paket (`no;CBM;kg`) — 40 paket = satu submit; bisa pilih beberapa belanja yang ikut paket. Berjalan di ponsel (380px mengikuti layout flex-wrap).
+- **Detail muatan**: muat/bongkar koli, isi muatan live (CBM chargeable, estimasi biaya, biaya per CBM), tombol Berangkat (pilih kas / hutang forwarder) dan **Tiba + Alokasi** dengan **pratinjau per unit sebelum posting** — tidak menyimpan apa pun sebelum dikonfirmasi.
+- **Daftar Belanja**: status chip (Dipesan→Di gudang China→Muat→Di kapal→Sampai→Selesai), ¥ total @kurs agen di samping Rp, tombol koli & refund; **margin nyata** (harga jual − biaya mendarat, %) tampil pada baris belanja preorder.
+- Helper: `belanjasForPreorder`, `preorderLandedTotal`, `preorderRealisedMargin` (lcl.js).
+
 ## [1.97.0] - 2026-09-16
 
 ### Added — rantai belanja LCL konsolidasi (marketplace → koli → muatan → penerimaan)
