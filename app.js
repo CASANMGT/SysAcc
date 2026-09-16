@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.100.0';
+const APP_VERSION = '2.0.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2525,12 +2525,12 @@ function renderSalesPage() {
   const d = computeSales(entries);
   const fmt = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Math.round(v || 0));
   const sub = document.getElementById('salesSubtitle');
-  if (sub) sub.textContent = `${d.orders} struk • ${d.qty} pcs barang terjual • ${d.rows.length} jenis produk`;
+  if (sub) sub.textContent = `${d.orders} struk • ${d.qty} pcs barang terjual • ${d.rows.length} jenis produk • rata-rata ${fmt(d.avgOrder)}/struk`;
   // KPI
   const kpi = document.getElementById('salesKpi');
   if (kpi) {
     const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
-    kpi.innerHTML = tile('Omzet', fmt(d.omzet)) + tile('Barang terjual', d.qty + ' pcs') + tile('HPP', fmt(d.hpp)) + tile('Laba kotor', fmt(d.laba)) + tile('Rata-rata/struk', fmt(d.avgOrder));
+    kpi.innerHTML = tile('Omzet', fmt(d.omzet)) + tile('Barang terjual', d.qty + ' pcs') + tile('HPP', fmt(d.hpp)) + tile('Laba kotor', fmt(d.laba));
   }
   // Grafik + terlaris (pakai data periode terpilih)
   Charts.renderSalesDailyChart(entries, { days: 14, ids: { svg: 'salesPageChart', labels: 'salesPageLabels', total: 'salesPageTotal', avg: 'salesPageAvg', best: 'salesPageBest' } });
@@ -2623,8 +2623,8 @@ function renderOrdersPanel() {
       else { running++; unpaidKpi += Storage.preorderBalance(po); costKpi += cost; }
     });
     const tile = (label, value, color) => `<button type="button" style="cursor:default">${label}<b style="color:${color}">${value}</b></button>`;
-    kpi.innerHTML = tile('🌏 Titip beli berjalan', running, '#2563eb')
-      + tile('💵 Belum dibayar pelanggan', fmt(unpaidKpi), '#b45309')
+    kpi.innerHTML = tile('🌏 Pesanan preorder berjalan', running, '#2563eb')
+      + tile('💵 Sisa tagihan pesanan', fmt(unpaidKpi), '#b45309')
       + tile('🧾 Biaya sudah keluar', fmt(costKpi), '#475569')
       + tile('💰 Laba (selesai)', fmt(profitKpi), '#059669');
   }
@@ -2643,13 +2643,16 @@ function renderOrdersPanel() {
     const overdue = r.balance > 0.01 && r.dueDate && new Date(r.dueDate + 'T00:00:00') < today;
     const etaMonths = Number(r.months) || 0;
     const ev = (r.events || []).slice(-1)[0] || null;
+    const ageDays = r.date ? Math.max(Math.floor((today - new Date(String(r.date).slice(0, 10) + 'T00:00:00')) / 86400000), 0) : null;
     const itemsTxt = (r.items || []).slice(0, 3).map(l => `${l.qty}× ${escapeHtml(l.name)}`).join(', ') + ((r.items || []).length > 3 ? ` +${r.items.length - 3}` : '');
     const trackShow = (ev && ev.tracking) || (r.shipment && (r.shipment.tracking || r.shipment.courier)) || '';
     const shipLine = trackShow
       ? `<div style="font-size:10.5px;color:#475569">🚛 resi/kiriman: <b>${escapeHtml(trackShow)}</b> <a href="https://t.17track.net/id#nums=${encodeURIComponent(trackShow)}" target="_blank" rel="noopener" title="Cek status via 17track" style="font-size:10px;color:#2563eb;font-weight:600">🔍 cek status</a></div>`
       : '';
-    const noteLine = ev && ev.note ? `<div style="font-size:10.5px;color:#475569">📝 ${escapeHtml(ev.note)}</div>` : '';
+    // A5: baris sekunder = kejadian terakhir + tanggal (slot konsisten; status tetap di pill)
+    const noteLine = ev ? `<div style="font-size:10.5px;color:#475569">📝 ${escapeHtml(ev.note || '')}${ev.date ? ' • ' + escapeHtml(ev.date) : ''}</div>` : '';
     const sched = ev && ev.schedule ? `<div style="font-size:10.5px;color:#4338ca;font-weight:600;margin-top:2px">⏰ Janji bayar ${escapeHtml(ev.schedule)}</div>` : '';
+    const ageTxt = ageDays != null ? `<div style="font-size:10px;${ageDays > 21 ? 'color:#b45309;font-weight:700' : 'color:#64748b'}">⏱ ${ageDays} hari</div>` : '';
     const chip = st === 'ordered' && (Number(r.paid) || 0) <= 0.01 && (Number(r.deposit) || 0) <= 0.01
       ? '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-size:11px">⚠️ Pesanan dibuat — DP belum dibayar</span>'
       : `<span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>`;
@@ -2682,22 +2685,22 @@ function renderOrdersPanel() {
       action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Terima pembayaran</button>
        <button class="btn btn-secondary preorder-settle" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Barang diterima pembeli + sudah lunas → tutup pesanan">✅ Lunas &amp; Selesai</button>`;
     }
-    const costBtn = r.kind === 'po' ? `<button class="btn btn-ghost preorder-cost" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🧾 Biaya</button>` : '';
+    const costBtn = r.kind === 'po' ? `<button class="btn btn-ghost preorder-cost" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Catat biaya pesanan">🧾 Catat biaya</button>` : '';
     const statusBtn = `<button class="btn btn-ghost order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="" style="font-size:11px;padding:2px 8px">＋ Status</button>`;
     const delBtn = `<button class="btn btn-ghost ${r.kind === 'jual' ? 'credit-del' : 'preorder-del'}" data-id="${r.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan/hapus pesanan">🗑</button>`;
     return `<tr>
-        <td style="font-size:12px;white-space:nowrap">${typeBadge} <div>${escapeHtml(r.date)}</div>${etaMonths ? `<div style="font-size:10px;color:#64748b">Est datang ${escapeHtml(String(etaMonths))} bln</div>` : ''}</td>
+        <td style="font-size:12px;white-space:nowrap">${typeBadge} <div>${escapeHtml(r.date)}</div>${ageTxt}${etaMonths ? `<div style="font-size:10px;color:#64748b">Est datang ${escapeHtml(String(etaMonths))} bln</div>` : ''}</td>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(r.no)}</td>
         <td style="font-size:12px">${escapeHtml(r.customer || '—')}<div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
         <td>${chip}${shipLine}${noteLine}${sched}${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
         <td class="amount-col" style="font-weight:${r.balance > 0.01 ? '700' : '400'};color:${r.balance > 0.01 ? '#b45309' : '#059669'}">${r.balance > 0.01 ? fmt(r.balance) : 'Lunas'}</td>
-        <td style="white-space:nowrap">${action || statusBtn} ${r.balance > 0.01 ? `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Bayar</button>` : ''} ${costBtn} ${statusBtn} ${delBtn}</td>
+        <td style="white-space:nowrap">${action || statusBtn} ${r.balance > 0.01 && !(action && action.includes('open-order-pay')) ? `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Uang pelanggan masuk">💵 Terima pembayaran</button>` : ''} ${costBtn} ${delBtn}</td>
       </tr>`;
   };
   const runningHtml = running.length
     ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
         <th>Jenis / Tanggal</th><th>No</th><th>Pelanggan</th><th>Status</th><th class="amount-col">Sisa tagihan</th><th></th></tr></thead><tbody>${running.map(row).join('')}</tbody></table></div>`
-    : '<p style="color:var(--text-muted);font-size:12px">Tanpa pesanan berjalan. Buat dari ＋ Jual (centang Bayar nanti + 🚚 Alur pesanan) atau tombol ＋ Titip Beli.</p>';
+    : '<p style="color:var(--text-muted);font-size:12px">Tanpa pesanan berjalan. Buat dari ＋ Jual (centang Bayar nanti) di atas.</p>';
   const historyHtml = history.length
     ? `<div style="font-size:11px;font-weight:700;color:#64748b;margin:16px 0 4px">🗂 Riwayat selesai</div><div style="overflow-x:auto"><table class="report-table"><thead><tr><th>No</th><th>Pelanggan</th><th class="amount-col">Terbayar</th><th class="amount-col">Total</th><th class="amount-col">Laba</th></tr></thead><tbody>${history.map(h => `<tr><td style="font-size:12px">${escapeHtml(h.no)} <span style="font-size:10px;color:#64748b">${h.kind === 'po' ? 'TITIP' : 'JUAL'}</span></td><td style="font-size:12px">${escapeHtml(h.customer || '-')}</td><td class="amount-col">${fmt(h.paid)}</td><td class="amount-col">${fmt(h.total)}</td><td class="amount-col" style="color:${(h.profit != null ? h.profit : h.total - h.paid) >= 0 ? '#059669' : '#dc2626'};font-weight:700">${fmt(h.profit != null ? h.profit : h.total - h.paid)}</td></tr>`).join('')}</tbody></table></div>`
     : '';
@@ -2787,8 +2790,8 @@ function renderCreditSection() {
   if (kpi) {
     const s = Storage.creditSalesSummary();
     const tile = (label, value, color) => `<button type="button" style="cursor:default">${label}<b style="color:${color}">${value}</b></button>`;
-    kpi.innerHTML = tile('🕒 Belum dibayar', `${fmt(s.outstanding)} (${s.openCount})`, '#b45309')
-      + tile('⚠️ Jatuh tempo', `${fmt(s.overdue)} (${s.overdueCount})`, '#dc2626')
+    kpi.innerHTML = tile('🕒 Piutang struk (penjualan kredit)', `${fmt(s.outstanding)} (${s.openCount})`, '#b45309')
+      + tile('⚠️ Struk jatuh tempo', `${fmt(s.overdue)} (${s.overdueCount})`, '#dc2626')
       + tile('✅ Pelunasan 30 hari', fmt(s.received30), '#059669');
   }
   const box = document.getElementById('creditList');
@@ -2917,7 +2920,7 @@ function addPreorderRow(preselectId) {
   row.innerHTML = `
     <select class="preorder-item-sel" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
       <option value="">— Pilih barang*</option>
-      ${items.map(i => { const v = Storage.itemVariantLabel ? Storage.itemVariantLabel(i) : (i.variant || ''); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''}</option>`; }).join('')}
+      ${items.map(i => { return `<option value="${i.id}">${escapeHtml(Storage.fullItemName(i))}</option>`; }).join('')}
       <option value="__custom">✏️ Tulis manual / barang lain</option>
     </select>
     <input type="number" class="preorder-item-qty" min="1" step="1" value="1" title="Qty" style="width:60px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 6px;font-size:13px;text-align:center">
@@ -2974,7 +2977,7 @@ function readPreorderRows() {
       const sel = row.querySelector('.preorder-item-sel');
       const it = items.find(x => x.id === (sel?.value || ''));
       itemId = sel?.value || '';
-      nm = it ? (it.name + (() => { try { const v = Storage.itemVariantLabel(it); return v ? ' ' + v : ''; } catch { return ''; } })()) : '';
+      nm = it ? Storage.fullItemName(it) : '';
     }
     const qty = Math.max(parseInt(row.querySelector('.preorder-item-qty')?.value || '0', 10) || 0, 0);
     const price = Math.round(Number(UI.parseIdrInput(row.querySelector('.preorder-item-price')?.value || '')) || 0);
@@ -5360,7 +5363,7 @@ function closeRestock() { const m = document.getElementById('restockModal'); if 
 /* ===== Dokumen stok: penyesuaian & transfer ===== */
 function openStockAdjust(preselectId) {
   const sel = document.getElementById('stkAdjItem');
-  if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${i.stock})</option>`; }).join('');
+  if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { return `<option value="${i.id}">${escapeHtml(Storage.fullItemName(i))} (stok ${i.stock})</option>`; }).join('');
   const dEl = document.getElementById('stkAdjDate'); if (dEl) dEl.value = new Date().toISOString().split('T')[0];
   const q = document.getElementById('stkAdjQty'); if (q) q.value = '';
   const r = document.getElementById('stkAdjReason'); if (r) r.value = '';
@@ -5393,7 +5396,7 @@ function handleStockAdjustSubmit() {
 function closeStockAdjust() { const m = document.getElementById('stockAdjustModal'); if (m && m.open) { try { m.close(); } catch {} } }
 function openTransfer(preselectId) {
   const sel = document.getElementById('trfItem');
-  if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { const v = Storage.itemVariantLabel(i); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''}</option>`; }).join('');
+  if (sel) sel.innerHTML = '<option value="">— pilih barang —</option>' + Storage.getAllItems().map(i => { return `<option value="${i.id}">${escapeHtml(Storage.fullItemName(i))}</option>`; }).join('');
   const shops = Storage.getShops();
   const opts = shops.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
   const from = document.getElementById('trfFrom'); if (from) from.innerHTML = opts;

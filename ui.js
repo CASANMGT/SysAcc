@@ -2,7 +2,7 @@ import { formatCurrency, formatDate, formatMonth, formatCurrencyCompact, getCate
 import { calcTenor, paidOf, outstandingOf, nextInstallmentAmount, scheduleData, nextDue, interestRateOf, interestAmount, totalOwed } from './loanmath.js';
 import { accountLabel, getAccounts, expenseAccountFor, REVENUE_ACCOUNT } from './coa.js';
 import { computeSlip, thrAmount, DEFAULT_RATES, RATE_LIMITS } from './payroll.js';
-import { getPpn, itemNetPrice, itemVariantLabel, shopStockOf, getActiveShopId, getShops } from './storage.js';
+import { getPpn, itemNetPrice, fullItemName, shopStockOf, getActiveShopId, getShops } from './storage.js';
 
 // Ikon & label tipe kontak (orang / karyawan / perusahaan)
 function contactIcon(type) { return type === 'perusahaan' ? '🏢' : type === 'karyawan' ? '👷' : '👤'; }
@@ -4201,7 +4201,7 @@ export function addSaleRow(preselectId) {
   row.innerHTML = `
     <select class="sale-item" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
       <option value="">— Pilih barang —</option>
-      ${items.map(i => { const v = itemVariantLabel(i); const q = shopStockOf(i, getActiveShopId()); return `<option value="${i.id}">${escapeHtml(i.name)}${v ? ' ' + escapeHtml(v) : ''} (stok ${q})</option>`; }).join('')}
+      ${items.map(i => { const q = shopStockOf(i, getActiveShopId()); return `<option value="${i.id}">${escapeHtml(fullItemName(i))} (stok ${q})</option>`; }).join('')}
     </select>
     <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px">
       <button type="button" class="btn btn-ghost sale-minus" aria-label="Kurangi" style="font-size:14px;padding:2px 8px">−</button>
@@ -4275,9 +4275,8 @@ function readSaleRows() {
     const qty = Math.max(parseInt(row.querySelector('.sale-qty')?.value || '0', 10) || 0, 0);
     const price = Math.round(Number(parseIdrInput(row.querySelector('.sale-price')?.value || '')) || 0);
     if (itemId && qty > 0 && price > 0) {
-      const it = getItemList().find(x => x.id === itemId);
-      const v = it ? itemVariantLabel(it) : '';
-      lines.push({ itemId, qty, price, name: it ? (it.name + (v ? ' ' + v : '')) : '' });
+      const it = getItemList().find((x) => x.id === itemId);
+      lines.push({ itemId, qty, price, name: it ? fullItemName(it) : '' });
     }
   });
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);

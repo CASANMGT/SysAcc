@@ -1984,7 +1984,32 @@ export function itemNetPrice(item) {
   return Math.round(price * (1 - d / 100));
 }
 export function itemVariantLabel(item) {
-  return [item && item.size, item && item.color].filter(Boolean).join(' / ');
+  // A3: buang nilai sumbu yang identik (30cm + 30cm → 30cm).
+  const parts = [item && item.size, item && item.color].filter(Boolean);
+  const seen = new Set();
+  const fresh = [];
+  parts.forEach((p) => {
+    const key = String(p).toLowerCase().trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    fresh.push(String(p).trim());
+  });
+  return fresh.join(' / ');
+}
+// Nama lengkap: nama dasar + token varian yang BELUM ada di nama (anti "30cm 30cm").
+export function fullItemName(item) {
+  const base = String((item && item.name) || '').trim();
+  const variant = itemVariantLabel(item);
+  if (!variant) return base;
+  let low = base.toLowerCase();
+  const extra = variant.split('/').map((s) => s.trim()).filter(Boolean)
+    .filter((tok) => {
+      const tokKey = tok.toLowerCase();
+      if (low.includes(tokKey)) return false;
+      low = low + ' ' + tokKey; // cegah duplikat antar sumbu juga
+      return true;
+    });
+  return extra.length ? `${base} ${extra.join(' ')}` : base;
 }
 
 // ===== Toko / lokasi (multi-toko) =====

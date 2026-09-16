@@ -226,7 +226,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.100.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.0.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -543,7 +543,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.100.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.0.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -631,8 +631,8 @@
             <div id="creditList"></div>
           </div>
           <div class="dash-panel" style="padding:16px;margin-bottom:16px">
-            <h3 style="margin-bottom:8px">📦 Status Pesanan <span style="font-size:12px;font-weight:500;color:#64748b">— pesanan pelanggan → DP → beli di marketplace → dikirim ke gudang China → muat &amp; berangkat LCL → tiba (~3–4 minggu) → kirim ke pelanggan → lunas</span></h3>
-            <div id="preorderKpi" class="stock-kpi" aria-label="Ringkasan titip beli" style="margin-bottom:10px"></div>
+            <h3 style="margin-bottom:8px">📄 Pesanan Berjalan <span style="font-size:12px;font-weight:500;color:#64748b">(semua periode) — alur: pesanan → DP → beli marketplace → gudang China → muat LCL → tiba → kirim → lunas</span> <button type="button" id="orderFlowHelp" class="btn btn-ghost" style="font-size:11px;padding:2px 8px" title="Alur lengkap" aria-label="Penjelasan alur pesanan">?</button></h3>
+            <div id="preorderKpi" class="stock-kpi" aria-label="Ringkasan pesanan" style="margin-bottom:10px"></div>
             <div id="orderStatusList"></div>
           </div>
           <div class="dashboard-grid">
@@ -2757,7 +2757,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.100.0';
+    window.__htmlVersion = '2.0.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

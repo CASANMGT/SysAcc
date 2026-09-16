@@ -6,6 +6,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.0.0] - 2026-09-16
+
+### Audit UI/UX v1.98.0 — Section A & awal B (angka-raisa + konsistensi)
+- **A1 (kritis)**: tiga jawaban piutang kini punya nama berbeda dan tampil bersama — KPI "🕒 Piutang struk (penjualan kredit)" di panel Piutang vs "💵 Sisa tagihan pesanan" di kartu Pesanan Berjalan. Satu definisi satu label.
+- **A3 duplikat varian**: `itemVariantLabel` membuang sumbu identik (30cm+30cm → 30cm); **`fullItemName()`** baru menambahkan token varian yang belum ada di nama produksi — dipakai di form Jual, Jual Stok, order produksi, penyesuaian & transfer stok, dan combobox produk. Uji "Ph5 • 30cm" tak lagi jadi "30cm 30cm".
+- **A4 teks lengket**: baris kejadian (📝) kini elemen `<div>` tersendiri beserta tanggalnya — tak lagi tempelan pada daftar barang.
+- **A5**: slot sekunder baris konsisten = **kejadian terakhir + tanggal**; status tetap di pill.
+- **B1**: baris pesanan kini memuat **umur (⏱ N hari)** — oranye >21 hari; bisnis berjalan 3–4 minggu, umur = fakta operasi penting.
+- **B3**: aksi per baris dirapati — satu aksi utama per tahap + tombol "💵 Terima pembayaran" hanya saat sisa & tidak duplikat aksi utama; "+ Status" ganda dihapus (tetap ada bila tak ada aksi utama); "🧾 Catat biaya" (bukan noun "Biaya").
+- **A2/B5/D3**: judul panel jadi **"Pesanan Berjalan (semua periode)"** dengan alur dipindah ke tombol ?; KPI Penjualan kini 4 kartu (Rata-rata/struk turun ke subtitle) — tidak ada kartu yatim; KPI/pipeline berlabel jelas.
+
+### Catatan
+- Data historis yang nama barangnya sudah dobel tidak dirombak (hanya tampilan ke depan yang bersih).
+
 ## [1.100.0] - 2026-09-16
 
 ### Phase 2 — aksi beli di-split & biaya nyata masuk ledger
