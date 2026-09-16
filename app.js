@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2742,16 +2742,15 @@ function renderOrdersPanel() {
       action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Terima pembayaran</button>
        <button class="btn btn-secondary preorder-settle" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Barang diterima pembeli + sudah lunas → tutup pesanan">✅ Lunas &amp; Selesai</button>`;
     }
-    const costBtn = r.kind === 'po' ? `<button class="btn btn-ghost preorder-cost" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Catat biaya pesanan">🧾 Catat biaya</button>` : '';
-    const statusBtn = `<button class="btn btn-ghost order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="" style="font-size:11px;padding:2px 8px">＋ Status</button>`;
-    const delBtn = `<button class="btn btn-ghost ${r.kind === 'jual' ? 'credit-del' : 'preorder-del'}" data-id="${r.id}" style="font-size:11px;padding:2px 8px;color:#ef4444" title="Batalkan/hapus pesanan">🗑</button>`;
+    // 6.4: satu aksi utama + menu ⋯ (kolom aksi lebar tetap agar bisa dipindai)
+    const moreBtn = `<button class="btn btn-ghost order-more" data-kind="${r.kind}" data-id="${r.id}" style="font-size:14px;padding:2px 10px;min-width:38px" aria-label="Aksi lain untuk ${escapeHtml(r.no)}" title="Aksi lain">⋯</button>`;
     return `<tr>
         <td style="font-size:12px;white-space:nowrap">${typeBadge} <div>${escapeHtml(r.date)}</div>${ageTxt}${etaMonths ? `<div style="font-size:10px;color:#64748b">Est datang ${escapeHtml(String(etaMonths))} bln</div>` : ''}</td>
         <td style="font-size:12px;white-space:nowrap">${escapeHtml(r.no)}</td>
         <td style="font-size:12px">${escapeHtml(r.customer || '—')}<div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
         <td>${chip}${shipLine}${noteLine}${sched}${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
         <td class="amount-col" style="font-weight:${r.balance > 0.01 ? '700' : '400'};color:${r.balance > 0.01 ? '#b45309' : '#059669'}">${r.balance > 0.01 ? fmt(r.balance) : 'Lunas'}</td>
-        <td style="white-space:nowrap">${action || statusBtn} ${r.balance > 0.01 && !(action && action.includes('open-order-pay')) ? `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Uang pelanggan masuk">💵 Terima pembayaran</button>` : ''} ${costBtn} ${delBtn}</td>
+        <td class="order-actions">${action || ''}${moreBtn}</td>
       </tr>`;
   };
   const runningHtml = running.length
@@ -3559,6 +3558,23 @@ function bankReconApplyRules() {
 }
 
 /* ===== Halaman Pembelian ===== */
+function openOrderMoreMenu(kind, id) {
+  const r = kind === 'po' ? Storage.getPreorderById(id) : Storage.getCreditSaleById(id);
+  if (!r) return;
+  const bal = kind === 'po' ? Storage.preorderBalance(r) : Storage.creditOutstanding(r);
+  const no = escapeHtml(r.no || r.invoiceNo || '');
+  const cust = escapeHtml(r.customer || '—');
+  const item = (cls, label) => `<button type="button" class="btn btn-ghost ${cls}" data-kind="${kind}" data-id="${id}" style="display:block;width:100%;text-align:left;font-size:13px;padding:10px 12px;margin-bottom:6px">${label}</button>`;
+  const html = `<div>
+    <p style="font-size:12px;color:#475569;margin:0 0 10px"><b>${no}</b> — ${cust}</p>
+    ${bal > 0.01 ? item('order-more-pay', `💵 Terima pembayaran (sisa ${preorderFmt(bal)})`) : ''}
+    ${kind === 'po' ? item('order-more-cost', '🧾 Catat biaya pesanan') : ''}
+    ${item('order-more-status', '＋ Ubah status…')}
+    ${kind === 'po' ? '<button type="button" class="btn btn-ghost order-more-muatan" style="display:block;width:100%;text-align:left;font-size:13px;padding:10px 12px;margin-bottom:6px">🚢 Buka Papan Muatan</button>' : ''}
+    <button type="button" class="btn btn-ghost order-more-del" data-kind="${kind}" data-id="${id}" style="display:block;width:100%;text-align:left;font-size:13px;padding:10px 12px;color:#ef4444">${kind === 'po' ? '🗑 Batalkan pesanan' : '🗑 Hapus penjualan kredit'}</button>
+  </div>`;
+  UI.openInfoModal('⋯ Aksi pesanan', html);
+}
 function renderPembelianPage() {
   if (!document.getElementById('viewPembelian')) return;
   const purchases = Storage.getAllPurchases();
@@ -4066,7 +4082,25 @@ function openBelanjaRefundPrompt(belanjaId) {
 
 function fmtCnyLoc(v) { return '¥' + Math.round(Number(v) || 0).toLocaleString('id-ID'); }
 
-document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
+  // 6.4 Menu ⋯ per baris pesanan
+  document.getElementById('orderStatusList')?.addEventListener('click', (e) => {
+    const more = e.target.closest('.order-more');
+    if (!more) return;
+    openOrderMoreMenu(more.dataset.kind, more.dataset.id);
+  });
+  document.getElementById('infoModalBody')?.addEventListener('click', (e) => {
+    const pay = e.target.closest('.order-more-pay');
+    const cost = e.target.closest('.order-more-cost');
+    const stat = e.target.closest('.order-more-status');
+    const del = e.target.closest('.order-more-del');
+    const mut = e.target.closest('.order-more-muatan');
+    if (pay) { UI.closeInfoModal(); if (pay.dataset.kind === 'po') openPoPay(pay.dataset.id); else openCreditPay(pay.dataset.id); return; }
+    if (cost) { UI.closeInfoModal(); openPoCost(cost.dataset.id); return; }
+    if (stat) { UI.closeInfoModal(); openOrderStatus(stat.dataset.kind, stat.dataset.id, ''); return; }
+    if (del) { UI.closeInfoModal(); if (del.dataset.kind === 'po') orderDeletePrompt(del.dataset.id); else deleteCreditSalePrompt(del.dataset.id); return; }
+    if (mut) { UI.closeInfoModal(); document.getElementById('muatanBtnSidebar')?.click(); return; }
+  });
+  document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
   const del = e.target.closest('.belanja-refund');
   if (del) { openBelanjaRefundPrompt(del.dataset.id); return; }
   const koli = e.target.closest('.belanja-koli');

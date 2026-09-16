@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.6.0] - 2026-09-16
+
+### Stage 6.4 & 4.5 — satu aksi utama + menu ⋯ per pesanan
+- **Kolom aksi jadi tetap & bisa dipindai**: setiap baris pesanan kini hanya menampilkan **satu aksi utama** (langkah berikutnya untuk tahap itu) + tombol **⋯**; "Catat biaya", "Ubah status", "Terima pembayaran", "Buka Papan Muatan", dan "Batalkan/Hapus" pindah ke menu ⋯. Kolom tak lagi bergoyang lebar antar baris.
+- **Verba + objek**: menu memakai "Terima pembayaran (sisa Rp…)",
+ "Catat biaya pesanan", "Ubah status…", "Batalkan pesanan" — tidak ada lagi tombol bernama benda telanjang.
+- **Aksi utama tetap di tempatnya** untuk satu-tap cepat (mis. "Tandai DP dibayar", "Beli di marketplace", "Kirim ke pelanggan").
+
 ## [2.5.0] - 2026-09-16
 
 ### Stage 4.4 — satu kontrol periode

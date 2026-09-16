@@ -3978,3 +3978,8 @@ body.mstore-off #transferOpenBtn { display: none !important; }
 .sale-mode-sub { font-size: 11px; color: #64748b; line-height: 1.35; }
 .sale-mode-card.selected { border-color: #2563eb; background: #eff6ff; }
 .sale-mode-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+/* 6.4 Kolom aksi pesanan: lebar tetap, satu aksi utama + menu ⋯ */
+.order-actions { white-space: nowrap; width: 1%; }
+.order-actions .order-more { color: #64748b; border: 1px solid #e2e8f0; border-radius: 8px; line-height: 1; }
+.order-actions .order-more:hover { background: #f1f5f9; color: #0f172a; }
