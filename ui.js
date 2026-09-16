@@ -4161,7 +4161,9 @@ export function openSale() {
   document.getElementById('saleNote').value = '';
   document.getElementById('salePPN').checked = false;
   const ready = document.querySelector('input[name="saleMode"][value="ready"]'); if (ready) ready.checked = true;
-  const creditEl = document.getElementById('saleCredit'); if (creditEl) creditEl.disabled = false;
+  const creditEl = document.getElementById('saleCredit'); if (creditEl) { creditEl.disabled = false; creditEl.checked = false; }
+  const dueEl = document.getElementById('saleDueDate'); if (dueEl) dueEl.value = '';
+  const termsEl = document.getElementById('saleTerms'); if (termsEl) termsEl.value = '1';
   const poDep = document.getElementById('poDeposit'); if (poDep) { poDep.value = ''; delete poDep.dataset.touched; }
   const salDep = document.getElementById('saleDeposit'); if (salDep) { salDep.value = ''; delete salDep.dataset.touched; delete salDep.dataset.last; }
   const salPct = document.getElementById('saleDepositPct'); if (salPct) { salPct.value = '0'; delete salPct.dataset.last; }

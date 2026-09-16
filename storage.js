@@ -2703,6 +2703,7 @@ export function settlePreorder(id, { date, payment, note } = {}) {
   const i = list.findIndex(x => x.id === id);
   if (i < 0) throw new Error('Pesanan tidak ditemukan');
   const po = list[i];
+  if (po.target === 'stock') throw new Error('Pesanan stok tidak memiliki pelunasan pelanggan — gunakan Terima stok di Pembelian');
   if (!['ordered', 'dp_paid', 'shipping', 'shipped', 'arrived', 'received', 'invoiced'].includes(po.stage)) throw new Error('Status pesanan: ' + po.stage);
   const bal = preorderBalance(po);
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
@@ -2811,6 +2812,9 @@ export function creditSalesSummary() {
       outstanding += out; openCount++;
       if (cs.dueDate && new Date(cs.dueDate + 'T00:00:00') < today) { overdue += out; overdueCount++; }
     }
+    // DP dihitung diterima pada tanggal pembuatan pesanan (uang sudah benar-benar masuk)
+    const dp = Number(cs.deposit) || 0;
+    if (dp > 0 && Number.isFinite(Date.parse(cs.date)) && Date.parse(cs.date) >= cutoff) received30 += dp;
     (cs.payments || []).forEach(p => {
       const t = Date.parse(p.date || p.createdAt || '');
       if (Number.isFinite(t) && t >= cutoff) received30 += Number(p.amount) || 0;

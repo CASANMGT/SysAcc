@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.96.1';
+const APP_VERSION = '1.96.2';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -797,7 +797,9 @@ function bindEvents() {
     const fee = e.target.closest('.preorder-cost');
     const delJ = e.target.closest('.credit-del');
     let delP = e.target.closest('.preorder-del');
+    const settleBtn = e.target.closest('.preorder-settle');
     if (ship) openOrderShip('jual', ship.dataset.id);
+    else if (settleBtn) preorderSettlePrompt(settleBtn.dataset.id);
     else if (recv) handleOrderReceive(recv.dataset.id);
     else if (e.target.closest('.preorder-ship')) { const b = e.target.closest('.preorder-ship'); openOrderShip('po', b.dataset.id); }
     else if (e.target.closest('.preorder-arrive')) orderArrivePrompt(e.target.closest('.preorder-arrive').dataset.id);
@@ -2557,16 +2559,19 @@ function renderOrdersPanel() {
     deposit: cs.deposit, paid: Storage.creditPaidTotal(cs), balance: Storage.creditOutstanding(cs),
     events: cs.timeline || [], shipment: cs.shipment,
   }));
-  const poRows = Storage.getPreorders().filter(po => po.stage !== 'settled' && po.stage !== 'cancelled').map(po => ({
+  const poRows = Storage.getPreorders()
+    .filter(po => po.stage !== 'settled' && po.stage !== 'cancelled' && po.target !== 'stock') // order stok = pembelian, tampil di Pembelian
+    .map(po => ({
     kind: 'po', id: po.id, no: po.no, stage: orderStageU(po.stage), customer: po.customer,
     date: po.date, eta: po.eta, dueDate: '', items: po.items || [], sellTotal: po.sellTotal,
     deposit: po.deposit, paid: Storage.preorderPaidTotal(po), balance: Storage.preorderBalance(po),
     costTotal: Storage.preorderCostTotal(po), events: po.events || [], shipment: po.shipment,
+    months: po.monthsEta,
   }));
-  // KPI titip beli
+  // KPI titip beli (hanya pesanan PELANGGAN; order stok = pembelian, beban di Pembelian)
   const kpi = document.getElementById('preorderKpi');
   if (kpi) {
-    const allPos = Storage.getPreorders();
+    const allPos = Storage.getPreorders().filter(po => po.target !== 'stock' && po.stage !== 'cancelled');
     let running = 0, unpaidKpi = 0, costKpi = 0, profitKpi = 0;
     allPos.forEach(po => {
       if (po.stage === 'settled') profitKpi += Storage.preorderProfit(po);
@@ -2626,7 +2631,8 @@ function renderOrdersPanel() {
     } else if (st === 'sent') {
       action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="invoiced" style="font-size:11px;padding:2px 8px">🧾 Kirim Invoice ke pelanggan</button>`;
     } else if (st === 'invoiced') {
-      action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Terima pembayaran</button>`;
+      action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Terima pembayaran</button>
+       <button class="btn btn-secondary preorder-settle" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Barang diterima pembeli + sudah lunas → tutup pesanan">✅ Lunas &amp; Selesai</button>`;
     }
     const costBtn = r.kind === 'po' ? `<button class="btn btn-ghost preorder-cost" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🧾 Biaya</button>` : '';
     const statusBtn = `<button class="btn btn-ghost order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="" style="font-size:11px;padding:2px 8px">＋ Status</button>`;
@@ -2698,12 +2704,17 @@ function handleOrderStatusSubmit() {
       note = note ? `${note} • ${n2}` : n2;
     }
     if (kind === 'po') {
-      const po = Storage.getPreorderById(id);
-      if (po && po.target === 'stock' && stage === 'received') {
+      const poRow = Storage.getPreorderById(id);
+      if (poRow && poRow.target === 'stock' && stage === 'received') {
         Storage.receivePreorderStock(id, { date, note, tracking });
-      } else if (stage === 'paid' && po && po.target === 'stock') {
-        // 'paid' untuk order stok = catat pelunasan ke supplier sebagai biaya via addPreorderCost
-        Storage.trackPreorder(id, { stage: 'ordered', date, note: note || 'Dibayar ke supplier', tracking, schedule: schedule.slice(0, 10) });
+      } else if (stage === 'paid' && poRow && poRow.target === 'stock') {
+        // Dibayar ke supplier: catat sebagai biaya barang ke supplier (bukan uang pelanggan)
+        Storage.addPreorderCost(id, {
+          amount: Storage.preorderSellTotal(poRow), kind: 'barang', date,
+          payment: document.getElementById('orderStatusPay')?.value || 'transfer',
+          note: note || 'Dibayar ke supplier',
+        });
+        Storage.trackPreorder(id, { stage: 'paid', date, note: note || 'Dibayar ke supplier', tracking, schedule: schedule.slice(0, 10) });
       } else {
         Storage.trackPreorder(id, { stage, date, note, tracking, schedule: schedule.slice(0, 10) });
       }
@@ -3511,6 +3522,18 @@ function handleStockReceive(id) {
     refresh();
     queueMirror();
   } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menerima stok'); }
+}
+// Tutup pesanan titip beli (barang diterima pembeli & sudah lunas) → pengakuan pendapatan + HPP
+function preorderSettlePrompt(id) {
+  const po = Storage.getPreorderById(id);
+  if (!po) return;
+  if (!confirm(`Tutup pesanan ${po.no}? Pelunasan diakui (DP & bayaran jadi pendapatan, barang di gudang jadi HPP).`)) return;
+  try {
+    Storage.settlePreorder(id, { date: new Date().toISOString().split('T')[0], note: 'Barang diterima & lunas' });
+    UI.showSuccess('Pesanan selesai — pendapatan & HPP diakui');
+    refresh();
+    queueMirror();
+  } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menutup pesanan'); }
 }
 /* ===== Halaman Biaya ===== */
 let biayaPeriodValue = 'this-month';
