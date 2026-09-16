@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.96.5';
+const APP_VERSION = '1.96.6';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -985,6 +985,7 @@ function bindEvents() {
     if (c || dr) { UI.showSuccess('Aturan diperbarui'); renderBankRules(); }
   });
   document.getElementById('pembelianBuyBtn')?.addEventListener('click', () => UI.openBuy());
+  document.getElementById('pembelianStockBtn')?.addEventListener('click', () => UI.openSale('stock'));
   document.getElementById('pembelianSupplierBtn')?.addEventListener('click', () => UI.openSupplier());
   document.getElementById('pembelianPoList')?.addEventListener('click', (e) => {
     const recv = e.target.closest('.stock-receive');

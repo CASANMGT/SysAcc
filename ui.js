@@ -4153,7 +4153,7 @@ export function bindCoa(onSave, onRename, onDelete) {
 }
 
 /* ===== Penjualan dari stok ===== */
-export function openSale() {
+export function openSale(presetStock) {
   const m = document.getElementById('saleModal');
   if (!m) return;
   document.getElementById('saleCustomer').value = '';
@@ -4162,6 +4162,13 @@ export function openSale() {
   document.getElementById('salePPN').checked = false;
   const ready = document.querySelector('input[name="saleMode"][value="ready"]'); if (ready) ready.checked = true;
   const creditEl = document.getElementById('saleCredit'); if (creditEl) { creditEl.disabled = false; creditEl.checked = false; }
+  // Preset "Beli barang buat stok" dari Pembelian → Preorder + target Stok + channel lokal
+  if (presetStock === 'stock') {
+    const poRadio = document.querySelector('input[name="saleMode"][value="preorder"]'); if (poRadio) poRadio.checked = true;
+    const ct = document.getElementById('salePoTarget'); if (ct) ct.value = 'stock';
+    const ch = document.getElementById('salePoChannel'); if (ch) ch.value = 'lokal';
+    const cr2 = document.getElementById('saleCredit'); if (cr2) cr2.checked = true;
+  }
   const dueEl = document.getElementById('saleDueDate'); if (dueEl) dueEl.value = '';
   const termsEl = document.getElementById('saleTerms'); if (termsEl) termsEl.value = '1';
   const poDep = document.getElementById('poDeposit'); if (poDep) { poDep.value = ''; delete poDep.dataset.touched; }
