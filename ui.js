@@ -4163,6 +4163,8 @@ export function openSale() {
   const ready = document.querySelector('input[name="saleMode"][value="ready"]'); if (ready) ready.checked = true;
   const creditEl = document.getElementById('saleCredit'); if (creditEl) creditEl.disabled = false;
   const poDep = document.getElementById('poDeposit'); if (poDep) { poDep.value = ''; delete poDep.dataset.touched; }
+  const salDep = document.getElementById('saleDeposit'); if (salDep) { salDep.value = ''; delete salDep.dataset.touched; delete salDep.dataset.last; }
+  const salPct = document.getElementById('saleDepositPct'); if (salPct) { salPct.value = '0'; delete salPct.dataset.last; }
   const poFields = document.getElementById('salePreorderFields'); if (poFields) poFields.hidden = true;
   const disc = document.getElementById('saleDiscount'); if (disc) disc.value = '';
   const srch = document.getElementById('saleSearch'); if (srch) srch.value = '';
@@ -4345,16 +4347,28 @@ export function bindSale(onSave) {
     if (termsRow) termsRow.hidden = mode === 'preorder' || !credit?.checked;
     recalcSale();
   }));
+  // DP % ↔ amount: dua arah (ketik % → Rp; ketik Rp → %).
+  const depEl = document.getElementById('saleDeposit');
+  const pctEl = document.getElementById('saleDepositPct');
   document.getElementById('saleDepositPct')?.addEventListener('input', () => {
-    const dep = document.getElementById('saleDeposit');
-    if (dep && !dep.dataset.touched) {
-      const total = readSaleRows().total;
-      const pct = Math.min(Math.max(Number(document.getElementById('saleDepositPct')?.value) || 0, 0), 100);
-      dep.value = String(Math.round(total * pct / 100));
-    }
+    if (depEl.dataset.last === 'amt') return;
+    const total = readSaleRows().total;
+    const pct = Math.min(Math.max(Number(pctEl?.value) || 0, 0), 100);
+    depEl.dataset.last = 'pct';
+    if (depEl) depEl.value = String(Math.round(total * pct / 100));
     recalcSale();
   });
-  document.getElementById('saleDeposit')?.addEventListener('input', (e) => { e.target.dataset.touched = '1'; recalcSale(); });
+  document.getElementById('saleDeposit')?.addEventListener('input', () => {
+    const pct = Math.min(Math.max(Number(pctEl?.value) || 0, 0), 100);
+    void pct;
+    if (pctEl.dataset.last === 'pct') return;
+    const total = readSaleRows().total;
+    const amt = Math.round(Number(parseIdrInput(depEl?.value || '')) || 0);
+    const p = total > 0 ? Math.round(Math.min(amt / total * 100, 100)) : 0;
+    pctEl.dataset.last = 'amt';
+    if (pctEl) pctEl.value = String(p);
+    recalcSale();
+  });
   document.getElementById('saleTerms')?.addEventListener('input', recalcSale);
   // POS: scan/kode/nama + Enter → tambah atau tambah qty
   document.getElementById('saleSearch')?.addEventListener('keydown', (e) => {

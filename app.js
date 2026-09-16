@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.95.0';
+const APP_VERSION = '1.95.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3447,6 +3447,36 @@ function renderPembelianPage() {
   const sub = document.getElementById('pembelianSubtitle');
   if (sub) sub.textContent = `${purchases.length} pembelian • ${openCount} belum lunas • hutang ${fmt(outstanding)}`;
   UI.renderSuppliers(purchases, 'pembelianList');
+  // Sisi BELI dari titip beli / preorder (uang keluar: barang, kirim, lainnya)
+  const pos = Storage.getPreorders().filter(po => po.stage !== 'cancelled');
+  const poBox = document.getElementById('pembelianPoList');
+  if (poBox) {
+    const active = pos.filter(po => !['settled', 'cancelled'].includes(po.stage));
+    let barang = 0, kirim = 0, lain = 0;
+    pos.forEach(po => (po.costs || []).forEach(c => {
+      if (c.kind === 'barang') barang += c.amount; else if (c.kind === 'kirim') kirim += c.amount; else lain += c.amount;
+    }));
+    const poSub = document.getElementById('pembelianPoSubtitle');
+    if (poSub) poSub.textContent = `${active.length} pesanan aktif • biaya barang ${fmt(barang)} • kirim ${fmt(kirim)} • lainnya ${fmt(lain)} — daftar pembayaran pelanggan di halaman Penjualan`;
+    const STAGE = { ordered: 'Dipesan', dp_paid: 'DP terbayar', china: 'Gudang China', shipping: 'Kirim ke Indo', shipped: 'Dikirim', arrived: 'Sampai Indo', received: 'Di gudang', invoiced: 'Teredi invoice', settled: 'Selesai', cancelled: 'Batal' };
+    poBox.innerHTML = pos.length ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+        <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Tahap beli</th><th class="amount-col">Barang</th><th class="amount-col">Kirim</th><th class="amount-col">Total biaya</th><th>Resi</th></tr></thead><tbody>
+        ${pos.map(po => {
+      const costs = po.costs || [];
+      const b = costs.filter(c => c.kind === 'barang').reduce((s, c) => s + (Number(c.amount) || 0), 0);
+      const k = costs.filter(c => c.kind === 'kirim').reduce((s, c) => s + (Number(c.amount) || 0), 0);
+      return `<tr>
+          <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.date)}</td>
+          <td style="font-size:12px;white-space:nowrap">${escapeHtml(po.no)}</td>
+          <td style="font-size:12px">${escapeHtml(po.customer || '—')}</td>
+          <td style="font-size:11px">${STAGE[po.stage] || escapeHtml(po.stage)}</td>
+          <td class="amount-col">${fmt(b)}</td>
+          <td class="amount-col">${fmt(k)}</td>
+          <td class="amount-col">${fmt(Storage.preorderCostTotal(po))}</td>
+          <td style="font-size:11px">${escapeHtml((po.shipment || {}).tracking || '—')}</td></tr>`;
+    }).join('')}
+        </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada titip beli (preorder).</p>';
+  }
 }
 
 /* ===== Halaman Biaya ===== */
