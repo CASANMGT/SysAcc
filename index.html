@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.2.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.3.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -542,7 +542,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.2.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.3.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1880,11 +1880,12 @@
   <dialog id="creditPayModal" class="modal">
     <div class="modal-content" style="max-width:420px">
       <header class="modal-header">
-        <h2>💰 Terima Pembayaran</h2>
+        <h2 id="creditPayTitle">💰 Terima Pembayaran</h2>
         <button type="button" class="modal-close" aria-label="Tutup" id="creditPayClose">&times;</button>
       </header>
       <div class="modal-body">
         <input type="hidden" id="creditPayId">
+        <input type="hidden" id="creditPayKind" value="credit">
         <div id="creditPayInfo" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
         <label style="font-size:12px;display:block;margin-bottom:8px">Jumlah bayar (Rp)
           <input type="text" id="creditPayAmount" inputmode="decimal" placeholder="0" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px">
@@ -1926,22 +1927,7 @@
         <label for="shipCourier" style="font-size:12px;display:block;margin-bottom:8px"><span id="shipCourierLabel">Ekspedisi / kurir</span>
           <input type="text" id="shipCourier" placeholder="mis. J&amp;T, Sicepat, kirim sendiri" maxlength="60" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px">
         </label>
-        <label id="shipYuanWrap" style="font-size:12px;display:block;margin-bottom:8px">Nilai belanja barang (¥ yuan)
-          <input type="number" id="shipYuan" min="0" step="1" placeholder="mis. 3000 yuan — otomatis jadi biaya barang (Rp)" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px">
-        </label>
-        <div id="shipShipWrap" style="border:1px dashed #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px">
-          <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">🚚 Pengiriman China → Indonesia</div>
-          <label style="font-size:12px;display:block;margin-bottom:8px">Jalur freight
-            <select id="shipFreight" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:3px">
-              <option value="Laut">🚢 Sea freight (murah, ~3-4 minggu)</option>
-              <option value="Udara">✈️ Air freight (cepat, mahal)</option>
-            </select></label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
-            <label style="flex:1;min-width:100px;font-size:11px;color:#64748b">CBM (m³) <input type="number" id="shipCbm" min="0" step="0.01" placeholder="0" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:2px"></label>
-            <label style="flex:1;min-width:120px;font-size:11px;color:#64748b">Rate per CBM (Rp) <input type="number" id="shipCbmRate" min="0" step="1000" placeholder="0" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:2px"></label>
-          </div>
-          <div id="shipCbmHint" style="font-size:10px;color:#0f766e;font-weight:600;margin-top:3px"></div>
-        </div>
+        <div style="font-size:11px;color:#64748b;background:#f8fafc;border-radius:8px;padding:8px 10px;margin-bottom:8px">Ongkos &amp; jalur China→Indonesia dicatat di <b>Papan Muatan</b> (per batch, dibagi ke semua pesanan yang ikut). Modal ini hanya pengiriman lokal ke pelanggan.</div>
         <label for="shipTracking" style="font-size:12px;display:block;margin-bottom:8px">Nomor resi (opsional)
           <input type="text" id="shipTracking" placeholder="mis. JNT123..." maxlength="40" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px">
         </label>
@@ -2013,34 +1999,6 @@
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="orderStatusCancel">Batal</button>
         <button type="button" class="btn btn-primary" id="orderStatusSave">🔄 Simpan Status</button>
-      </footer>
-    </div>
-  </dialog>
-
-  <dialog id="preorderPayModal" class="modal">
-    <div class="modal-content" style="max-width:420px">
-      <header class="modal-header">
-        <h2>💵 Terima Pembayaran</h2>
-        <button type="button" class="modal-close" aria-label="Tutup" id="preorderPayClose">&times;</button>
-      </header>
-      <div class="modal-body">
-        <input type="hidden" id="preorderPayId">
-        <div id="preorderPayInfo" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
-        <label style="font-size:12px;display:block;margin-bottom:8px">Jumlah bayar (Rp)
-          <input type="text" id="preorderPayAmount" inputmode="decimal" placeholder="0" style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <label style="flex:1;min-width:130px;font-size:12px">Tanggal
-            <input type="date" id="preorderPayDate" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
-          <label style="flex:1;min-width:130px;font-size:12px">Cara bayar
-            <select id="preorderPayPayment" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px;margin-top:3px">
-              <option value="cash">💵 Tunai</option><option value="transfer">🏦 Transfer</option><option value="qris">📱 QRIS</option><option value="ewallet">🛍 E-Wallet</option><option value="debit">💳 Debit</option><option value="other">📦 Lainnya</option>
-            </select></label>
-        </div>
-        <div id="preorderPayError" role="alert" style="color:#dc2626;font-size:12px;margin-top:8px"></div>
-      </div>
-      <footer class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="preorderPayCancel">Batal</button>
-        <button type="button" class="btn btn-primary" id="preorderPaySave">💾 Simpan</button>
       </footer>
     </div>
   </dialog>
@@ -2762,7 +2720,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.2.0';
+    window.__htmlVersion = '2.3.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

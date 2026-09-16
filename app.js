@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2876,6 +2876,8 @@ function renderCreditSection() {
 function openCreditPay(id) {
   const cs = Storage.getCreditSaleById(id);
   if (!cs) return;
+  const kindEl = document.getElementById('creditPayKind'); if (kindEl) kindEl.value = 'credit';
+  const ttl = document.getElementById('creditPayTitle'); if (ttl) ttl.textContent = '💰 Terima Pembayaran';
   document.getElementById('creditPayId').value = id;
   const out = Storage.creditOutstanding(cs);
   const info = document.getElementById('creditPayInfo');
@@ -2888,11 +2890,19 @@ function openCreditPay(id) {
 function closeCreditPay() { const m = document.getElementById('creditPayModal'); if (m && m.open) { try { m.close(); } catch {} } }
 function handleCreditPaySubmit() {
   const id = document.getElementById('creditPayId')?.value || '';
+  const kind = document.getElementById('creditPayKind')?.value || 'credit';
   const amount = Math.round(Number(UI.parseIdrInput(document.getElementById('creditPayAmount')?.value || '')) || 0);
   const date = document.getElementById('creditPayDate')?.value || new Date().toISOString().split('T')[0];
   const payment = document.getElementById('creditPayPayment')?.value || 'cash';
   if (!id) return;
   try {
+    if (kind === 'po') {
+      Storage.payPreorder(id, { amount, date, payment });
+      closeCreditPay();
+      UI.showSuccess('Pembayaran diterima — uang muka pelanggan tercatat');
+      refreshSalesPage();
+      return;
+    }
     Storage.payCreditSale(id, { amount, date, payment });
     closeCreditPay();
     UI.showSuccess('Pembayaran diterima — piutang berkurang');
@@ -3047,36 +3057,20 @@ function renderPreorderInfo() {
     ? `Total ke pelanggan: <b>${preorderFmt(total)}</b>${dep > 0 ? ` • DP ${preorderFmt(dep)} → masuk kas, sisa dibayar saat barang datang (${preorderFmt(total - dep)})` : ' • tanpa DP'}`
     : '<span style="color:var(--text-muted)">Isi min 1 baris: pilih barang dari Produk (atau tulis manual), qty, dan harga jual ke pelanggan. Estimasi tanggal datang bisa diubah.</span>';
 }
-function closePoPay() { const m = document.getElementById('preorderPayModal'); if (m && m.open) { try { m.close(); } catch {} } }
 function openPoPay(id) {
   const po = Storage.getPreorderById(id);
   if (!po) return;
-  document.getElementById('preorderPayId').value = id;
+  const kindEl = document.getElementById('creditPayKind'); if (kindEl) kindEl.value = 'po';
+  const ttl = document.getElementById('creditPayTitle'); if (ttl) ttl.textContent = '💵 Terima Pembayaran Pesanan';
+  document.getElementById('creditPayId').value = id;
   const bal = Storage.preorderBalance(po);
-  const info = document.getElementById('preorderPayInfo');
+  const info = document.getElementById('creditPayInfo');
   if (info) info.innerHTML = `<b>${escapeHtml(po.no || '')}</b> — ${escapeHtml(po.customer || '')}<br>Total ${preorderFmt(po.sellTotal)} • sudah dibayar ${preorderFmt(Storage.preorderPaidTotal(po))} • <b>sisa ${preorderFmt(bal)}</b>`;
-  const amt = document.getElementById('preorderPayAmount'); if (amt) { amt.value = String(Math.round(bal)); delete amt.dataset.touched; }
-  const dt = document.getElementById('preorderPayDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
-  const er = document.getElementById('preorderPayError'); if (er) er.textContent = '';
-  const m = document.getElementById('preorderPayModal');
+  const amt = document.getElementById('creditPayAmount'); if (amt) { amt.value = String(Math.round(bal)); delete amt.dataset.touched; }
+  const dt = document.getElementById('creditPayDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
+  const er = document.getElementById('creditPayError'); if (er) er.textContent = '';
+  const m = document.getElementById('creditPayModal');
   if (m && !m.open) { try { m.showModal(); } catch {} }
-}
-function handlePoPaySubmit() {
-  const id = document.getElementById('preorderPayId')?.value || '';
-  const amount = Math.round(Number(UI.parseIdrInput(document.getElementById('preorderPayAmount')?.value || '')) || 0);
-  const date = document.getElementById('preorderPayDate')?.value || new Date().toISOString().split('T')[0];
-  const payment = document.getElementById('preorderPayPayment')?.value || 'cash';
-  if (!id) return;
-  try {
-    Storage.payPreorder(id, { amount, date, payment });
-    closePoPay();
-    UI.showSuccess('Pembayaran diterima — uang muka pelanggan tercatat');
-    refreshSalesPage();
-  } catch (e) {
-    const er = document.getElementById('preorderPayError');
-    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan bayar';
-    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan bayar');
-  }
 }
 function closePoCost() { const m = document.getElementById('preorderCostModal'); if (m && m.open) { try { m.close(); } catch {} } }
 function openPoCost(id) {
@@ -3139,9 +3133,6 @@ function bindPreorderUI() {
   document.getElementById('preorderAddRow')?.addEventListener('click', addPreorderRow);
   document.getElementById('preorderSave')?.addEventListener('click', handlePreorderSubmit);
   document.getElementById('preorderDeposit')?.addEventListener('input', renderPreorderInfo);
-  document.getElementById('preorderPayClose')?.addEventListener('click', closePoPay);
-  document.getElementById('preorderPayCancel')?.addEventListener('click', closePoPay);
-  document.getElementById('preorderPaySave')?.addEventListener('click', handlePoPaySubmit);
   document.getElementById('preorderCostClose')?.addEventListener('click', closePoCost);
   document.getElementById('preorderCostCancel')?.addEventListener('click', closePoCost);
   document.getElementById('preorderCostSave')?.addEventListener('click', handlePoCostSubmit);
@@ -7907,29 +7898,20 @@ function openOrderShip(kind, id) {
   document.getElementById('shipId').value = id;
   const kindEl = document.getElementById('shipKind'); if (kindEl) kindEl.value = kind || 'jual';
   const title = document.getElementById('shipTitle');
-  if (title) title.textContent = kind === 'po' ? '🛒 Beli Barang → Gudang China' : '🚚 Tandai Dikirim';
-  const yuanWrap = document.getElementById('shipYuanWrap');
-  if (yuanWrap) yuanWrap.hidden = kind !== 'po';
-  const shipWrap = document.getElementById('shipShipWrap');
-  if (shipWrap) shipWrap.hidden = kind !== 'po';
+  if (title) title.textContent = '🚚 Kirim ke Pelanggan';
   const courierLabel = document.getElementById('shipCourierLabel');
-  if (courierLabel) courierLabel.textContent = kind === 'po' ? 'Agent/grosir (opsional)' : 'Ekspedisi / kurir';
+  if (courierLabel) courierLabel.textContent = 'Ekspedisi / kurir';
   const out = kind === 'po' ? Storage.preorderBalance(cs) : Storage.creditOutstanding(cs);
   const info = document.getElementById('shipInfo');
   if (info) {
-    const fx = kind === 'po' ? Number(cs.fx) || 2300 : 0;
-    info.innerHTML = `<b>${escapeHtml(cs.no || cs.invoiceNo || '')}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${('Rp' + Math.round(cs.sellTotal || cs.total).toLocaleString('id-ID'))} • <b>sisa ${('Rp' + Math.round(out).toLocaleString('id-ID'))}</b>${kind === 'po' ? ` • kurs ¥1 = Rp${fx.toLocaleString('id-ID')}` : ''}`;
+    info.innerHTML = `<b>${escapeHtml(cs.no || cs.invoiceNo || '')}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${('Rp' + Math.round(cs.sellTotal || cs.total).toLocaleString('id-ID'))} • <b>sisa ${('Rp' + Math.round(out).toLocaleString('id-ID'))}</b>`;
   }
   const dt = document.getElementById('shipDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
   const er = document.getElementById('shipError'); if (er) er.textContent = '';
-  const yuan = document.getElementById('shipYuan'); if (yuan) { yuan.value = ''; delete yuan.dataset.touched; }
-  const cbm = document.getElementById('shipCbm'); if (cbm) cbm.value = '';
-  const cbmRate = document.getElementById('shipCbmRate'); if (cbmRate) cbmRate.value = '';
-  const cbmHint = document.getElementById('shipCbmHint'); if (cbmHint) cbmHint.textContent = '';
   const m = document.getElementById('shipModal');
   if (m && !m.open) {
     try { m.showModal(); } catch {}
-    setTimeout(() => (kind === 'po' ? document.getElementById('shipYuan') : document.getElementById('shipCourier'))?.focus(), 60);
+    setTimeout(() => document.getElementById('shipCourier')?.focus(), 60);
   }
 }
 function closeOrderShip() { const m = document.getElementById('shipModal'); if (m && m.open) { try { m.close(); } catch {} } }
@@ -7939,24 +7921,14 @@ function handleOrderShipSubmit() {
   if (!id) return;
   try {
     if (kind === 'po') {
-      const yuan = Number(UI.parseIdrInput(document.getElementById('shipYuan')?.value || '')) || 0;
-      const cbm = Math.max(Number(document.getElementById('shipCbm')?.value) || 0, 0);
-      const cbmRate = Math.max(Number(document.getElementById('shipCbmRate')?.value) || 0, 0);
-      Storage.shipPreorder(id, {
-        note: 'Beli barang (agent)',
-        tracking: document.getElementById('shipTracking')?.value || '',
-      });
-      if (yuan > 0) {
-        const po = Storage.getPreorderById(id);
-        const fx = Number(po?.fx) || 2300;
-        Storage.addPreorderCost(id, { amount: Math.round(yuan * fx), kind: 'barang', payment: 'transfer', note: `¥${yuan.toLocaleString('id-ID')} yuan × kurs ${fx.toLocaleString('id-ID')} = Rp${Math.round(yuan * fx).toLocaleString('id-ID')}` });
-      }
-      if (cbm * cbmRate > 0) {
-        const freight = document.getElementById('shipFreight')?.value || 'Laut';
-        Storage.addPreorderCost(id, { amount: Math.round(cbm * cbmRate), kind: 'kirim', payment: 'transfer', note: `Kirim China→Indo ${freight} ${cbm} CBM × Rp${cbmRate.toLocaleString('id-ID')}` });
-      }
+      // 4.2: modal ini hanya pengiriman lokal ke pelanggan. Belanja & ongkos impor
+      // sudah dicatat di Papan Muatan (Belanja/Koli/Muatan), bukan di sini.
+      const courier = document.getElementById('shipCourier')?.value || '';
+      const tracking = document.getElementById('shipTracking')?.value || '';
+      const date = document.getElementById('shipDate')?.value || new Date().toISOString().split('T')[0];
+      Storage.trackPreorder(id, { stage: 'sent', date, note: `Kirim ke pelanggan${courier ? ' via ' + courier : ''}`, tracking });
       closeOrderShip();
-      UI.showSuccess('Barang dibeli & dicatat di gudang China (biaya barang/kirim masuk pesanan) — langkah berikutnya kirim China → Indonesia');
+      UI.showSuccess('Pesanan dikirim ke pelanggan — berikutnya kirim invoice / terima pembayaran');
       refreshSalesPage();
       return;
     }

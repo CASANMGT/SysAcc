@@ -6,6 +6,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.3.0] - 2026-09-16
+
+### Stage 4.2 & 4.3 — satu modal kirim lokal, satu modal terima pembayaran
+- **4.2 "Tandai Dikirim" kini murni pengiriman lokal**: kolom ¥ belanja barang, jalur freight, CBM, dan rate/CBM **dihapus dari modal** — ongkos China→Indonesia hanya dicatat di **Papan Muatan** (per batch, dibagi otomatis ke semua pesanan yang ikut). Untuk pesanan preorder, modal ini menandai kirim ke pelanggan (`stage: sent`) dan menyebut di layar bahwa ongkos impor ada di Papan Muatan.
+- **4.3 dua modal "Terima Pembayaran" digabung jadi satu**: `preorderPayModal` (28 baris duplikat) dihapus; `creditPayModal` sekarang melayani dua arah lewat `creditPayKind` — piutang struk (`payCreditSale`) dan pembayaran pesanan (`payPreorder`) — dengan judul dan info yang menyesuaikan. Satu daftar cara bayar untuk keduanya.
+- **Hasil**: elemen modal berkurang, tidak ada lagi dua form uang identik dengan field berbeda.
+
 ## [2.2.0] - 2026-09-16
 
 ### Stage 4.1 — keputusan paling menentukan naik ke atas form Jual
