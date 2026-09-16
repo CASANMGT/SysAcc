@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.15.0] - 2026-09-16
+
+### Redesign langkah 2 — produk draft dari China (tanpa memblokir pembelian)
+- **Belanja form bisa membuat produk baru langsung**: centang "🆕 Buat produk draft untuk baris yang belum ada di katalog" (bawaan aktif). Baris belanja kini menerima **berat kg** opsional (`nama; qty; harga¥; kg`). Baris yang namanya sudah ada di katalog otomatis ditautkan (itemId), yang belum dibuat sebagai **produk draft** dengan modal awal = estimasi `¥ × kurs`.
+- **Draft ≠ stok jual**: produk draft **tidak muncul** di pilihan jual stok siap, tidak menambah stok on-hand, tetapi tetap tampil di katalog & pipeline.
+- **Aktif otomatis saat tiba**: saat muatan diterima, item terkait di-`setItemStatus('aktif')` dan modal/pcs ditimpa hasil alokasi (weighted-average) — katalog tidak lagi penuh produk yang dipesan tapi tak pernah datang.
+- Uji: **353 lulus** (draft → aktif + modal Rp 158.531 + stok 40 pcs saat tiba).
+
 ## [2.14.0] - 2026-09-16
 
 ### Redesign Penjualan/Pembelian — langkah 1: kalkulator ongkir & estimasi biaya

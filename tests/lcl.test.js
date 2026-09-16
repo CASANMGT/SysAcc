@@ -4,7 +4,7 @@ import {
   getBelanjas, createBelanja, refundBelanja,
   getKolis, checkInKoli, updateKoli, assignBelanjaToKoli,
   getMuatans, getMuatanById, createMuatan, loadKoli,
-  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli,
+  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance,
 } from '../lcl.js';
 import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, createDraftProductFromBelanja } from '../storage.js';
 
@@ -151,6 +151,23 @@ describe('migrasi Titip Beli lama', () => {
     const r2 = migrateLegacyTitipBeli();
     expect(r2.migrated).toBe(0); // idempoten
     expect(getBelanjas().filter((x) => x.legacy).length).toBe(1);
+  });
+});
+
+describe('estimasi vs aktual', () => {
+  it('selisih dihitung dari estimatedIdr vs landedTotal', () => {
+    const { muatan, belanja } = setupWorkedExample();
+    const b0 = getBelanjas().find((b) => b.id === belanja.id);
+    expect(b0.estimatedIdr).toBe(2621250); // ¥1120 + ¥45 × 2250
+    expect(costVariance(b0).ready).toBe(false); // belum tiba
+    departMuatan(muatan.id, { date: '2026-03-10', payment: 'cash' });
+    receiveMuatan(muatan.id, { date: '2026-04-05' });
+    const b1 = getBelanjas().find((b) => b.id === belanja.id);
+    const v = costVariance(b1);
+    expect(v.ready).toBe(true);
+    expect(v.actual).toBe(6341250);
+    expect(v.diff).toBe(3720000); // seluruhnya ongkir laut
+    expect(Math.round(v.pct * 1000) / 10).toBeCloseTo(141.9, 1);
   });
 });
 

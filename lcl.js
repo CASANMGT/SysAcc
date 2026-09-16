@@ -60,6 +60,7 @@ export function createBelanja({ date, marketplace, seller, orderNo, lines, ongki
     orderNo: String(orderNo || '').trim().slice(0, 40),
     lines: clean, goodsCny, ongkirCny: ongCny, totalCny,
     agentFee: num(agentFee), kursAgen: kurs, totalIdr,
+    estimatedIdr: totalIdr, // §4: modal estimasi saat beli (¥ + ongkir, sebelum ongkir laut)
     payment: payment || 'agent',
     purpose: purpose === 'stock' ? 'stock' : 'preorder',
     preorderId: String(preorderId || '').slice(0, 60) || null,
@@ -350,7 +351,9 @@ export function allocateBatch(muatan, kolis, { basis = 'cbm', arrivedKoliIds = n
     const unitBase = totQty > 0 ? Math.round(baseCost / totQty) : 0;
     const unitFreight = la.freightAlloc && totQty > 0 ? Math.round(la.freightAlloc / totQty) : 0;
     la.unitCost = unitBase + unitFreight;
-    const landed = unitBase * totQty + unitFreight * totQty;
+    // landedTotal = jumlah persis yang dijurnal (baseCost + alokasi freight), bukan hasil pembulatan per unit,
+    // supaya laporan estimasi vs aktual cocok dengan invoice forwarder.
+    const landed = baseCost + (la.freightAlloc || 0);
     la.baseCost = baseCost;
     la.goodsIdr = goodsIdr;
     la.ongIdr = ongIdr;
@@ -518,6 +521,15 @@ export function belanjasForPreorder(poId) {
 export function preorderLandedTotal(poId) {
   return belanjasForPreorder(poId).reduce((s, b) => s + (b.landedTotal != null ? b.landedTotal : b.totalIdr || 0), 0);
 }
+// §4 Selisih estimasi vs aktual per belanja: aktual = biaya mendarat hasil alokasi.
+export function costVariance(belanja) {
+  const est = Number(belanja && belanja.estimatedIdr) || 0;
+  const act = Number(belanja && belanja.landedTotal) || 0;
+  if (!est || !act) return { estimated: est, actual: act, diff: 0, pct: 0, ready: false };
+  const diff = act - est;
+  return { estimated: est, actual: act, diff, pct: est > 0 ? diff / est : 0, ready: true };
+}
+
 // Total biaya belanja marketplace untuk satu pesanan pelanggan (dikurangi refund).
 export function preorderLclCost(poId) {
   return belanjasForPreorder(poId).reduce((s, b) => {

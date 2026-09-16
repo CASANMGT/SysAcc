@@ -12,7 +12,7 @@ import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, bui
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
 import * as Freight from './freight.js';
-import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
+import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, costVariance, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.15.0';
+const APP_VERSION = '2.16.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3880,7 +3880,25 @@ function renderMuatanPage() {
         <td class="amount-col">${m.freightBilled ? fmt(m.freightBilled) : '—'}</td>
         <td style="font-size:11px">${m.allocated ? '✅ selesai' : m.departed ? '🌊 di kapal' : '📦 buka'}</td>
         <td><button type="button" class="btn btn-ghost mtab-open-muatan" data-id="${m.id}" style="font-size:11px;padding:2px 8px">Buka</button></td></tr>`).join('')}
-    </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada muatan. Buat muatan lalu muat koli.</p>';
+      </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada muatan. Buat muatan lalu muat koli.</p>';
+  }
+  // §4 Laporan selisih estimasi vs aktual (belanja yang sudah tiba)
+  const varBox = document.getElementById('muatanVariance');
+  if (varBox) {
+    const arrived = bels.filter((b) => b.landedTotal != null && b.estimatedIdr);
+    const rowsV = arrived.map((b) => { const v = costVariance(b); return `<tr>
+      <td style="font-size:11.5px">${escapeHtml(b.no)} • ${escapeHtml(b.seller || '')}</td>
+      <td class="amount-col" style="font-size:11.5px">${fmt(v.estimated)}</td>
+      <td class="amount-col" style="font-size:11.5px">${fmt(v.actual)}</td>
+      <td class="amount-col" style="font-size:11.5px;color:${v.diff >= 0 ? '#b45309' : '#059669'};font-weight:700">${v.diff >= 0 ? '+' : ''}${fmt(v.diff)} (${(v.pct * 100).toFixed(1)}%)</td></tr>`; }).join('');
+    const totEst = arrived.reduce((s, b) => s + (Number(b.estimatedIdr) || 0), 0);
+    const totAct = arrived.reduce((s, b) => s + (Number(b.landedTotal) || 0), 0);
+    const totPct = totEst > 0 ? ((totAct - totEst) / totEst) * 100 : 0;
+    varBox.innerHTML = arrived.length
+      ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Belanja</th><th class="amount-col">Estimasi</th><th class="amount-col">Aktual</th><th class="amount-col">Selisih</th></tr></thead><tbody>${rowsV}
+        <tr style="background:#f8fafc;font-weight:700"><td>Total</td><td class="amount-col">${fmt(totEst)}</td><td class="amount-col">${fmt(totAct)}</td><td class="amount-col" style="color:${totAct >= totEst ? '#b45309' : '#059669'}">${totAct >= totEst ? '+' : ''}${fmt(totAct - totEst)} (${totPct.toFixed(1)}%)</td></tr></tbody></table></div>
+        <div style="font-size:11px;color:#64748b;margin-top:6px">Estimasi = ¥ × kurs + ongkir China saat beli. Aktual = biaya mendarat hasil alokasi. Selisih positif terus-menerus berarti rate di Pengaturan → Impor terlalu rendah dan harga jual ke pelanggan kemungkinan kurang.</div>`
+      : '<p style="color:var(--text-muted);font-size:12px">Belum ada belanja yang tiba — laporan muncul setelah alokasi pertama.</p>';
   }
   showMuatanTab(muatanTab);
 }
@@ -4209,14 +4227,20 @@ function openReceiveModal(muatanId) {
   const alloc = allocateBatch(m, allKolis, { arrivedKoliIds: allKolis.filter((k) => arrivedIds.has(k.id) || nowKolis.includes(k)).map((k) => k.id), alreadyBilled: true });
   const rows = (alloc.lineAlloc || []).map((la) => {
     const qty = la.belanja.lines.reduce((s, l) => s + l.qty, 0);
+    const va = costVariance(la.belanja);
+    const varTxt = va.estimated && va.actual
+      ? `<span style="color:${va.diff >= 0 ? '#b45309' : '#059669'};font-weight:700">${va.diff >= 0 ? '+' : ''}${fmt(va.diff)} (${va.pct >= 0 ? '+' : ''}${(va.pct * 100).toFixed(1)}%)</span>`
+      : '—';
     return `<tr>
       <td style="font-size:11px">${escapeHtml(la.belanja.no)} • ${escapeHtml(la.belanja.seller || '')}</td>
-      <td class="amount-col">${fmt(la.landedTotal)}</td>
-      <td class="amount-col" style="font-size:11px;color:#059669"><b>${fmt(Math.round(la.landedTotal / Math.max(qty, 1)))}/unit</b></td></tr>`;
+      <td class="amount-col" style="font-size:11px">${fmt(va.estimated)}</td>
+      <td class="amount-col" style="font-size:11px">${fmt(va.actual)}</td>
+      <td class="amount-col" style="font-size:11px">${varTxt}</td>
+      <td class="amount-col" style="font-size:11px;color:#059669"><b>${fmt(Math.round(la.landedTotal / Math.max(qty, 1)))}/pcs</b></td></tr>`;
   }).join('');
   const html = `<div style="display:flex;flex-direction:column;gap:10px">
     <div style="font-size:12px;color:#64748b">Perkiraan biaya mendarat per belanja (alokasi: CBM share, residu ke koli terbesar). <b>Tidak menyimpan apa pun sebelum dikonfirmasi.</b></div>
-    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Belanja</th><th class="amount-col">Biaya mendarat</th><th class="amount-col">HPP/unit</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Belanja</th><th class="amount-col">Estimasi</th><th class="amount-col">Aktual</th><th class="amount-col">Selisih</th><th class="amount-col">HPP/pcs</th></tr></thead><tbody>${rows}</tbody></table></div>
     <label style="font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="mutRcvAll" checked> Terima semua ${nowKolis.length} koli belum tiba (kosongkan untuk pilih manual selanjutnya)</label>
     <button type="button" class="btn btn-primary" id="mutRcvGo">📥 Konfirmasi tiba &amp; posting</button>
     <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan (1105) / Cr Persediaan dalam Perjalanan (1211). Stok otomatis masuk untuk belanja bertanda produk.</div>
