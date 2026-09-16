@@ -32,10 +32,10 @@ export const ACCOUNTS = [
   { code: '1521', name: 'Kendaraan', type: 'asset' },
   { code: '1522', name: 'Bangunan', type: 'asset' },
   // Kewajiban
-  { code: '2101', name: 'Customer Deposit', type: 'liability' },
-  { code: '2102', name: 'Account Payable', type: 'liability' },
-  { code: '2103', name: 'PPh 21 Payable', type: 'liability' },
-  { code: '2104', name: 'PPh 23 Payable', type: 'liability' },
+  { code: '2101', name: 'DP Pelanggan (belum jadi pendapatan)', type: 'liability' },
+  { code: '2102', name: 'Hutang Supplier', type: 'liability' },
+  { code: '2103', name: 'PPh 21 Terutang', type: 'liability' },
+  { code: '2104', name: 'PPh 23 Terutang', type: 'liability' },
   { code: '2105', name: 'PPN Keluaran', type: 'liability' },
   { code: '2106', name: 'PPh Final Terutang', type: 'liability' },
   { code: '2107', name: 'Hutang Gaji', type: 'liability' },
@@ -45,7 +45,7 @@ export const ACCOUNTS = [
   { code: '2111', name: 'Hutang Pajak Lainnya', type: 'liability' },
   { code: '2112', name: 'Hutang Lain-lain', type: 'liability' },
   // Modal
-  { code: '3101', name: 'Owner Capital', type: 'equity' },
+  { code: '3101', name: 'Modal Pemilik (Owner Capital)', type: 'equity' },
   { code: '3102', name: 'Laba Ditahan', type: 'equity' },
   { code: '3103', name: 'Prive / Penarikan Pemilik', type: 'equity' },
   // Pendapatan
