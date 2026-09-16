@@ -11,7 +11,7 @@ import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
-import { getBelanjas, getKolis, getMuatans, getMuatanById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin } from './lcl.js';
+import { getBelanjas, getKolis, getMuatans, getMuatanById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, MIN_CBM } from './lcl.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.99.1';
+const APP_VERSION = '1.100.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -802,7 +802,9 @@ function bindEvents() {
     if (ship) openOrderShip('jual', ship.dataset.id);
     else if (settleBtn) preorderSettlePrompt(settleBtn.dataset.id);
     else if (recv) handleOrderReceive(recv.dataset.id);
-    else if (e.target.closest('.preorder-ship')) { const b = e.target.closest('.preorder-ship'); openOrderShip('po', b.dataset.id); }
+    else if (e.target.closest('.preorder-ship')) { const b = e.target.closest('.preorder-ship'); openBelanjaModalFor(b.dataset.id); }
+    else if (e.target.closest('.order-koli-paste')) openKoliPasteModal(e.target.closest('.order-koli-paste').dataset.id);
+    else if (e.target.closest('.order-goto-muatan')) showView('viewMuatan');
     else if (e.target.closest('.preorder-arrive')) orderArrivePrompt(e.target.closest('.preorder-arrive').dataset.id);
     else if (setStatus) openOrderStatus(setStatus.dataset.kind, setStatus.dataset.id, setStatus.dataset.st || '');
     else if (pay) (pay.dataset.kind === 'po') ? openPoPay(pay.dataset.id) : openCreditPay(pay.dataset.id);
@@ -2615,8 +2617,10 @@ function renderOrdersPanel() {
     const allPos = Storage.getPreorders().filter(po => po.target !== 'stock' && po.stage !== 'cancelled');
     let running = 0, unpaidKpi = 0, costKpi = 0, profitKpi = 0;
     allPos.forEach(po => {
-      if (po.stage === 'settled') profitKpi += Storage.preorderProfit(po);
-      else { running++; unpaidKpi += Storage.preorderBalance(po); costKpi += Storage.preorderCostTotal(po); }
+      const lclCost = preorderLclCost(po.id);
+      const cost = lclCost > 0 ? lclCost : Storage.preorderCostTotal(po);
+      if (po.stage === 'settled') profitKpi += Storage.preorderPaidTotal(po) - cost;
+      else { running++; unpaidKpi += Storage.preorderBalance(po); costKpi += cost; }
     });
     const tile = (label, value, color) => `<button type="button" style="cursor:default">${label}<b style="color:${color}">${value}</b></button>`;
     kpi.innerHTML = tile('🌏 Titip beli berjalan', running, '#2563eb')
@@ -2629,7 +2633,7 @@ function renderOrdersPanel() {
   const history = cssOrders.filter(r => r.stage === 'done')
     .map(r => ({ kind: 'jual', no: r.no, customer: r.customer, paid: r.paid, total: r.sellTotal }))
     .concat(Storage.getPreorders().filter(po => po.stage === 'settled')
-      .map(po => ({ kind: 'po', no: po.no, customer: po.customer, paid: Storage.preorderPaidTotal(po), total: po.sellTotal, profit: Storage.preorderProfit(po) })))
+      .map(po => { const lclCost = preorderLclCost(po.id); const cost = lclCost > 0 ? lclCost : Storage.preorderCostTotal(po); return { kind: 'po', no: po.no, customer: po.customer, paid: Storage.preorderPaidTotal(po), total: po.sellTotal, profit: Storage.preorderPaidTotal(po) - cost }; }))
     .sort((a, b) => String(b.no).localeCompare(String(a.no)));
   const box = document.getElementById('orderStatusList');
   if (!box) return;
@@ -2658,13 +2662,16 @@ function renderOrdersPanel() {
     } else if (st === 'dp_paid' && r.kind === 'jual') {
       action = `<button class="btn btn-primary order-ship" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim ke pelanggan / tulis resi</button>`;
     } else if (st === 'dp_paid' && r.kind === 'po') {
-      action = `<button class="btn btn-primary preorder-ship" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🛒 Beli barang → masuk gudang China</button>`;
+      action = `<button class="btn btn-primary preorder-ship" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🛍 Beli di marketplace</button>
+        <button class="btn btn-ghost order-koli-paste" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Daftar koli dari forwarder (kode;CBM;kg)">🧾 Cek-in koli</button>
+        <div style="font-size:10px;color:#64748b;margin-top:2px">CBM diukur gudang China — bukan saat beli</div>`;
     } else if (st === 'shipped') {
       action = `<button class="btn btn-primary order-recv" data-id="${r.id}" style="font-size:11px;padding:2px 8px">📦 Diterima pelanggan</button>`;
     } else if (st === 'received') {
       action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="invoiced" style="font-size:11px;padding:2px 8px">🧾 Kirim Invoice — tunggu bayar</button>`;
     } else if (st === 'china') {
-      action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="to_indo" style="font-size:11px;padding:2px 8px">🌏 Kirim gudang China → Indonesia (isikan resi)</button>`;
+      action = `<button class="btn btn-primary order-koli-paste" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🧾 Masuk gudang China — tempel daftar forwarder</button>
+        <button class="btn btn-ghost order-goto-muatan notif-goto" data-goto="muatan" style="font-size:11px;padding:2px 8px">🚢 Muat ke muatan →</button>`;
     } else if (st === 'to_indo') {
       action = `<button class="btn btn-primary order-status" data-kind="${r.kind}" data-id="${r.id}" data-st="in_wh" style="font-size:11px;padding:2px 8px">🏭 Tiba di gudang kita (bayar kirim Indo)</button>`;
     } else if (st === 'in_wh') {
@@ -3573,7 +3580,8 @@ function preorderSettlePrompt(id) {
   if (!po) return;
   if (!confirm(`Tutup pesanan ${po.no}? Pelunasan diakui (DP & bayaran jadi pendapatan, barang di gudang jadi HPP).`)) return;
   try {
-    Storage.settlePreorder(id, { date: new Date().toISOString().split('T')[0], note: 'Barang diterima & lunas' });
+    const lclCost = preorderLclCost(po.id);
+    Storage.settlePreorder(id, { date: new Date().toISOString().split('T')[0], note: 'Barang diterima & lunas', costGoodsOvr: lclCost > 0 ? Math.max(Storage.preorderCostTotal(po), lclCost) : null });
     UI.showSuccess('Pesanan selesai — pendapatan & HPP diakui');
     refresh();
     queueMirror();
@@ -3682,9 +3690,70 @@ function renderMuatanPage() {
   }
 }
 
-function openBelanjaModal() {
+function openBelanjaModalFor(poId) { openBelanjaModal(poId); }
+
+// tempel daftar forwarder → koli: kode;CBM;kg per baris, cocok resi China → belanja
+function openKoliPasteModal(poId) {
+  const po = poId ? Storage.getPreorderById(poId) : null;
+  const bels = po ? getBelanjas().filter((b) => b.preorderId === poId) : [];
+  const html = `<div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;color:#64748b">${po ? `<b>${escapeHtml(po.no)}</b> — ${escapeHtml(po.customer || '')} • ${bels.length} belanja terkait` : 'Semua belanja menunggu koli'}</div>
+    <textarea id="koliPaste" rows="5" placeholder="K-001; 1,2; 8,5&#10;K-002; 0,06; 1,4&#10;(kode; CBM; kg)" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px"></textarea>
+    <div style="font-size:11px;color:#64748b">Satu baris per paket — <b>kode; CBM; kg</b> dari daftar forwarder. Minimum 0,1 CBM diterapkan otomatis. Belanja dicocokkan via resi China.</div>
+    <div id="koliPastePreview"></div>
+    <button type="button" id="koliPasteCommit" class="btn btn-primary" disabled>📥 Cek-in (review dulu)</button>
+  </div>`;
+  UI.openInfoModal(poId ? `🧾 Masuk gudang China — ${po.no}` : '🧾 Cek-in koli (tempel daftar)', html);
+  const parse = () => {
+    const belPool = po ? bels : getBelanjas().filter((b) => !b.koliId);
+    const rows = String(document.getElementById('koliPaste').value || '').split('\n').map((s) => s.trim()).filter(Boolean).map((s) => {
+      const p = s.split(/[;\t]/).map((x) => x.trim());
+      const code = p[0] || '';
+      const cbm = Math.max(Number((p[1] || '').replace(',', '.')) || 0, 0);
+      const kg = Number((p[2] || '').replace(',', '.')) || 0;
+      const track = p[3] || '';
+      let bel = null;
+      if (track) bel = belPool.find((b) => b.chinaTracking && track.toUpperCase().includes(b.chinaTracking.toUpperCase()));
+      if (!bel) bel = belPool.find((b) => b.chinaTracking && code.toUpperCase().includes(b.chinaTracking.toUpperCase()));
+      return { code, cbm, kg, track, bel };
+    });
+    const uniq = new Map();
+    rows.forEach((r) => { const key = r.code || `${r.cbm}/${r.kg}`; if (!uniq.has(key)) uniq.set(key, r); });
+    return Array.from(uniq.values());
+  };
+  const preview = () => {
+    try {
+      const list = parse();
+      const rows = list.map((r) => `<tr>
+          <td style="font-size:11px">${escapeHtml(r.code || '—')}</td>
+          <td class="amount-col">${r.cbm.toFixed(2)}${r.cbm < MIN_CBM ? ' <span style="color:#b45309;font-weight:700">→ 0,1 (min)</span>' : ''}</td>
+          <td class="amount-col">${r.kg || '—'}</td>
+          <td style="font-size:11px;color:${r.bel ? '#059669' : '#b45309'}">${r.bel ? escapeHtml(r.bel.no) : (r.track ? 'resi ' + escapeHtml(r.track) : '—')}</td>
+        </tr>`).join('');
+      document.getElementById('koliPastePreview').innerHTML = list.length
+        ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr><th>Kode</th><th class="amount-col">CBM</th><th class="amount-col">kg</th><th>Cocok belanja</th></tr></thead><tbody>${rows}</tbody></table></div>` : '';
+      document.getElementById('koliPasteCommit').disabled = false;
+    } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal membaca daftar'); }
+  };
+  document.getElementById('koliPaste')?.addEventListener('input', preview);
+  document.getElementById('koliPasteCommit')?.addEventListener('click', () => {
+    try {
+      const list = parse();
+      list.forEach((r) => {
+        const k = checkInKoli({ parcelNo: r.code || undefined, cbm: r.cbm, weightKg: r.kg, note: po ? po.no : '' });
+        if (r.bel) { try { assignBelanjaToKoli(k.id, r.bel.id); } catch {} }
+      });
+      UI.closeInfoModal();
+      UI.showSuccess(`${list.length} koli masuk gudang China — muat ke muatan di Papan Muatan`);
+      if (po) { renderSalesPage(); refresh(); queueMirror(); } else renderMuatanPage();
+    } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal cek-in'); }
+  });
+}
+
+function openBelanjaModal(preorderId = null) {
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const pos = Storage.getPreorders().filter((po) => po.stage !== 'cancelled' && po.stage !== 'settled');
+  const forOrder = preorderId ? pos.find((p) => p.id === preorderId) : null;
   const html = `<form id="belanjaForm" style="display:flex;flex-direction:column;gap:10px">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <label style="flex:1;min-width:120px;font-size:12px">Tanggal<br><input type="date" id="belanjaDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
@@ -3694,21 +3763,21 @@ function openBelanjaModal() {
     <label style="font-size:12px">Barang — satu baris per barang: <b>nama; qty; harga ¥</b><textarea id="belanjaLines" rows="3" placeholder="Case iPhone 15; 40; 28" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px"></textarea></label>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <label style="flex:1;min-width:110px;font-size:12px">Ongkir China (¥)<br><input type="number" id="belanjaOngkir" min="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
-      <label style="flex:1;min-width:110px;font-size:12px">Fee agen (Rp)<br><input type="number" id="belanjaFee" min="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
-      <label style="flex:1;min-width:110px;font-size:12px">Kurs agen (Rp/¥)<br><input type="number" id="belanjaKurs" min="1" value="2300" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Biaya lain (Rp)<br><input type="number" id="belanjaFee" min="0" value="0" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Kurs dibayar (Rp/¥)<br><input type="number" id="belanjaKurs" min="1" value="2300" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <label style="flex:1;min-width:110px;font-size:12px">Bayar dengan<br><select id="belanjaPay" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"><option value="agent">Saldo agen (1212)</option><option value="cash">Tunai (1104)</option><option value="transfer">Bank BCA (1101)</option></select></label>
-      <label style="flex:1;min-width:110px;font-size:12px">Kurir China (resi)<br><input id="belanjaTracking" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Bayar dengan<br><select id="belanjaPay" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"><option value="transfer">Bank BCA (transfer)</option><option value="cash">Tunai (1104)</option><option value="qris">QRIS</option><option value="agent">Saldo agen — data lama (1212)</option></select></label>
+      <label style="flex:1;min-width:110px;font-size:12px">Resi China (tracking seller)<br><input id="belanjaTracking" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
     </div>
-    <label style="font-size:12px">Untuk (tujuan barang)<br><select id="belanjaFor" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px">
+    <label style="font-size:12px">Untuk (tujuan barang)<br><select id="belanjaFor" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"${forOrder ? ' data-locked="1"' : ''}>
       <option value="">📦 Stok gudang</option>
-      ${pos.map((po) => `<option value="${po.id}">👤 ${escapeHtml(po.customer || po.no)} (${escapeHtml(po.no)})</option>`).join('')}
-    </select></label>
-    <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan dalam Perjalanan (1211) / Cr saldo agen atau kas. Barang bisa campuran stok + pesanan pelanggan dalam satu belanja.</div>
+      ${pos.map((po) => `<option value="${po.id}"${po.id === preorderId ? ' selected' : ''}>👤 ${escapeHtml(po.customer || po.no)} (${escapeHtml(po.no)})</option>`).join('')}
+    </select>${forOrder ? `<div style="font-size:10.5px;color:#475569;margin-top:3px">Belanja ini untuk pesanan <b>${escapeHtml(forOrder.no)}</b>${forOrder.customer ? ' — ' + escapeHtml(forOrder.customer) : ''}</div>` : ''}</label>
+    <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan dalam Perjalanan (1211) / Cr kas. Ongkir laud (freight) <b>belum termasuk</b> — ditambahkan saat muatan tiba (alokasi otomatis).</div>
     <button type="submit" class="btn btn-primary" id="belanjaSave">🛍 Simpan belanja (bayar penuh)</button>
   </form>`;
-  UI.openInfoModal('🛍 Belanja marketplace', html);
+  UI.openInfoModal(forOrder ? `🛍 Beli untuk pesanan ${forOrder.no}` : '🛍 Belanja marketplace', html);
   document.getElementById('belanjaSave')?.addEventListener('click', saveBelanja);
   const form = document.getElementById('belanjaForm');
   form?.addEventListener('submit', (e) => { e.preventDefault(); saveBelanja(); });

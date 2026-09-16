@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [1.100.0] - 2026-09-16
+
+### Phase 2 — aksi beli di-split & biaya nyata masuk ledger
+- **4.1 Aksi dipecah**: tombol "Beli barang → masuk gudang China" kini dua aksi terpisah — **🛍 Beli di marketplace** (〜, qty, kurs dibayar — CBM tidak ditanya) dan **🧾 Masuk gudang China — tempel daftar forwarder** (kode;CBM;kg dari daftar, dicocokkan ke belanja via resi China, review sebelum simpan). Tahap china kini beralih ke muatan LCL di Papan Muatan.
+- **Form Belanja bioetika fakta baharu**: label "Kurs dibayar (Rp/¥)", ongkir China (section yen, termasuk ongkir), fee agen diganti "Biaya lain", tanpa saldo agen default (data lama tetap didukung), catatan eksplisit bahwa ongkos laud ditambahkan saat muatan tiba.
+- **Biaya sudah keluar kini angka nyata**: KPI Penjualan & Laba (selesai) menghitung belanja marketplace (dikurangi refund) per pesanan; perbarui HPP pelunasan (costGoodsOvr) memakai biaya LCL.
+- **Barang tiba → tahap pesanan otomatis 'in_wh'** (kirim ke pelanggan berikutnya) dengan jejak acara.
+- **Minimum 0,1 CBM per koli** kode dibakukan (tidak lagi konfigurasi), plus **flag CBM 0,06 → 0,1** pada preview tempel.
+- **Uji penerimaan**: contoh kerja tanpa agen — 40 bu × ¥28 @2.250, ongkir ¥45, koli 1,2/3,2 CBM @3.100.000 → landed **Rp 6.341.250 = Rp 158.531/unit** ✓; koli 0,06 CBM ditagih 0,1 (Rp 310.000) ✓; dalam perjalanan Rp 2.621.250 di 1211 ✓; Neraca balance sebelum/sesudah tiba ✓.
+
 ## [1.99.1] - 2026-09-16
 
 ### Phase 1 (Subtract) — pendaraban #2

@@ -7,10 +7,11 @@ import { assertUnlocked, postJournal, logAudit, applyStockMove } from './storage
 import { accountForPayment } from './coa.js';
 
 export const TRANSIT_ACCOUNT = '1211';   // Persediaan dalam Perjalanan
-export const AGENT_ACCOUNT = '1212';     // Uang Muka Agen / Saldo Agen
+export const AGENT_ACCOUNT = '1212';     // dipertahankan utk data lama; tidak dipakai baru (tanpa agen)
 export const FX_ACCOUNT = '5197';        // Selisih Kurs
 export const INVENTORY_ACCOUNT = '1105';
 export const AP_ACCOUNT = '2102';
+export const MIN_CBM = 0.1;              // fakta usaha: minimum 0,1 CBM per koli, tanpa langkah pembulatan lain
 
 const BELANJA_KEY = 'wynara_belanja';
 const KOLI_KEY = 'wynara_koli';
@@ -299,7 +300,7 @@ export function allocateBatch(muatan, kolis, { basis = 'cbm', arrivedKoliIds = n
   const deferred = kolis.filter((k) => k.deferred);
   if (!loaded.length) return { batchFreight: 0, chargeable: 0, koliAlloc: [], lineAlloc: [], deferredCount: deferred.length };
 
-  const measure = (k) => (mode === 'air' ? Math.max(k.weightKg || 0, (k.cbm || 0) * 167) : (k.cbm || 0));
+  const measure = (k) => (mode === 'air' ? Math.max(k.weightKg || 0, (k.cbm || 0) * 167) : Math.max(k.cbm || 0, MIN_CBM));
   const rawTotal = loaded.reduce((s, k) => s + measure(k), 0);
   const minChg = mode === 'air' ? 0 : (muatan.minCbm || 0);
   const chargeable = mode === 'air' ? Math.ceil(rawTotal) : Math.max(Math.ceil(rawTotal * 100) / 100, minChg);
@@ -420,6 +421,20 @@ export function receiveMuatan(muatanId, { date, koliIds = null } = {}) {
     }
   }
   save(BELANJA_KEY, bels);
+  //pesanan pelanggan: barang sudah di gudang lokal → tahap 'in_wh' (kirim ke pelanggan berikutnya)
+  try {
+    const snp = (() => { try { return JSON.parse(localStorage.getItem('wynara_preorders') || '[]'); } catch { return []; } })();
+    for (const la of (lastAlloc && lastAlloc.lineAlloc) || []) {
+      const pid = la.belanja.preorderId;
+      if (!pid) continue;
+      const pi = snp.findIndex((p) => p.id === pid);
+      if (pi >= 0 && !['settled', 'cancelled', 'in_wh', 'sent', 'invoiced', 'done'].includes(snp[pi].stage)) {
+        snp[pi].stage = 'in_wh';
+        snp[pi].events = (snp[pi].events || []).concat([{ date: d, stage: 'received', note: `Muatan ${m.code} tiba — biaya mendarat diposting`, tracking: '', schedule: '' }]);
+      }
+    }
+    try { localStorage.setItem('wynara_preorders', JSON.stringify(snp)); } catch {}
+  } catch {}
   logAudit('update', 'lcl-muatan', muatanId, null, { received: nowIn.map((k) => k.id) });
   return m;
 }
@@ -434,6 +449,13 @@ export function belanjasForPreorder(poId) {
 // Total biaya mendarat untuk pesanan pelanggan (alokasi bila muatan sudah tiba, else biaya dasar).
 export function preorderLandedTotal(poId) {
   return belanjasForPreorder(poId).reduce((s, b) => s + (b.landedTotal != null ? b.landedTotal : b.totalIdr || 0), 0);
+}
+// Total biaya belanja marketplace untuk satu pesanan pelanggan (dikurangi refund).
+export function preorderLclCost(poId) {
+  return belanjasForPreorder(poId).reduce((s, b) => {
+    const refunds = (b.refunds || []).reduce((r, f) => r + (f.refundIdr || 0), 0);
+    return s + Math.max((b.totalIdr || 0) - refunds, 0);
+  }, 0);
 }
 // Margin nyata: harga jual − biaya mendarat. Angka terpenting utk bisnis ini.
 export function preorderRealisedMargin(po) {

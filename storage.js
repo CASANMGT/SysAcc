@@ -2704,7 +2704,7 @@ export function shipPreorder(id, { note, tracking, cny } = {}) {
   return po;
 }
 // Barang sampai + pelanggan bayar penuh sisa → uang muka jadi pendapatan, barang jadi HPP.
-export function settlePreorder(id, { date, payment, note } = {}) {
+export function settlePreorder(id, { date, payment, note, costGoodsOvr } = {}) {
   requireCap('ledger');
   const list = getPreorders();
   const i = list.findIndex(x => x.id === id);
@@ -2721,7 +2721,7 @@ export function settlePreorder(id, { date, payment, note } = {}) {
   }
   const cur = getPreorderById(id) || po;
   const paid = preorderPaidTotal(cur);
-  const goods = preorderGoodsCost(cur);
+  const goods = costGoodsOvr != null ? Math.max(Math.round(Number(costGoodsOvr) || 0), 0) : preorderGoodsCost(cur);
   const j = buildPreorderSettleJournal({ date: d, totalPaid: paid, costGoods: goods, memo: `Pelunasan titip beli ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
   if (j) { j.refId = id; postJournal(j); }
   cur.stage = 'settled';

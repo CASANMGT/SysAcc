@@ -26,7 +26,7 @@ function setupWorkedExample() {
   const belanja = createBelanja({
     date: '2026-03-01', marketplace: '1688', seller: 'Toko ABC', orderNo: 'TB-1',
     lines: [{ name: 'Produk X', qty: 40, cnyUnit: 28 }], ongkirCny: 45,
-    agentFee: 50000, kursAgen: 2250, payment: 'agent', purpose: 'stock',
+    agentFee: 0, kursAgen: 2250, payment: 'transfer', purpose: 'stock',
   });
   const koli = checkInKoli({ parcelNo: 'K-118', arrivalDate: '2026-03-05', cbm: 1.2, weightKg: 8.5 });
   assignBelanjaToKoli(koli.id, belanja.id);
@@ -42,20 +42,20 @@ function setupWorkedExample() {
 }
 
 describe('worked example LCL-2026-03', () => {
-  it('HPP unit = Rp159.781 setelah alokasi penuh', () => {
+  it('HPP unit = Rp158.531 setelah alokasi penuh', () => {
     const { muatan } = setupWorkedExample();
     departMuatan(muatan.id, { date: '2026-03-10', payment: 'cash' });
-    // neraca dalam perjalanan: 2.671.250 (belanja) + 3.720.000 (freight koli K-118)
+    // neraca dalam perjalanan: 2.621.250 (belanja) + 3.720.000 (freight koli K-001)
     const m = getMuatanById(muatan.id);
     expect(m.freightBilled).toBe(9920000);
     receiveMuatan(muatan.id, { date: '2026-04-05' });
     const alloc = getLastAllocation();
     const all = (alloc.lineAlloc || []);
     const lineX = all[0];
-    // hitung manual: base = 2.520.000+101.250+50.000 = 2.671.250; freight = 3.720.000
-    expect(lineX.baseCost).toBe(2671250);
+    // hitung manual: base = 2.520.000+101.250 = 2.621.250; freight = 3.720.000
+    expect(lineX.baseCost).toBe(2621250);
     expect(lineX.freightAlloc).toBe(3720000);
-    expect(lineX.unitCost).toBe(159781); // round(6.391.250/40)
+    expect(lineX.unitCost).toBe(158531); // round(6.341.250/40)
   });
 
   it('neraca balance sebelum & sesudah tiba', () => {
@@ -118,6 +118,15 @@ describe('koli & muatan', () => {
     const alloc = allocateBatch(muatan, [k1L, k2L], { alreadyBilled: true });
     expect(alloc.chargeable).toBe(1);
     expect(alloc.deferredCount).toBe(1);
+  });
+
+  it('koli 0,06 CBM ditagih 0,1 (minimum per koli)', () => {
+    const muatan = createMuatan({ forwarder: 'F', ratePerCbm: 3100000 });
+    const k = checkInKoli({ cbm: 0.06 });
+    const kolis = getKolis();
+    const alloc = allocateBatch(muatan, [kolis.find((x) => x.id === k.id)]);
+    expect(alloc.chargeable).toBe(0.1);
+    expect(alloc.batchFreight).toBe(310000);
   });
 });
 
