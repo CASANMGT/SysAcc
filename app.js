@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.96.3';
+const APP_VERSION = '1.96.4';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -5791,7 +5791,7 @@ function handleSaleSave() {
         if (poTarget === 'stock' && d.lines.some(l => !l.itemId)) return UI.showError('Order stok: pilih barang dari daftar produk');
         if (poTarget === 'stock' && !d.customer) return UI.showError('Order stok: isi nama supplier/toko pada kolom pelanggan');
         const po = Storage.createPreorder({
-          target: poTarget, channel: poChannel,
+          target: poTarget, channel: poChannel, shopId: d.shopId,
           date: d.date, customer: d.customer || (poTarget === 'stock' ? 'Pembelian stok' : ''), items: d.lines.map(l => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })),
           deposit: d.deposit, payment: d.payment, note: d.note, months: d.monthsEta || 1, discount: d.discount, fx: d.fx,
         });

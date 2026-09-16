@@ -4290,6 +4290,7 @@ export function getSaleData() {
     credit: !!document.getElementById('saleCredit')?.checked,
 mode,
     monthsEta: Math.max(Number(document.getElementById('saleEtaMonths')?.value) || 0, 0),
+    shopId: document.getElementById('saleShopId')?.value.trim() || '',
     fx: Math.max(Number(document.getElementById('saleFx')?.value) || 2300, 1),
     deposit: Number(parseIdrInput(document.getElementById('saleDeposit')?.value || '')) || 0,
     terms: Math.max(parseInt(document.getElementById('saleTerms')?.value || '1', 10) || 1, 1),

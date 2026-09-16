@@ -2590,7 +2590,7 @@ function nextPreorderNo() {
 // months = estimasi berapa bulan barang tiba (preorder luar negeri).
 // Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
 // months = estimasi berapa bulan barang tiba (preorder luar negeri); fx = kurs Rp per ¥.
-export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx, target, channel } = {}) {
+export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx, target, channel, shopId } = {}) {
   requireCap('ledger');
   const isStock = target === 'stock';
   if (isStock) {
@@ -2617,6 +2617,7 @@ export function createPreorder({ date, customer, items, deposit, payment, note, 
   const rec = {
     id, no: nextPreorderNo(), date: d, eta: String(eta || '').slice(0, 40), monthsEta, fx: fxRate,
     target: isStock ? 'stock' : 'customer', channel: (channel === 'lokal' || channel === 'luar') ? channel : 'luar',
+    shopId: (shopId || '').slice(0, 60),
     customer: String(customer || '').trim().slice(0, 60),
     items: cleanItems, subtotal: sub, discount: disc, sellTotal, deposit: dp, payment: payment || 'cash',
     costs: [], payments: [], stage: dp > 0 ? 'dp_paid' : 'ordered',
