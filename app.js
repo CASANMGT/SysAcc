@@ -39,7 +39,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '1.96.2';
+const APP_VERSION = '1.96.3';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2672,6 +2672,8 @@ function openOrderStatus(kind, id, presetStage) {
   if (shipTypeWrap) shipTypeWrap.hidden = presetStage !== 'sent';
   const schedWrap = document.getElementById('orderSchedWrap');
   if (schedWrap) schedWrap.hidden = presetStage !== 'invoiced';
+  const poPayWrap = document.getElementById('orderPoPayWrap');
+  if (poPayWrap) poPayWrap.hidden = presetStage !== 'paid';
   const sel = populateOrderStatusSelect(kind);
   if (sel && presetStage) sel.value = presetStage;
   else if (sel) sel.selectedIndex = 0;
@@ -3138,7 +3140,7 @@ function renderKasPage() {
       const counterpart = (j.lines || []).find(l => !codes.has(l.account));
       const cpLabel = counterpart ? acctLabel(counterpart.account) : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-        <div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.memo || 'Jurnal')}</div><div style="font-size:10px;color:#64748b">${escapeHtml(j.date || '')}${cpLabel ? ' • <b style="color:#334155">' + escapeHtml(cpLabel) + '</b>' : ''}</div></div>
+        <div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.memo || 'Jurnal')}${(j.ref || '') === 'preorder' ? ' <span style="font-size:10px;color:#a16207;font-weight:700">🌏 titip beli</span>' : ''}</div><div style="font-size:10px;color:#64748b">${escapeHtml(j.date || '')}${cpLabel ? ' • <b style="color:#334155">' + escapeHtml(cpLabel) + '</b>' : ''}</div></div>
         <b style="font-size:12px;white-space:nowrap;color:${amt < 0 ? '#ef4444' : '#0f172a'}">${fmt(amt)}</b></div>`;
     }).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi kas/bank.</p>';
   }
@@ -3491,7 +3493,7 @@ function renderPembelianPage() {
     if (poSub) poSub.textContent = `${active.length} pesanan aktif • biaya barang ${fmt(barang)} • kirim ${fmt(kirim)} • lainnya ${fmt(lain)} — daftar pembayaran pelanggan di halaman Penjualan`;
     const STAGE = { ordered: 'Dipesan', dp_paid: 'DP terbayar', china: 'Gudang China', shipping: 'Kirim ke Indo', shipped: 'Dikirim', arrived: 'Sampai Indo', received: 'Di gudang', invoiced: 'Teredi invoice', settled: 'Selesai', cancelled: 'Batal' };
     poBox.innerHTML = pos.length ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
-        <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Tahap beli</th><th class="amount-col">Barang</th><th class="amount-col">Kirim</th><th class="amount-col">Total biaya</th><th>Resi</th><th>Aksi</th></tr></thead><tbody>
+        <th>Tanggal</th><th>Nomor</th><th>Pelanggan</th><th>Tahap beli</th><th class="amount-col">Barang</th><th class="amount-col">Kirim</th><th class="amount-col">Total biaya</th><th class="amount-col">Sisa pelanggan</th><th>Resi</th><th>Aksi</th></tr></thead><tbody>
         ${pos.map(po => {
       const costs = po.costs || [];
       const b = costs.filter(c => c.kind === 'barang').reduce((s, c) => s + (Number(c.amount) || 0), 0);
@@ -3504,6 +3506,7 @@ function renderPembelianPage() {
           <td class="amount-col">${fmt(b)}</td>
           <td class="amount-col">${fmt(k)}</td>
           <td class="amount-col">${fmt(Storage.preorderCostTotal(po))}</td>
+          <td class="amount-col ${Storage.preorderBalance(po) > 0.01 ? 'expense' : ''}">${fmt(Storage.preorderBalance(po))}</td>
           <td style="font-size:11px">${escapeHtml((po.shipment || {}).tracking || '—')}</td>
           <td style="white-space:nowrap">
             <button type="button" class="btn btn-ghost po-status" data-id="${po.id}" style="font-size:11px;padding:2px 8px" title="Update status">⏱</button>
@@ -3708,7 +3711,7 @@ function getAllAlerts() {
   } catch {}
   if (sup.length) out.push({ type: 'supplier', target: 'stock', icon: '📥', text: `${sup.length} pembelian supplier lewat jatuh tempo — cek Stok → Hutang ke Supplier` });
   const pph = pphPendingInfo();
-  if (pph) out.push({ type: 'pph', target: 'tax', icon: '??', text: `PPh Final ${pph.key}: Rp${pph.pph.toLocaleString('id-ID')} — bayar sebelum tgl 15 (Laporan — Pajak)` });
+  if (pph) out.push({ type: 'pph', target: 'tax', icon: '🧾', text: `PPh Final ${pph.key}: Rp${pph.pph.toLocaleString('id-ID')} — bayar sebelum tgl 15 (Laporan — Pajak)` });
   // Titip beli & alur pesanan: barang lewat estimasi atau harus di-tagih
   try {
     const today = new Date(); today.setHours(0, 0, 0, 0);

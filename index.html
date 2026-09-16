@@ -225,7 +225,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.96.2</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">1.96.3</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -406,7 +406,6 @@
           <div class="dash-panel dash-panel-donut">
             <div class="dash-panel-head">
               <h3>Pengeluaran per Kategori</h3>
-              <button class="dash-panel-icon" aria-label="Opsi panel" title="Opsi">⋯</button>
             </div>
             <div class="donut-wrap">
               <div class="donut-chart">
@@ -548,7 +547,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.96.2</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">1.96.3</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -722,11 +721,11 @@
           </div>
           <div id="pembelianKpi" class="stock-kpi" aria-label="Ringkasan pembelian"></div>
           <div class="dash-panel" style="padding:16px">
-            <h3 style="margin-bottom:8px">?? Daftar Pembelian / Hutang Supplier</h3>
+            <h3 style="margin-bottom:8px">📥 Daftar Pembelian / Hutang Supplier</h3>
             <div id="pembelianList"></div>
           </div>
           <div class="dash-panel" style="padding:16px;margin-top:16px">
-            <h3 style="margin-bottom:2px">?? Titip Beli / Preorder (sisi beli)</h3>
+            <h3 style="margin-bottom:2px">🛒 Titip Beli / Preorder (sisi beli)</h3>
             <p id="pembelianPoSubtitle" style="font-size:11px;color:#64748b;margin:0 0 8px">Pesanan pelanggan yang kita belikan — biaya &amp; tahap belinya tampil di sini, daftar pembayaran di halaman Penjualan.</p>
             <div id="pembelianPoList"></div>
           </div>
@@ -1956,6 +1955,15 @@
             <option value="dp_paid">💵 DP dibayar</option>
             <option value="done">🏁 Selesai (harus lunas)</option>
           </select></label>
+        <div id="orderPoPayWrap" hidden style="border:1px dashed #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">💰 Cara bayar ke supplier</div>
+          <select id="orderStatusPay" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
+            <option value="transfer">🏦 Transfer</option>
+            <option value="cash">💵 Tunai</option>
+            <option value="qris">📱 QRIS</option>
+            <option value="ewallet">📲 E-Wallet</option>
+            <option value="other">📦 Lainnya</option>
+          </select></div>
         <label for="orderStatusTracking" style="font-size:12px;display:block;margin-bottom:8px">Nomor resi / shipping code (opsional)
           <input type="text" id="orderStatusTracking" maxlength="40" placeholder="mis. JNT123, SXP887..." style="width:100%;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;margin-top:3px"></label>
         <div id="orderShipTypeWrap" hidden style="border:1px dashed #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px">
@@ -2708,7 +2716,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '1.96.2';
+    window.__htmlVersion = '1.96.3';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

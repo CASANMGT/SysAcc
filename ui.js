@@ -4564,12 +4564,16 @@ export function renderSuppliers(purchases, containerId = 'supplierList') {
   }).join('');
 }
 export function bindSupplierList(onPay, onDelete) {
-  document.getElementById('supplierList')?.addEventListener('click', (e) => {
-    const pay = e.target.closest('.sup-pay');
-    const del = e.target.closest('.sup-del');
-    if (pay) onPay(pay.dataset.id);
-    if (del) onDelete(del.dataset.id);
-  });
+  const wire = (boxId) => {
+    document.getElementById(boxId)?.addEventListener('click', (e) => {
+      const pay = e.target.closest('.sup-pay');
+      const del = e.target.closest('.sup-del');
+      if (pay) onPay(pay.dataset.id);
+      if (del) onDelete(del.dataset.id);
+    });
+  };
+  wire('supplierList');
+  wire('pembelianList');
 }
 /* Bayar supplier */
 let supplierPayId = null;
