@@ -40,7 +40,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.12.0';
+const APP_VERSION = '2.13.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -2970,7 +2970,8 @@ function applyKursToSaleForm(rec) {
 }
 
 /* ===== Titip Beli / Preorder (beli atas nama pelanggan) ===== */
-function preorderFmt(v) { return 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID'); }
+// 5.6 Satu format uang: "Rp 105.000" (spasi setelah Rp, tanpa desimal) dari reports.formatCurrency.
+function preorderFmt(v) { return Reports.formatCurrency(v); }
 function openPreorder() {
   const m = document.getElementById('preorderModal');
   if (!m) return;

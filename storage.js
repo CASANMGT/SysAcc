@@ -1356,8 +1356,12 @@ export function getAllPeople() {
   return getPeopleList().sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// 5.8 Normalisasi nama kontak: rapikan spasi (dalam & tepi) agar "Aan"/"Aan " tak jadi dua kontak.
+function cleanPersonName(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ');
+}
 export function savePerson(name, type, phone) {
-  const trimmed = String(name || '').trim();
+  const trimmed = cleanPersonName(name);
   if (!trimmed) return;
   if (trimmed.length > 60) throw new Error('Nama terlalu panjang');
   const cleanPhone = String(phone || '').replace(/[^0-9+]/g, '').slice(0, 18);
@@ -1380,7 +1384,7 @@ export function updatePerson(id, name, type, phone) {
   const trimmed = String(name || '').trim();
   if (!trimmed) throw new Error('Nama wajib');
   if (trimmed.length > 60) throw new Error('Nama terlalu panjang');
-  const people = getPeopleList();
+  const people = getPeopleList().slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'id', { sensitivity: 'base' }));
   const index = people.findIndex(p => p.id === id);
   if (index === -1) return null;
   // check duplicate (case-insensitive) excluding self
