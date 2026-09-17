@@ -8,6 +8,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.23.0] - 2026-09-17 — paket bulanan, 1721-A1, filter verifikasi, format uang seragam
+
+### Ditambahkan
+- **📦 Paket bulanan** (tombol di halaman Laporan): satu dokumen siap cetak/PDF berisi **Laba Rugi bulan ini**, **Neraca** per akhir bulan (dengan peringatan bila Neraca tidak seimbang), **Neraca Saldo**, **ringkasan Pajak** (PPN keluaran/masukan atau catatan Non-PKP), dan **Daftar Gaji** bulan itu. Semua diturunkan dari jurnal yang sudah diposting.
+- **Bukti potong tahunan 1721-A1** (tombol "📅 A1 tahunan" di payroll): per karyawan — bruto setahun, biaya jabatan (5%, maks Rp6.000.000), PTKP sesuai status, **PKP**, PPh 21 setahun menurut tarif Pasal 17, **yang sudah dipotong via TER**, dan **selisih** yang disesuaikan di payroll Desember; siap cetak per karyawan.
+- **Filter verifikasi di halaman Biaya**: chip **Semua / Perlu verifikasi (n)** — antrean pemeriksaan jadi satu klik.
+
+### Diperbaiki
+- **Format uang diseragamkan**: 47 pola lama `'Rp' + …toLocaleString('id-ID')` di `app.js` & `ui.js` diganti ke formatter tunggal (`Reports.formatCurrency` / `formatCurrency`) sehingga seluruh aplikasi memakai gaya **"Rp 105.000"**.
+- Uji: **380 lulus**.
+
 ## [2.22.0] - 2026-09-17 — pemandu bulanan, bukti potong, verifikasi pengeluaran
 
 ### Ditambahkan

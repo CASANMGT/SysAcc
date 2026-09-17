@@ -1682,7 +1682,7 @@ function renderReceiptPreview() {
   const e = receiptEntry;
   const withPPN = document.getElementById('receiptPPN')?.checked;
   const amt = Math.round(Number(e.amount) || 0);
-  const fmt = (v) => 'Rp' + Number(v).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   let dpp = amt, ppn = 0;
   const PN_RATE = getPpn().rate;
   if (withPPN) { dpp = Math.round(amt / (1 + PN_RATE)); ppn = amt - dpp; }
@@ -2766,7 +2766,7 @@ function bindPayrollRepToggle() {
 }
 function printPayrollReport(d) {
   const rows = (payrollRepMode === 'year' ? d.years.map(y => [`Tahun ${y.year}`, y.gross, y.thr, y.dedEmp, y.pph, y.comp, y.thp]) : d.months.map(m => [m.month, m.gross, m.thr, m.dedEmp, m.pph, m.comp, m.thp]));
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const w = window.open('', '_blank');
   if (!w) return;
   w.document.write(`<html><head><title>Laporan Gaji</title></head><body>
@@ -2787,7 +2787,7 @@ function printPayrollReport(d) {
 // Data: { year, name, npwp, ptkp, monthly[{month,gross,thr,pph}], annualGross,
 // annualDue, paidJanNov, pkp, ptkpAmt, decAdjust }. Tarif: UU 36/2008 jo. UU HPP 7/2021.
 export function printDecA1(d) {
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const w = window.open('', '_blank');
   if (!w) return;
   const ms = (d.monthly || []).slice().sort((a, b) => String(a.month) < String(b.month) ? -1 : 1);
@@ -3413,7 +3413,7 @@ export function renderStock(items) {
     list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:24px;">Belum ada barang. Tambah di form atas.</p>';
     return;
   }
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   list.innerHTML = rows.map(i => {
     const isLow = (i.minStock || 0) > 0 && i.stock <= i.minStock;
     const variant = [i.size, i.color].filter(Boolean).join(' / ');
@@ -3455,13 +3455,13 @@ export function renderStockPage(groups, { term = '', filter = 'all', shopId = ''
     const outN = allV.filter(v => qOf(v) <= 0).length;
     const kpi = (f, label, value, active) => `<button type="button" data-f="${f}" class="${active ? 'active' : ''}" aria-pressed="${active}">${label}<b>${value}</b></button>`;
     sumEl.innerHTML =
-      kpi('all', 'Nilai persediaan', 'Rp' + Math.round(val).toLocaleString('id-ID'), filter === 'all')
+      kpi('all', 'Nilai persediaan', formatCurrency(val), filter === 'all')
       + kpi('low', '⚠️ Menipis', lowN, filter === 'low')
       + kpi('out', '🚫 Habis', outN, filter === 'out')
       + `<button type="button" data-f="moves">🔄 Mutasi hari ini<b>${Number(movesToday) || 0}</b></button>`;
   }
   if (!gs.length) { list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:32px">Tidak ada produk yang cocok.</p>'; return; }
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const esc = (s) => escapeHtml(String(s == null ? '' : s));
   if (view === 'table') {
     const rows = [];
@@ -3805,7 +3805,7 @@ export function renderEmployees(emps, paidMap) {
     list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:24px;">Belum ada karyawan.</p>';
     return;
   }
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const grossOf = (e) => Math.round(Number(e.baseSalary ?? e.salary) || 0) + Math.round(Number(e.allowance) || 0);
   list.innerHTML = emps.map(e => {
     const paid = paidMap && paidMap[e.id];
@@ -3825,7 +3825,7 @@ export function renderEmployees(emps, paidMap) {
 export function renderPayrollSummary(total, count, monthLabel) {
   const box = document.getElementById('payrollSummary');
   if (!box) return;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   box.innerHTML = `<div style="font-size:13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px">
     💼 <b>${count} karyawan aktif</b> • Total gaji <b>${fmt(total)}/bln</b> • Periode <b>${monthLabel}</b><br>
     <small style="color:#64748b">Tombol “Proses” membuat 1 transaksi gaji per karyawan (lunas, masuk laporan).</small></div>`;
@@ -3836,7 +3836,7 @@ export function renderPayrollRun(emps, paidMap, monthKey) {
   if (!box) return;
   const active = (emps || []).filter(e => e.active !== false && (Number(e.baseSalary ?? e.salary) || 0) > 0);
   if (!active.length) { box.innerHTML = ''; return; }
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   box.innerHTML = `<div style="font-size:12px;font-weight:700;margin-bottom:6px">Proses gaji — centang, isi lembur bila ada:</div>` + active.map(e => {
     const done = paidMap && paidMap[e.id];
     const thrAuto = thrAmount(e, new Date());
@@ -4068,7 +4068,7 @@ function renderBankPreview() {
     box.innerHTML = '<p style="color:#94a3b8;font-size:12px">Belum ada file. Pilih CSV mutasi dari bank.</p>';
     return;
   }
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const accts = getAccounts();
   const TYPE = { asset: 'Aset', liability: 'Kewajiban', equity: 'Modal', revenue: 'Pendapatan', expense: 'Beban' };
   const optgroups = ['asset', 'liability', 'equity', 'revenue', 'expense'].map(t => {
@@ -4543,7 +4543,7 @@ export function renderSuppliers(purchases, containerId = 'supplierList') {
     box.innerHTML = '<p style="color:#94a3b8;font-size:12px">Belum ada hutang supplier. Klik ＋ Beli.</p>';
     return;
   }
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   // Aging hutang per keterlambatan/atfile (bkap query akuntan)
   const buckets = { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
@@ -4606,7 +4606,7 @@ export function openSupplierPay(purchase) {
   if (!m || !purchase) return;
   const paid = (purchase.payments || []).reduce((s, x) => s + (Number(x.amount) || 0), 0);
   const out = Math.max((Number(purchase.totalCost) || 0) - paid, 0);
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   document.getElementById('supplierPayTitle').textContent = `Bayar — ${purchase.supplier}`;
   document.getElementById('supplierPaySummary').innerHTML = `Total ${fmt(purchase.totalCost)} • Sudah ${fmt(paid)} • <b>Sisa ${fmt(out)}</b>`;
   document.getElementById('supplierPayAmount').value = out > 0 ? String(Math.round(out)) : '';
@@ -4652,7 +4652,7 @@ export function bindSupplierPay(onSubmit) {
       ? `<span style="color:#b45309">PPh dipotong <b>${fmtNum(pph)}</b> — kas keluar <b>${fmtNum(amt - pph)}</b> • hutang berkurang ${fmtNum(amt)}</span>`
       : '<span style="color:#b91c1c">Nominal terlalu kecil untuk dipotong</span>';
   };
-  function fmtNum(v) { return 'Rp' + Math.round(v).toLocaleString('id-ID'); }
+  function fmtNum(v) { return formatCurrency(v); }
   whSel?.addEventListener('change', updWh);
   document.getElementById('supplierPayAmount')?.addEventListener('input', updWh);
 }
@@ -4680,7 +4680,7 @@ function pctFmt(part, base) {
 }
 export function paySlipDetailHTML(r) {
   const e = r.emp, s = r.slip;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const B = s.bases || { gross: s.gross, kesWage: s.gross, jpWage: s.gross };
   const R = s.rates || DEFAULT_RATES;
   const pct = (v) => ((Number(v) || 0) * 100).toLocaleString('id-ID', { maximumFractionDigits: 2 }) + '%';
@@ -4772,7 +4772,7 @@ export function renderEmpTable(emps, term) {
   const rows = t ? emps.filter(e => `${e.name || ''} ${e.role || ''} ${e.contract || ''} ${e.active === false ? 'nonaktif' : 'aktif'}`.toLowerCase().includes(t)) : emps;
   const title = document.getElementById('empTableTitle');
   if (title) title.textContent = `Daftar karyawan (${emps.length})`;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const colors = ['#dbeafe', '#ede9fe', '#dcfce7', '#fef3c7', '#fce7f3'];
   body.innerHTML = rows.length ? rows.map(e => {
     const initial = (e.name || '?')[0]?.toUpperCase() || '?';
@@ -4893,7 +4893,7 @@ export function getEmpPanelData() {
 export function renderPayrollProcess(rows, monthLabel, status) {
   const body = document.getElementById('payrollTableBody');
   if (!body) return;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   const sel = rows.filter(r => r.checked && !r.paid);
   const sumPokok = sel.reduce((s, r) => s + r.slip.base + r.slip.allow, 0);
   const sumNet = sel.reduce((s, r) => s + r.slip.takeHome, 0);
@@ -4996,7 +4996,7 @@ export function renderPayrollProcess(rows, monthLabel, status) {
 export function renderDecRecon(rows, year, locked) {
   const box = document.getElementById('payrollDecPanel');
   if (!box) return;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => formatCurrency(v);
   if (!rows || !rows.length) {
     box.innerHTML = `<details style="margin:0 16px 8px">
       <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#475569">🔄 Rekonsiliasi PPh 21 Desember ${escapeHtml(year)}</summary>

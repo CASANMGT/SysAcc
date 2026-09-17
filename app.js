@@ -6,7 +6,7 @@ import { calcTenor, paidOf, outstandingOf, nextDue, totalOwed } from './loanmath
 import * as Charts from './charts.js';
 import { EQUITY_ACCOUNT, ACCOUNTS, getAccounts, setCustomAccounts, pphFinalForYear, suggestBankAccountFull, BANK_RULE_PRESETS, expenseAccountFor, REVENUE_ACCOUNT, parseCoaCsv, setCoaAliases, COA_RENUMBER } from './coa.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildTransferJournal, buildAdjustJournal, buildOpeningJournal, findUnbalanced, balances } from './journals.js';
-import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay } from './payroll.js';
+import { computeSlip, thrAmount, sanitizeRates, RATE_LIMITS, decRecon, overtimePay, gantiCutiDays, leaveBalance, umpCheck, tenureMonths, severancePay, ptkpAnnual, annualPPh21, BIAYA_JABATAN_RATE, BIAYA_JABATAN_MAX_ANNUAL } from './payroll.js';
 import * as Cloud from './supabase.js';
 import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, buildProducts, resolveOrders, parseWaOrder } from './marketplace.js';
 import { code128Svg } from './barcode.js';
@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.22.0';
+const APP_VERSION = '2.23.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -295,6 +295,209 @@ function updateStorageState() {
       ? `Data buku hanya ada di browser ini. Backup terakhir: ${lastBackup}. Nyalakan Sinkron Online atau unduh JSON Backup.`
       : 'Data buku hanya ada di browser ini dan BELUM pernah di-backup. Bila data browser dibersihkan, pembukuan hilang. Buka Pengaturan → JSON Backup / Sinkron Online.';
   }
+}
+
+/* ===== Bukti potong tahunan 1721-A1 ===== */
+function annualPayrollRows(year) {
+  const yy = String(year || new Date().getFullYear());
+  const byEmp = new Map();
+  Storage.getAllEntries().forEach((e) => {
+    if (e.category !== 'gaji-out') return;
+    if (String(e.date || '').slice(0, 4) !== yy) return;
+    const p = e.payroll || {};
+    const key = p.employeeId || String(e.person || '—').toLowerCase();
+    if (!byEmp.has(key)) byEmp.set(key, { employeeId: p.employeeId || '', name: e.person || '—', bruto: 0, bpjs: 0, pph: 0, netto: 0, months: 0 });
+    const r = byEmp.get(key);
+    r.bruto += (Number(p.base) || 0) + (Number(p.allow) || 0) + (Number(p.overtime) || 0) + (Number(p.bonus) || 0) + (Number(p.thr) || 0);
+    r.bpjs += (p.ded && ((p.ded.kesSelf || 0) + (p.ded.jhtSelf || 0) + (p.ded.jpSelf || 0))) || 0;
+    r.pph += (p.ded && p.ded.pph21) || 0;
+    r.netto += Number(e.amount) || 0;
+    r.months++;
+  });
+  const emps = Storage.getAllEmployees();
+  return Array.from(byEmp.values()).map((r) => {
+    const emp = emps.find((x) => (r.employeeId && x.id === r.employeeId) || x.name === r.name) || {};
+    const biayaJabatan = Math.min(Math.round(r.bruto * BIAYA_JABATAN_RATE), BIAYA_JABATAN_MAX_ANNUAL);
+    const ptkp = (() => { try { return ptkpAnnual(emp.ptkp || 'TK/0'); } catch { return 54000000; } })();
+    const pkp = Math.max(Math.floor((r.bruto - biayaJabatan - ptkp) / 1000) * 1000, 0);
+    const pphSetahun = (() => { try { return Math.round(annualPPh21(pkp)); } catch { return 0; } })();
+    return { ...r, npwp: !!emp.npwp, ptkpCode: emp.ptkp || 'TK/0', biayaJabatan, ptkp, pkp, pphSetahun, selisih: r.pph - pphSetahun };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function openBuktiPotongA1(year) {
+  const rows = annualPayrollRows(year);
+  if (!rows.length) return UI.showInfo(`Belum ada data gaji untuk tahun ${year}.`);
+  const eq = (n) => Reports.formatCurrency(n);
+  const html = `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+      <th>Karyawan</th><th>PTKP</th><th class="amount-col">Bruto setahun</th><th class="amount-col">Biaya jabatan</th><th class="amount-col">PKP</th><th class="amount-col">PPh 21 setahun</th><th class="amount-col">Sudah dipotong</th><th class="amount-col">Selisih</th><th></th></tr></thead><tbody>
+    ${rows.map((r, i) => `<tr>
+      <td style="font-size:12.5px"><b>${escapeHtml(r.name)}</b>${r.npwp ? '' : ' <span style="font-size:10px;color:#b45309">tanpa NPWP</span>'}<div class="beli-hint">${r.months} bulan payroll</div></td>
+      <td style="font-size:11.5px">${escapeHtml(r.ptkpCode)}</td>
+      <td class="amount-col">${eq(r.bruto)}</td>
+      <td class="amount-col">${eq(r.biayaJabatan)}</td>
+      <td class="amount-col">${eq(r.pkp)}</td>
+      <td class="amount-col"><b>${eq(r.pphSetahun)}</b></td>
+      <td class="amount-col">${eq(r.pph)}</td>
+      <td class="amount-col" style="color:${Math.abs(r.selisih) < 1000 ? '#059669' : '#b45309'};font-weight:700">${eq(r.selisih)}</td>
+      <td><button type="button" class="btn btn-ghost a1-print" data-i="${i}" style="font-size:11px;padding:2px 8px">🖨 Cetak</button></td></tr>`).join('')}
+  </tbody></table></div>
+  <div style="font-size:11px;color:#64748b;margin-top:8px">1721-A1: bruto setahun − biaya jabatan (5%, maks Rp6.000.000) − PTKP → PKP, PPh dihitung tarif Pasal 17. <b>Selisih</b> = yang sudah dipotong via TER vs perhitungan setahun; angka inilah yang disesuaikan pada payroll Desember. Angka tanpa NPWP belum ditambah surcharge 20% — tambahkan bila memang tanpa NPWP.</div>`;
+  UI.openInfoModal(`🧾 Bukti potong tahunan (1721-A1) — ${year}`, html);
+  document.querySelectorAll('.a1-print').forEach((b) => b.addEventListener('click', () => printA1(year, rows[Number(b.dataset.i)])));
+}
+function printA1(year, r) {
+  const w = window.open('', '_blank');
+  if (!w) return UI.showError('Popup diblokir — izinkan popup untuk mencetak');
+  const eq = (n) => Reports.formatCurrency(n);
+  w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>1721-A1 ${escapeHtml(r.name)}</title>
+  <style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;padding:32px;color:#111} table{width:100%;border-collapse:collapse;margin-top:14px} td{padding:6px 4px;border-bottom:1px solid #e5e7eb;font-size:13px} .r{text-align:right} h1{font-size:18px;margin:0 0 4px} .muted{color:#555;font-size:12px}</style></head><body>
+  <h1>Bukti Potong Tahunan PPh 21 (1721-A1)</h1>
+  <div class="muted">Tahun pajak ${escapeHtml(String(year))} • ${escapeHtml(r.name)} • PTKP ${escapeHtml(r.ptkpCode)}${r.npwp ? '' : ' • tanpa NPWP'}</div>
+  <table>
+    <tr><td>Penghasilan bruto setahun</td><td class="r">${eq(r.bruto)}</td></tr>
+    <tr><td>Biaya jabatan (5%, maks Rp6.000.000)</td><td class="r">− ${eq(r.biayaJabatan)}</td></tr>
+    <tr><td>PTKP (${escapeHtml(r.ptkpCode)})</td><td class="r">− ${eq(r.ptkp)}</td></tr>
+    <tr><td><b>Penghasilan Kena Pajak</b></td><td class="r"><b>${eq(r.pkp)}</b></td></tr>
+    <tr><td><b>PPh 21 setahun (Pasal 17)</b></td><td class="r"><b>${eq(r.pphSetahun)}</b></td></tr>
+    <tr><td>Sudah dipotong sepanjang tahun</td><td class="r">${eq(r.pph)}</td></tr>
+    <tr><td><b>Selisih (sesuaikan di payroll Desember)</b></td><td class="r"><b>${eq(r.selisih)}</b></td></tr>
+  </table>
+  <p class="muted" style="margin-top:24px">Dicetak ${new Date().toLocaleString('id-ID')} — perhitungan mengikuti tarif Pasal 17 UU HPP; perhitungan bulanan memakai TER (PMK 168/2023).</p>
+  <script>window.onload=function(){window.print()};<\/script></body></html>`);
+  w.document.close();
+}
+
+/* ===== Paket laporan bulanan (L/R + Neraca + Neraca Saldo + PPN/PPh + Daftar Gaji) ===== */
+function buildMonthlyPack(monthKey) {
+  const mk = String(monthKey || new Date().toISOString().slice(0, 7)).slice(0, 7);
+  const [y, m] = mk.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const start = `${mk}-01`;
+  const end = `${mk}-${String(lastDay).padStart(2, '0')}`;
+  const journals = Storage.getAllJournals();
+  const accs = getAccounts();
+  const typeOf = (code) => (accs.find((a) => a.code === code) || {}).type || 'asset';
+  const nameOf = (code) => (accs.find((a) => a.code === code) || {}).name || code;
+  // Neraca Saldo per akhir bulan (kumulatif) + mutasi bulan berjalan
+  const cum = balances(journals, { end });
+  const per = balances(journals, { start, end });
+  const rowsTB = Object.keys(cum).sort().map((code) => {
+    const b = cum[code];
+    const p = per[code] || { debit: 0, credit: 0 };
+    const net = (b.debit || 0) - (b.credit || 0);
+    return { code, name: nameOf(code), type: typeOf(code), debit: net > 0 ? net : 0, credit: net < 0 ? -net : 0, dPeriod: (p.debit || 0), cPeriod: (p.credit || 0), net };
+  }).filter((r) => r.debit || r.credit || r.dPeriod || r.cPeriod);
+  // L/R bulan ini: pendapatan & beban dari mutasi periode
+  const revRows = rowsTB.filter((r) => r.type === 'revenue');
+  const expRows = rowsTB.filter((r) => r.type === 'expense');
+  const revTotal = revRows.reduce((a, r) => a + (r.cPeriod - r.dPeriod), 0);
+  const expTotal = expRows.reduce((a, r) => a + (r.dPeriod - r.cPeriod), 0);
+  const profit = revTotal - expTotal;
+  // Neraca per akhir bulan
+  const assetRows = rowsTB.filter((r) => r.type === 'asset' && (r.debit || r.credit));
+  const liabRows = rowsTB.filter((r) => r.type === 'liability');
+  const eqRows = rowsTB.filter((r) => r.type === 'equity');
+  const sum = (a, f) => a.reduce((s, r) => s + f(r), 0);
+  const totalAsset = sum(assetRows, (r) => r.debit - r.credit);
+  const totalLiab = sum(liabRows, (r) => r.credit - r.debit);
+  const totalEq = sum(eqRows, (r) => r.credit - r.debit);
+  // Pajak & gaji
+  let ppn = null;
+  try { ppn = buildPPNReport(); } catch {}
+  const ppnRow = ppn && Array.isArray(ppn.months) ? ppn.months.find((x) => x.month === mk) : null;
+  const payrollRows = [];
+  try {
+    Storage.getAllEntries().forEach((e) => {
+      if (e.category !== 'gaji-out' || String(e.date || '').slice(0, 7) !== mk) return;
+      const p = e.payroll || {};
+      payrollRows.push({
+        name: e.person || '—',
+        bruto: (Number(p.base) || 0) + (Number(p.allow) || 0) + (Number(p.overtime) || 0) + (Number(p.bonus) || 0) + (Number(p.thr) || 0),
+        bpjs: (p.ded && ((p.ded.kesSelf || 0) + (p.ded.jhtSelf || 0) + (p.ded.jpSelf || 0))) || 0,
+        pph: (p.ded && p.ded.pph21) || 0,
+        netto: Number(e.amount) || 0,
+      });
+    });
+  } catch {}
+  const gajiBruto = payrollRows.reduce((a, r) => a + r.bruto, 0);
+  const gajiPph = payrollRows.reduce((a, r) => a + r.pph, 0);
+  const gajiNetto = payrollRows.reduce((a, r) => a + r.netto, 0);
+  return { mk, start, end, rowsTB, revRows, expRows, revTotal, expTotal, profit, assetRows, liabRows, eqRows, totalAsset, totalLiab, totalEq, ppnRow, payrollRows, gajiBruto, gajiPph, gajiNetto };
+}
+
+function printMonthlyPack(monthKey) {
+  const d = buildMonthlyPack(monthKey);
+  const eq = (n) => Reports.formatCurrency(n);
+  const w = window.open('', '_blank');
+  if (!w) return UI.showError('Popup diblokir — izinkan popup untuk mencetak paket laporan');
+  const tbl = (rows, cols) => `<table><thead><tr>${cols.map((c) => `<th class="${c.num ? 'r' : ''}">${c.label}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td class="${c.num ? 'r' : ''}">${c.get(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  const rp = (v) => `<span>${eq(v)}</span>`;
+  w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Paket Laporan ${d.mk}</title>
+  <style>
+   body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:28px;color:#0f172a;font-size:12px}
+   h1{font-size:20px;margin:0 0 2px} h2{font-size:14px;margin:22px 0 6px;border-bottom:2px solid #0f172a;padding-bottom:3px}
+   .sub{color:#64748b;font-size:11px;margin-bottom:12px}
+   table{width:100%;border-collapse:collapse;margin-bottom:6px} th{background:#f1f5f9;text-align:left;padding:5px 6px;font-size:11px}
+   td{padding:4px 6px;border-bottom:1px solid #eef2f7} td.r,th.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+   tr.tot td{font-weight:800;border-top:2px solid #0f172a}
+   .warn{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;font-size:11px;margin:8px 0}
+   .foot{margin-top:24px;font-size:10px;color:#94a3b8}
+   @media print { h2 { page-break-after: avoid } table { page-break-inside: auto } }
+  </style></head><body>
+  <h1>Paket Laporan Bulanan</h1>
+  <div class="sub">Periode ${d.start} s.d. ${d.end} • dicetak ${new Date().toLocaleString('id-ID')} • Wynara Accounting</div>
+
+  <h2>1. Laba Rugi (bulan ini)</h2>
+  ${tbl([...d.revRows.map((r) => ({ ...r, kind: 'rev' })), { code: '', name: 'Total Pendapatan', kind: 'sub', amt: d.revTotal }, ...d.expRows.map((r) => ({ ...r, kind: 'exp' })), { code: '', name: 'Total Beban', kind: 'sub', amt: d.expTotal }, { code: '', name: 'Laba (Rugi) Bersih', kind: 'tot', amt: d.profit }],
+    [
+      { label: 'Akun', get: (r) => r.kind === 'sub' || r.kind === 'tot' ? `<b>${r.name}</b>` : `${r.code} — ${r.name}` },
+      { label: 'Jumlah', num: true, get: (r) => r.kind === 'rev' ? rp(r.cPeriod - r.dPeriod) : r.kind === 'exp' ? rp(r.dPeriod - r.cPeriod) : rp(r.amt) },
+    ])}
+
+  <h2>2. Neraca (per ${d.end})</h2>
+  ${tbl([
+    ...d.assetRows.map((r) => ({ ...r, kind: 'a' })), { kind: 'sub', name: 'Total Aset', amt: d.totalAsset },
+    ...d.liabRows.map((r) => ({ ...r, kind: 'l' })), { kind: 'sub', name: 'Total Kewajiban', amt: d.totalLiab },
+    ...d.eqRows.map((r) => ({ ...r, kind: 'e' })), { kind: 'sub', name: 'Total Ekuitas', amt: d.totalEq },
+    { kind: 'tot', name: 'Kewajiban + Ekuitas', amt: d.totalLiab + d.totalEq },
+  ], [
+    { label: 'Akun', get: (r) => r.kind === 'sub' || r.kind === 'tot' ? `<b>${r.name}</b>` : `${r.code} — ${r.name}` },
+    { label: 'Jumlah', num: true, get: (r) => r.kind === 'a' ? rp(r.debit - r.credit) : r.kind === 'sub' || r.kind === 'tot' ? rp(r.amt) : rp(r.credit - r.debit) },
+  ])}
+  ${Math.abs(d.totalAsset - (d.totalLiab + d.totalEq)) > 1
+      ? `<div class="warn">⚠ Selisih Neraca ${eq(d.totalAsset - (d.totalLiab + d.totalEq))} — periksa Laporan → Neraca Saldo & Audit sebelum menyerahkan paket ini.</div>`
+      : ''}
+
+  <h2>3. Neraca Saldo (per ${d.end})</h2>
+  ${tbl(d.rowsTB, [
+      { label: 'Kode', get: (r) => r.code },
+      { label: 'Akun', get: (r) => r.name },
+      { label: 'Debit', num: true, get: (r) => r.debit ? rp(r.debit) : '' },
+      { label: 'Kredit', num: true, get: (r) => r.credit ? rp(r.credit) : '' },
+    ])}
+
+  <h2>4. Pajak bulan ini</h2>
+  ${d.ppnRow ? `<table><thead><tr><th>PPN</th><th class="r">DPP</th><th class="r">PPN</th></tr></thead><tbody>
+      <tr><td>Keluaran</td><td class="r">${eq(d.ppnRow.keluarDPP)}</td><td class="r">${eq(d.ppnRow.keluarPPN)}</td></tr>
+      <tr><td>Masukan</td><td class="r">${eq(d.ppnRow.masukDPP)}</td><td class="r">${eq(d.ppnRow.masukPPN)}</td></tr>
+      <tr class="tot"><td>Kurang/(Lebih) bayar</td><td class="r"></td><td class="r">${eq(d.ppnRow.net)}</td></tr></tbody></table>`
+      : '<div class="warn">Bukan PKP — tidak ada PPN masa. PPh Final 0,5% dihitung dari omzet (lihat Laporan → Pajak).</div>'}
+
+  <h2>5. Daftar Gaji (${d.payrollRows.length} karyawan)</h2>
+  ${d.payrollRows.length ? tbl([...d.payrollRows, { name: 'Total', bruto: d.gajiBruto, bpjs: d.payrollRows.reduce((a, r) => a + r.bpjs, 0), pph: d.gajiPph, netto: d.gajiNetto }], [
+        { label: 'Karyawan', get: (r) => r.name === 'Total' ? '<b>Total</b>' : r.name },
+        { label: 'Bruto', num: true, get: (r) => rp(r.bruto) },
+        { label: 'BPJS', num: true, get: (r) => rp(r.bpjs) },
+        { label: 'PPh 21', num: true, get: (r) => rp(r.pph) },
+        { label: 'Diterima', num: true, get: (r) => rp(r.netto) },
+      ]) : '<div class="warn">Belum ada payroll difinalkan untuk bulan ini.</div>'}
+
+  <div class="foot">Paket ini dibuat otomatis dari jurnal yang sudah diposting. Angka mengikuti SAK EMKM; periksa Neraca Saldo bila ada peringatan selisih.</div>
+  <script>window.onload=function(){setTimeout(function(){window.print()},300)};<\/script>
+  </body></html>`);
+  w.document.close();
 }
 
 /* ===== Checklist pajak & tutup buku (advisory, per bulan) ===== */
@@ -2393,7 +2596,7 @@ function renderOwnerPanel() {
       });
     });
   } catch {}
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const monthLabel = (key) => new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1).toLocaleDateString('id-ID', { month: 'short' });
   const curKey = months[months.length - 1];
   const cur = stats[curKey];
@@ -3143,7 +3346,7 @@ function handleOrderStatusSubmit() {
 
 /* ===== Piutang penjualan (kredit) ===== */
 function renderCreditSection() {
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const kpi = document.getElementById('creditKpi');
   if (kpi) {
     const s = Storage.creditSalesSummary();
@@ -3187,7 +3390,7 @@ function openCreditPay(id) {
   document.getElementById('creditPayId').value = id;
   const out = Storage.creditOutstanding(cs);
   const info = document.getElementById('creditPayInfo');
-  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${'Rp' + Math.round(cs.total).toLocaleString('id-ID')} • sudah dibayar ${'Rp' + Math.round(Storage.creditPaidTotal(cs)).toLocaleString('id-ID')} • <b>sisa Rp${Math.round(out).toLocaleString('id-ID')}</b>`;
+  if (info) info.innerHTML = `<b>${escapeHtml(cs.invoiceNo)}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${Reports.formatCurrency(cs.total)} • sudah dibayar ${'Rp' + Math.round(Storage.creditPaidTotal(cs)).toLocaleString('id-ID')} • <b>sisa Rp${Math.round(out).toLocaleString('id-ID')}</b>`;
   const amt = document.getElementById('creditPayAmount'); if (amt) amt.value = String(Math.round(out));
   const dt = document.getElementById('creditPayDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
   const err = document.getElementById('creditPayError'); if (err) err.textContent = '';
@@ -3574,7 +3777,7 @@ function renderBankRecon() {
   const s = reconSummary(results);
   if (sumEl) sumEl.textContent = `${s.matched} cocok • ${s.pending} saran • ${s.posted} diposting • ${s.unmatched} tanpa pasangan`;
   if (allBtn) allBtn.disabled = s.pending === 0;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const rows = results.map(r => {
     const st = r.stmt;
     const pair = r.match;
@@ -3670,7 +3873,7 @@ function renderKasReconDiff() {
   const book = (bal[code]?.debit || 0) - (bal[code]?.credit || 0);
   const end = Number(endBals[code]) || 0;
   const diff = end - book;
-  const fmt = (v) => 'Rp' + Math.round(v || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v || 0);
   out.innerHTML = `Saldo buku: <span style="color:#0f172a">${fmt(book)}</span> &nbsp;•&nbsp; Selisih: <span style="color:${Math.abs(diff) < 1 ? '#059669' : '#dc2626'}">${diff < 0 ? '−' : ''}${fmt(Math.abs(diff))}</span> ${Math.abs(diff) < 1 ? '✓ cocok' : ''}`;
 }
 function openBankRules(prefillKeyword, prefillCode) {
@@ -3753,7 +3956,7 @@ function renderBankRuleSuggestions() {
     box.innerHTML = '<div style="font-size:11px;color:#64748b">Belum ada pola baru dari mutasi. Import mutasi bank untuk mendapat saran.</div>';
     return;
   }
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   box.innerHTML = `<div style="font-size:11px;font-weight:700;color:#1e3a8a;margin-bottom:8px">💡 Saran aturan dari mutasi Anda — pilih rekomendasi → periksa contoh → tambah aturan</div>`
     + lastSuggestCards.map((s, i) => {
     const dirTag = s.direction === 'out' ? '<span style="color:#dc2626;font-size:10px">↑ Uang keluar</span>' : s.direction === 'in' ? '<span style="color:#059669;font-size:10px">↓ Uang masuk</span>' : '';
@@ -4753,7 +4956,7 @@ function renderPembelianPage() {
     openCount++; outstanding += out;
     if (p.dueDate && new Date(p.dueDate + 'T00:00:00') < today) overdue += out;
   });
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const kpi = document.getElementById('pembelianKpi');
   if (kpi) {
     const tile = (label, value) => `<button type="button" style="cursor:default">${label}<b>${value}</b></button>`;
@@ -4844,6 +5047,8 @@ document.getElementById('infoModalBody')?.addEventListener('click', (e) => {
 });
 
 document.getElementById('viewBiaya')?.addEventListener('click', (e) => {
+  const fl = e.target.closest('[data-bfilter]');
+  if (fl) { biayaFilter = fl.dataset.bfilter; renderBiayaPage(); return; }
   const v = e.target.closest('.biaya-verify');
   if (v) {
     try {
@@ -4894,7 +5099,7 @@ function renderMuatanPage() {
 }
 function renderMuatanPageUnsafe() {
   if (!document.getElementById('viewMuatan')) return;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const bels = getBelanjas();
   const kolis = getKolis();
   const muats = getMuatans();
@@ -5105,7 +5310,7 @@ function openKoliPasteModal(poId) {
 }
 
 function openBelanjaModal(preorderId = null) {
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const pos = Storage.getPreorders().filter((po) => po.stage !== 'cancelled' && po.stage !== 'settled');
   const forOrder = preorderId ? pos.find((p) => p.id === preorderId) : null;
   const html = `<form id="belanjaForm" style="display:flex;flex-direction:column;gap:10px">
@@ -5312,7 +5517,7 @@ function openMuatanCreateModal() {
 }
 
 function openMuatanDetailModal(muatanId) {
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const render = () => {
     const m = getMuatanById(muatanId);
     if (!m) return;
@@ -5390,7 +5595,7 @@ function openDepartModal(muatanId) {
 
 function openReceiveModal(muatanId) {
   const m = getMuatanById(muatanId);
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const kolis = getKolis();
   const allKolis = kolis.filter((k) => (m.koliIds || []).includes(k.id) && !k.deferred);
   const arrivedIds = new Set(m.arrivedKoliIds || []);
@@ -5592,12 +5797,22 @@ document.getElementById('pengirimanBaruBtn')?.addEventListener('click', () => op
 
 /* ===== Halaman Biaya ===== */
 
+let biayaFilter = 'all'; // semua | unverified (antrean verifikasi)
 function renderBiayaPage() {
   if (!document.getElementById('viewBiaya')) return;
   const _pp = pagePeriodOpts();
-  const entries = Reports.filterEntries(Storage.getAllEntries(), { period: _pp.period, startDate: _pp.startDate, endDate: _pp.endDate, type: 'expense' });
+  const all = Reports.filterEntries(Storage.getAllEntries(), { period: _pp.period, startDate: _pp.startDate, endDate: _pp.endDate, type: 'expense' });
+  const unver = all.filter((e) => !e.verified).length;
+  const entries = biayaFilter === 'unverified' ? all.filter((e) => !e.verified) : all;
+  const bar = document.getElementById('biayaVerifyBar');
+  if (bar) {
+    bar.innerHTML = `<div class="chip-group" role="group" aria-label="Filter verifikasi">
+      <button type="button" class="chip ${biayaFilter === 'all' ? 'selected' : ''}" data-bfilter="all">Semua (${all.length})</button>
+      <button type="button" class="chip ${biayaFilter === 'unverified' ? 'selected' : ''}" data-bfilter="unverified" ${unver ? 'style="border-color:#fcd34d;background:#fffbeb"' : ''}>Perlu verifikasi (${unver})</button>
+    </div>`;
+  }
   const total = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const cats = (Reports.computeCategoryBreakdown(entries) || []).filter(c => c.type === 'expense').sort((a, b) => b.total - a.total);
   const kpi = document.getElementById('biayaKpi');
   if (kpi) {
@@ -5666,7 +5881,7 @@ function renderCategoryBudgets(entries) {
   const limits = Storage.getCategoryBudgets();
   const cats = Object.keys(limits);
   if (!cats.length) { box.innerHTML = ''; return; }
-  const fmt = (v) => 'Rp' + Number(v).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   box.innerHTML = cats.map(c => {
     const spent = entries.filter(e => e.type === 'expense' && e.category === c).reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const lim = limits[c];
@@ -6576,7 +6791,7 @@ function handleInvoicePrint(loanId) {
   const reps = Storage.getLoanRepayments(loanId);
   const paid = paidOf(reps);
   const out = outstandingOf(loan, reps);
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const sched = loan.loanType === 'cicilan' && Number(loan.installmentAmount) > 0
     ? `${fmt(loan.installmentAmount)}/bulan × ${calcTenor(loan)}`
@@ -6831,7 +7046,7 @@ function handleReorderReport() {
   const shopId = Storage.getActiveShopId();
   const shopName = (Storage.getShops().find(s => s.id === shopId) || {}).name || '';
   const rows = Storage.getReorderList(shopId);
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const totalCost = rows.reduce((s, r) => s + r.suggest * (Number(r.item.cost) || 0), 0);
   const body = rows.length
     ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">Toko <b>${escapeHtml(shopName)}</b> — ${rows.length} varian ≤ titik pesan ulang • perkiraan biaya restock <b>${fmt(totalCost)}</b></div>
@@ -7115,7 +7330,7 @@ function handleStockHistory(id) {
   const it = Storage.getItemById(id);
   if (!it) return;
   const moves = Storage.getStockMoves(id);
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const dt = (s) => { try { return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
   const body = moves.length
     ? `<div style="font-size:12px;color:#64748b;margin-bottom:8px">${escapeHtml(it.name)} — stok kini <b>${it.stock}</b> • modal rata-rata ${fmt(it.cost)}</div>
@@ -7129,7 +7344,7 @@ function handleStockHistoryGroup(key) {
   const g = Storage.getStockGroups().find(x => x.key === key);
   if (!g) return;
   const shopId = Storage.getActiveShopId();
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const dt = (s) => { try { return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
   const rows = [];
   g.variants.forEach(v => {
@@ -7379,7 +7594,7 @@ function handleBuySave() {
   if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
   try {
     const p = Storage.createPurchase(d);
-    const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+    const fmt = (v) => Reports.formatCurrency(v);
     UI.closeBuy();
     UI.showSuccess(`Beli ke ${p.supplier} ${fmt(p.totalCost)} — jadi hutang, stok masuk`);
     refreshStock();
@@ -7504,7 +7719,7 @@ function handlePayrollRun() {
   const payment = document.getElementById('payrollPayment')?.value || 'transfer';
   const date = now.toISOString().split('T')[0];
   if (Storage.isMonthLocked(date)) return UI.showError(`Bulan ${key} terkunci — buka di Pengaturan`);
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   let ok = 0, compTotal = 0;
   sel.forEach(s => {
     const e = emps.find(x => x.id === s.id);
@@ -7591,7 +7806,7 @@ function handleSeveranceCalc() {
   const leaveDayValue = Math.round(Number(UI.parseIdrInput(document.getElementById('sevLeaveVal')?.value || '')) || 0);
   const extra = Math.round(Number(UI.parseIdrInput(document.getElementById('sevExtra')?.value || '')) || 0);
   const r = severancePay({ wage, tenureMonths: tm, reason, remainingLeaveDays, leaveDayValue, extra });
-  const fmt = (v) => 'Rp' + Math.round(v).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const out = document.getElementById('sevResult');
   if (!out) return;
   out.innerHTML = `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px">
@@ -7610,7 +7825,7 @@ function handleEmpSlip(id) {
   const key = payrollMonthKey(now);
   const monthLabel = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
   const rows = currentEntries.filter(x => x.category === 'gaji-out' && String(x.date || '').slice(0, 7) === key && (x.person || '').toLowerCase() === e.name.toLowerCase());
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
   const total = rows.reduce((s, x) => s + (Number(x.amount) || 0), 0);
   const who = [e.gender === 'P' ? 'Perempuan' : e.gender === 'L' ? 'Laki-laki' : '', e.role || '', e.contract || ''].filter(Boolean).join(' • ');
@@ -7692,7 +7907,7 @@ function handleRecon() {
   if (!row) return UI.showError('Kas tidak ditemukan');
   const diff = Math.round(d.actual) - Math.round(row.balance);
   const box = document.getElementById('reconResult');
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   if (diff === 0) {
     if (box) box.innerHTML = `✅ <b>Cocok!</b> Catatan ${fmt(row.balance)} = fisik ${fmt(d.actual)}.`;
     return;
@@ -7876,7 +8091,7 @@ function handleSaleSave() {
       if (l.qty > avail) return UI.showError(`Stok ${it.name} di toko ini kurang (sisa ${avail}, mau ${l.qty})`);
     }
   }
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const descBase = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
   const desc = d.discount > 0 ? `${descBase} • diskon ${fmt(d.discount)}` : descBase;
   // Penjualan KREDIT / prepaid: satu alur — barang ready OR preorder luar negeri.
@@ -8178,6 +8393,8 @@ function handleEmpImport(file) {
       UI.showSuccess(`Impor selesai: ${ok} ditambahkan${skipped ? `, ${skipped} dilewati` : ''}`);
   loadPayrollCache();
   document.getElementById('payrollBuktiBtn')?.addEventListener('click', () => openBuktiPotong(payrollViewMonth));
+  document.getElementById('payrollA1Btn')?.addEventListener('click', () => openBuktiPotongA1(String(payrollViewMonth).slice(0, 4)));
+  document.getElementById('pageReportPack')?.addEventListener('click', () => printMonthlyPack(new Date().toISOString().slice(0, 7)));
       renderPayrollView();
       refresh();
       queueMirror();
@@ -8266,7 +8483,7 @@ function patchPayrollRow(empId) {
   const ref = payrollMonthEnd(payrollViewMonth);
   const kb = employeeKasbonDue(emp, c);
   const s = computeSlip(emp, { overtime: rowOvertime(emp, c), overtimeHours: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   document.querySelectorAll('#payrollTableBody tr').forEach(tr => {
     const chk = tr.querySelector('.pay-check');
     if (chk && chk.dataset.id === empId) {
@@ -8388,7 +8605,7 @@ function handlePayrollSlipWa(empId) {
   const kb = employeeKasbonDue(emp, c);
   const slip = computeSlip(emp, { overtime: rowOvertime(emp, c), overtimeHours: c.lemburJam || 0, gantiCuti: !!c.gantiCuti, cutiDiambil: c.cutiDiambil || 0, bonus: c.bonus, deduct: c.deduct, kasbon: kb.due, thr: c.withThr ? thrAmount(emp, ref) : 0, pph: c.withPph, refDate: ref, rates: payrollRates, pphOverride: c.pphOverride ?? null });
   const label = payrollMonthLabel(payrollViewMonth);
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const lines = [
     `*Slip Gaji ${label}*`,
     `${emp.name}${emp.role ? ' — ' + emp.role : ''}`,
@@ -8490,7 +8707,7 @@ function handlePayrollFinal() {
   const todo = Object.keys(payrollCache).filter(k => payrollCache[k].checked && !paid[k]);
   if (!todo.length) return UI.showInfo('Tidak ada yang perlu diproses (sudah dibayar / belum dicentang)');
   if (!confirm(`Finalisasi gaji ${monthLabel} untuk ${todo.length} karyawan? Transaksi dicatat dan bulan ditandai final.`)) return;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   let ok = 0, compTotal = 0;
   todo.forEach(k => {
     const e = emps.find(x => x.id === k);
@@ -9045,7 +9262,7 @@ function handleAdjustPost() {
 function refreshAssets() {
   const body = document.getElementById('assetTableBody');
   if (!body) return;
-  const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  const fmt = (v) => Reports.formatCurrency(v);
   const assets = Storage.getFixedAssets();
   let bulanIni = 0;
   body.innerHTML = assets.length ? assets.map(a => {
@@ -9299,7 +9516,7 @@ function openSettings() {
     if (!catList) return;
     const all = Storage.getCategoryBudgets();
     const keys = Object.keys(all);
-    const fmt = (v) => 'Rp' + Number(v).toLocaleString('id-ID');
+    const fmt = (v) => Reports.formatCurrency(v);
     catList.innerHTML = keys.length
       ? keys.map(c => {
         let label = c;
@@ -9484,7 +9701,7 @@ function openOrderShip(kind, id) {
   const out = kind === 'po' ? Storage.preorderBalance(cs) : Storage.creditOutstanding(cs);
   const info = document.getElementById('shipInfo');
   if (info) {
-    info.innerHTML = `<b>${escapeHtml(cs.no || cs.invoiceNo || '')}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${('Rp' + Math.round(cs.sellTotal || cs.total).toLocaleString('id-ID'))} • <b>sisa ${('Rp' + Math.round(out).toLocaleString('id-ID'))}</b>`;
+    info.innerHTML = `<b>${escapeHtml(cs.no || cs.invoiceNo || '')}</b> — ${escapeHtml(cs.customer || 'Tanpa nama')}<br>Total ${(Reports.formatCurrency(cs.sellTotal || cs.total))} • <b>sisa ${(Reports.formatCurrency(out))}</b>`;
   }
   const dt = document.getElementById('shipDate'); if (dt) dt.value = new Date().toISOString().split('T')[0];
   const er = document.getElementById('shipError'); if (er) er.textContent = '';

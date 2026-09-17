@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.22.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.23.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -544,7 +544,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.22.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.23.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -799,6 +799,7 @@
               <button class="btn btn-primary" id="biayaAddBtn">＋ Catat Biaya</button>
             </div>
           </div>
+          <div id="biayaVerifyBar" style="margin:4px 0 10px"></div>
           <div id="biayaKpi" class="stock-kpi" aria-label="Ringkasan biaya"></div>
           <div class="dashboard-grid">
             <div class="dash-panel" style="padding:16px"><h3 style="margin-bottom:8px">📊 Biaya per Kategori</h3><div id="biayaCats"></div></div>
@@ -1008,6 +1009,7 @@
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                   <span style="font-size:12px">Total gaji bersih<br><strong id="payrollFootTotal" style="font-size:18px">Rp0</strong></span>
                   <button type="button" class="btn btn-ghost" id="payrollBuktiBtn" title="Bukti potong PPh 21 bulan ini" style="font-size:12px">🧾 Bukti potong PPh 21</button>
+                  <button type="button" class="btn btn-ghost" id="payrollA1Btn" title="Bukti potong tahunan 1721-A1" style="font-size:12px">📅 A1 tahunan</button>
                   <select id="payrollViewPayment" title="Bayar dari kas" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px">
                     <option value="transfer">🏦 Transfer</option>
                     <option value="cash">💵 Tunai</option>
@@ -1043,6 +1045,7 @@
                 <option value="last-quarter">Kuartal lalu (3 bulan)</option>
                 <option value="this-year">Tahun ini</option>
               </select>
+              <button type="button" class="btn btn-primary" id="pageReportPack" title="Paket laporan bulanan: L/R + Neraca + Neraca Saldo + Pajak + Daftar Gaji">📦 Paket bulanan</button>
               <button type="button" class="btn btn-ghost" id="pageReportExcel" title="Unduh laporan aktif ke Excel (.xlsx)">⬇️ Excel</button>
               <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
             </div>
@@ -2784,7 +2787,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.22.0';
+    window.__htmlVersion = '2.23.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);
