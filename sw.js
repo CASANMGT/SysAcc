@@ -6,7 +6,7 @@
 // PENTING RILIS: naikkan CACHE di bawah ini SETIAP rilis (samakan dengan VERSION).
 // Nama cache yang beku menyebabkan split-brain: index.html lama + app.js baru.
 
-const CACHE = 'wynara-v2-19-4';
+const CACHE = 'wynara-v2-20-0';
 const CORE = [
   './',
   './index.html',
