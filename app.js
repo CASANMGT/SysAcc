@@ -12,6 +12,7 @@ import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, bui
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
 import * as Freight from './freight.js';
+import * as Files from './files.js';
 import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, costVariance, markBelanjaLoss, refusePreorder, finalizeBelanja, payBelanja, belanjaOutstanding, toBuyLinesFor, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
 
 let currentEntries = [];
@@ -3779,6 +3780,63 @@ function openOrderDetail(kind, id) {
   UI.openInfoModal(`📄 Pesanan ${escapeHtml(r.no || r.invoiceNo || '')}`, html);
 }
 
+/* ===== Lampiran (dipakai halaman Beli, Pengiriman, Detail Pesanan) ===== */
+function attachBlockHtml(seg, id, attachments) {
+  const list = attachments || [];
+  return `<div class="beli-side-sec" data-attach="${seg}:${id}">
+    <b>Lampiran dan tautan</b>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+      <label class="btn btn-ghost" style="font-size:12px;padding:6px 10px;cursor:pointer">
+        📎 Tambah berkas<input type="file" class="attach-input" data-seg="${seg}" data-id="${id}" multiple accept="image/*,.pdf" style="display:none">
+      </label>
+      ${id ? '' : '<span class="beli-hint">Simpan dulu untuk menempel lampiran.</span>'}
+    </div>
+    <div class="attach-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      ${list.map((a) => `<div class="attach-item" data-file="${escapeHtml(a.id)}" style="border:1px solid #e2e8f0;border-radius:10px;padding:6px 8px;font-size:11.5px;display:flex;gap:6px;align-items:center">
+        <span>${a.kind === 'image' ? '🖼️' : '📄'}</span>
+        <a href="#" class="attach-open" data-file="${escapeHtml(a.id)}" style="color:#1d4ed8;text-decoration:none">${escapeHtml(a.name)}</a>
+        <button type="button" class="attach-del" data-seg="${seg}" data-id="${id}" data-file="${escapeHtml(a.id)}" style="background:none;border:none;cursor:pointer;color:#ef4444">✕</button>
+      </div>`).join('') || '<span class="beli-hint">Belum ada lampiran.</span>'}
+    </div>
+  </div>`;
+}
+function bindAttachBlocks(root) {
+  root.querySelectorAll('.attach-input').forEach((inp) => inp.addEventListener('change', async (e) => {
+    const seg = inp.dataset.seg; const id = inp.dataset.id;
+    if (!id) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    let ok = 0, failMsg = '';
+    for (const f of files) {
+      try { const meta = await Files.saveFile(f); Files.attachTo(seg, id, meta); ok++; }
+      catch (err) { failMsg = err && err.message ? err.message : 'gagal'; }
+    }
+    if (ok) UI.showSuccess(`${ok} lampiran tersimpan`);
+    if (failMsg) UI.showError(failMsg);
+    e.target.value = '';
+    if (typeof beliState !== 'undefined' && beliState && document.getElementById('viewBeliBaru') && !document.getElementById('viewBeliBaru').classList.contains('hidden')) { renderBeliBaru(); return; }
+    if (kirimState && document.getElementById('viewKirimBaru') && !document.getElementById('viewKirimBaru').classList.contains('hidden')) { renderKirimBaru(); return; }
+    try { renderSalesPage(); } catch {}
+  }));
+  root.querySelectorAll('.attach-open').forEach((a) => a.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const f = await Files.getFile(a.dataset.file);
+    if (!f) return UI.showError('Lampiran tidak ditemukan di perangkat ini');
+    const w = window.open('', '_blank');
+    if (!w) return UI.showError('Popup diblokir — izinkan popup untuk membuka lampiran');
+    w.document.write(f.kind === 'image' ? `<title>${escapeHtml(f.name)}</title><img src="${f.dataUrl}" style="max-width:100%">` : `<title>${escapeHtml(f.name)}</title><iframe src="${f.dataUrl}" style="border:0;width:100%;height:100vh"></iframe>`);
+    w.document.close();
+  }));
+  root.querySelectorAll('.attach-del').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Hapus lampiran ini?')) return;
+    await Files.detachFrom(b.dataset.seg, b.dataset.id, b.dataset.file);
+    UI.showSuccess('Lampiran dihapus');
+    if (document.getElementById('viewBeliBaru') && !document.getElementById('viewBeliBaru').classList.contains('hidden')) { renderBeliBaru(); return; }
+    if (document.getElementById('viewKirimBaru') && !document.getElementById('viewKirimBaru').classList.contains('hidden')) { renderKirimBaru(); return; }
+    try { renderSalesPage(); } catch {}
+  }));
+}
+
 /* ===== Pengiriman baru (halaman penuh, mengikuti mockup) ===== */
 let kirimState = null;
 function openKirimBaru(orderId = '') {
@@ -3893,6 +3951,8 @@ function renderKirimBaru() {
         <div class="beli-sum"><span>Kurir</span><b>${escapeHtml(s.courier)} ${escapeHtml(s.service)}</b></div>
         <div class="beli-sum"><span>Biaya kirim</span><b>${fmt(Number(s.shippingCost) || 0)}</b></div>
         <div class="beli-side-sec"><b>Simpan dulu, kirim kemudian</b><p>Menyimpan draft belum mengubah stok atau status pesanan.</p></div>
+        ${attachBlockHtml('pengiriman', kirimState.savedId || '', kirimState.attachments || [])}
+        ${kirimState.savedId ? `<div class="beli-note">ⓘ Draft ${escapeHtml(kirimState.savedNo || '')} tersimpan. Tambahkan lampiran bila perlu, lalu konfirmasi pengiriman.</div>` : ''}
         ${anyReady ? '' : '<div class="beli-warn">⚠️ Semua barang pesanan ini sudah dikirim.</div>'}
       </div>
     </aside>
@@ -3957,6 +4017,16 @@ function saveKirim(asDraft) {
     UI.showSuccess(asDraft
       ? `Draft pengiriman ${rec.no} disimpan`
       : `Pengiriman ${rec.no} dikonfirmasi — ${lines.reduce((a, l) => a + l.send, 0)} unit dikirim${s.shippingCost > 0 && s.borneBy === 'company' ? ' · biaya kirim dijurnal' : ''}`);
+    if (asDraft) {
+      // Tetap di halaman agar lampiran bisa ditempel ke draft yang baru dibuat.
+      kirimState.savedId = rec.id;
+      kirimState.savedNo = rec.no;
+      renderKirimBaru();
+      try { renderSalesPage(); } catch {}
+      try { refresh(); } catch {}
+      try { queueMirror(); } catch {}
+      return;
+    }
     closeKirimBaru();
     try { renderSalesPage(); } catch {}
     try { refresh(); } catch {}
@@ -4343,6 +4413,7 @@ function renderBeliBaru() {
         <details class="beli-side-sec"><summary>Detail akuntansi</summary>
           <p style="font-size:11.5px;color:#475569">${s.payMode === 'unpaid' ? `Dr Persediaan dalam Perjalanan (1211) ${fmt(totalIdr)}<br>Cr Hutang Supplier (2102) ${fmt(totalIdr)}` : `Dr Persediaan dalam Perjalanan (1211) ${fmt(totalIdr)}<br>Cr Kas ${fmt(payNow)}${sisa > 0 ? `<br>Cr Hutang Supplier (2102) ${fmt(sisa)}` : ''}`}<br><span style="color:#64748b">Tidak ada PPN (Non-PKP).</span></p>
         </details>
+        ${attachBlockHtml('belanja', beliState.savedId || '', beliState.attachments || [])}
       </div>
     </aside>
   </div>
@@ -4353,6 +4424,7 @@ function renderBeliBaru() {
       <button type="button" class="btn btn-primary" id="beliSaveFinal">Simpan pembelian</button>
     </div>
   </div>`;
+  bindAttachBlocks(host);
   bindBeliBaru();
 }
 
