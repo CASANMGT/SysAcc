@@ -1,6 +1,6 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, buildPreorderPayJournal, buildPreorderCostJournal, buildPreorderSettleJournal, findUnbalanced } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, buildPreorderPayJournal, buildPreorderCostJournal, buildPreorderSettleJournal, buildPreorderRefundJournal, findUnbalanced } from './journals.js';
 import { getAccounts, ACCOUNTS, COA_RENUMBER, INVENTORY_ACCOUNT, accountForPayment } from './coa.js';
 
 const STORAGE_KEY = 'ledger_entries';
@@ -2848,6 +2848,35 @@ export function preorderPaidTotal(po) {
 export function preorderBalance(po) {
   return Math.max(preorderSellTotal(po) - preorderPaidTotal(po), 0);
 }
+// Kelebihan bayar: pelanggan sudah bayar melebihi nilai pesanan (mis. setelah kurang kirim) → harus dikembalikan.
+export function preorderRefundTotal(po) {
+  return ((po && po.refunds) || []).reduce((s, r) => s + Math.max(Number(r.amount) || 0, 0), 0);
+}
+export function preorderRefundDue(po) {
+  return Math.max(preorderPaidTotal(po) - preorderRefundTotal(po) - preorderSellTotal(po), 0);
+}
+// Refund ke pelanggan: uang muka (2101) berkurang, kas keluar.
+export function refundPreorder(id, { amount, date, payment, note } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  const due = preorderRefundDue(po);
+  const amt = Math.round(Number(amount) || 0);
+  if (amt <= 0) throw new Error('Jumlah refund harus > 0');
+  if (amt > due + 0.01) throw new Error(`Melebihi kelebihan bayar (Rp ${Math.round(due).toLocaleString('id-ID')})`);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const j = buildPreorderRefundJournal({ date: d, amount: amt, payment: payment || 'transfer', memo: `Refund kelebihan bayar ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
+  if (j) { j.refId = id; postJournal(j); }
+  po.refunds = (po.refunds || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'transfer', note: String(note || '').slice(0, 80) });
+  po.events = (po.events || []).concat([{ date: d, stage: po.stage, note: `Refund ke pelanggan Rp ${Math.round(amt).toLocaleString('id-ID')}`, tracking: '', schedule: '' }]);
+  list[i] = po;
+  savePreorders(list);
+  logAudit('create', 'preorder-refund', id, null, { amount: amt });
+  return po;
+}
 export function preorderProfit(po) {
   return preorderPaidTotal(po) - preorderCostTotal(po);
 }
@@ -3013,7 +3042,8 @@ export function settlePreorder(id, { date, payment, note, costGoodsOvr } = {}) {
     po.stage = 'shipping';
   }
   const cur = getPreorderById(id) || po;
-  const paid = preorderPaidTotal(cur);
+  // Pendapatan yang diakui = uang yang benar-benar ditahan (bayar − refund), bukan total bayar bruto.
+  const paid = Math.max(preorderPaidTotal(cur) - preorderRefundTotal(cur), 0);
   const goods = costGoodsOvr != null ? Math.max(Math.round(Number(costGoodsOvr) || 0), 0) : preorderGoodsCost(cur);
   const j = buildPreorderSettleJournal({ date: d, totalPaid: paid, costGoods: goods, memo: `Pelunasan titip beli ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
   if (j) { j.refId = id; postJournal(j); }

@@ -374,6 +374,20 @@ export function buildPreorderCostJournal({ date, amount, kind, payment, memo }) 
   return balanced(lines) ? j : null;
 }
 
+// Refund kelebihan bayar pelanggan: uang muka (2101) berkurang, kas keluar.
+export function buildPreorderRefundJournal({ date, amount, payment, memo }) {
+  const amt = Math.round(Number(amount) || 0);
+  if (!isFinite(amt) || amt <= 0) return null;
+  const cash = accountForPayment(payment || 'transfer');
+  const m = memo || 'Refund kelebihan bayar pesanan';
+  const lines = [
+    { account: DEPOSIT_ACCOUNT, debit: amt, credit: 0, memo: m },
+    { account: cash, debit: 0, credit: amt, memo: m },
+  ];
+  const j = { id: jid('J'), date, memo: m, ref: 'preorder', refId: null, lines };
+  return balanced(lines) ? j : null;
+}
+
 // Pelunasan preorder (barang datang + pelanggan bayar penuh): uang muka → pendapatan,
 // biaya barang → HPP. Ref biaya kirim/lain sudah dibebankan saat dibayar.
 export function buildPreorderSettleJournal({ date, totalPaid, costGoods, memo }) {

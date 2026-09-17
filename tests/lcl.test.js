@@ -6,7 +6,7 @@ import {
   getMuatans, getMuatanById, createMuatan, loadKoli,
   departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder, toBuyLinesFor, preorderLandedTotal, finalizeBelanja, payBelanja, belanjaOutstanding,
 } from '../lcl.js';
-import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, finalizePreorderDraft, preorderSellTotal, preorderBalance, getPreorderById, createShipment, confirmShipment, readyToShipLines, createDraftProductFromBelanja } from '../storage.js';
+import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, finalizePreorderDraft, preorderSellTotal, preorderBalance, refundPreorder, preorderRefundDue, settlePreorder, getPreorderById, createShipment, confirmShipment, readyToShipLines, createDraftProductFromBelanja } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -289,6 +289,30 @@ describe('pembelian sebagian pesanan (konsumsi baris)', () => {
     const row = toBuyLinesFor(getPreorderById(po.id))[0];
     expect(row.bought).toBe(4);
     expect(row.remaining).toBe(6);
+  });
+});
+
+describe('refund kelebihan bayar pelanggan', () => {
+  it('kurang kirim → kelebihan bayar terdeteksi; refund Dr 2101 / Cr kas; pelunasan pakai neto', () => {
+    const po = createPreorder({ date: '2026-09-17', customer: 'Dewi', items: [{ name: 'Lampu', qty: 10, price: 100000 }], deposit: 1000000 });
+    const b = createBelanja({ lines: [{ name: 'Lampu', qty: 10, cnyUnit: 20 }], kursAgen: 2000, preorderId: po.id, purpose: 'preorder', draft: true });
+    markBelanjaLoss(b.id, { type: 'short', amount: 100000, qty: 3, date: '2026-09-20' });
+    const after = getPreorderById(po.id);
+    expect(preorderSellTotal(after)).toBe(700000);
+    expect(preorderRefundDue(after)).toBe(300000); // sudah bayar 1.000.000 untuk nilai 700.000
+    const j0 = getAllJournals().length;
+    refundPreorder(po.id, { amount: 300000, date: '2026-09-21', payment: 'transfer' });
+    expect(getAllJournals().length).toBe(j0 + 1);
+    const j = getAllJournals().slice(-1)[0];
+    expect(j.lines[0].account).toBe('2101');
+    expect(j.lines[1].account).toBe('1101');
+    expect(preorderRefundDue(getPreorderById(po.id))).toBe(0);
+    expect(() => refundPreorder(po.id, { amount: 1 })).toThrow(/Melebihi/);
+    // Pelunasan: pendapatan diakui hanya sebesar uang yang ditahan (1.000.000 − 300.000)
+    settlePreorder(po.id, { date: '2026-09-22' });
+    const js = getAllJournals().slice(-1)[0];
+    const rev = js.lines.find((l) => l.account === '4101');
+    expect(rev.credit).toBe(700000 + 0); // deposit neto = pendapatan (tanpa sisa tagihan)
   });
 });
 

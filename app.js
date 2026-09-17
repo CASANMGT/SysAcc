@@ -2802,9 +2802,13 @@ function renderOrdersPanel() {
     const typeBadge = r.kind === 'jual'
       ? '<span style="background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">JUAL</span>'
       : '<span style="background:#fef9c3;color:#a16206;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">🌏 PRE-ORDER CHINA</span>';
+    const refundDue = (() => { try { return r.kind === 'po' ? Storage.preorderRefundDue(Storage.getPreorderById(r.id)) : 0; } catch { return 0; } })();
+    const refundChip = refundDue > 0.01 ? `<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-size:10.5px;margin-left:4px">Kelebihan bayar ${fmt(refundDue)}</span>` : '';
     let action = '';
     if (isDraftOrder) {
       action = `<button class="btn btn-primary order-draft-final" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Finalkan draft: catat DP bila sudah diterima">✓ Finalkan pesanan</button>`;
+    } else if (refundDue > 0.01) {
+      action = `<button class="btn btn-primary order-refund" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Kembalikan kelebihan bayar ke pelanggan">↩️ Refund ${fmt(refundDue)}</button>`;
     } else if (st === 'ordered' && !(Number(r.paid) > 0.01)) {
       action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`;
     } else if (st === 'dp_paid' && r.kind === 'jual') {
@@ -2880,7 +2884,7 @@ function renderOrdersPanel() {
     return `<tr>
         <td style="font-size:12px;white-space:nowrap"><button type="button" class="order-open" data-kind="${r.kind}" data-id="${r.id}" style="background:none;border:none;padding:0;font:inherit;font-weight:700;color:#1d4ed8;cursor:pointer" title="Buka detail pesanan">${escapeHtml(r.no)}</button> <div>${typeBadge}</div><div style="font-size:10px;color:#64748b">${escapeHtml(r.date || '')}</div>${ageTxt}</td>
         <td style="font-size:12px"><b style="font-weight:600">${escapeHtml(r.customer || '—')}</b><div style="font-size:10.5px;color:#64748b">${itemsTxt}</div>${shipLine}</td>
-        <td>${goodsChip}${draftChip}${prog}${noteLine}${sched}</td>
+        <td>${goodsChip}${draftChip}${prog}${refundChip}${noteLine}${sched}</td>
         <td>${payChip}<div class="amount-col" style="font-size:11px;font-weight:${r.balance > 0.01 ? '700' : '400'};color:${r.balance > 0.01 ? '#b45309' : '#059669'}">${r.balance > 0.01 ? fmt(r.balance) : 'Rp 0'}</div>${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
         <td style="font-size:11.5px;white-space:nowrap">${escapeHtml(etaInfo)}</td>
         <td class="order-actions">${action || ''}${moreBtn}</td>
@@ -5149,6 +5153,19 @@ function fmtCnyLoc(v) { return '¥' + Math.round(Number(v) || 0).toLocaleString(
     if (openD) { openOrderDetail(openD.dataset.kind, openD.dataset.id); return; }
     const more = e.target.closest('.order-more');
     const draftFin = e.target.closest('.order-draft-final');
+    const refundBtn = e.target.closest('.order-refund');
+    if (refundBtn) {
+      const po = Storage.getPreorderById(refundBtn.dataset.id);
+      const due = po ? Storage.preorderRefundDue(po) : 0;
+      const amt = prompt(`Refund kelebihan bayar ke ${po && po.customer ? po.customer : 'pelanggan'} (kelebihan Rp ${Math.round(due).toLocaleString('id-ID')}):`, String(Math.round(due)));
+      if (amt == null) return;
+      try {
+        Storage.refundPreorder(refundBtn.dataset.id, { amount: Number(String(amt).replace(/\./g, '')) || 0, payment: 'transfer' });
+        UI.showSuccess('Refund dicatat — uang muka pelanggan berkurang');
+        renderSalesPage(); refresh(); queueMirror();
+      } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal refund'); }
+      return;
+    }
     if (draftFin) {
       const po = Storage.getPreorderById(draftFin.dataset.id);
       const planned = po ? Number(po.plannedDeposit) || 0 : 0;
