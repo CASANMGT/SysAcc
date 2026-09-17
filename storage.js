@@ -2139,22 +2139,32 @@ export function confirmShipment(id, { date, payment } = {}) {
       ],
     });
   }
-  if (s.kind === 'customer') try { applyStockMove ? null : null; } catch {}
+  if (s.kind === 'customer') {
+    // Preorder: barang SUDAH masuk persediaan saat muatan tiba (receiveMuatan) → keluar saat dikirim.
+    // Penjualan ready/kredit: stok sudah keluar saat penjualan dibuat → jangan dikurangi dua kali.
+    if (getPreorderById(s.orderId)) {
+      for (const l of s.lines) {
+        if (!l.itemId) continue;
+        try { applyStockMove(l.itemId, { qtyOut: Number(l.qty) || 0, ref: 'shipment', note: `Kirim ${s.no}`, type: 'ship' }); }
+        catch (err) { logAudit('update', 'shipment', s.id, null, { stockSkip: l.name, reason: String((err && err.message) || '') }); }
+      }
+    }
+  }
   s.status = 'confirmed';
   list[i] = s;
   saveShipments(list);
   // Pesanan: tandai terkirim (hanya untuk pengiriman ke pelanggan).
   if (s.kind === 'customer' && s.orderId) {
-    const totalOrdered = 0;
-    void totalOrdered;
     const order = getPreorderById(s.orderId) || getCreditSaleById(s.orderId);
     if (order) {
       const lines = readyToShipLines(order);
       const allSent = lines.every((l) => l.ready <= 0);
       if (getPreorderById(s.orderId)) {
         trackPreorder(s.orderId, { stage: allSent ? 'sent' : 'in_wh', date: d, note: `Kirim ${allSent ? 'lengkap' : 'sebagian'} via ${s.courier || 'kurir'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
+      } else if (allSent) {
+        trackCreditOrder(s.orderId, { stage: 'received', date: d, note: `Kirim lengkap via ${s.courier || 'kurir'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
       } else {
-        trackCreditOrder(s.orderId, { stage: allSent ? 'sent' : 'received', date: d, note: `Kirim ${allSent ? 'lengkap' : 'sebagian'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
+        trackCreditOrder(s.orderId, { stage: order.stage, date: d, note: `Kirim sebagian via ${s.courier || 'kurir'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
       }
     }
   }

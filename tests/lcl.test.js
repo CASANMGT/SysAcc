@@ -4,7 +4,7 @@ import {
   getBelanjas, createBelanja, refundBelanja,
   getKolis, checkInKoli, updateKoli, assignBelanjaToKoli,
   getMuatans, getMuatanById, createMuatan, loadKoli,
-  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder, finalizeBelanja, payBelanja, belanjaOutstanding,
+  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder, toBuyLinesFor, finalizeBelanja, payBelanja, belanjaOutstanding,
 } from '../lcl.js';
 import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, finalizePreorderDraft, getPreorderById, createShipment, confirmShipment, readyToShipLines, createDraftProductFromBelanja } from '../storage.js';
 
@@ -248,6 +248,32 @@ describe('pengiriman sebagian', () => {
     const s2 = createShipment({ kind: 'customer', orderId: po2.id, recipient: 'Cici', shippingCost: 20000, borneBy: 'customer', date: '2026-09-18', lines: [{ name: 'Y', qty: 1 }] });
     confirmShipment(s2.id, { date: '2026-09-18' });
     expect(getAllJournals().length).toBe(j1); // pelanggan yang tanggung → tanpa jurnal beban
+  });
+});
+
+describe('stok preorder keluar saat dikirim (bukan dua kali)', () => {
+  it('kirim preorder mengurangi stok; penjualan ready tidak dikurangi lagi', () => {
+    const it = saveItem({ name: 'Lampu', price: 150000, cost: 90000, stock: 10 });
+    const po = createPreorder({ date: '2026-09-17', customer: 'Andi', items: [{ itemId: it.id, name: 'Lampu', qty: 4, price: 150000 }], draft: true });
+    finalizePreorderDraft(po.id, { deposit: 0 });
+    const s = createShipment({ kind: 'customer', orderId: po.id, recipient: 'Andi', date: '2026-09-18', lines: [{ itemId: it.id, name: 'Lampu', qty: 3 }] });
+    confirmShipment(s.id, { date: '2026-09-18' });
+    expect(getItemById(it.id).stock).toBe(7); // 10 − 3
+    const s2 = createShipment({ kind: 'customer', orderId: po.id, recipient: 'Andi', date: '2026-09-20', lines: [{ itemId: it.id, name: 'Lampu', qty: 1 }] });
+    confirmShipment(s2.id, { date: '2026-09-20' });
+    expect(getItemById(it.id).stock).toBe(6); // 10 − 4
+    expect(getPreorderById(po.id).stage).toBe('sent');
+  });
+});
+
+describe('pembelian sebagian pesanan (konsumsi baris)', () => {
+  it('toBuyLinesFor menghitung sisa; beli sebagian mengurangi sisa', () => {
+    const po = createPreorder({ date: '2026-09-17', customer: 'Budi', items: [{ name: 'Kabel', qty: 10, price: 20000 }], deposit: 0 });
+    expect(toBuyLinesFor(getPreorderById(po.id))[0].remaining).toBe(10);
+    createBelanja({ lines: [{ name: 'Kabel', qty: 4, cnyUnit: 5 }], kursAgen: 2000, preorderId: po.id, purpose: 'preorder' });
+    const row = toBuyLinesFor(getPreorderById(po.id))[0];
+    expect(row.bought).toBe(4);
+    expect(row.remaining).toBe(6);
   });
 });
 

@@ -678,6 +678,22 @@ export function belanjasForPreorder(poId) {
 export function preorderLandedTotal(poId) {
   return belanjasForPreorder(poId).reduce((s, b) => s + (b.landedTotal != null ? b.landedTotal : b.totalIdr || 0), 0);
 }
+// Sudah dibeli untuk satu pesanan (semua status belanja, termasuk draft) → untuk peringatan beli berlebih.
+export function purchasedQtyFor(orderId, itemId = null, name = null) {
+  return getBelanjas().filter((b) => b.preorderId === orderId)
+    .flatMap((b) => b.lines || [])
+    .filter((l) => (itemId ? l.itemId === itemId : (name ? String(l.name).toLowerCase() === String(name).toLowerCase() : true)))
+    .reduce((a, l) => a + (Number(l.qty) || 0), 0);
+}
+// Sisa yang masih perlu dibeli untuk sebuah pesanan (dipesan − sudah dibeli).
+export function toBuyLinesFor(order) {
+  return ((order && order.items) || []).map((l) => {
+    const ordered = Number(l.qty) || 0;
+    const bought = purchasedQtyFor(order.id, l.itemId || null, l.name);
+    return { itemId: l.itemId || '', name: l.name, ordered, bought, remaining: Math.max(ordered - bought, 0), price: Number(l.price) || 0 };
+  });
+}
+
 // §4 Selisih estimasi vs aktual per belanja: aktual = biaya mendarat hasil alokasi.
 export function costVariance(belanja) {
   const est = Number(belanja && belanja.estimatedIdr) || 0;

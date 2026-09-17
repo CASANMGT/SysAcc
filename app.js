@@ -12,7 +12,7 @@ import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, bui
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
 import * as Freight from './freight.js';
-import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, costVariance, markBelanjaLoss, refusePreorder, finalizeBelanja, payBelanja, belanjaOutstanding, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
+import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, costVariance, markBelanjaLoss, refusePreorder, finalizeBelanja, payBelanja, belanjaOutstanding, toBuyLinesFor, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -2802,7 +2802,9 @@ function renderOrdersPanel() {
       ? '<span style="background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">JUAL</span>'
       : '<span style="background:#fef9c3;color:#a16206;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">🌏 PRE-ORDER CHINA</span>';
     let action = '';
-    if (st === 'ordered' && !(Number(r.paid) > 0.01)) {
+    if (isDraftOrder) {
+      action = `<button class="btn btn-primary order-draft-final" data-id="${r.id}" style="font-size:11px;padding:2px 8px" title="Finalkan draft: catat DP bila sudah diterima">✓ Finalkan pesanan</button>`;
+    } else if (st === 'ordered' && !(Number(r.paid) > 0.01)) {
       action = `<button class="btn btn-primary open-order-pay" data-kind="${r.kind}" data-id="${r.id}" style="font-size:11px;padding:2px 8px">💵 Tandai DP dibayar</button>`;
     } else if (st === 'dp_paid' && r.kind === 'jual') {
       action = `<button class="btn btn-primary order-ship" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🚚 Kirim ke pelanggan / tulis resi</button>`;
@@ -2843,6 +2845,19 @@ function renderOrdersPanel() {
     const gmap = GOODS[r.kind] || GOODS.jual;
     const g = gmap[st] || ['Menunggu barang', '#f1f5f9', '#334155'];
     const goodsChip = `<span style="background:${g[1]};color:${g[2]};padding:2px 8px;border-radius:9999px;font-size:11px;white-space:nowrap">${g[0]}</span>`;
+    // Draft pesanan + progres pengiriman (dari shipment yang sudah dikonfirmasi)
+    const isDraftOrder = r.status === 'draft' || st === 'draft';
+    const draftChip = isDraftOrder ? '<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:9999px;font-size:10.5px;margin-left:4px">Draft</span>' : '';
+    const prog = (() => {
+      try {
+        const order = r.kind === 'po' ? Storage.getPreorderById(r.id) : Storage.getCreditSaleById(r.id);
+        const ls = Storage.readyToShipLines(order);
+        const ordered = ls.reduce((a, l) => a + l.ordered, 0);
+        const sent = ls.reduce((a, l) => a + l.shipped, 0);
+        if (!ordered || sent <= 0) return '';
+        return `<div style="font-size:10.5px;color:#1d4ed8;font-weight:600">🚚 ${sent} dari ${ordered} terkirim</div>`;
+      } catch { return ''; }
+    })();
     // Status pembayaran
     const paid = Number(r.paid) || 0;
     let payTxt, payBg, payFg;
@@ -2864,7 +2879,7 @@ function renderOrdersPanel() {
     return `<tr>
         <td style="font-size:12px;white-space:nowrap"><button type="button" class="order-open" data-kind="${r.kind}" data-id="${r.id}" style="background:none;border:none;padding:0;font:inherit;font-weight:700;color:#1d4ed8;cursor:pointer" title="Buka detail pesanan">${escapeHtml(r.no)}</button> <div>${typeBadge}</div><div style="font-size:10px;color:#64748b">${escapeHtml(r.date || '')}</div>${ageTxt}</td>
         <td style="font-size:12px"><b style="font-weight:600">${escapeHtml(r.customer || '—')}</b><div style="font-size:10.5px;color:#64748b">${itemsTxt}</div>${shipLine}</td>
-        <td>${goodsChip}${noteLine}${sched}</td>
+        <td>${goodsChip}${draftChip}${prog}${noteLine}${sched}</td>
         <td>${payChip}<div class="amount-col" style="font-size:11px;font-weight:${r.balance > 0.01 ? '700' : '400'};color:${r.balance > 0.01 ? '#b45309' : '#059669'}">${r.balance > 0.01 ? fmt(r.balance) : 'Rp 0'}</div>${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
         <td style="font-size:11.5px;white-space:nowrap">${escapeHtml(etaInfo)}</td>
         <td class="order-actions">${action || ''}${moreBtn}</td>
@@ -4263,6 +4278,18 @@ function renderBeliBaru() {
       <section class="beli-card-box">
         <div class="beli-step"><span>2</span> Barang dan harga beli</div>
         ${s.preorderId && s.lines.length ? '<div class="beli-note">ⓘ Barang otomatis dari pesanan. Ubah jumlah bila beli sebagian, atau tambah baris untuk seller lain.</div>' : ''}
+        ${s.purpose === 'order' && s.preorderId ? (() => {
+    const po = Storage.getPreorderById(s.preorderId);
+    if (!po) return '';
+    const rows = toBuyLinesFor(po);
+    const over = rows.filter((r) => {
+      const typed = s.lines.filter((l) => (l.itemId && l.itemId === r.itemId) || (!l.itemId && String(l.name).toLowerCase() === String(r.name).toLowerCase()))
+        .reduce((a, l) => a + (Number(l.qty) || 0), 0);
+      return typed > r.remaining;
+    });
+    return `<div class="beli-note">Dipesan ${rows.reduce((a, r) => a + r.ordered, 0)} • sudah dibeli ${rows.reduce((a, r) => a + r.bought, 0)} • <b>sisa perlu dibeli ${rows.reduce((a, r) => a + r.remaining, 0)} unit</b></div>`
+      + (over.length ? `<div class="beli-warn">⚠️ Melebihi kebutuhan pesanan: ${over.map((r) => `${escapeHtml(r.name)} (sisa ${r.remaining})`).join(', ')}. Kurangi jumlah, atau biarkan bila memang untuk stok.</div>` : '');
+  })() : ''}
         <table class="beli-table">
           <thead><tr><th>Produk</th><th style="width:90px">Jumlah</th><th style="width:130px">Harga ${s.source === 'marketplace' ? '(¥)' : '(Rp)'}</th><th style="width:130px">Subtotal</th><th style="width:36px"></th></tr></thead>
           <tbody>${s.lines.map((l, i) => `<tr>
@@ -5120,6 +5147,19 @@ function fmtCnyLoc(v) { return '¥' + Math.round(Number(v) || 0).toLocaleString(
     const openD = e.target.closest('.order-open');
     if (openD) { openOrderDetail(openD.dataset.kind, openD.dataset.id); return; }
     const more = e.target.closest('.order-more');
+    const draftFin = e.target.closest('.order-draft-final');
+    if (draftFin) {
+      const po = Storage.getPreorderById(draftFin.dataset.id);
+      const planned = po ? Number(po.plannedDeposit) || 0 : 0;
+      const amt = planned > 0 ? prompt(`Finalkan draft ${po.no}. DP yang benar-benar diterima (Rp) — isi 0 bila belum ada:`, String(Math.round(planned))) : '0';
+      if (amt == null) return;
+      try {
+        Storage.finalizePreorderDraft(draftFin.dataset.id, { deposit: Number(String(amt).replace(/\./g, '')) || 0, payment: 'transfer' });
+        UI.showSuccess('Pesanan difinalkan — masuk alur pesanan');
+        renderSalesPage(); refresh(); queueMirror();
+      } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal finalkan pesanan'); }
+      return;
+    }
     if (!more) return;
     openOrderMoreMenu(more.dataset.kind, more.dataset.id);
   });
