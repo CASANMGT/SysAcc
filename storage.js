@@ -673,6 +673,7 @@ function sanitizeEntry(ent) {
   };
   // Jangan buang data penting saat restore/import: PPN, barang, baris penjualan, payroll, pinjaman.
   if (ent.ppn) rec.ppn = true;
+  if (ent.verified === true) { rec.verified = true; rec.verifiedAt = String(ent.verifiedAt || '').slice(0, 40); rec.verifiedBy = String(ent.verifiedBy || '').slice(0, 40); }
   if (ent.shop) rec.shop = String(ent.shop).slice(0, 40);
   if (ent.itemId) rec.itemId = String(ent.itemId).slice(0, 60);
   if (Number(ent.qty) > 0) rec.qty = Math.floor(Number(ent.qty));
@@ -1590,6 +1591,7 @@ export function snapshotAll() {
     muatans: (() => { try { return JSON.parse(localStorage.getItem('wynara_muatan') || '[]'); } catch { return []; } })(),
     shipments: getShipments(),
     impor: getImporSettings(),
+    checklist: (() => { try { return JSON.parse(localStorage.getItem('wynara_checklist') || '{}'); } catch { return {}; } })(),
     exportedAt: new Date().toISOString(),
     // v4: + belanjas/kolis/muatans/shipments/impor (v3 & lebih lama tetap bisa dipulihkan)
     version: 4
@@ -1683,6 +1685,7 @@ export function restoreAll(snap) {
   if (Array.isArray(snap.muatans)) { try { localStorage.setItem('wynara_muatan', JSON.stringify(snap.muatans)); } catch {} }
   if (Array.isArray(snap.shipments)) { try { localStorage.setItem('wynara_shipments', JSON.stringify(snap.shipments)); } catch {} }
   if (snap.impor && typeof snap.impor === 'object') { try { localStorage.setItem('wynara_impor', JSON.stringify(snap.impor)); } catch {} }
+  if (snap.checklist && typeof snap.checklist === 'object') { try { localStorage.setItem('wynara_checklist', JSON.stringify(snap.checklist)); } catch {} }
   let cE = 0, cL = 0, cR = 0, cP = 0;
   if (Array.isArray(snap.entries)) {
     const valid = snap.entries.map(sanitizeEntry).filter(Boolean);
@@ -2621,6 +2624,51 @@ export function payrollPaidEmployeeIds(monthKey) {
     if (e.person) names.add(String(e.person).toLowerCase().trim());
   });
   return { ids: Array.from(ids), names: Array.from(names) };
+}
+
+// ===== Verifikasi pengeluaran (advisory, bukan penghalang posting) =====
+// Entry yang dibuat operator ditandai belum diverifikasi; pemilik menandai "diverifikasi"
+// sebagai bukti sudah diperiksa. Tidak mengubah jurnal apa pun.
+export function setEntryVerified(id, verified = true) {
+  const list = getEntries();
+  const i = list.findIndex((e) => e.id === id);
+  if (i < 0) throw new Error('Transaksi tidak ditemukan');
+  if (verified) {
+    list[i].verified = true;
+    list[i].verifiedAt = new Date().toISOString();
+    list[i].verifiedBy = (getActor() || {}).user || 'owner';
+  } else {
+    delete list[i].verified; delete list[i].verifiedAt; delete list[i].verifiedBy;
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  logAudit('update', 'entry-verify', id, null, { verified: !!verified });
+  return list[i];
+}
+export function unverifiedCount(monthKey = '') {
+  const mk = String(monthKey || '').slice(0, 7);
+  return getEntries().filter((e) => e.type === 'expense' && !e.verified && (!mk || String(e.date).slice(0, 7) === mk)).length;
+}
+
+// ===== Checklist pajak & tutup buku (advisory) =====
+// Disimpan per bulan: { 'YYYY-MM': { stepId: {done, at, auto} } }
+const CHECK_KEY = 'wynara_checklist';
+export function getChecklist(monthKey) {
+  const mk = String(monthKey || '').slice(0, 7);
+  let all = {};
+  try { const v = JSON.parse(localStorage.getItem(CHECK_KEY) || '{}'); all = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; } catch {}
+  const m = (all[mk] && typeof all[mk] === 'object') ? all[mk] : {};
+  return m;
+}
+export function setChecklistStep(monthKey, stepId, done) {
+  const mk = String(monthKey || '').slice(0, 7);
+  let all = {};
+  try { const v = JSON.parse(localStorage.getItem(CHECK_KEY) || '{}'); all = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; } catch {}
+  const m = (all[mk] && typeof all[mk] === 'object') ? all[mk] : {};
+  m[stepId] = done ? { done: true, at: new Date().toISOString() } : { done: false };
+  all[mk] = m;
+  try { localStorage.setItem(CHECK_KEY, JSON.stringify(all)); } catch {}
+  logAudit('update', 'checklist', `${mk}:${stepId}`, null, { done: !!done });
+  return m;
 }
 
 // ===== Nomor invoice: INV/2026/09/0042 =====

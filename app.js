@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.21.0';
+const APP_VERSION = '2.22.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -295,6 +295,127 @@ function updateStorageState() {
       ? `Data buku hanya ada di browser ini. Backup terakhir: ${lastBackup}. Nyalakan Sinkron Online atau unduh JSON Backup.`
       : 'Data buku hanya ada di browser ini dan BELUM pernah di-backup. Bila data browser dibersihkan, pembukuan hilang. Buka Pengaturan → JSON Backup / Sinkron Online.';
   }
+}
+
+/* ===== Checklist pajak & tutup buku (advisory, per bulan) ===== */
+function checklistSteps(monthKey) {
+  const [y, m] = String(monthKey).split('-').map(Number);
+  const next = new Date(y, m, 1); // bulan berikutnya
+  const d10 = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-10`;
+  const d15 = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-15`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const monthEnd = `${monthKey}-${String(lastDay).padStart(2, '0')}`;
+  const pkp = safeLocalGet('wynara_taxpkp') === '1';
+  const locked = (() => { try { return Storage.isMonthLocked(`${monthKey}-01`); } catch { return false; } })();
+  const steps = [
+    { id: 'pph21', label: 'Setor & lapor PPh 21 (bulan ini)', due: d10, note: 'Daftar gaji → CSV PPh 21 di Laporan' },
+    { id: 'pph23', label: 'Setor PPh 23/4(2) bila ada potongan vendor', due: d10, note: 'Hanya bila ada jasa/sewa ke vendor' },
+    { id: 'pphfinal', label: 'Setor PPh Final 0,5% (omzet bulan ini)', due: d15, note: 'UMKM PP 23/2018' },
+  ];
+  if (pkp) steps.push({ id: 'ppn', label: 'Lapor & setor PPN masa', due: d10, note: 'Wajib PKP: akhir bulan berikutnya' });
+  steps.push(
+    { id: 'bankrec', label: 'Rekonsiliasi bank selesai', due: monthEnd, note: 'Kas & Bank → Mutasi Bank' },
+    { id: 'verify', label: 'Semua pengeluaran sudah diverifikasi', due: monthEnd, note: 'Biaya → filter belum diverifikasi' },
+    { id: 'backup', label: 'Unduh JSON backup', due: monthEnd, note: 'Pengaturan → JSON Backup' },
+    { id: 'close', label: 'Tutup buku bulan ini', due: monthEnd, note: 'Laporan → Penutupan bulan' },
+    { id: 'lock', label: 'Kunci periode', due: monthEnd, note: 'Pengaturan → Kunci periode' },
+  );
+  // status otomatis (tidak mengunci apa pun, hanya menandai kenyataan)
+  const saved = (() => { try { return Storage.getChecklist(monthKey); } catch { return {}; } })();
+  const unver = (() => { try { return Storage.unverifiedCount(monthKey); } catch { return 0; } })();
+  const auto = {
+    lock: locked,
+    verify: unver === 0,
+    backup: (() => { try { const a = JSON.parse(localStorage.getItem('wynara_backup_log') || '[]'); return Array.isArray(a) && a.some((x) => String(x).slice(0, 7) === monthKey); } catch { return false; } })(),
+  };
+  return steps.map((s) => ({ ...s, done: auto[s.id] === true || !!(saved[s.id] && saved[s.id].done), auto: auto[s.id] === true, overdue: new Date(s.due + 'T00:00:00') < new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00') }));
+}
+function renderChecklistCard() {
+  const host = document.getElementById('checklistCard');
+  if (!host) return;
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const steps = checklistSteps(monthKey);
+  const doneCount = steps.filter((s) => s.done).length;
+  const pct = Math.round((doneCount / steps.length) * 100);
+  host.innerHTML = `<div class="dash-panel" style="padding:16px;margin-bottom:16px">
+    <div class="dash-panel-head"><div><h3>🗓️ Checklist bulan ini — ${escapeHtml(Reports.formatMonth ? Reports.formatMonth(monthKey) : monthKey)}</h3><p style="font-size:11.5px;color:#64748b">Bersifat pengingat: tidak memblokir pekerjaan. ${doneCount}/${steps.length} selesai (${pct}%).</p></div></div>
+    <div style="height:6px;background:#eef2f7;border-radius:9999px;overflow:hidden;margin:8px 0 12px"><div style="height:100%;width:${pct}%;background:${pct === 100 ? '#059669' : '#2563eb'}"></div></div>
+    ${steps.map((s) => `<label style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #f1f5f9;cursor:pointer">
+      <input type="checkbox" class="cl-step" data-step="${s.id}"${s.done ? ' checked' : ''}${s.auto ? ' disabled' : ''} style="margin-top:3px">
+      <span style="flex:1;min-width:0">
+        <span style="font-size:13px;${s.done ? 'text-decoration:line-through;color:#64748b' : 'font-weight:600'}">${escapeHtml(s.label)}</span>
+        <span style="display:block;font-size:11px;color:${!s.done && s.overdue ? '#b91c1c' : '#64748b'}">Tenggat ${escapeHtml(s.due)}${s.auto ? ' • terdeteksi otomatis' : ''}${s.note ? ' • ' + escapeHtml(s.note) : ''}</span>
+      </span></label>`).join('')}
+    <div style="font-size:11px;color:#64748b;margin-top:8px">Tenggat mengikuti aturan umum: PPh 21 &amp; PPh 23 tanggal 10, PPh Final tanggal 15, tutup buku &amp; backup di akhir bulan.</div>
+  </div>`;
+  host.querySelectorAll('.cl-step').forEach((cb) => cb.addEventListener('change', () => {
+    try { Storage.setChecklistStep(monthKey, cb.dataset.step, cb.checked); renderChecklistCard(); }
+    catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyimpan checklist'); }
+  }));
+}
+
+/* ===== Bukti potong PPh 21 (per karyawan, bulan berjalan) ===== */
+function openBuktiPotong(monthKey) {
+  const mk = monthKey || (typeof payrollViewMonth !== 'undefined' ? payrollViewMonth : new Date().toISOString().slice(0, 7));
+  const rows = [];
+  try {
+    Storage.getAllEntries().forEach((e) => {
+      if (e.category !== 'gaji-out') return;
+      if (String(e.date || '').slice(0, 7) !== mk) return;
+      const p = e.payroll || {};
+      const emp = Storage.getAllEmployees().find((x) => x.id === p.employeeId) || null;
+      rows.push({
+        name: e.person || (emp && emp.name) || '—',
+        npwp: !!(p.npwp || (emp && emp.npwp)),
+        bruto: (Number(p.base) || 0) + (Number(p.allow) || 0) + (Number(p.overtime) || 0) + (Number(p.bonus) || 0) + (Number(p.thr) || 0),
+        bpjs: ((p.ded && (p.ded.kesSelf || 0) + (p.ded.jhtSelf || 0) + (p.ded.jpSelf || 0)) || 0),
+        pph: (p.ded && p.ded.pph21) || 0,
+        netto: Number(e.amount) || 0,
+        id: e.id,
+      });
+    });
+  } catch {}
+  if (!rows.length) return UI.showInfo(`Belum ada data gaji untuk ${mk}. Proses payroll dulu.`);
+  const totalPph = rows.reduce((a, r) => a + r.pph, 0);
+  const html = `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
+      <th>Karyawan</th><th>NPWP</th><th class="amount-col">Bruto</th><th class="amount-col">BPJS (karyawan)</th><th class="amount-col">PPh 21</th><th class="amount-col">Diterima</th><th></th></tr></thead><tbody>
+    ${rows.map((r) => `<tr>
+      <td style="font-size:12.5px"><b>${escapeHtml(r.name)}</b></td>
+      <td style="font-size:11.5px">${r.npwp ? 'Ada' : '<span style="color:#b45309">Tanpa NPWP (+20%)</span>'}</td>
+      <td class="amount-col">${Reports.formatCurrency(r.bruto)}</td>
+      <td class="amount-col">${Reports.formatCurrency(r.bpjs)}</td>
+      <td class="amount-col"><b>${Reports.formatCurrency(r.pph)}</b></td>
+      <td class="amount-col">${Reports.formatCurrency(r.netto)}</td>
+      <td><button type="button" class="btn btn-ghost bp-print" data-id="${r.id}" style="font-size:11px;padding:2px 8px">🖨 Cetak</button></td></tr>`).join('')}
+    <tr style="background:#f8fafc;font-weight:700"><td colspan="4">Total PPh 21 dipotong</td><td class="amount-col">${Reports.formatCurrency(totalPph)}</td><td colspan="2"></td></tr>
+  </tbody></table></div>
+  <div style="font-size:11px;color:#64748b;margin-top:8px">Bukti potong bulanan (lampiran 1721-VI). Cetak per karyawan untuk arsip; angka mengikuti data payroll yang sudah difinalkan.</div>`;
+  UI.openInfoModal(`🧾 Bukti potong PPh 21 — ${mk}`, html);
+  document.querySelectorAll('.bp-print').forEach((b) => b.addEventListener('click', () => {
+    const r = rows.find((x) => x.id === b.dataset.id);
+    if (r) printBuktiPotong(mk, r);
+  }));
+}
+function printBuktiPotong(monthKey, r) {
+  const w = window.open('', '_blank');
+  if (!w) return UI.showError('Popup diblokir — izinkan popup untuk mencetak');
+  const fmt = (v) => Reports.formatCurrency(v);
+  w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Bukti Potong PPh 21 — ${escapeHtml(r.name)}</title>
+  <style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;padding:32px;color:#111} table{width:100%;border-collapse:collapse;margin-top:16px} td{padding:6px 4px;border-bottom:1px solid #e5e7eb;font-size:13px} .r{text-align:right} h1{font-size:18px;margin:0 0 4px} .muted{color:#555;font-size:12px}</style></head><body>
+  <h1>Bukti Potong Pajak Penghasilan Pasal 21</h1>
+  <div class="muted">Masa pajak: ${escapeHtml(monthKey)} • Wynara Accounting</div>
+  <table>
+    <tr><td>Nama penerima penghasilan</td><td class="r"><b>${escapeHtml(r.name)}</b></td></tr>
+    <tr><td>NPWP</td><td class="r">${r.npwp ? 'Terdaftar' : 'Tidak ada (+20%)'}</td></tr>
+    <tr><td>Penghasilan bruto</td><td class="r">${fmt(r.bruto)}</td></tr>
+    <tr><td>BPJS ditanggung karyawan</td><td class="r">${fmt(r.bpjs)}</td></tr>
+    <tr><td><b>PPh 21 dipotong</b></td><td class="r"><b>${fmt(r.pph)}</b></td></tr>
+    <tr><td>Diterima bersih</td><td class="r">${fmt(r.netto)}</td></tr>
+  </table>
+  <p class="muted" style="margin-top:24px">Dicetak ${new Date().toLocaleString('id-ID')} — dokumen ini dibuat otomatis dari data payroll, perhitungan mengikuti PMK 168/2023 (TER).</p>
+  <script>window.onload=function(){window.print()};<\/script>
+  </body></html>`);
+  w.document.close();
 }
 
 /* ===== Ikon outline (Material-style, satu set konsisten) ===== */
@@ -2405,6 +2526,7 @@ function render() {
   );
 
   renderFilterPills();
+  renderChecklistCard();
   syncTopbarPeriod();
   renderArusKasChart(searchFiltered);
   renderDonut(categories);
@@ -4722,6 +4844,16 @@ document.getElementById('infoModalBody')?.addEventListener('click', (e) => {
 });
 
 document.getElementById('viewBiaya')?.addEventListener('click', (e) => {
+  const v = e.target.closest('.biaya-verify');
+  if (v) {
+    try {
+      Storage.setEntryVerified(v.dataset.id, true);
+      UI.showSuccess('Pengeluaran ditandai sudah diverifikasi');
+      renderBiayaPage();
+      try { renderChecklistCard(); } catch {}
+    } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal verifikasi'); }
+    return;
+  }
   const b = e.target.closest('.biaya-attach');
   if (!b) return;
   const show = () => {
@@ -5488,6 +5620,9 @@ function renderBiayaPage() {
     list.innerHTML = rows.length ? rows.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
       <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.description || Reports.getCategoryLabel(e.category))}</div><div style="font-size:10px;color:#64748b">${escapeHtml(e.date)} • ${escapeHtml(Reports.getCategoryLabel(e.category))}${e.person ? ' • ' + escapeHtml(e.person) : ''}</div></div>
       <button type="button" class="btn btn-ghost biaya-attach" data-id="${e.id}" title="Lampiran nota / bukti" style="font-size:11px;padding:2px 8px">📎 ${((e.attachments || []).length) || ''}</button>
+      ${e.verified
+      ? '<span title="Sudah diverifikasi" style="font-size:11px;color:#059669;font-weight:700">✓</span>'
+      : `<button type="button" class="btn btn-ghost biaya-verify" data-id="${e.id}" title="Tandai sudah diverifikasi" style="font-size:11px;padding:2px 8px;color:#b45309">Perlu verifikasi</button>`}
       <b style="font-size:12px;white-space:nowrap;color:#dc2626">−${fmt(e.amount)}</b></div>`).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada transaksi biaya.</p>';
   }
 }
@@ -8041,7 +8176,8 @@ function handleEmpImport(file) {
         } catch { skipped++; }
       }
       UI.showSuccess(`Impor selesai: ${ok} ditambahkan${skipped ? `, ${skipped} dilewati` : ''}`);
-      loadPayrollCache();
+  loadPayrollCache();
+  document.getElementById('payrollBuktiBtn')?.addEventListener('click', () => openBuktiPotong(payrollViewMonth));
       renderPayrollView();
       refresh();
       queueMirror();

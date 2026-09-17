@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.21.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.22.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -276,6 +276,8 @@
             <button class="btn btn-ghost" id="saleEntryBtn" title="Jual barang dari stok">🧾 Jual</button>
           </div>
         </div>
+
+        <div id="checklistCard"></div>
 
         <div id="onboardingCard" class="dash-panel hidden" style="margin-bottom:20px;border:2px dashed #bfdbfe;background:#eff6ff">
           <h3 style="margin-bottom:4px">👋 Selamat datang — 3 pekerjaan harian yang paling penting</h3>
@@ -542,7 +544,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.21.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.22.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -1005,6 +1007,7 @@
                 <span id="payrollFootNote" style="font-size:12px;color:#64748b"></span>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                   <span style="font-size:12px">Total gaji bersih<br><strong id="payrollFootTotal" style="font-size:18px">Rp0</strong></span>
+                  <button type="button" class="btn btn-ghost" id="payrollBuktiBtn" title="Bukti potong PPh 21 bulan ini" style="font-size:12px">🧾 Bukti potong PPh 21</button>
                   <select id="payrollViewPayment" title="Bayar dari kas" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px">
                     <option value="transfer">🏦 Transfer</option>
                     <option value="cash">💵 Tunai</option>
@@ -2781,7 +2784,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.21.0';
+    window.__htmlVersion = '2.22.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

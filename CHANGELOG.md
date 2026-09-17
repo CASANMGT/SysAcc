@@ -8,6 +8,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.22.0] - 2026-09-17 — pemandu bulanan, bukti potong, verifikasi pengeluaran
+
+### Ditambahkan
+- **Checklist pajak & tutup buku (advisory, per bulan)** di Ringkasan: PPh 21 (tgl 10), PPh 23/4(2) (tgl 10), PPh Final 0,5% (tgl 15), PPN (khusus PKP), rekonsiliasi bank, verifikasi pengeluaran, backup JSON, tutup buku, kunci periode — lengkap dengan tenggat, progres, dan penanda terlambat. Bersifat pengingat: **tidak memblokir** pekerjaan. Status yang bisa dideteksi otomatis (kunci periode, verifikasi, backup) terisi sendiri; sisanya dicentang manual dan tersimpan per bulan (`wynara_checklist`, ikut backup & sinkron).
+- **Bukti potong PPh 21** (lampiran 1721-VI) dari tab Proses payroll: tabel per karyawan (bruto, BPJS karyawan, PPh 21 dipotong, diterima bersih, status NPWP, total PPh bulan itu) + tombol **Cetak** per karyawan dalam format siap arsip.
+
+### Diperbaiki / ditingkatkan
+- **Verifikasi pengeluaran**: transaksi pada halaman Biaya menampilkan **"Perlu verifikasi"** sampai pemilik menekan ✓; status tersimpan (`verified`, `verifiedAt`, `verifiedBy`), ikut backup, dan muncul sebagai langkah tersendiri di checklist bulanan. Bersifat advisory — tidak mengubah jurnal.
+- Uji: **380 lulus**.
+
 ## [2.21.0] - 2026-09-17 — bukti pengeluaran & keamanan payroll
 
 ### Ditambahkan

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, payrollPaidEmployeeIds, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, saveShops, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, payrollPaidEmployeeIds, getChecklist, setChecklistStep, setEntryVerified, unverifiedCount, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, saveShops, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -581,6 +581,28 @@ describe('produk: varian & diskon', () => {
     expect(it.discountPct).toBe(25);
     expect(itemNetPrice(it)).toBe(75000);
     expect(itemVariantLabel(it)).toBe('L / Hitam');
+  });
+  it('AUDIT: checklist bulanan tersimpan per bulan & ikut backup', () => {
+    expect(getChecklist('2026-09')).toEqual({});
+    setChecklistStep('2026-09', 'pph21', true);
+    expect(getChecklist('2026-09').pph21.done).toBe(true);
+    expect(getChecklist('2026-10')).toEqual({}); // bulan lain tidak ikut
+    setChecklistStep('2026-09', 'pph21', false);
+    expect(getChecklist('2026-09').pph21.done).toBe(false);
+    setChecklistStep('2026-09', 'lock', true);
+    const snap = JSON.parse(JSON.stringify(snapshotAll()));
+    expect(snap.checklist['2026-09'].lock.done).toBe(true);
+  });
+  it('AUDIT: verifikasi pengeluaran bertahan setelah restore', () => {
+    const e = createEntry({ date: '2026-09-17', type: 'expense', category: 'transport', payment: 'cash', description: 'Bensin', amount: 50000 });
+    expect(unverifiedCount('2026-09')).toBe(1);
+    setEntryVerified(e.id, true);
+    expect(getEntryById(e.id).verified).toBe(true);
+    expect(unverifiedCount('2026-09')).toBe(0);
+    const snap = JSON.parse(JSON.stringify(snapshotAll()));
+    localStorage.clear();
+    restoreAll(snap);
+    expect(getEntryById(e.id).verified).toBe(true); // sanitizeEntry tidak membuang flag
   });
   it('AUDIT: payrollPaidEmployeeIds mencegah dobel-posting (id, bukan hanya nama)', () => {
     const emp = saveEmployee({ name: 'Gaji Satu', baseSalary: 5000000 });
