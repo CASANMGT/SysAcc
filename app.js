@@ -2596,6 +2596,8 @@ function computeSales(entries) {
 }
 // 6.1 Bagian Penjualan: Pesanan · Piutang · Produk · Ringkasan
 let salesTab = 'pesanan';
+let salesNeedFilter = 'all'; // filter dari kartu ringkasan Penjualan
+let salesSearchTerm = '';    // pencarian nomor pesanan / pelanggan / barang
 function showSalesTab(tab) {
   salesTab = ['pesanan', 'piutang', 'produk', 'ringkasan'].includes(tab) ? tab : 'pesanan';
   const map = { pesanan: 'sTabPesanan', piutang: 'sTabPiutang', produk: 'sTabProduk', ringkasan: 'sTabRingkasan' };
@@ -2610,6 +2612,18 @@ function showSalesTab(tab) {
 document.getElementById('salesTabs')?.addEventListener('click', (e) => {
   const b = e.target.closest('[data-stab]');
   if (b) showSalesTab(b.dataset.stab);
+});
+// Kartu ringkasan memfilter tabel pesanan
+document.getElementById('salesSummaryCards')?.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-need]');
+  if (!b) return;
+  salesNeedFilter = salesNeedFilter === b.dataset.need ? 'all' : b.dataset.need;
+  if (salesTab !== 'pesanan') showSalesTab('pesanan');
+  else renderSalesPage();
+});
+document.getElementById('salesSearch')?.addEventListener('input', (e) => {
+  salesSearchTerm = e.target.value || '';
+  try { renderSalesPage(); } catch {}
 });
 
 function renderSalesPage() {
@@ -2723,8 +2737,45 @@ function renderOrdersPanel() {
       + tile('🧾 Biaya sudah keluar', fmt(costKpi), '#475569')
       + tile('💰 Laba (selesai)', fmt(profitKpi), '#059669');
   }
-  const running = cssOrders.filter(r => r.stage !== 'done').concat(poRows)
+  const runningAll = cssOrders.filter(r => r.stage !== 'done').concat(poRows)
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  // Ringkasan yang bisa diklik (requirement 2) — memfilter tabel di bawahnya.
+  const goodsOf = (r) => {
+    const st = orderStageU(r.stage);
+    if (r.kind === 'po') {
+      if (['ordered', 'dp_paid'].includes(st)) return 'belum_dibeli';
+      if (['in_wh', 'arrived', 'received'].includes(st)) return 'siap_dikirim';
+      return 'jalan';
+    }
+    if (st === 'received') return 'siap_dikirim';
+    return 'proses';
+  };
+  const sumNeed = runningAll.filter(r => goodsOf(r) === 'belum_dibeli' || goodsOf(r) === 'proses').length;
+  const sumUnpaid = runningAll.filter(r => r.balance > 0.01).length;
+  const sumReady = runningAll.filter(r => goodsOf(r) === 'siap_dikirim').length;
+  const sumIncomplete = runningAll.filter(r => r.kind === 'po' && preorderLclCost(r.id) <= 0).length;
+  const cards = document.getElementById('salesSummaryCards');
+  if (cards) {
+    const card = (key, label, value, color) => `<button type="button" class="sales-card${salesNeedFilter === key ? ' active' : ''}" data-need="${key}">
+      <span class="sales-card-val" style="color:${color}">${value}</span><span class="sales-card-label">${label}</span></button>`;
+    cards.innerHTML = card('need', 'Perlu diproses', sumNeed, '#1d4ed8')
+      + card('unpaid', 'Menunggu pembayaran', sumUnpaid, '#b45309')
+      + card('ready', 'Siap dikirim', sumReady, '#047857')
+      + card('incomplete', 'Biaya belum lengkap', sumIncomplete, '#b91c1c');
+  }
+  const running = (salesNeedFilter === 'all' ? runningAll : runningAll.filter((r) => {
+    const g = goodsOf(r);
+    if (salesNeedFilter === 'need') return g === 'belum_dibeli' || g === 'proses';
+    if (salesNeedFilter === 'ready') return g === 'siap_dikirim';
+    if (salesNeedFilter === 'unpaid') return r.balance > 0.01;
+    if (salesNeedFilter === 'incomplete') return r.kind === 'po' && preorderLclCost(r.id) <= 0;
+    return true;
+  })).filter((r) => {
+    const t = salesSearchTerm.trim().toLowerCase();
+    if (!t) return true;
+    const hay = [r.no, r.customer, ...(r.items || []).map((l) => l.name)].join(' ').toLowerCase();
+    return hay.includes(t);
+  });
   const history = cssOrders.filter(r => r.stage === 'done')
     .map(r => ({ kind: 'jual', no: r.no, customer: r.customer, paid: r.paid, total: r.sellTotal }))
     .concat(Storage.getPreorders().filter(po => po.stage === 'settled')
@@ -2734,7 +2785,6 @@ function renderOrdersPanel() {
   if (!box) return;
   const row = (r) => {
     const st = orderStageU(r.stage);
-    const meta = ORDER_STATUS_META[st] || ORDER_STATUS_META.ordered;
     const overdue = r.balance > 0.01 && r.dueDate && new Date(r.dueDate + 'T00:00:00') < today;
     const etaMonths = Number(r.months) || 0;
     const ev = (r.events || []).slice(-1)[0] || null;
@@ -2748,9 +2798,6 @@ function renderOrdersPanel() {
     const noteLine = ev ? `<div style="font-size:10.5px;color:#475569">📝 ${escapeHtml(ev.note || '')}${ev.date ? ' • ' + escapeHtml(ev.date) : ''}</div>` : '';
     const sched = ev && ev.schedule ? `<div style="font-size:10.5px;color:#4338ca;font-weight:600;margin-top:2px">⏰ Janji bayar ${escapeHtml(ev.schedule)}</div>` : '';
     const ageTxt = ageDays != null ? `<div style="font-size:10px;${ageDays > 21 ? 'color:#b45309;font-weight:700' : 'color:#64748b'}">⏱ ${ageDays} hari</div>` : '';
-    const chip = st === 'ordered' && (Number(r.paid) || 0) <= 0.01 && (Number(r.deposit) || 0) <= 0.01
-      ? '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9999px;font-size:11px">⚠️ Pesanan dibuat — DP belum dibayar</span>'
-      : `<span style="background:${meta.bg};color:${meta.fg};padding:2px 8px;border-radius:9999px;font-size:11px">${meta.chip}</span>`;
     const typeBadge = r.kind === 'jual'
       ? '<span style="background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">JUAL</span>'
       : '<span style="background:#fef9c3;color:#a16206;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">🌏 PRE-ORDER CHINA</span>';
@@ -2782,23 +2829,56 @@ function renderOrdersPanel() {
     }
     // 6.4: satu aksi utama + menu ⋯ (kolom aksi lebar tetap agar bisa dipindai)
     const moreBtn = `<button class="btn btn-ghost order-more" data-kind="${r.kind}" data-id="${r.id}" style="font-size:14px;padding:2px 10px;min-width:38px" aria-label="Aksi lain untuk ${escapeHtml(r.no)}" title="Aksi lain">⋯</button>`;
+    // Status barang (terpisah dari status pembayaran) — dipetakan dari tahap pesanan
+    const GOODS = {
+      jual: { ordered: ['Perlu diproses', '#fef3c7', '#92400e'], dp_paid: ['Perlu diproses', '#fef3c7', '#92400e'], china: ['Disiapkan', '#e0f2fe', '#075985'], shipping: ['Dikirim', '#dbeafe', '#1d4ed8'], shipped: ['Dikirim', '#dbeafe', '#1d4ed8'], received: ['Diterima pelanggan', '#dcfce7', '#166534'], invoiced: ['Selesai — tagih', '#f1f5f9', '#334155'] },
+      po: {
+        ordered: ['Belum dibeli', '#fee2e2', '#b91c1c'], dp_paid: ['Belum dibeli', '#fef3c7', '#92400e'],
+        china: ['Di gudang China', '#fef9c3', '#a16206'], batch: ['Siap dimuat', '#fef9c3', '#a16206'],
+        to_indo: ['Dalam perjalanan', '#dbeafe', '#1d4ed8'], in_wh: ['Siap dikirim', '#dcfce7', '#166534'],
+        sent: ['Dikirim ke pelanggan', '#dbeafe', '#1d4ed8'], invoiced: ['Selesai — tagih', '#f1f5f9', '#334155'],
+        arrived: ['Siap dikirim', '#dcfce7', '#166534'], received: ['Siap dikirim', '#dcfce7', '#166534'],
+      },
+    };
+    const gmap = GOODS[r.kind] || GOODS.jual;
+    const g = gmap[st] || ['Menunggu barang', '#f1f5f9', '#334155'];
+    const goodsChip = `<span style="background:${g[1]};color:${g[2]};padding:2px 8px;border-radius:9999px;font-size:11px;white-space:nowrap">${g[0]}</span>`;
+    // Status pembayaran
+    const paid = Number(r.paid) || 0;
+    let payTxt, payBg, payFg;
+    if (r.balance <= 0.01) { payTxt = 'Lunas'; payBg = '#dcfce7'; payFg = '#166534'; }
+    else if (paid > 0.01) { payTxt = 'DP diterima'; payBg = '#dbeafe'; payFg = '#1d4ed8'; }
+    else { payTxt = 'Belum lunas'; payBg = '#fef3c7'; payFg = '#92400e'; }
+    const payChip = `<span style="background:${payBg};color:${payFg};padding:2px 8px;border-radius:9999px;font-size:11px;white-space:nowrap">${payTxt}</span>`;
+    // Estimasi tiba: dari batch bila sudah masuk muatan, jika tidak dari estimasi bulan
+    const etaInfo = (() => {
+      if (r.kind !== 'po') return r.dueDate ? 'JT ' + r.dueDate : '—';
+      const bels = getBelanjas().filter((b) => b.preorderId === r.id);
+      const etas = bels.map((b) => getKoliById(b.koliId)).filter(Boolean)
+        .map((k) => getMuatanById(k.muatanId)).filter(Boolean).map((m) => m.eta).filter(Boolean);
+      if (etas.length) return etas.sort()[0];
+      if (r.eta) return String(r.eta);
+      if (etaMonths) return `≈ ${etaMonths} bln`;
+      return '—';
+    })();
     return `<tr>
-        <td style="font-size:12px;white-space:nowrap">${typeBadge} <div>${escapeHtml(r.date)}</div>${ageTxt}${etaMonths ? `<div style="font-size:10px;color:#64748b">Est datang ${escapeHtml(String(etaMonths))} bln</div>` : ''}</td>
-        <td style="font-size:12px;white-space:nowrap">${escapeHtml(r.no)}</td>
-        <td style="font-size:12px"><button type="button" class="order-open" data-kind="${r.kind}" data-id="${r.id}" style="background:none;border:none;padding:0;font:inherit;font-weight:600;color:#1d4ed8;cursor:pointer;text-align:left" title="Buka detail pesanan">${escapeHtml(r.customer || '—')}</button><div style="font-size:10.5px;color:#64748b">${itemsTxt}</div></td>
-        <td>${chip}${shipLine}${noteLine}${sched}${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
-        <td class="amount-col" style="font-weight:${r.balance > 0.01 ? '700' : '400'};color:${r.balance > 0.01 ? '#b45309' : '#059669'}">${r.balance > 0.01 ? fmt(r.balance) : 'Lunas'}</td>
+        <td style="font-size:12px;white-space:nowrap"><button type="button" class="order-open" data-kind="${r.kind}" data-id="${r.id}" style="background:none;border:none;padding:0;font:inherit;font-weight:700;color:#1d4ed8;cursor:pointer" title="Buka detail pesanan">${escapeHtml(r.no)}</button> <div>${typeBadge}</div><div style="font-size:10px;color:#64748b">${escapeHtml(r.date || '')}</div>${ageTxt}</td>
+        <td style="font-size:12px"><b style="font-weight:600">${escapeHtml(r.customer || '—')}</b><div style="font-size:10.5px;color:#64748b">${itemsTxt}</div>${shipLine}</td>
+        <td>${goodsChip}${noteLine}${sched}</td>
+        <td>${payChip}<div class="amount-col" style="font-size:11px;font-weight:${r.balance > 0.01 ? '700' : '400'};color:${r.balance > 0.01 ? '#b45309' : '#059669'}">${r.balance > 0.01 ? fmt(r.balance) : 'Rp 0'}</div>${overdue ? '<div style="font-size:10.5px;color:#b91c1c;font-weight:600">⚠️ Jatuh tempo</div>' : ''}</td>
+        <td style="font-size:11.5px;white-space:nowrap">${escapeHtml(etaInfo)}</td>
         <td class="order-actions">${action || ''}${moreBtn}</td>
       </tr>`;
   };
   const runningHtml = running.length
     ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
-        <th>Jenis / Tanggal</th><th>No</th><th>Pelanggan</th><th>Status</th><th class="amount-col">Sisa tagihan</th><th></th></tr></thead><tbody>${running.map(row).join('')}</tbody></table></div>`
-    : '<p style="color:var(--text-muted);font-size:12px">Tanpa pesanan berjalan. Buat dari ＋ Jual (centang Bayar nanti) di atas.</p>';
+        <th>Nomor pesanan</th><th>Pelanggan</th><th>Status barang</th><th>Pembayaran</th><th>Estimasi tiba</th><th>Langkah berikut</th></tr></thead><tbody>${running.map(row).join('')}</tbody></table></div>`
+    : '<p style="color:var(--text-muted);font-size:12px">Tidak ada pesanan pada filter ini. Buat dari ＋ Penjualan baru.</p>';
   const historyHtml = history.length
     ? `<div style="font-size:11px;font-weight:700;color:#64748b;margin:16px 0 4px">🗂 Riwayat selesai</div><div style="overflow-x:auto"><table class="report-table"><thead><tr><th>No</th><th>Pelanggan</th><th class="amount-col">Terbayar</th><th class="amount-col">Total</th><th class="amount-col">Laba</th></tr></thead><tbody>${history.map(h => `<tr><td style="font-size:12px">${escapeHtml(h.no)} <span style="font-size:10px;color:#64748b">${h.kind === 'po' ? 'TITIP' : 'JUAL'}</span></td><td style="font-size:12px">${escapeHtml(h.customer || '-')}</td><td class="amount-col">${fmt(h.paid)}</td><td class="amount-col">${fmt(h.total)}</td><td class="amount-col" style="color:${(h.profit != null ? h.profit : h.total - h.paid) >= 0 ? '#059669' : '#dc2626'};font-weight:700">${fmt(h.profit != null ? h.profit : h.total - h.paid)}</td></tr>`).join('')}</tbody></table></div>`
     : '';
-  box.innerHTML = runningHtml + historyHtml;
+  box.innerHTML = runningHtml + historyHtml
+    + `<p style="font-size:11px;color:#64748b;margin-top:10px">Menampilkan ${running.length} dari ${runningAll.length} pesanan${salesNeedFilter !== 'all' || salesSearchTerm ? ' (terfilter)' : ''}</p>`;
 }
 function openOrderStatus(kind, id, presetStage) {
   const po = kind === 'po' ? Storage.getPreorderById(id) : Storage.getCreditSaleById(id);
