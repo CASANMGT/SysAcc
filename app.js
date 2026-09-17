@@ -12,7 +12,7 @@ import { parseDelimited, autoMapColumns, autoMapProductColumns, buildOrders, bui
 import { code128Svg } from './barcode.js';
 import { suggestMatches, reconSummary, suggestRules } from './bankmatch.js';
 import * as Freight from './freight.js';
-import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, costVariance, markBelanjaLoss, refusePreorder, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
+import { getBelanjas, getKolis, getMuatans, getMuatanById, getKoliById, createBelanja, refundBelanja, checkInKoli, assignBelanjaToKoli, createMuatan, loadKoli, unloadKoli, departMuatan, receiveMuatan, allocateBatch, MARKETPLACES, preorderRealisedMargin, preorderLclCost, costVariance, markBelanjaLoss, refusePreorder, finalizeBelanja, payBelanja, belanjaOutstanding, MIN_CBM, migrateLegacyTitipBeli } from './lcl.js';
 
 let currentEntries = [];
 let currentFilters = { period: 'all', type: 'all', category: 'all', startDate: null, endDate: null };
@@ -3759,6 +3759,223 @@ function openOrderDetail(kind, id) {
   UI.openInfoModal(`📄 Pesanan ${escapeHtml(r.no || r.invoiceNo || '')}`, html);
 }
 
+/* ===== Pembelian baru (halaman penuh, mengikuti mockup) ===== */
+let beliState = null;
+function openBeliBaru(preorderId = null) {
+  const po = preorderId ? Storage.getPreorderById(preorderId) : null;
+  beliState = {
+    preorderId: preorderId || null,
+    purpose: po ? 'order' : 'stock',
+    source: 'marketplace',
+    marketplace: 'taobao', seller: '', date: new Date().toISOString().split('T')[0],
+    orderNo: '', link: '', ongkirCny: 0, kurs: (() => { try { return Storage.getImporSettings().kurs; } catch { return 2250; } })(),
+    payMode: 'unpaid', payNow: 0, payAccount: 'transfer',
+    lines: po ? (po.items || []).map((l) => ({ name: l.name, qty: l.qty, cny: 0, itemId: l.itemId || '' })) : [{ name: '', qty: 1, cny: 0, itemId: '' }],
+  };
+  renderBeliBaru();
+  document.getElementById('muatanBtnSidebar')?.setAttribute('aria-current', 'false');
+  document.querySelectorAll('.view-section').forEach((v) => v.classList.add('hidden'));
+  const target = document.getElementById('viewBeliBaru');
+  if (target) target.classList.remove('hidden');
+  try { window.scrollTo(0, 0); } catch {}
+}
+function closeBeliBaru() { document.getElementById('pembelianBtnSidebar')?.click(); }
+
+function renderBeliBaru() {
+  const host = document.getElementById('viewBeliBaru');
+  if (!host || !beliState) return;
+  const s = beliState;
+  const fmt = (v) => Reports.formatCurrency(v);
+  const pos = Storage.getPreorders().filter((p) => p.stage !== 'cancelled' && p.stage !== 'settled');
+  const goodsCny = s.lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.cny) || 0), 0);
+  const totalCny = goodsCny + (Number(s.ongkirCny) || 0);
+  const totalIdr = Math.round(totalCny * (Number(s.kurs) || 0));
+  const payNow = s.payMode === 'paid' ? totalIdr : s.payMode === 'partial' ? Math.min(Number(s.payNow) || 0, totalIdr) : 0;
+  const sisa = totalIdr - payNow;
+  const btn = (on, data, label, sub) => `<button type="button" class="${on ? 'beli-card on' : 'beli-card'}" data-set="${data}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
+  host.innerHTML = `
+  <div class="view-header">
+    <div><p style="font-size:12px;color:#64748b;margin:0 0 4px">Pembelian / Baru</p><h1>${s.purpose === 'order' ? 'Beli dari marketplace' : 'Pembelian baru'}</h1><p>${s.purpose === 'order' ? 'Barang sudah diambil dari pesanan. Lengkapi harga dan pembayaran.' : 'Ambil barang dari pesanan atau tambahkan untuk stok.'}</p></div>
+  </div>
+  <div class="beli-grid">
+    <div>
+      <section class="beli-card-box">
+        <div class="beli-step"><span>1</span> Tujuan dan supplier</div>
+        <div class="beli-field"><label>Tujuan pembelian</label>
+          <div class="beli-opts">
+            ${btn(s.purpose === 'order', 'purpose=order', '🧾 Untuk pesanan', 'Barang diambil dari pesanan')}
+            ${btn(s.purpose === 'stock', 'purpose=stock', '📦 Untuk stok', 'Tambah persediaan')}
+          </div>
+        </div>
+        ${s.purpose === 'order' ? `<div class="beli-field"><label>Pesanan penjualan *</label>
+          <select id="beliPo">${pos.map((p) => `<option value="${p.id}"${p.id === s.preorderId ? ' selected' : ''}>${escapeHtml(p.no)} · ${escapeHtml(p.customer || '')}</option>`).join('')}</select>
+          <div class="beli-hint">Barang akan diambil dari pesanan ini — tidak perlu ketik ulang.</div></div>` : ''}
+        <div class="beli-field"><label>Sumber barang</label>
+          <div class="beli-opts">
+            ${btn(s.source === 'marketplace', 'source=marketplace', '🛒 Marketplace', 'China / online')}
+            ${btn(s.source === 'local', 'source=local', '🏪 Supplier lokal', 'Bayar Rupiah')}
+          </div></div>
+        <div class="beli-row">
+          ${s.source === 'marketplace' ? `<div class="beli-field"><label>Marketplace *</label><select id="beliMp">${MARKETPLACES.map((m) => `<option value="${m.id}"${m.id === s.marketplace ? ' selected' : ''}>${m.label}</option>`).join('')}</select></div>` : ''}
+          <div class="beli-field"><label>Nama toko *</label><input id="beliSeller" value="${escapeHtml(s.seller)}" placeholder="Nama toko"></div>
+          <div class="beli-field"><label>Tanggal pembelian *</label><input type="date" id="beliDate" value="${escapeHtml(s.date)}"></div>
+          <div class="beli-field"><label>No. pesanan marketplace <span class="beli-hint">Opsional</span></label><input id="beliOrderNo" value="${escapeHtml(s.orderNo)}" placeholder="Contoh: 1234567890"></div>
+        </div>
+      </section>
+
+      <section class="beli-card-box">
+        <div class="beli-step"><span>2</span> Barang dan harga beli</div>
+        ${s.preorderId && s.lines.length ? '<div class="beli-note">ⓘ Barang otomatis dari pesanan. Ubah jumlah bila beli sebagian, atau tambah baris untuk seller lain.</div>' : ''}
+        <table class="beli-table">
+          <thead><tr><th>Produk</th><th style="width:90px">Jumlah</th><th style="width:130px">Harga ${s.source === 'marketplace' ? '(¥)' : '(Rp)'}</th><th style="width:130px">Subtotal</th><th style="width:36px"></th></tr></thead>
+          <tbody>${s.lines.map((l, i) => `<tr>
+            <td>${l.itemId ? `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:600">${escapeHtml(l.name)}</span></div>` : `<input data-i="${i}" data-f="name" value="${escapeHtml(l.name)}" placeholder="Nama produk (dibuat draft otomatis)">`}</td>
+            <td><input type="number" min="1" data-i="${i}" data-f="qty" value="${Number(l.qty) || 1}"></td>
+            <td><input type="number" min="0" data-i="${i}" data-f="cny" value="${Number(l.cny) || 0}"></td>
+            <td class="amount-col">${fmt((Number(l.qty) || 0) * (Number(l.cny) || 0))}</td>
+            <td><button type="button" class="beli-del" data-del="${i}" title="Hapus baris">🗑</button></td></tr>`).join('')}</tbody>
+        </table>
+        <button type="button" class="beli-add" id="beliAddRow">＋ Tambah barang</button>
+        <div class="beli-row" style="margin-top:10px">
+          <div class="beli-field"><label>Ongkir ${s.source === 'marketplace' ? 'China (¥)' : 'domestik (Rp)'}</label><input type="number" min="0" id="beliOngkir" value="${Number(s.ongkirCny) || 0}"></div>
+          ${s.source === 'marketplace' ? `<div class="beli-field"><label>Kurs aktual (Rp/¥) *</label><input type="number" min="1" id="beliKurs" value="${Number(s.kurs) || 0}"><div class="beli-hint">Gunakan kurs saat ini sesuai pembayaran.</div></div>` : ''}
+        </div>
+      </section>
+
+      <section class="beli-card-box">
+        <div class="beli-step"><span>3</span> Pembayaran</div>
+        <div class="beli-opts">
+          ${btn(s.payMode === 'unpaid', 'pay=unpaid', '🕒 Belum dibayar')}
+          ${btn(s.payMode === 'partial', 'pay=partial', '◐ Sebagian')}
+          ${btn(s.payMode === 'paid', 'pay=paid', '✓ Lunas')}
+        </div>
+        ${s.payMode !== 'unpaid' ? `<div class="beli-row" style="margin-top:10px">
+          <div class="beli-field"><label>Jumlah dibayar</label><input type="number" min="0" id="beliPayNow" value="${s.payMode === 'paid' ? totalIdr : Number(s.payNow) || 0}"${s.payMode === 'paid' ? ' readonly' : ''}></div>
+          <div class="beli-field"><label>Rekening / kas</label><select id="beliPayAcc">
+            <option value="transfer"${s.payAccount === 'transfer' ? ' selected' : ''}>Bank BCA (transfer)</option>
+            <option value="cash"${s.payAccount === 'cash' ? ' selected' : ''}>Tunai</option>
+            <option value="qris"${s.payAccount === 'qris' ? ' selected' : ''}>QRIS</option>
+          </select></div></div>` : ''}
+        <div class="beli-note">ⓘ Pembayaran dicatat terpisah dari penerimaan barang. Menyimpan draft tidak mengubah kas.</div>
+      </section>
+    </div>
+
+    <aside>
+      <div class="beli-side">
+        <h3>Ringkasan pembelian</h3>
+        <div class="beli-sum"><span>Barang</span><b>${s.source === 'marketplace' ? '¥ ' + goodsCny.toLocaleString('id-ID') : fmt(goodsCny)}</b></div>
+        <div class="beli-sum"><span>Ongkir ${s.source === 'marketplace' ? 'China' : 'domestik'}</span><b>${s.source === 'marketplace' ? '¥ ' + (Number(s.ongkirCny) || 0).toLocaleString('id-ID') : fmt(Number(s.ongkirCny) || 0)}</b></div>
+        ${s.source === 'marketplace' ? `<div class="beli-sum"><span>Total</span><b>¥ ${totalCny.toLocaleString('id-ID')}</b></div>
+        <div class="beli-sum big"><span>Total rupiah</span><b>${fmt(totalIdr)}</b></div>` : `<div class="beli-sum big"><span>Total</span><b>${fmt(totalIdr)}</b></div>`}
+        <div class="beli-sum"><span>Dibayar</span><b>${fmt(payNow)}</b></div>
+        <div class="beli-sum ${sisa > 0 ? 'warn' : ''}"><span>Sisa pembayaran</span><b>${fmt(sisa)}</b></div>
+        <div class="beli-warn">⚠️ Ongkir internasional belum termasuk. Biaya laut seperti bea cukai dan pajak mungkin akan ditambahkan saat barang tiba.</div>
+        <div class="beli-side-sec"><b>Langkah berikut</b><p>Tambahkan resi setelah seller mengirim. Catat penerimaan ketika barang tiba.</p></div>
+        <details class="beli-side-sec"><summary>Detail akuntansi</summary>
+          <p style="font-size:11.5px;color:#475569">${s.payMode === 'unpaid' ? `Dr Persediaan dalam Perjalanan (1211) ${fmt(totalIdr)}<br>Cr Hutang Supplier (2102) ${fmt(totalIdr)}` : `Dr Persediaan dalam Perjalanan (1211) ${fmt(totalIdr)}<br>Cr Kas ${fmt(payNow)}${sisa > 0 ? `<br>Cr Hutang Supplier (2102) ${fmt(sisa)}` : ''}`}<br><span style="color:#64748b">Tidak ada PPN (Non-PKP).</span></p>
+        </details>
+      </div>
+    </aside>
+  </div>
+  <div class="beli-footer">
+    <button type="button" class="btn btn-ghost" id="beliCancel">Batal</button>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="btn btn-secondary" id="beliSaveDraft">Simpan draft</button>
+      <button type="button" class="btn btn-primary" id="beliSaveFinal">Simpan pembelian</button>
+    </div>
+  </div>`;
+  bindBeliBaru();
+}
+
+function bindBeliBaru() {
+  const host = document.getElementById('viewBeliBaru');
+  if (!host || !beliState) return;
+  const s = beliState;
+  const rerender = () => renderBeliBaru();
+  host.querySelectorAll('[data-set]').forEach((el) => el.addEventListener('click', () => {
+    const [k, v] = el.dataset.set.split('=');
+    if (k === 'purpose') { s.purpose = v; if (v === 'stock') s.preorderId = null; }
+    if (k === 'source') s.source = v;
+    if (k === 'pay') { s.payMode = v; if (v === 'paid') s.payNow = 0; }
+    rerender();
+  }));
+  const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(el.tagName === 'SELECT' || el.type === 'date' ? 'change' : 'input', fn); };
+  bind('beliSeller', (e) => { s.seller = e.target.value; });
+  bind('beliDate', (e) => { s.date = e.target.value; });
+  bind('beliOrderNo', (e) => { s.orderNo = e.target.value; });
+  bind('beliMp', (e) => { s.marketplace = e.target.value; });
+  bind('beliOngkir', (e) => { s.ongkirCny = Number(e.target.value) || 0; refreshBeliSummary(); });
+  bind('beliKurs', (e) => { s.kurs = Number(e.target.value) || 0; refreshBeliSummary(); });
+  bind('beliPayNow', (e) => { s.payNow = Number(e.target.value) || 0; refreshBeliSummary(); });
+  bind('beliPayAcc', (e) => { s.payAccount = e.target.value; });
+  bind('beliPo', (e) => { s.preorderId = e.target.value; const po = Storage.getPreorderById(e.target.value); if (po) { s.lines = (po.items || []).map((l) => ({ name: l.name, qty: l.qty, cny: 0, itemId: l.itemId || '' })); rerender(); } });
+  host.querySelectorAll('.beli-table input').forEach((el) => el.addEventListener('input', () => {
+    const i = Number(el.dataset.i); const f = el.dataset.f;
+    s.lines[i][f] = f === 'name' ? el.value : Number(el.value) || 0;
+    refreshBeliSummary();
+  }));
+  host.querySelectorAll('[data-del]').forEach((el) => el.addEventListener('click', () => { s.lines.splice(Number(el.dataset.del), 1); if (!s.lines.length) s.lines.push({ name: '', qty: 1, cny: 0, itemId: '' }); rerender(); }));
+  document.getElementById('beliAddRow')?.addEventListener('click', () => { s.lines.push({ name: '', qty: 1, cny: 0, itemId: '' }); rerender(); });
+  document.getElementById('beliCancel')?.addEventListener('click', () => closeBeliBaru());
+  document.getElementById('beliSaveDraft')?.addEventListener('click', () => saveBeliBaru(true));
+  document.getElementById('beliSaveFinal')?.addEventListener('click', () => saveBeliBaru(false));
+}
+
+// Perbarui hanya angka ringkasan (tanpa render ulang seluruh tabel saat mengetik).
+function refreshBeliSummary() {
+  const s = beliState; if (!s) return;
+  const goodsCny = s.lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.cny) || 0), 0);
+  const totalCny = goodsCny + (Number(s.ongkirCny) || 0);
+  const totalIdr = Math.round(totalCny * (Number(s.kurs) || 0));
+  const payNow = s.payMode === 'paid' ? totalIdr : s.payMode === 'partial' ? Math.min(Number(s.payNow) || 0, totalIdr) : 0;
+  const host = document.getElementById('viewBeliBaru');
+  const set = (idx, txt) => { const b = host.querySelectorAll('.beli-sum b')[idx]; if (b) b.textContent = txt; };
+  set(0, s.source === 'marketplace' ? '¥ ' + goodsCny.toLocaleString('id-ID') : Reports.formatCurrency(goodsCny));
+  set(1, s.source === 'marketplace' ? '¥ ' + (Number(s.ongkirCny) || 0).toLocaleString('id-ID') : Reports.formatCurrency(Number(s.ongkirCny) || 0));
+  if (s.source === 'marketplace') { set(2, '¥ ' + totalCny.toLocaleString('id-ID')); set(3, Reports.formatCurrency(totalIdr)); set(4, Reports.formatCurrency(payNow)); set(5, Reports.formatCurrency(totalIdr - payNow)); }
+  else { set(2, Reports.formatCurrency(totalIdr)); set(3, Reports.formatCurrency(payNow)); set(4, Reports.formatCurrency(totalIdr - payNow)); }
+}
+
+function saveBeliBaru(asDraft) {
+  const s = beliState; if (!s) return;
+  const err = (m) => UI.showError(m);
+  if (!s.seller.trim()) return err('Nama toko wajib diisi');
+  const lines = s.lines.filter((l) => (l.name || l.itemId) && Number(l.qty) > 0);
+  if (!lines.length) return err('Tambahkan minimal satu barang dengan jumlah > 0');
+  if (s.source === 'marketplace' && !(Number(s.kurs) > 0)) return err('Kurs aktual wajib diisi');
+  const totalCny = lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.cny) || 0), 0) + (Number(s.ongkirCny) || 0);
+  const totalIdr = Math.round(totalCny * (Number(s.kurs) || 0));
+  const payNow = asDraft ? 0 : (s.payMode === 'paid' ? totalIdr : s.payMode === 'partial' ? Math.min(Number(s.payNow) || 0, totalIdr) : 0);
+  try {
+    // Produk baru → draft produk; yang sudah ada → tautkan.
+    const existing = Storage.getAllItems();
+    const clean = lines.map((l) => {
+      let itemId = l.itemId || '';
+      if (!itemId) {
+        const hit = existing.find((i) => String(i.name).toLowerCase() === String(l.name).toLowerCase());
+        if (hit) itemId = hit.id;
+        else { const d = Storage.createDraftProductFromBelanja({ name: l.name, cost: Math.round((Number(l.cny) || 0) * (Number(s.kurs) || 0)), price: Math.round((Number(l.cny) || 0) * (Number(s.kurs) || 0)) }); itemId = d.id; }
+      }
+      return { itemId, name: l.name, qty: Number(l.qty) || 1, cnyUnit: Number(l.cny) || 0 };
+    });
+    const b = createBelanja({
+      date: s.date, marketplace: s.source === 'marketplace' ? s.marketplace : 'other', seller: s.seller,
+      orderNo: s.orderNo, lines: clean, ongkirCny: Number(s.ongkirCny) || 0, agentFee: 0,
+      kursAgen: Number(s.kurs) || 1, payment: s.payAccount, purpose: s.purpose === 'order' ? 'preorder' : 'stock',
+      preorderId: s.purpose === 'order' ? s.preorderId : null, chinaTracking: '', link: s.link, draft: true,
+    });
+    if (!asDraft) finalizeBelanja(b.id, { date: s.date, payment: s.payAccount, payNow });
+    UI.showSuccess(asDraft
+      ? `Draft pembelian ${b.no} disimpan — kas belum berubah`
+      : `Pembelian ${b.no} disimpan — ${payNow > 0 ? 'dibayar ' + Reports.formatCurrency(payNow) : 'belum dibayar'}`);
+    closeBeliBaru();
+    try { renderPembelianPage(); } catch {}
+    try { renderMuatanPage(); } catch {}
+    try { refresh(); } catch {}
+    try { queueMirror(); } catch {}
+  } catch (e) { err(e && e.message ? e.message : 'Gagal menyimpan pembelian'); }
+}
+
 function renderPembelianPage() {
   if (!document.getElementById('viewPembelian')) return;
   const purchases = Storage.getAllPurchases();
@@ -3981,6 +4198,8 @@ function renderMuatanPageUnsafe() {
           ${!b.koliId ? `<button type="button" class="btn btn-ghost belanja-koli" data-id="${b.id}" style="font-size:11px;padding:2px 8px">🧾 Koli</button>` : ''}
           ${b.stage !== 'done' ? `<button type="button" class="btn btn-ghost belanja-refund" data-id="${b.id}" style="font-size:11px;padding:2px 8px" title="Refund seller / kurang kirim">↩️</button>` : ''}
           <button type="button" class="btn btn-ghost belanja-loss" data-id="${b.id}" style="font-size:11px;padding:2px 8px" title="Kurang kirim / rusak / hilang di perjalanan">⚠️</button>
+          ${b.status === 'draft' ? `<button type="button" class="btn btn-primary belanja-final" data-id="${b.id}" style="font-size:11px;padding:2px 8px" title="Simpan final: barang masuk persediaan dalam perjalanan">✓ Finalkan</button>` : ''}
+          ${belanjaOutstanding(b) > 0 ? `<button type="button" class="btn btn-primary belanja-pay" data-id="${b.id}" style="font-size:11px;padding:2px 8px" title="Bayar kekurangan ke seller">💵 Bayar</button>` : ''}
         </td></tr>`;
     }).join('')}
       </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada belanja. Klik “＋ Belanja marketplace” untuk order pertama.</p>';
@@ -4504,6 +4723,22 @@ document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
   if (openMut) { openMuatanDetailModal(openMut.dataset.id); return; }
   const loss = e.target.closest('.belanja-loss');
   if (loss) { openBelanjaLossId = loss.dataset.id; openBelanjaLossPrompt(loss.dataset.id); return; }
+  const fin = e.target.closest('.belanja-final');
+  if (fin) {
+    try { finalizeBelanja(fin.dataset.id, { payment: 'transfer', payNow: 0 }); UI.showSuccess('Pembelian difinalkan — hutang supplier tercatat'); renderMuatanPage(); renderPembelianPage(); refresh(); queueMirror(); }
+    catch (err) { UI.showError(err && err.message ? err.message : 'Gagal finalkan'); }
+    return;
+  }
+  const payB = e.target.closest('.belanja-pay');
+  if (payB) {
+    const b = getBelanjas().find((x) => x.id === payB.dataset.id);
+    const out = b ? belanjaOutstanding(b) : 0;
+    const amt = prompt(`Bayar kekurangan ${b ? b.no : ''} (sisa Rp ${Math.round(out).toLocaleString('id-ID')}):`, String(Math.round(out)));
+    if (amt == null) return;
+    try { payBelanja(payB.dataset.id, { amount: Number(String(amt).replace(/\./g, '')) || 0, payment: 'transfer' }); UI.showSuccess('Pembayaran dicatat — hutang berkurang'); renderMuatanPage(); renderPembelianPage(); refresh(); queueMirror(); }
+    catch (err) { UI.showError(err && err.message ? err.message : 'Gagal bayar'); }
+    return;
+  }
   const del = e.target.closest('.belanja-refund');
   if (del) { openBelanjaRefundPrompt(del.dataset.id); return; }
   const koli = e.target.closest('.belanja-koli');
@@ -4516,7 +4751,7 @@ document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
   const card = e.target.closest('[data-muatan]');
   if (card) openMuatanDetailModal(card.dataset.muatan);
 });
-document.getElementById('pembelianMarketBtn')?.addEventListener('click', () => openBelanjaModal());
+document.getElementById('pembelianMarketBtn')?.addEventListener('click', () => openBeliBaru());
 document.getElementById('muatanKoliBtn')?.addEventListener('click', () => openKoliModal());
 document.getElementById('muatanBatchBtn')?.addEventListener('click', () => openMuatanCreateModal());
 

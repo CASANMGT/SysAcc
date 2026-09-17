@@ -49,7 +49,7 @@ export function getBelanjaById(idv) { return getBelanjas().find((x) => x.id === 
 
 // Satu order marketplace: bayar penuh saat buat (saldo agen / kontan).
 // lines: [{name, qty, cnyUnit}]; kursAgen = Rp per ¥ sesuai agen (lebih tinggi dari kurs bank — spread jadi biaya nyata).
-export function createBelanja({ date, marketplace, seller, orderNo, lines, ongkirCny, agentFee, kursAgen, payment, purpose, customerNote, chinaTracking, preorderId } = {}) {
+export function createBelanja({ date, marketplace, seller, orderNo, lines, ongkirCny, agentFee, kursAgen, payment, purpose, customerNote, chinaTracking, preorderId, draft = false, link } = {}) {
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
   const clean = (Array.isArray(lines) ? lines : [])
@@ -71,14 +71,25 @@ export function createBelanja({ date, marketplace, seller, orderNo, lines, ongki
     lines: clean, goodsCny, ongkirCny: ongCny, totalCny,
     agentFee: num(agentFee), kursAgen: kurs, totalIdr,
     estimatedIdr: totalIdr, // §4: modal estimasi saat beli (¥ + ongkir, sebelum ongkir laut)
-    payment: payment || 'agent',
+    payment: payment || 'transfer',
     purpose: purpose === 'stock' ? 'stock' : 'preorder',
     preorderId: String(preorderId || '').slice(0, 60) || null,
+    link: String(link || '').slice(0, 300) || null,
+    // draft = disimpan tanpa jurnal (kas tidak bergerak); final = sudah dijurnal.
+    status: draft ? 'draft' : 'final',
+    payments: [], paidIdr: 0,
     customerNote: String(customerNote || '').slice(0, 80),
     chinaTracking: String(chinaTracking || '').trim().slice(0, 40),
     koliId: null, stage: 'paid',
     createdAt: new Date().toISOString(),
   };
+  if (draft) {
+    // Belum ada jurnal: barang belum diakui sebagai persediaan dalam perjalanan.
+    const out0 = list.concat(rec);
+    save(BELANJA_KEY, out0);
+    logAudit('create', 'lcl-belanja', rec.id, null, { no: rec.no, totalIdr, draft: true });
+    return rec;
+  }
   const j = {
     id: jid('J'), date: d, memo: `Belanja ${rec.no}${rec.seller ? ' — ' + rec.seller : ''}`,
     ref: 'lcl-belanja', refId: rec.id,
@@ -88,10 +99,74 @@ export function createBelanja({ date, marketplace, seller, orderNo, lines, ongki
     ],
   };
   postJournal(j);
+  rec.payments = [{ id: jid('P'), date: d, amount: totalIdr, payment: rec.payment, note: 'Bayar saat simpan' }];
+  rec.paidIdr = totalIdr;
   const out = list.concat(rec);
   save(BELANJA_KEY, out);
   logAudit('create', 'lcl-belanja', rec.id, null, { no: rec.no, totalIdr, totalCny });
   return rec;
+}
+
+// Sisa yang belum dibayar ke seller (draft belum berutang sampai difinalkan).
+export function belanjaOutstanding(b) {
+  if (!b || b.status !== 'final') return 0;
+  return Math.max((Number(b.totalIdr) || 0) - (Number(b.paidIdr) || Number((b.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0)) || 0), 0);
+}
+
+// Finalkan draft: jurnal Dr 1211 / Cr kas (yang benar-benar dibayar) + Cr 2102 Hutang Supplier (sisanya).
+export function finalizeBelanja(belanjaId, { date, payment, payNow } = {}) {
+  const list = getBelanjas();
+  const i = list.findIndex((x) => x.id === belanjaId);
+  if (i < 0) throw new Error('Belanja tidak ditemukan');
+  const b = list[i];
+  if (b.status === 'final') throw new Error('Pembelian ini sudah disimpan final');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const total = Math.round(Number(b.totalIdr) || 0);
+  const bayar = Math.min(Math.max(Math.round(Number(payNow) || 0), 0), total);
+  const sisa = total - bayar;
+  const cash = payment === 'agent' ? AGENT_ACCOUNT : accountForPayment(payment || 'transfer');
+  const lines = [{ account: TRANSIT_ACCOUNT, debit: total, credit: 0, memo: `Belanja ${b.no}` }];
+  if (bayar > 0) lines.push({ account: cash, debit: 0, credit: bayar, memo: 'Bayar belanja' });
+  if (sisa > 0) lines.push({ account: AP_ACCOUNT, debit: 0, credit: sisa, memo: 'Hutang supplier (belum dibayar)' });
+  postJournal({ id: jid('J'), date: d, memo: `Belanja ${b.no} (final)`, ref: 'lcl-belanja', refId: b.id, lines });
+  b.status = 'final';
+  b.payment = payment || 'transfer';
+  if (bayar > 0) b.payments = (b.payments || []).concat({ id: jid('P'), date: d, amount: bayar, payment: b.payment, note: 'Bayar saat finalisasi' });
+  b.paidIdr = (Number(b.paidIdr) || 0) + bayar;
+  list[i] = b;
+  save(BELANJA_KEY, list);
+  logAudit('update', 'lcl-belanja', b.id, null, { final: true, bayar, sisa });
+  return b;
+}
+
+// Bayar kekurangan ke seller: Dr 2102 Hutang Supplier / Cr kas.
+export function payBelanja(belanjaId, { amount, date, payment, note } = {}) {
+  const list = getBelanjas();
+  const i = list.findIndex((x) => x.id === belanjaId);
+  if (i < 0) throw new Error('Belanja tidak ditemukan');
+  const b = list[i];
+  if (b.status !== 'final') throw new Error('Simpan final dulu sebelum mencatat pembayaran');
+  const out = belanjaOutstanding(b);
+  const amt = Math.round(Number(amount) || 0);
+  if (amt <= 0) throw new Error('Jumlah pembayaran harus > 0');
+  if (amt > out + 0.01) throw new Error(`Melebihi sisa hutang (Rp ${Math.round(out).toLocaleString('id-ID')})`);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const cash = payment === 'agent' ? AGENT_ACCOUNT : accountForPayment(payment || 'transfer');
+  postJournal({
+    id: jid('J'), date: d, memo: `Bayar belanja ${b.no}${note ? ' — ' + note : ''}`, ref: 'lcl-bayar', refId: b.id,
+    lines: [
+      { account: AP_ACCOUNT, debit: amt, credit: 0, memo: 'Bayar hutang supplier' },
+      { account: cash, debit: 0, credit: amt, memo: 'Bayar belanja' },
+    ],
+  });
+  b.payments = (b.payments || []).concat({ id: jid('P'), date: d, amount: amt, payment: payment || 'transfer', note: String(note || '').slice(0, 80) });
+  b.paidIdr = (Number(b.paidIdr) || 0) + amt;
+  list[i] = b;
+  save(BELANJA_KEY, list);
+  logAudit('create', 'lcl-bayar', b.id, null, { amount: amt });
+  return b;
 }
 
 // Refund/kembalian dari seller (dalam ¥, kurs saat refund): Dr kas/saldo agen Cr 1211;

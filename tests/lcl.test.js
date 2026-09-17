@@ -4,7 +4,7 @@ import {
   getBelanjas, createBelanja, refundBelanja,
   getKolis, checkInKoli, updateKoli, assignBelanjaToKoli,
   getMuatans, getMuatanById, createMuatan, loadKoli,
-  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder,
+  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder, finalizeBelanja, payBelanja, belanjaOutstanding,
 } from '../lcl.js';
 import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, createDraftProductFromBelanja } from '../storage.js';
 
@@ -230,6 +230,36 @@ describe('produk draft dari belanja China', () => {
     expect(after.status).toBe('aktif');
     expect(after.cost).toBe(158531);
     expect(after.stock).toBe(40);
+  });
+});
+
+describe('pembelian: draft → final → pembayaran', () => {
+  it('draft tidak menjurnal; final menjurnal Dr 1211 / Cr kas + Cr 2102', () => {
+    const j0 = getAllJournals().length;
+    const b = createBelanja({ lines: [{ name: 'Lampu', qty: 2, cnyUnit: 100 }], ongkirCny: 20, kursAgen: 2300, draft: true, purpose: 'stock' });
+    expect(b.status).toBe('draft');
+    expect(getAllJournals().length).toBe(j0); // kas belum bergerak
+    expect(belanjaOutstanding(b)).toBe(0);    // draft belum jadi hutang
+    const total = b.totalIdr;                 // (200 + 20) × 2300
+    expect(total).toBe(506000);
+    const fin = finalizeBelanja(b.id, { date: '2026-09-17', payment: 'transfer', payNow: 200000 });
+    expect(fin.status).toBe('final');
+    const j = getAllJournals().slice(-1)[0];
+    expect(j.lines[0].account).toBe('1211');
+    expect(j.lines[0].debit).toBe(total);
+    expect(j.lines.find(l => l.account === '2102').credit).toBe(total - 200000);
+    expect(belanjaOutstanding(getBelanjas()[0])).toBe(total - 200000);
+  });
+
+  it('pelunasan mengurangi hutang; lebih bayar ditolak', () => {
+    const b = createBelanja({ lines: [{ name: 'X', qty: 1, cnyUnit: 100 }], kursAgen: 2000, draft: true });
+    expect(() => payBelanja(b.id, { amount: 1000 })).toThrow(/final/i); // belum final
+    finalizeBelanja(b.id, { payNow: 0 });
+    expect(belanjaOutstanding(getBelanjas()[0])).toBe(200000);
+    expect(() => payBelanja(b.id, { amount: 300000 })).toThrow(/Melebihi/);
+    payBelanja(b.id, { amount: 200000 });
+    expect(belanjaOutstanding(getBelanjas()[0])).toBe(0);
+    expect(getAllJournals().slice(-1)[0].lines[0].account).toBe('2102');
   });
 });
 
