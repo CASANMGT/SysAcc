@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.20.1';
+const APP_VERSION = '2.21.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -4721,6 +4721,21 @@ document.getElementById('infoModalBody')?.addEventListener('click', (e) => {
   }
 });
 
+document.getElementById('viewBiaya')?.addEventListener('click', (e) => {
+  const b = e.target.closest('.biaya-attach');
+  if (!b) return;
+  const show = () => {
+    const list = Files.attachmentsOf('biaya', b.dataset.id);
+    UI.openInfoModal('📎 Lampiran biaya',
+      attachBlockHtml('biaya', b.dataset.id, list, { title: 'Nota / bukti pengeluaran' }) +
+      '<p style="font-size:11px;color:#64748b;margin-top:6px">Simpan nota, kuitansi, atau bukti transfer di sini agar bukti audit lengkap.</p>');
+    tempAttachRerender = show;
+    const mb = document.getElementById('infoModalBody');
+    if (mb) bindAttachBlocks(mb);
+  };
+  show();
+});
+
 /* ===== Papan Muatan (LCL consolidation) ===== */
 // Pengiriman: Papan · Koli · Muatan (pembelian dipindah ke halaman Pembelian)
 let muatanTab = 'papan';
@@ -5472,6 +5487,7 @@ function renderBiayaPage() {
     const rows = entries.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 40);
     list.innerHTML = rows.length ? rows.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
       <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.description || Reports.getCategoryLabel(e.category))}</div><div style="font-size:10px;color:#64748b">${escapeHtml(e.date)} • ${escapeHtml(Reports.getCategoryLabel(e.category))}${e.person ? ' • ' + escapeHtml(e.person) : ''}</div></div>
+      <button type="button" class="btn btn-ghost biaya-attach" data-id="${e.id}" title="Lampiran nota / bukti" style="font-size:11px;padding:2px 8px">📎 ${((e.attachments || []).length) || ''}</button>
       <b style="font-size:12px;white-space:nowrap;color:#dc2626">−${fmt(e.amount)}</b></div>`).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada transaksi biaya.</p>';
   }
 }
@@ -7281,17 +7297,27 @@ function payrollMonthKey(d) {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
 }
 function payrollPaidMap(monthKey) {
-  const map = {};
-  currentEntries.forEach(e => {
-    if (e.category === 'gaji-out' && String(e.date || '').slice(0, 7) === monthKey && e.person) map[e.person] = true;
-  });
-  // cocokkan nama (case-insensitive) ke id karyawan
+  // Utamakan id karyawan (tahan rename); nama hanya untuk data lama.
+  const { ids, names } = (() => { try { return Storage.payrollPaidEmployeeIds(monthKey); } catch { return { ids: [], names: [] }; } })();
+  const idSet = new Set(ids);
+  const nameSet = new Set(names);
   const out = {};
-  Storage.getAllEmployees().forEach(emp => {
-    if (Object.keys(map).some(n => n.toLowerCase() === emp.name.toLowerCase())) out[emp.id] = true;
+  Storage.getAllEmployees().forEach((emp) => {
+    if (idSet.has(String(emp.id)) || nameSet.has(String(emp.name).toLowerCase().trim())) out[emp.id] = true;
   });
   return out;
 }
+function renderPayrollAttachBlock() {
+  const host = document.getElementById('payrollAttach');
+  if (!host) return;
+  const month = payrollViewMonth;
+  const list = (() => { try { return Files.attachmentsOf('payroll', month); } catch { return []; } })();
+  host.innerHTML = `<div class="dash-panel" style="padding:12px">
+    ${attachBlockHtml('payroll', month, list, { title: `Lampiran payroll ${payrollMonthLabel(month)} (daftar hadir, bukti transfer BPJS/PPh)` })}
+  </div>`;
+  bindAttachBlocks(host);
+}
+
 function refreshPayroll() {
   const emps = Storage.getAllEmployees();
   const now = new Date();
@@ -7897,6 +7923,7 @@ function renderPayrollView() {
     const draft = Storage.getPayrollDraft(payrollViewMonth);
     UI.renderPayrollProcess(payRowsForView(), payrollMonthLabel(payrollViewMonth), draft ? draft.status : 'new');
     renderDecPanel(draft ? draft.status : 'new');
+    renderPayrollAttachBlock();
   } else {
     const box = document.getElementById('payrollViewReport');
     if (box) {
@@ -8352,7 +8379,7 @@ function handlePayrollFinal() {
         date, type: 'expense', category: 'gaji-out', payment,
         description: `Gaji ${monthLabel} — ${e.name} (${bits.join(' + ')}${deds.length ? ` − ${deds.join(' + ')}` : ''})${slip.pphOverridden ? ' (PPh rekonsiliasi Des)' : ''}`,
         amount: slip.takeHome, person: e.name,
-        payroll: { base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, kasbon: slip.kasbon, overtimeHours: slip.overtimeHours, gantiCuti: slip.gantiCuti, gantiCutiDays: slip.gantiCutiDays, cutiDiambil: slip.cutiDiambil, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp, recon: slip.pphOverridden === true }
+        payroll: { employeeId: e.id, month: payrollViewMonth, base: slip.base, allow: slip.allow, overtime: slip.overtime, bonus: slip.bonus, deduct: slip.deduct, hadir: c.hadir || null, thr: slip.thr, ded: slip.ded, comp: slip.comp, kasbon: slip.kasbon, overtimeHours: slip.overtimeHours, gantiCuti: slip.gantiCuti, gantiCutiDays: slip.gantiCutiDays, cutiDiambil: slip.cutiDiambil, takeHome: slip.takeHome, employerCost: slip.employerCost, pphNetto: slip.pphNetto, npwp: !!e.npwp, recon: slip.pphOverridden === true }
       });
       if (slip.kasbon > 0 && kb.detail.length) {
         let rem = slip.kasbon;

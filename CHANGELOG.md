@@ -8,6 +8,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.21.0] - 2026-09-17 — bukti pengeluaran & keamanan payroll
+
+### Ditambahkan
+- **Lampiran pada transaksi Biaya**: setiap baris di halaman Biaya punya tombol **📎** (dengan jumlah berkas) untuk menempel nota/kuitansi/bukti transfer — inilah bukti audit yang sebelumnya tidak punya tempat.
+- **Lampiran per bulan payroll**: blok lampiran di tab Proses menempel daftar hadir, bukti transfer BPJS, dan bukti setor PPh 21 per bulan (`wynara_payroll_attachments[YYYY-MM]`).
+- `attachmentsOf()` di `files.js` (array-record maupun KV) agar UI bisa membaca lampiran tanpa membuka record.
+
+### Diperbaiki
+- **Payroll anti dobel-posting diperkuat**: entri gaji sekarang menyimpan **`payroll.employeeId` + `month`**, dan pengecekan "sudah dibayar" (`payrollPaidEmployeeIds`) memakai **id karyawan** dengan nama hanya sebagai fallback data lama. Sebelumnya pencocokan hanya lewat nama, sehingga mengganti nama karyawan setelah payroll bisa membuat penggajian bulan itu terposting dua kali.
+- Uji: **378 lulus** (bukti biaya/payroll + guard id payroll).
+
 ## [2.20.1] - 2026-09-17 — Material visual sweep (masih di cabang pratinjau)
 
 - **Ikon outline menggantikan emoji di navigasi**: sidebar (Ringkasan, Transaksi, Kas & Bank, Penjualan, Pembelian, Pengiriman, Biaya, Aset Tetap, Kontak, Produk, Karyawan & Gaji, Daftar Akun, Laporan, Pengaturan) dan bottom-nav — satu set SVG 24×24 (stroke 1,6) yang dihidrasi oleh `hydrateIcons()`. Menu tetap bisa dibaca/diurutkan dari teksnya saja.

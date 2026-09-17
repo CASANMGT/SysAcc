@@ -172,11 +172,34 @@ export async function importBlobs(list) {
 }
 
 // ---------- Tautan lampiran ke record ----------
-// Segmen: 'belanja' | 'koli' | 'muatan' | 'pesanan' | 'pengiriman'
-const KEY_FOR = { belanja: 'wynara_belanja', koli: 'wynara_koli', muatan: 'wynara_muatan', pesanan: 'wynara_preorders', pengiriman: 'wynara_shipments' };
+// Segmen array-record: 'belanja' | 'koli' | 'muatan' | 'pesanan' | 'pengiriman' | 'biaya'
+const KEY_FOR = {
+  belanja: 'wynara_belanja', koli: 'wynara_koli', muatan: 'wynara_muatan',
+  pesanan: 'wynara_preorders', pengiriman: 'wynara_shipments', biaya: 'ledger_entries',
+};
+// Segmen KV (bukan array): 'payroll' → wynara_payroll_attachments[YYYY-MM] = [meta]
+const KV_FOR = { payroll: 'wynara_payroll_attachments' };
 function readList(k) { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
+function readKv(k) { try { const v = JSON.parse(localStorage.getItem(k) || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch { return {}; } }
+
+export function attachmentsOf(seg, id) {
+  if (KV_FOR[seg]) {
+    const kv = readKv(KV_FOR[seg]);
+    return Array.isArray(kv[id]) ? kv[id] : [];
+  }
+  const key = KEY_FOR[seg];
+  if (!key) return [];
+  const rec = readList(key).find((x) => x.id === id);
+  return (rec && rec.attachments) || [];
+}
 
 export function attachTo(seg, id, meta) {
+  if (KV_FOR[seg]) {
+    const kv = readKv(KV_FOR[seg]);
+    kv[id] = (Array.isArray(kv[id]) ? kv[id] : []).concat(meta);
+    try { localStorage.setItem(KV_FOR[seg], JSON.stringify(kv)); } catch { throw new Error('Gagal menyimpan lampiran'); }
+    return kv[id];
+  }
   const key = KEY_FOR[seg];
   if (!key) throw new Error('Jenis lampiran tidak dikenal');
   const list = readList(key);
@@ -188,6 +211,13 @@ export function attachTo(seg, id, meta) {
 }
 
 export async function detachFrom(seg, id, fileId) {
+  if (KV_FOR[seg]) {
+    const kv = readKv(KV_FOR[seg]);
+    kv[id] = (Array.isArray(kv[id]) ? kv[id] : []).filter((a) => a && a.id !== fileId);
+    try { localStorage.setItem(KV_FOR[seg], JSON.stringify(kv)); } catch {}
+    try { await deleteFile(fileId); } catch {}
+    return kv[id];
+  }
   const key = KEY_FOR[seg];
   if (!key) throw new Error('Jenis lampiran tidak dikenal');
   const list = readList(key);

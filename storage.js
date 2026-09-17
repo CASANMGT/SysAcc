@@ -2607,6 +2607,22 @@ export function markPayrollFinal(monthKey) {
   return savePayrollDraft(monthKey, { ...(getPayrollDraft(monthKey) || {}), status: 'final' });
 }
 
+// Siapa yang sudah dibayar untuk bulan tertentu. Dipakai untuk menjaga agar payroll
+// tidak dobel-posting: id karyawan (akurat) + fallback nama (untuk data lama).
+export function payrollPaidEmployeeIds(monthKey) {
+  const mk = String(monthKey || '').slice(0, 7);
+  const ids = new Set();
+  const names = new Set();
+  getEntries().forEach((e) => {
+    if (e.category !== 'gaji-out') return;
+    if (String(e.date || '').slice(0, 7) !== mk) return;
+    const pid = e.payroll && e.payroll.employeeId;
+    if (pid) ids.add(String(pid));
+    if (e.person) names.add(String(e.person).toLowerCase().trim());
+  });
+  return { ids: Array.from(ids), names: Array.from(names) };
+}
+
 // ===== Nomor invoice: INV/2026/09/0042 =====
 const COUNTER_KEY = 'wynara_counters';
 

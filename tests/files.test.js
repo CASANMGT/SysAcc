@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /* global File */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { saveFile, getFile, deleteFile, attachTo, detachFrom, fileToDataUrl, compressImage, exportBlobs, importBlobs } from '../files.js';
+import { saveFile, getFile, deleteFile, attachTo, detachFrom, fileToDataUrl, compressImage, exportBlobs, importBlobs, attachmentsOf } from '../files.js';
 import { createBelanja, getBelanjas } from '../lcl.js';
+import { createEntry, getEntryById } from '../storage.js';
 import { createShipment, getShipments } from '../storage.js';
 
 beforeEach(() => localStorage.clear());
@@ -49,6 +50,25 @@ describe('lampiran ikut JSON backup', () => {
     expect(n).toBeGreaterThan(0);
     const back = await getFile(meta.id);
     expect(back && back.name).toBe('surat-jalan.pdf');
+  });
+});
+
+describe('lampiran biaya & payroll', () => {
+  it('menempel ke transaksi biaya (ledger_entries) dan ke bulan payroll (KV)', async () => {
+    const e = createEntry({ date: '2026-09-17', type: 'expense', category: 'transport', payment: 'cash', description: 'Bensin', amount: 100000 });
+    const m1 = await saveFile({ name: 'nota-bensin.jpg', type: 'image/jpeg', dataUrl: 'data:image/png;base64,AAA' }, { compress: false });
+    attachTo('biaya', e.id, m1);
+    expect(getEntryById(e.id).attachments.length).toBe(1);
+    expect(attachmentsOf('biaya', e.id).length).toBe(1);
+    await detachFrom('biaya', e.id, m1.id);
+    expect(getEntryById(e.id).attachments.length).toBe(0);
+
+    const m2 = await saveFile({ name: 'daftar-hadir.pdf', type: 'application/pdf', dataUrl: 'data:application/pdf;base64,QQ==' }, { compress: false });
+    attachTo('payroll', '2026-09', m2);
+    expect(attachmentsOf('payroll', '2026-09').length).toBe(1);
+    expect(attachmentsOf('payroll', '2026-08').length).toBe(0);
+    await detachFrom('payroll', '2026-09', m2.id);
+    expect(attachmentsOf('payroll', '2026-09').length).toBe(0);
   });
 });
 

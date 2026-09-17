@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, saveShops, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, payrollPaidEmployeeIds, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, saveShops, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -581,6 +581,14 @@ describe('produk: varian & diskon', () => {
     expect(it.discountPct).toBe(25);
     expect(itemNetPrice(it)).toBe(75000);
     expect(itemVariantLabel(it)).toBe('L / Hitam');
+  });
+  it('AUDIT: payrollPaidEmployeeIds mencegah dobel-posting (id, bukan hanya nama)', () => {
+    const emp = saveEmployee({ name: 'Gaji Satu', baseSalary: 5000000 });
+    expect(payrollPaidEmployeeIds('2026-09').ids).toEqual([]);
+    createEntry({ date: '2026-09-30', type: 'expense', category: 'gaji-out', payment: 'transfer', description: 'Gaji September', amount: 4500000, person: 'Gaji Satu', payroll: { employeeId: emp.id, month: '2026-09', takeHome: 4500000 } });
+    const res = payrollPaidEmployeeIds('2026-09');
+    expect(res.ids).toContain(emp.id);
+    expect(payrollPaidEmployeeIds('2026-10').ids).toEqual([]); // bulan lain tidak ikut
   });
   it('AUDIT: shipments & impor ikut backup (tidak hilang saat restore)', () => {
     createShipment({ kind: 'customer', recipient: 'Andi', lines: [{ name: 'Lampu', qty: 1 }] });
