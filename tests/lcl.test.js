@@ -6,7 +6,7 @@ import {
   getMuatans, getMuatanById, createMuatan, loadKoli,
   departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder, finalizeBelanja, payBelanja, belanjaOutstanding,
 } from '../lcl.js';
-import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, createDraftProductFromBelanja } from '../storage.js';
+import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, finalizePreorderDraft, createDraftProductFromBelanja } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -195,6 +195,24 @@ describe('§5.3 pengecualian', () => {
     const out = refusePreorder(po.id, { note: 'salah ukuran' });
     expect(out.stage).toBe('cancelled');
     expect(getAllJournals().length).toBe(jBefore);
+  });
+});
+
+describe('draft pesanan penjualan', () => {
+  it('draft tidak menerima DP (tanpa jurnal); finalisasi mencatat DP', () => {
+    const j0 = getAllJournals().length;
+    const po = createPreorder({ date: '2026-09-17', customer: 'Andi', items: [{ name: 'Lampu', qty: 2, price: 700000 }], deposit: 1000000, draft: true });
+    expect(po.status).toBe('draft');
+    expect(po.stage).toBe('draft');
+    expect(po.deposit).toBe(0);
+    expect(po.plannedDeposit).toBe(1000000);
+    expect(getAllJournals().length).toBe(j0); // belum ada uang masuk
+    const fin = finalizePreorderDraft(po.id, { deposit: 1000000, payment: 'transfer', date: '2026-09-18' });
+    expect(fin.status).toBe('final');
+    expect(fin.stage).toBe('dp_paid');
+    expect(fin.deposit).toBe(1000000);
+    expect(getAllJournals().length).toBe(j0 + 1); // DP dijurnal saat finalisasi
+    expect(getAllJournals().slice(-1)[0].ref).toBe('preorder');
   });
 });
 

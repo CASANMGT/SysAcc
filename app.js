@@ -1054,7 +1054,7 @@ function bindEvents() {
     if (sel) handleStockReceive(sel.value);
   });
   document.getElementById('biayaAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); setTimeout(() => { const b = document.querySelector('#typeGroup .select-btn[data-value="expense"], #typeGroup .chip[data-value="expense"]'); if (b) b.click(); }, 30); });
-  document.getElementById('salesNewBtn')?.addEventListener('click', () => UI.openSale());
+  document.getElementById('salesNewBtn')?.addEventListener('click', () => openJualBaru('ready'));
   document.getElementById('salesExcel')?.addEventListener('click', exportSalesExcel);
   document.getElementById('salesPrint')?.addEventListener('click', printSalesPage);
   document.getElementById('creditPayClose')?.addEventListener('click', closeCreditPay);
@@ -3757,6 +3757,242 @@ function openOrderDetail(kind, id) {
     </div>
   </div>`;
   UI.openInfoModal(`📄 Pesanan ${escapeHtml(r.no || r.invoiceNo || '')}`, html);
+}
+
+/* ===== Penjualan baru (halaman penuh, mengikuti mockup) ===== */
+let jualState = null;
+function openJualBaru(presetMode = 'ready') {
+  jualState = {
+    mode: presetMode === 'preorder' ? 'preorder' : 'ready',
+    customer: '', date: new Date().toISOString().split('T')[0], ref: '',
+    lines: [{ itemId: '', name: '', qty: 1, price: 0 }],
+    dpPlanned: 0, received: false, payAccount: 'transfer', etaDate: '',
+  };
+  renderJualBaru();
+  document.querySelectorAll('.view-section').forEach((v) => v.classList.add('hidden'));
+  document.getElementById('viewJualBaru')?.classList.remove('hidden');
+  try { window.scrollTo(0, 0); } catch {}
+}
+function closeJualBaru() { document.getElementById('salesBtnSidebar')?.click(); }
+
+function renderJualBaru() {
+  const host = document.getElementById('viewJualBaru');
+  if (!host || !jualState) return;
+  const s = jualState;
+  const fmt = (v) => Reports.formatCurrency(v);
+  const items = Storage.getAllItems().filter((i) => (s.mode === 'ready' ? i.status !== 'draft' && i.active !== false : true));
+  const people = Storage.getAllPeople();
+  const subtotal = s.lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+  const qty = s.lines.reduce((a, l) => a + (Number(l.qty) || 0), 0);
+  const total = subtotal;
+  const received = s.received ? (s.mode === 'preorder' ? Math.min(Number(s.dpPlanned) || 0, total) : total) : 0;
+  const due = total - received;
+  const card = (on, data, label, sub) => `<button type="button" class="${on ? 'beli-card on' : 'beli-card'}" data-set="${data}"><b>${label}</b><span>${sub}</span></button>`;
+  host.innerHTML = `
+  <div class="view-header">
+    <div><p style="font-size:12px;color:#64748b;margin:0 0 4px">Penjualan / Baru</p><h1>Penjualan baru</h1><p>Pilih pelanggan, tambahkan barang, lalu atur pembayaran.</p></div>
+  </div>
+  <div class="beli-grid">
+    <div>
+      <section class="beli-card-box">
+        <div class="beli-step"><span>1</span> Pilih mode penjualan</div>
+        <div class="beli-opts">
+          ${card(s.mode === 'ready', 'mode=ready', '📦 Barang tersedia', 'Jual barang yang sudah ada di stok')}
+          ${card(s.mode === 'preorder', 'mode=preorder', '🌏 Preorder', 'Terima pesanan untuk barang yang akan datang')}
+        </div>
+      </section>
+
+      <section class="beli-card-box">
+        <div class="beli-step"><span>2</span> Pelanggan</div>
+        <div class="beli-row">
+          <div class="beli-field"><label>Pelanggan ${s.mode === 'preorder' ? '*' : '<span class="beli-hint">opsional untuk pembeli umum</span>'}</label>
+            <input id="jualCustomer" list="jualPeopleList" value="${escapeHtml(s.customer)}" placeholder="Nama pelanggan">
+            <datalist id="jualPeopleList">${people.map((p) => `<option value="${escapeHtml(p.name)}"></option>`).join('')}</datalist></div>
+          <div class="beli-field"><label>Tanggal transaksi *</label><input type="date" id="jualDate" value="${escapeHtml(s.date)}"></div>
+          <div class="beli-field"><label>No. referensi <span class="beli-hint">opsional</span></label><input id="jualRef" value="${escapeHtml(s.ref)}" placeholder="Contoh: SO-001"></div>
+        </div>
+      </section>
+
+      <section class="beli-card-box">
+        <div class="beli-step"><span>3</span> Barang dan harga jual</div>
+        <input type="search" id="jualSearch" placeholder="🔍 Cari produk, varian, atau scan barcode…" style="width:100%;height:40px;border:1px solid #cbd5e1;border-radius:10px;padding:0 12px;font-size:14px;margin-bottom:10px">
+        <table class="beli-table">
+          <thead><tr><th>Produk</th><th style="width:96px">Jumlah</th><th style="width:150px">Harga jual</th><th style="width:140px">Subtotal</th><th style="width:36px"></th></tr></thead>
+          <tbody>${s.lines.map((l, i) => {
+    const it = items.find((x) => x.id === l.itemId);
+    const stockTxt = (s.mode === 'ready' && it) ? `stok ${Storage.shopStockOf(it, Storage.getActiveShopId())}` : (it ? 'draft' : 'baru');
+    return `<tr>
+              <td>${it ? `<b style="font-size:13px">${escapeHtml(Storage.fullItemName(it))}</b><div class="beli-hint">${escapeHtml(it.sku || '')} · ${stockTxt}</div>`
+      : `<input data-i="${i}" data-f="name" list="jualPeopleList2" value="${escapeHtml(l.name)}" placeholder="Ketik nama produk barang baru">`}
+                <div><select data-i="${i}" data-f="itemId" style="margin-top:4px;height:32px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px">
+                  <option value="">${it ? '— ganti produk —' : '— pilih dari katalog —'}</option>
+                  ${items.map((x) => `<option value="${x.id}"${x.id === l.itemId ? ' selected' : ''}>${escapeHtml(Storage.fullItemName(x))}</option>`).join('')}
+                </select></div></td>
+              <td><input type="number" min="1" data-i="${i}" data-f="qty" value="${Number(l.qty) || 1}"></td>
+              <td><input type="number" min="0" data-i="${i}" data-f="price" value="${Number(l.price) || 0}"${it && Number(it.price) ? '' : ''}></td>
+              <td class="amount-col">${fmt((Number(l.qty) || 0) * (Number(l.price) || 0))}</td>
+              <td><button type="button" class="beli-del" data-del="${i}" title="Hapus baris">🗑</button></td></tr>`;
+  }).join('')}</tbody>
+        </table>
+        <datalist id="jualPeopleList2">${items.map((x) => `<option value="${escapeHtml(x.name)}"></option>`).join('')}</datalist>
+        <button type="button" class="beli-add" id="jualAddRow">＋ Tambah barang</button>
+      </section>
+
+      <section class="beli-card-box">
+        <div class="beli-step"><span>4</span> Pembayaran</div>
+        ${s.mode === 'preorder' ? `<div class="beli-field"><label>DP yang diminta</label><input type="number" min="0" id="jualDp" value="${Number(s.dpPlanned) || 0}"><div class="beli-hint">Rencana DP dicatat terpisah dari uang yang benar-benar diterima.</div></div>` : ''}
+        <label class="login-check" style="font-size:13px;font-weight:600;display:block;margin:6px 0"><input type="checkbox" id="jualReceived"${s.received ? ' checked' : ''}> Sudah menerima pembayaran</label>
+        <div class="beli-hint" style="margin-bottom:8px">Aktifkan hanya jika dana sudah benar-benar diterima.</div>
+        ${s.received ? `<div class="beli-row"><div class="beli-field"><label>Rekening / kas penerima</label><select id="jualPayAcc">
+            <option value="transfer"${s.payAccount === 'transfer' ? ' selected' : ''}>Bank BCA (transfer)</option>
+            <option value="cash"${s.payAccount === 'cash' ? ' selected' : ''}>Tunai</option>
+            <option value="qris"${s.payAccount === 'qris' ? ' selected' : ''}>QRIS</option>
+            <option value="ewallet"${s.payAccount === 'ewallet' ? ' selected' : ''}>E-Wallet</option>
+          </select></div></div>` : ''}
+        <div class="beli-note">${s.received ? 'ⓘ Pembayaran langsung dijurnal: Dr Kas / Cr Pendapatan' + (s.mode === 'preorder' ? ' — sisanya jadi piutang pesanan, bukan pendapatan.' : '.') : (s.mode === 'preorder' ? 'ⓘ Tanpa centang: pesanan dicatat tanpa uang masuk. DP ditagih belakangan.' : 'ⓘ Tanpa centang: penjualan akan tercatat sebagai <b>piutang</b> dengan jatuh tempo 30 hari.')}</div>
+      </section>
+    </div>
+
+    <aside>
+      <div class="beli-side">
+        <h3>Ringkasan pesanan</h3>
+        <div class="beli-sum"><span>Jumlah item</span><b>${qty}</b></div>
+        <div class="beli-sum"><span>Subtotal</span><b>${fmt(subtotal)}</b></div>
+        <div class="beli-sum big"><span>Total</span><b>${fmt(total)}</b></div>
+        ${s.mode === 'preorder' ? `<div class="beli-sum"><span>DP yang diminta</span><b>${fmt(Number(s.dpPlanned) || 0)}</b></div>` : ''}
+        <div class="beli-sum"><span>Pembayaran diterima</span><b>${fmt(received)}</b></div>
+        <div class="beli-sum ${due > 0 ? 'warn' : ''}"><span>${s.mode === 'preorder' ? 'Belum dibayar' : 'Sisa'}</span><b>${due > 0 ? fmt(due) : 'Lunas'}</b></div>
+        <div class="beli-side-sec"><b>Setelah disimpan</b><p>${s.mode === 'preorder' ? 'Buat pembelian dari pesanan ini tanpa mengetik ulang barang.' : (s.received ? 'Stok berkurang dan pendapatan tercatat.' : 'Tercatat sebagai piutang; terima pembayaran dari tab Tagihan.')}</p></div>
+        ${s.mode === 'preorder' ? `<div class="beli-side-sec"><b>Perkiraan tanggal barang datang</b>
+          <input type="date" id="jualEta" value="${escapeHtml(s.etaDate)}" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:10px;padding:0 10px;margin-top:6px">
+          <p style="font-size:11px;color:#64748b">Dipakai untuk mengingatkan pesanan yang belum tiba.</p></div>` : ''}
+      </div>
+    </aside>
+  </div>
+  <div class="beli-footer">
+    <button type="button" class="btn btn-ghost" id="jualCancel">Batal</button>
+    <div style="display:flex;gap:8px">
+      ${s.mode === 'preorder' ? '<button type="button" class="btn btn-secondary" id="jualSaveDraft">Simpan draft</button>' : ''}
+      <button type="button" class="btn btn-primary" id="jualSave">Buat pesanan</button>
+    </div>
+  </div>`;
+  bindJualBaru();
+}
+
+function bindJualBaru() {
+  const host = document.getElementById('viewJualBaru');
+  const s = jualState;
+  if (!host || !s) return;
+  const rerender = () => renderJualBaru();
+  host.querySelectorAll('[data-set]').forEach((el) => el.addEventListener('click', () => {
+    const [k, v] = el.dataset.set.split('=');
+    if (k === 'mode') s.mode = v;
+    rerender();
+  }));
+  const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+  on('jualCustomer', 'input', (e) => { s.customer = e.target.value; });
+  on('jualDate', 'change', (e) => { s.date = e.target.value; });
+  on('jualRef', 'input', (e) => { s.ref = e.target.value; });
+  on('jualDp', 'input', (e) => { s.dpPlanned = Number(e.target.value) || 0; refreshJualSummary(); });
+  on('jualReceived', 'change', (e) => { s.received = e.target.checked; rerender(); });
+  on('jualPayAcc', 'change', (e) => { s.payAccount = e.target.value; });
+  on('jualEta', 'change', (e) => { s.etaDate = e.target.value; });
+  on('jualCancel', 'click', () => closeJualBaru());
+  on('jualAddRow', 'click', () => { s.lines.push({ itemId: '', name: '', qty: 1, price: 0 }); rerender(); });
+  on('jualSaveDraft', 'click', () => saveJualBaru(true));
+  on('jualSave', 'click', () => saveJualBaru(false));
+  host.querySelectorAll('.beli-table input[data-f], .beli-table select[data-f]').forEach((el) => el.addEventListener('change', () => {
+    const i = Number(el.dataset.i); const f = el.dataset.f;
+    if (f === 'itemId') {
+      s.lines[i].itemId = el.value;
+      const it = Storage.getItemById(el.value);
+      if (it) { s.lines[i].name = Storage.fullItemName(it); if (!Number(s.lines[i].price)) s.lines[i].price = Number(it.price) || 0; }
+      rerender();
+    } else if (f === 'name') { s.lines[i].name = el.value; }
+    else { s.lines[i][f] = Number(el.value) || 0; refreshJualSummary(); }
+  }));
+  host.querySelectorAll('.beli-table input[data-f="name"]').forEach((el) => el.addEventListener('input', () => {
+    jualState.lines[Number(el.dataset.i)].name = el.value;
+  }));
+  host.querySelectorAll('[data-del]').forEach((el) => el.addEventListener('click', () => {
+    s.lines.splice(Number(el.dataset.del), 1);
+    if (!s.lines.length) s.lines.push({ itemId: '', name: '', qty: 1, price: 0 });
+    rerender();
+  }));
+  // pencarian/scan barcode: Enter menambah baris teratas yang cocok
+  const search = document.getElementById('jualSearch');
+  if (search) search.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const q = search.value.trim().toLowerCase();
+    if (!q) return;
+    const it = Storage.getAllItems().find((x) => String(x.barcode || '').toLowerCase() === q || String(x.sku || '').toLowerCase() === q)
+      || Storage.getAllItems().find((x) => Storage.fullItemName(x).toLowerCase().includes(q));
+    if (!it) return UI.showError('Barang tidak ditemukan: ' + search.value);
+    const empty = s.lines.findIndex((l) => !l.itemId && !l.name);
+    const row = { itemId: it.id, name: Storage.fullItemName(it), qty: 1, price: Number(it.price) || 0 };
+    if (empty >= 0) s.lines[empty] = row; else s.lines.push(row);
+    search.value = '';
+    renderJualBaru();
+  });
+}
+
+function refreshJualSummary() {
+  const s = jualState; if (!s) return;
+  const host = document.getElementById('viewJualBaru'); if (!host) return;
+  const subtotal = s.lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+  const total = subtotal;
+  const received = s.received ? (s.mode === 'preorder' ? Math.min(Number(s.dpPlanned) || 0, total) : total) : 0;
+  const bs = host.querySelectorAll('.beli-sum b');
+  let k = 1; // 0 = jumlah item
+  if (bs[1]) bs[1].textContent = Reports.formatCurrency(subtotal);
+  if (bs[2]) bs[2].textContent = Reports.formatCurrency(total);
+  k = 3;
+  if (s.mode === 'preorder' && bs[3]) { bs[3].textContent = Reports.formatCurrency(Number(s.dpPlanned) || 0); k = 4; }
+  if (bs[k]) bs[k].textContent = Reports.formatCurrency(received);
+  if (bs[k + 1]) bs[k + 1].textContent = (total - received) > 0 ? Reports.formatCurrency(total - received) : 'Lunas';
+}
+
+function saveJualBaru(asDraft) {
+  const s = jualState; if (!s) return;
+  const err = (m) => UI.showError(m);
+  if (s.mode === 'preorder' && !String(s.customer || '').trim()) return err('Preorder wajib mencantumkan pelanggan.');
+  const lines = s.lines.filter((l) => (l.itemId || String(l.name || '').trim()) && Number(l.qty) > 0 && Number(l.price) > 0);
+  if (!lines.length) return err('Tambahkan minimal satu barang dengan jumlah dan harga > 0.');
+  if (!s.date) return err('Tanggal transaksi wajib diisi.');
+  try {
+    const subtotal = lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+    if (s.mode === 'preorder') {
+      const po = Storage.createPreorder({
+        date: s.date, customer: s.customer, note: s.ref,
+        items: lines.map((l) => ({ itemId: l.itemId || '', name: l.name, qty: l.qty, price: l.price })),
+        deposit: s.received ? Math.min(Number(s.dpPlanned) || 0, subtotal) : 0,
+        payment: s.payAccount, target: 'customer', channel: 'luar',
+        months: 1, eta: s.etaDate, draft: !!asDraft,
+      });
+      UI.showSuccess(asDraft ? `Draft pesanan ${po.no} disimpan` : `Pesanan ${po.no} dibuat — pantau di Perlu diproses`);
+    } else if (s.received) {
+      Storage.createEntry({
+        date: s.date, type: 'income', category: 'jualan', payment: s.payAccount,
+        description: (s.ref || 'Jual') + ': ' + lines.map((l) => `${l.qty}× ${l.name}`).join(', '),
+        amount: subtotal, person: s.customer,
+        sale: { lines: lines.map((l) => ({ itemId: l.itemId, qty: l.qty, price: l.price })), total: subtotal, subtotal, discount: 0 },
+      });
+      UI.showSuccess(`Penjualan ${Reports.formatCurrency(subtotal)} tersimpan — stok berkurang`);
+    } else {
+      const d = new Date(s.date + 'T00:00:00'); d.setDate(d.getDate() + 30);
+      Storage.createCreditSale({
+        date: s.date, dueDate: d.toISOString().split('T')[0], customer: s.customer, person: s.customer,
+        lines: lines.map((l) => ({ itemId: l.itemId, qty: l.qty, price: l.price, name: l.name })),
+        discount: 0, deposit: 0, terms: 1, payment: 'transfer', note: s.ref, flow: 'order',
+      });
+      UI.showSuccess(`Tercatat sebagai piutang ${Reports.formatCurrency(subtotal)} — jatuh tempo 30 hari`);
+    }
+    closeJualBaru();
+    try { renderSalesPage(); } catch {}
+    try { refresh(); } catch {}
+    try { queueMirror(); } catch {}
+  } catch (e) { err(e && e.message ? e.message : 'Gagal menyimpan penjualan'); }
 }
 
 /* ===== Pembelian baru (halaman penuh, mengikuti mockup) ===== */

@@ -2723,7 +2723,7 @@ function nextPreorderNo() {
 // months = estimasi berapa bulan barang tiba (preorder luar negeri).
 // Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
 // months = estimasi berapa bulan barang tiba (preorder luar negeri); fx = kurs Rp per ¥.
-export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx, target, channel, shopId } = {}) {
+export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx, target, channel, shopId, draft } = {}) {
   requireCap('ledger');
   const isStock = target === 'stock';
   if (isStock) {
@@ -2753,15 +2753,17 @@ export function createPreorder({ date, customer, items, deposit, payment, note, 
     shopId: (shopId || '').slice(0, 60),
     customer: String(customer || '').trim().slice(0, 60),
     items: cleanItems, subtotal: sub, discount: disc, sellTotal, deposit: dp, payment: payment || 'cash',
-    costs: [], payments: [], stage: dp > 0 ? 'dp_paid' : 'ordered',
+    costs: [], payments: [], status: draft ? 'draft' : 'final',
+    stage: draft ? 'draft' : (dp > 0 ? 'dp_paid' : 'ordered'),
     events: [{ date: d, stage: dp > 0 ? 'dp_paid' : 'ordered', note: customer ? 'Pesanan dibuat' : 'Pesanan dibuat', tracking: '', schedule: '' }],
     note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
   };
-  if (dp > 0) {
+  if (dp > 0 && !draft) {
     const j = buildPreorderPayJournal({ date: d, amount: dp, payment: rec.payment, memo: `DP titip beli ${rec.no}${rec.customer ? ' — ' + rec.customer : ''}` });
     if (j) { j.refId = id; postJournal(j); }
     rec.payments = [{ id: generateId(), date: d, amount: dp, payment: rec.payment, kind: 'DP', note: 'DP saat pesan' }];
   }
+  if (draft) { rec.deposit = 0; rec.plannedDeposit = dp; } // draft belum menerima uang
   const list = getPreorders().concat(rec);
   savePreorders(list);
   logAudit('create', 'preorder', id, null, { no: rec.no, sellTotal, deposit: dp });
@@ -2812,6 +2814,33 @@ export function addPreorderCost(id, { amount, kind, date, payment, note } = {}) 
   logAudit('create', 'preorder-cost', id, null, { amount: amt, kind: k });
   return po;
 }
+// Finalkan draft pesanan: catat DP (bila benar-benar diterima) dan masukkan ke alur pesanan.
+export function finalizePreorderDraft(id, { deposit, payment, date } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.status !== 'draft') throw new Error('Pesanan ini bukan draft');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const amt = Math.min(Math.max(Math.round(Number(deposit) || 0), 0), preorderSellTotal(po));
+  if (amt > 0) {
+    const j = buildPreorderPayJournal({ date: d, amount: amt, payment: payment || 'transfer', memo: `DP titip beli ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
+    if (j) { j.refId = id; postJournal(j); }
+    po.payments = (po.payments || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'transfer', kind: 'DP', note: 'DP saat finalisasi' });
+    po.deposit = amt;
+  }
+  po.status = 'final';
+  po.stage = amt > 0 ? 'dp_paid' : 'ordered';
+  po.events = (po.events || []).concat([{ date: d, stage: po.stage, note: 'Pesanan difinalkan', tracking: '', schedule: '' }]);
+  list[i] = po;
+  savePreorders(list);
+  logAudit('update', 'preorder', id, null, { final: true, deposit: amt });
+  return po;
+}
+
+
 // Barang dibeli & dikirim (pengiriman dari China): hanya update tahap.
 export function shipPreorder(id, { note, tracking, cny } = {}) {
   requireCap('ledger');
