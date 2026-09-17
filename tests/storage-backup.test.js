@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, creditPaidTotal, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, saveShops, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -674,7 +674,7 @@ describe('kasbon karyawan (storage)', () => {
     expect(loan.employeeId).toBe(emp.id);
   });
   it('applyPayrollKasbon mengurangi sisa + jurnal Dr Beban Gaji Cr Piutang', () => {
-    const emp = saveEmployee({ name: 'Ani Kasbon', baseSalary: 4000000 });
+    saveEmployee({ name: 'Ani Kasbon', baseSalary: 4000000 });
     const loan = createLoan({ direction: 'given', person: 'Ani Kasbon', amount: 1000000, date: '2026-08-01' });
     const rep = applyPayrollKasbon(loan.id, 300000, '2026-08-31', '2026-08');
     expect(rep.source).toBe('payroll');
@@ -684,7 +684,7 @@ describe('kasbon karyawan (storage)', () => {
     expect(j.lines.find(l => l.account === '1201').credit).toBe(300000);
   });
   it('applyPayrollKasbon dibatasi sisa; lunas → status paid', () => {
-    const emp = saveEmployee({ name: 'Clamp Kasbon', baseSalary: 4000000 });
+    saveEmployee({ name: 'Clamp Kasbon', baseSalary: 4000000 });
     const loan = createLoan({ direction: 'given', person: 'Clamp Kasbon', amount: 500000, date: '2026-08-01' });
     const rep = applyPayrollKasbon(loan.id, 9999999, '2026-08-31', '2026-08');
     expect(rep.amount).toBe(500000);
