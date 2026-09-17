@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.23.0';
+const APP_VERSION = '2.23.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -423,8 +423,66 @@ function buildMonthlyPack(monthKey) {
   const gajiBruto = payrollRows.reduce((a, r) => a + r.bruto, 0);
   const gajiPph = payrollRows.reduce((a, r) => a + r.pph, 0);
   const gajiNetto = payrollRows.reduce((a, r) => a + r.netto, 0);
-  return { mk, start, end, rowsTB, revRows, expRows, revTotal, expTotal, profit, assetRows, liabRows, eqRows, totalAsset, totalLiab, totalEq, ppnRow, payrollRows, gajiBruto, gajiPph, gajiNetto };
+
+  // === Arus Kas (kas/bank: akun aset berkode 11xx) ===
+  const isCash = (code) => /^11/.test(String(code || ''));
+  const openBal = balances(journals, { end: prevDay(start) });
+  const cashOpening = Object.keys(openBal).filter(isCash)
+    .reduce((a, code) => a + ((openBal[code].debit || 0) - (openBal[code].credit || 0)), 0);
+  const cashIn = [], cashOut = [];
+  journals.filter((j) => String(j.date || '') >= start && String(j.date || '') <= end).forEach((j) => {
+    const lines = j.lines || [];
+    const cashLines = lines.filter((l) => isCash(l.account));
+    if (!cashLines.length) return;
+    const net = cashLines.reduce((s, l) => s + (Number(l.debit) || 0) - (Number(l.credit) || 0), 0);
+    if (Math.abs(net) < 0.5) return;
+    const counter = lines.filter((l) => !isCash(l.account));
+    const counterType = counter.length ? typeOf(counter[0].account) : 'asset';
+    const folder = /fixed|aset|15/.test(String(counter[0] && counter[0].account || '')) ? 'investasi'
+      : (counterType === 'equity' || /^2[13]/.test(String(counter[0] && counter[0].account || '')) ? 'pendanaan' : 'operasional');
+    const row = { date: j.date, memo: j.memo || j.ref || 'Jurnal', amount: net, folder };
+    (net > 0 ? cashIn : cashOut).push(row);
+  });
+  const cashInTotal = cashIn.reduce((a, r) => a + r.amount, 0);
+  const cashOutTotal = cashOut.reduce((a, r) => a + r.amount, 0);
+  const cashNet = cashInTotal + cashOutTotal;
+  const cashClosing = cashOpening + cashNet;
+  const byFolder = (f) => cashIn.concat(cashOut).filter((r) => r.folder === f).reduce((a, r) => a + r.amount, 0);
+
+  // === Rekonsiliasi bank (dari mutasi yang diimpor) ===
+  let bank = null;
+  try {
+    const stmt = Storage.getBankStatement().filter((s) => String(s.date || '').slice(0, 7) === mk);
+    if (stmt.length) {
+      const matched = stmt.filter((s) => s.matched || s.entryId || s.matchedId);
+      const unmatched = stmt.filter((s) => !(s.matched || s.entryId || s.matchedId));
+      const sumIn = stmt.filter((s) => (Number(s.amount) || 0) > 0).reduce((a, s) => a + (Number(s.amount) || 0), 0);
+      const sumOut = stmt.filter((s) => (Number(s.amount) || 0) < 0).reduce((a, s) => a + Math.abs(Number(s.amount) || 0), 0);
+      bank = { total: stmt.length, matched: matched.length, unmatched: unmatched.length, sumIn, sumOut, unmatchedRows: unmatched.slice(0, 25) };
+    }
+  } catch {}
+  // === PPh Final UMKM 0,5% ===
+  const omzetMonth = (() => {
+    try {
+      return Storage.getAllEntries().filter((e) => e.type === 'income' && e.category === 'jualan' && String(e.date || '').slice(0, 7) === mk)
+        .reduce((a, e) => a + (Number(e.amount) || 0), 0);
+    } catch { return 0; }
+  })();
+  const omzetYear = (() => {
+    try {
+      return Storage.getAllEntries().filter((e) => e.type === 'income' && e.category === 'jualan' && String(e.date || '').slice(0, 4) === String(y))
+        .reduce((a, e) => a + (Number(e.amount) || 0), 0);
+    } catch { return 0; }
+  })();
+  const pphFinal = (() => { try { return pphFinalForYear(omzetYear); } catch { return { eligible: true, rate: 0.005, pph: 0 }; } })();
+  return { mk, start, end, rowsTB, revRows, expRows, revTotal, expTotal, profit, assetRows, liabRows, eqRows, totalAsset, totalLiab, totalEq, ppnRow, payrollRows, gajiBruto, gajiPph, gajiNetto, cashIn, cashOut, cashInTotal, cashOutTotal, cashNet, cashOpening, cashClosing, byFolder, bank, omzetMonth, omzetYear, pphFinal };
 }
+function prevDay(dateStr) {
+  const d = new Date(String(dateStr) + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 
 function printMonthlyPack(monthKey) {
   const d = buildMonthlyPack(monthKey);
@@ -479,13 +537,47 @@ function printMonthlyPack(monthKey) {
     ])}
 
   <h2>4. Pajak bulan ini</h2>
+  <table><thead><tr><th>PPh Final UMKM (PP 23/2018)</th><th class="r">Dasar</th><th class="r">Tarif</th><th class="r">Jumlah</th></tr></thead><tbody>
+    <tr><td>Omzet bulan ini</td><td class="r">${eq(d.omzetMonth)}</td><td class="r">0,5%</td><td class="r">${eq(Math.round(d.omzetMonth * 0.005))}</td></tr>
+    <tr><td>Omzet kumulatif tahun ${d.mk.slice(0, 4)}</td><td class="r">${eq(d.omzetYear)}</td><td class="r">—</td><td class="r">${d.pphFinal.eligible ? eq(Math.round(d.omzetYear * 0.005)) : 'di atas Rp4,8 M'}</td></tr>
+  </tbody></table>
+  <div class="warn">${d.pphFinal.eligible
+      ? 'PPh Final 0,5% <b>hanya atas omzet bulan ini</b> yang wajib disetor tiap tanggal 15 (kumulatif hanya untuk memantau batas Rp4,8 Miliar).'
+      : '⚠ Omzet setahun melewati Rp4,8 Miliar — PPh Final 0,5% tidak lagi berlaku; omzet di atas batas memakai tarif normal (Pasal 17) dan wajib pembukuan.'}</div>
   ${d.ppnRow ? `<table><thead><tr><th>PPN</th><th class="r">DPP</th><th class="r">PPN</th></tr></thead><tbody>
       <tr><td>Keluaran</td><td class="r">${eq(d.ppnRow.keluarDPP)}</td><td class="r">${eq(d.ppnRow.keluarPPN)}</td></tr>
       <tr><td>Masukan</td><td class="r">${eq(d.ppnRow.masukDPP)}</td><td class="r">${eq(d.ppnRow.masukPPN)}</td></tr>
       <tr class="tot"><td>Kurang/(Lebih) bayar</td><td class="r"></td><td class="r">${eq(d.ppnRow.net)}</td></tr></tbody></table>`
-      : '<div class="warn">Bukan PKP — tidak ada PPN masa. PPh Final 0,5% dihitung dari omzet (lihat Laporan → Pajak).</div>'}
+      : '<div class="warn">Bukan PKP — tidak ada PPN masa yang dilaporkan.</div>'}
 
-  <h2>5. Daftar Gaji (${d.payrollRows.length} karyawan)</h2>
+  <h2>5. Arus Kas (${d.start} s.d. ${d.end})</h2>
+  <table><thead><tr><th>Keterangan</th><th class="r">Jumlah</th></tr></thead><tbody>
+    <tr><td>Saldo kas &amp; bank awal periode</td><td class="r">${eq(d.cashOpening)}</td></tr>
+    <tr><td>Penerimaan (${d.cashIn.length} transaksi)</td><td class="r">${eq(d.cashInTotal)}</td></tr>
+    <tr><td>Pengeluaran (${d.cashOut.length} transaksi)</td><td class="r">− ${eq(Math.abs(d.cashOutTotal))}</td></tr>
+    <tr class="tot"><td>Arus kas bersih</td><td class="r">${eq(d.cashNet)}</td></tr>
+    <tr class="tot"><td>Saldo kas &amp; bank akhir periode</td><td class="r">${eq(d.cashClosing)}</td></tr>
+  </tbody></table>
+  <table><thead><tr><th>Kelompok arus kas</th><th class="r">Jumlah</th></tr></thead><tbody>
+    <tr><td>Operasional (jual–beli–biaya)</td><td class="r">${eq(d.byFolder('operasional'))}</td></tr>
+    <tr><td>Investasi (aset tetap)</td><td class="r">${eq(d.byFolder('investasi'))}</td></tr>
+    <tr><td>Pendanaan (modal, prive, pinjaman)</td><td class="r">${eq(d.byFolder('pendanaan'))}</td></tr>
+  </tbody></table>
+
+  <h2>6. Rekonsiliasi Bank</h2>
+  ${d.bank ? `<table><thead><tr><th>Keterangan</th><th class="r">Jumlah</th></tr></thead><tbody>
+      <tr><td>Baris mutasi diimpor</td><td class="r">${d.bank.total}</td></tr>
+      <tr><td>Sudah dicocokkan</td><td class="r">${d.bank.matched}</td></tr>
+      <tr><td><b>Belum dicocokkan</b></td><td class="r"><b>${d.bank.unmatched}</b></td></tr>
+      <tr><td>Mutasi masuk / keluar (dari bank)</td><td class="r">${eq(d.bank.sumIn)} / ${eq(d.bank.sumOut)}</td></tr>
+    </tbody></table>
+    ${d.bank.unmatched ? `<table><thead><tr><th>Tanggal</th><th>Keterangan bank</th><th class="r">Jumlah</th></tr></thead><tbody>
+      ${d.bank.unmatchedRows.map((s) => `<tr><td>${escapeHtml(String(s.date || ''))}</td><td>${escapeHtml(String(s.description || s.desc || ''))}</td><td class="r">${eq(Number(s.amount) || 0)}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    ${d.bank.unmatched ? `<div class="warn">⚠ ${d.bank.unmatched} baris mutasi belum dicocokkan — paket ini sebaiknya diserahkan setelah rekonsiliasi selesai (Kas &amp; Bank → Mutasi Bank).</div>` : '<div class="warn" style="background:#ecfdf5;border-color:#a7f3d0">Semua baris mutasi bulan ini sudah dicocokkan.</div>'}`
+      : '<div class="warn">Belum ada mutasi bank diimpor untuk bulan ini.</div>'}
+
+  <h2>7. Daftar Gaji (${d.payrollRows.length} karyawan)</h2>
   ${d.payrollRows.length ? tbl([...d.payrollRows, { name: 'Total', bruto: d.gajiBruto, bpjs: d.payrollRows.reduce((a, r) => a + r.bpjs, 0), pph: d.gajiPph, netto: d.gajiNetto }], [
         { label: 'Karyawan', get: (r) => r.name === 'Total' ? '<b>Total</b>' : r.name },
         { label: 'Bruto', num: true, get: (r) => rp(r.bruto) },
