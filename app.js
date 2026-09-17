@@ -4041,12 +4041,12 @@ function renderJualBaru() {
     <aside>
       <div class="beli-side">
         <h3>Ringkasan pesanan</h3>
-        <div class="beli-sum"><span>Jumlah item</span><b>${qty}</b></div>
-        <div class="beli-sum"><span>Subtotal</span><b>${fmt(subtotal)}</b></div>
-        <div class="beli-sum big"><span>Total</span><b>${fmt(total)}</b></div>
-        ${s.mode === 'preorder' ? `<div class="beli-sum"><span>DP yang diminta</span><b>${fmt(Number(s.dpPlanned) || 0)}</b></div>` : ''}
-        <div class="beli-sum"><span>Pembayaran diterima</span><b>${fmt(received)}</b></div>
-        <div class="beli-sum ${due > 0 ? 'warn' : ''}"><span>${s.mode === 'preorder' ? 'Belum dibayar' : 'Sisa'}</span><b>${due > 0 ? fmt(due) : 'Lunas'}</b></div>
+        <div class="beli-sum"><span>Jumlah item</span><b id="jsumQty">${qty}</b></div>
+        <div class="beli-sum"><span>Subtotal</span><b id="jsumSubtotal">${fmt(subtotal)}</b></div>
+        <div class="beli-sum big"><span>Total</span><b id="jsumTotal">${fmt(total)}</b></div>
+        ${s.mode === 'preorder' ? `<div class="beli-sum"><span>DP yang diminta</span><b id="jsumDp">${fmt(Number(s.dpPlanned) || 0)}</b></div>` : ''}
+        <div class="beli-sum"><span>Pembayaran diterima</span><b id="jsumReceived">${fmt(received)}</b></div>
+        <div class="beli-sum ${due > 0 ? 'warn' : ''}"><span>${s.mode === 'preorder' ? 'Belum dibayar' : 'Sisa'}</span><b id="jsumDue">${due > 0 ? fmt(due) : 'Lunas'}</b></div>
         <div class="beli-side-sec"><b>Setelah disimpan</b><p>${s.mode === 'preorder' ? 'Buat pembelian dari pesanan ini tanpa mengetik ulang barang.' : (s.received ? 'Stok berkurang dan pendapatan tercatat.' : 'Tercatat sebagai piutang; terima pembayaran dari tab Tagihan.')}</p></div>
         ${s.mode === 'preorder' ? `<div class="beli-side-sec"><b>Perkiraan tanggal barang datang</b>
           <input type="date" id="jualEta" value="${escapeHtml(s.etaDate)}" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:10px;padding:0 10px;margin-top:6px">
@@ -4128,14 +4128,13 @@ function refreshJualSummary() {
   const subtotal = s.lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
   const total = subtotal;
   const received = s.received ? (s.mode === 'preorder' ? Math.min(Number(s.dpPlanned) || 0, total) : total) : 0;
-  const bs = host.querySelectorAll('.beli-sum b');
-  let k = 1; // 0 = jumlah item
-  if (bs[1]) bs[1].textContent = Reports.formatCurrency(subtotal);
-  if (bs[2]) bs[2].textContent = Reports.formatCurrency(total);
-  k = 3;
-  if (s.mode === 'preorder' && bs[3]) { bs[3].textContent = Reports.formatCurrency(Number(s.dpPlanned) || 0); k = 4; }
-  if (bs[k]) bs[k].textContent = Reports.formatCurrency(received);
-  if (bs[k + 1]) bs[k + 1].textContent = (total - received) > 0 ? Reports.formatCurrency(total - received) : 'Lunas';
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('jsumQty', String(s.lines.reduce((a, l) => a + (Number(l.qty) || 0), 0)));
+  set('jsumSubtotal', Reports.formatCurrency(subtotal));
+  set('jsumTotal', Reports.formatCurrency(total));
+  if (document.getElementById('jsumDp')) set('jsumDp', Reports.formatCurrency(Number(s.dpPlanned) || 0));
+  set('jsumReceived', Reports.formatCurrency(received));
+  set('jsumDue', (total - received) > 0 ? Reports.formatCurrency(total - received) : 'Lunas');
 }
 
 function saveJualBaru(asDraft) {
@@ -4145,6 +4144,21 @@ function saveJualBaru(asDraft) {
   const lines = s.lines.filter((l) => (l.itemId || String(l.name || '').trim()) && Number(l.qty) > 0 && Number(l.price) > 0);
   if (!lines.length) return err('Tambahkan minimal satu barang dengan jumlah dan harga > 0.');
   if (!s.date) return err('Tanggal transaksi wajib diisi.');
+  // AUDIT-FIX: penjualan barang tersedia WAJIB dari katalog (kalau tidak, stok tidak berkurang)
+  // dan tidak boleh melebihi stok gudang aktif.
+  if (s.mode === 'ready') {
+    const miss = lines.find((l) => !l.itemId);
+    if (miss) return err(`"${miss.name || 'Barang baru'}" belum ada di katalog. Pilih produk dari daftar, atau simpan sebagai Preorder.`);
+    const shopId = Storage.getActiveShopId();
+    const need = {};
+    lines.forEach((l) => { need[l.itemId] = (need[l.itemId] || 0) + (Number(l.qty) || 0); });
+    for (const [itemId, q] of Object.entries(need)) {
+      const it = Storage.getItemById(itemId);
+      if (!it) return err('Ada barang yang tidak dikenal — pilih ulang dari daftar.');
+      const avail = Storage.shopStockOf(it, shopId);
+      if (q > avail) return err(`Stok ${it.name} kurang (tersedia ${avail}, diminta ${q}).`);
+    }
+  }
   try {
     const subtotal = lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
     if (s.mode === 'preorder') {
@@ -4377,7 +4391,7 @@ function saveBeliBaru(asDraft) {
       if (!itemId) {
         const hit = existing.find((i) => String(i.name).toLowerCase() === String(l.name).toLowerCase());
         if (hit) itemId = hit.id;
-        else { const d = Storage.createDraftProductFromBelanja({ name: l.name, cost: Math.round((Number(l.cny) || 0) * (Number(s.kurs) || 0)), price: Math.round((Number(l.cny) || 0) * (Number(s.kurs) || 0)) }); itemId = d.id; }
+        else { const unitIdr = Math.round((Number(l.cny) || 0) * (s.source === 'local' ? 1 : (Number(s.kurs) || 0))); const d = Storage.createDraftProductFromBelanja({ name: l.name, cost: unitIdr, price: unitIdr }); itemId = d.id; }
       }
       return { itemId, name: l.name, qty: Number(l.qty) || 1, cnyUnit: Number(l.cny) || 0 };
     });
