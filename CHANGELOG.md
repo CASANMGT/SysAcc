@@ -6,6 +6,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.19.3] - 2026-09-17
+
+### Diagnostik — pesan kesalahan menyertakan jejak teknis
+- Kotak kesalahan pada form Belanja kini menampilkan **"Detail teknis"** (4 baris pertama stack) dan menyimpannya di `wynara_last_error`, supaya penyebab pasti bisa diketahui dari layar pengguna tanpa DevTools.
+
 ## [2.19.2] - 2026-09-17
 
 ### Perbaikan lanjutan — simpan Belanja kebal gangguan render

@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.19.2';
+const APP_VERSION = '2.19.3';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -4077,9 +4077,12 @@ function openBelanjaModal(preorderId = null) {
   const form = document.getElementById('belanjaForm');
   form?.addEventListener('submit', (e) => { e.preventDefault(); saveBelanja(); });
   // Pesan kesalahan tampil DI DALAM modal (toast bisa tertutup modal sehingga terasa "tidak bisa disimpan").
-  function belanjaErr(msg) {
+  function belanjaErr(msg, err) {
     const el = document.getElementById('belanjaError');
-    if (el) { el.textContent = msg; el.style.display = 'block'; el.scrollIntoView({ block: 'nearest' }); }
+    const stack = err && err.stack ? String(err.stack).split('\n').slice(0, 4).join(' • ') : '';
+    try { localStorage.setItem('wynara_last_error', JSON.stringify({ at: new Date().toISOString(), where: 'simpan-belanja', msg: String(msg || ''), stack })); } catch {}
+    const detail = stack ? `<div style="font-size:10.5px;color:#7f1d1d;margin-top:6px;word-break:break-word"><b>Detail teknis:</b> ${escapeHtml(stack)}</div>` : '';
+    if (el) { el.innerHTML = escapeHtml(msg) + detail; el.style.display = 'block'; el.scrollIntoView({ block: 'nearest' }); }
     else UI.showError(msg);
   }
   function saveBelanja() {
@@ -4132,7 +4135,7 @@ function openBelanjaModal(preorderId = null) {
       try { renderMuatanPage(); } catch (e) { console.error('render Papan Muatan:', e); }
       try { refresh(); } catch (e) { console.error('refresh setelah belanja:', e); }
       try { queueMirror(); } catch (e) { console.error('mirror setelah belanja:', e); }
-    } catch (e) { belanjaErr(e && e.message ? e.message : 'Gagal simpan belanja'); }
+    } catch (e) { belanjaErr(e && e.message ? e.message : 'Gagal simpan belanja', e); }
   }
 }
 
