@@ -121,6 +121,56 @@ export async function deleteFile(id) {
   return true;
 }
 
+// ---------- Ekspor/impor blob untuk JSON backup ----------
+// Semua lampiran (IDB + fallback localStorage) dibundel agar backup benar-benar bisa dipulihkan di perangkat lain.
+export async function exportBlobs() {
+  const out = [];
+  const seen = new Set();
+  // fallback localStorage
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(LS_PREFIX)) continue;
+      try {
+        const rec = JSON.parse(localStorage.getItem(k));
+        if (rec && rec.id && rec.dataUrl) { out.push(rec); seen.add(rec.id); }
+      } catch {}
+    }
+  } catch {}
+  // IndexedDB
+  try {
+    const db = await openDb();
+    const all = await new Promise((resolve, reject) => {
+      let t;
+      try { t = db.transaction(STORE, 'readonly'); } catch (e) { reject(e); return; }
+      const req = t.objectStore(STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error || new Error('idb-getall'));
+    });
+    (all || []).forEach((r) => { if (r && r.id && !seen.has(r.id)) out.push(r); });
+    try { db.close(); } catch {}
+  } catch {}
+  return out;
+}
+
+// Pulihkan lampiran dari backup. Tidak menimpa berkas yang sudah ada (id sama = biarkan).
+export async function importBlobs(list) {
+  let n = 0;
+  for (const rec of Array.isArray(list) ? list : []) {
+    if (!rec || !rec.id || !rec.dataUrl) continue;
+    if (await getFile(rec.id)) continue;
+    try {
+      const db = await openDb();
+      await idbTx(db, 'readwrite', (s) => s.put(rec, rec.id));
+      try { db.close(); } catch {}
+      n++;
+    } catch {
+      try { localStorage.setItem(LS_PREFIX + rec.id, JSON.stringify(rec)); n++; } catch {}
+    }
+  }
+  return n;
+}
+
 // ---------- Tautan lampiran ke record ----------
 // Segmen: 'belanja' | 'koli' | 'muatan' | 'pesanan' | 'pengiriman'
 const KEY_FOR = { belanja: 'wynara_belanja', koli: 'wynara_koli', muatan: 'wynara_muatan', pesanan: 'wynara_preorders', pengiriman: 'wynara_shipments' };

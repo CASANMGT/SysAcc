@@ -3957,6 +3957,7 @@ function renderKirimBaru() {
       </div>
     </aside>
   </div>
+  ${renderKirimListHtml()}
   <div class="beli-footer">
     <button type="button" class="btn btn-ghost" id="kirimCancel">Batal</button>
     <div style="display:flex;gap:8px">
@@ -3989,12 +3990,42 @@ function bindKirimBaru() {
   on('kirimConfirm', 'click', () => saveKirim(false));
   on('kirimGotoBeli', 'click', () => document.getElementById('pembelianBtnSidebar')?.click());
   on('kirimGotoProduk', 'click', () => document.getElementById('stockBtnSidebar')?.click());
+  host.querySelectorAll('.kirim-confirm-row').forEach((b) => b.addEventListener('click', () => {
+    try {
+      Storage.confirmShipment(b.dataset.id, { date: kirimState.date });
+      UI.showSuccess('Pengiriman dikonfirmasi');
+      renderKirimBaru(); try { renderSalesPage(); } catch {} try { refresh(); } catch {} try { queueMirror(); } catch {}
+    } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal konfirmasi'); }
+  }));
   host.querySelectorAll('input[data-f]').forEach((el) => el.addEventListener('change', () => {
     const i = Number(el.dataset.i); const f = el.dataset.f;
     if (f === 'checked') s.lines[i].checked = el.checked;
     else s.lines[i].send = Math.min(Math.max(Number(el.value) || 0, 0), s.lines[i].ready);
     rerender();
   }));
+}
+
+// Daftar pengiriman terbaru + lampiran (surat jalan / invoice) untuk tiap pengiriman.
+function renderKirimListHtml() {
+  const list = (() => { try { return Storage.getShipments(); } catch { return []; } })();
+  const recent = list.slice().reverse().slice(0, 10);
+  const fmt = (v) => Reports.formatCurrency(v);
+  if (!recent.length) return '';
+  return `<section class="beli-card-box">
+    <div class="beli-step"><span>📦</span> Pengiriman terbaru — tempel surat jalan / invoice</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${recent.map((s) => `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
+          <div><b style="font-size:13px">${escapeHtml(s.no)}</b> <span class="chip" style="font-size:10px">${s.status === 'draft' ? 'Draft' : 'Terkirim'}</span>
+            <div class="beli-hint">${escapeHtml(s.recipient || '—')} • ${escapeHtml(s.courier || '')} ${escapeHtml(s.service || '')}${s.tracking ? ' • resi ' + escapeHtml(s.tracking) : ''} • ${escapeHtml(String(s.date || ''))}${s.shippingCost ? ' • biaya ' + fmt(s.shippingCost) : ''}</div>
+            <div class="beli-hint">${(s.lines || []).map((l) => `${escapeHtml(l.name)} × ${l.qty}`).join(', ')}</div>
+          </div>
+          ${s.status === 'draft' ? `<button type="button" class="btn btn-primary kirim-confirm-row" data-id="${s.id}" style="font-size:11px;padding:4px 10px">Konfirmasi</button>` : ''}
+        </div>
+        ${attachBlockHtml('pengiriman', s.id, s.attachments || [])}
+      </div>`).join('')}
+    </div>
+  </section>`;
 }
 
 function saveKirim(asDraft) {

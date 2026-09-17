@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /* global File */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { saveFile, getFile, deleteFile, attachTo, detachFrom, fileToDataUrl, compressImage } from '../files.js';
+import { saveFile, getFile, deleteFile, attachTo, detachFrom, fileToDataUrl, compressImage, exportBlobs, importBlobs } from '../files.js';
 import { createBelanja, getBelanjas } from '../lcl.js';
 import { createShipment, getShipments } from '../storage.js';
 
@@ -35,6 +35,20 @@ describe('lampiran: simpan, ambil, hapus', () => {
     const f = new File([new Uint8Array([1, 2, 3])], 'x.bin', { type: 'application/octet-stream' });
     const url = await fileToDataUrl(f);
     expect(url.startsWith('data:')).toBe(true);
+  });
+});
+
+describe('lampiran ikut JSON backup', () => {
+  it('exportBlobs → importBlobs memulihkan berkas di perangkat baru', async () => {
+    const meta = await saveFile({ name: 'surat-jalan.pdf', type: 'application/pdf', dataUrl: 'data:application/pdf;base64,QQ==' }, { compress: false });
+    const dumped = await exportBlobs();
+    expect(dumped.some((f) => f.id === meta.id)).toBe(true);
+    await deleteFile(meta.id);
+    expect(await getFile(meta.id)).toBeNull();
+    const n = await importBlobs(dumped);
+    expect(n).toBeGreaterThan(0);
+    const back = await getFile(meta.id);
+    expect(back && back.name).toBe('surat-jalan.pdf');
   });
 });
 

@@ -2,6 +2,7 @@ import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
 import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, buildPreorderPayJournal, buildPreorderCostJournal, buildPreorderSettleJournal, buildPreorderRefundJournal, findUnbalanced } from './journals.js';
 import { getAccounts, ACCOUNTS, COA_RENUMBER, INVENTORY_ACCOUNT, accountForPayment } from './coa.js';
+import { exportBlobs, importBlobs } from './files.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -316,8 +317,11 @@ export function exportEntries() {
   return JSON.stringify(entries, null, 2);
 }
 
-export function exportJSON() {
+export async function exportJSON() {
   const data = snapshotAll();
+  // Lampiran (blob) ikut ke dalam backup supaya benar-benar bisa dipulihkan di perangkat lain.
+  try { data.files = await exportBlobs(); }
+  catch { data.files = []; data.filesError = true; }
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -761,7 +765,7 @@ export function validateBackupJSON(text) {
   return { ok: true, errors, skipped: 0 };
 }
 
-function importJSONFile(file) {
+async function importJSONFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -919,7 +923,12 @@ function importJSONFile(file) {
               try { localStorage.setItem(COA_KEY, JSON.stringify(getCustomAccounts().concat(clean))); } catch { skipped += clean.length; }
             }
           }
-        resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, purchases: cB || 0, skipped });
+        // Lampiran (blob) dari backup — dipulihkan tanpa menimpa berkas yang sudah ada.
+        importBlobs(data.files).then((cF) => {
+          resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, purchases: cB || 0, files: cF || 0, skipped });
+        }).catch(() => {
+          resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, purchases: cB || 0, files: 0, skipped });
+        });
       } catch (err) {
         reject(new Error('Gagal membaca JSON: ' + err.message));
       }
