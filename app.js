@@ -4190,6 +4190,8 @@ function openBeliBaru(preorderId = null) {
     source: 'marketplace',
     marketplace: 'taobao', seller: '', date: new Date().toISOString().split('T')[0],
     orderNo: '', link: '', ongkirCny: 0, kurs: (() => { try { return Storage.getImporSettings().kurs; } catch { return 2250; } })(),
+    // Pembelian lokal memakai Rupiah apa adanya (kurs 1) — jangan dikali kurs impor.
+    localKurs: 1,
     payMode: 'unpaid', payNow: 0, payAccount: 'transfer',
     lines: po ? (po.items || []).map((l) => ({ name: l.name, qty: l.qty, cny: 0, itemId: l.itemId || '' })) : [{ name: '', qty: 1, cny: 0, itemId: '' }],
   };
@@ -4210,7 +4212,7 @@ function renderBeliBaru() {
   const pos = Storage.getPreorders().filter((p) => p.stage !== 'cancelled' && p.stage !== 'settled');
   const goodsCny = s.lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.cny) || 0), 0);
   const totalCny = goodsCny + (Number(s.ongkirCny) || 0);
-  const totalIdr = Math.round(totalCny * (Number(s.kurs) || 0));
+  const totalIdr = Math.round(totalCny * (s.source === 'local' ? 1 : (Number(s.kurs) || 0)));
   const payNow = s.payMode === 'paid' ? totalIdr : s.payMode === 'partial' ? Math.min(Number(s.payNow) || 0, totalIdr) : 0;
   const sisa = totalIdr - payNow;
   const btn = (on, data, label, sub) => `<button type="button" class="${on ? 'beli-card on' : 'beli-card'}" data-set="${data}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
@@ -4347,7 +4349,7 @@ function refreshBeliSummary() {
   const s = beliState; if (!s) return;
   const goodsCny = s.lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.cny) || 0), 0);
   const totalCny = goodsCny + (Number(s.ongkirCny) || 0);
-  const totalIdr = Math.round(totalCny * (Number(s.kurs) || 0));
+  const totalIdr = Math.round(totalCny * (s.source === 'local' ? 1 : (Number(s.kurs) || 0)));
   const payNow = s.payMode === 'paid' ? totalIdr : s.payMode === 'partial' ? Math.min(Number(s.payNow) || 0, totalIdr) : 0;
   const host = document.getElementById('viewBeliBaru');
   const set = (idx, txt) => { const b = host.querySelectorAll('.beli-sum b')[idx]; if (b) b.textContent = txt; };
@@ -4365,7 +4367,7 @@ function saveBeliBaru(asDraft) {
   if (!lines.length) return err('Tambahkan minimal satu barang dengan jumlah > 0');
   if (s.source === 'marketplace' && !(Number(s.kurs) > 0)) return err('Kurs aktual wajib diisi');
   const totalCny = lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.cny) || 0), 0) + (Number(s.ongkirCny) || 0);
-  const totalIdr = Math.round(totalCny * (Number(s.kurs) || 0));
+  const totalIdr = Math.round(totalCny * (s.source === 'local' ? 1 : (Number(s.kurs) || 0)));
   const payNow = asDraft ? 0 : (s.payMode === 'paid' ? totalIdr : s.payMode === 'partial' ? Math.min(Number(s.payNow) || 0, totalIdr) : 0);
   try {
     // Produk baru → draft produk; yang sudah ada → tautkan.
@@ -4382,7 +4384,7 @@ function saveBeliBaru(asDraft) {
     const b = createBelanja({
       date: s.date, marketplace: s.source === 'marketplace' ? s.marketplace : 'other', seller: s.seller,
       orderNo: s.orderNo, lines: clean, ongkirCny: Number(s.ongkirCny) || 0, agentFee: 0,
-      kursAgen: Number(s.kurs) || 1, payment: s.payAccount, purpose: s.purpose === 'order' ? 'preorder' : 'stock',
+      kursAgen: s.source === 'local' ? 1 : (Number(s.kurs) || 1), payment: s.payAccount, purpose: s.purpose === 'order' ? 'preorder' : 'stock',
       preorderId: s.purpose === 'order' ? s.preorderId : null, chinaTracking: '', link: s.link, draft: true,
     });
     if (!asDraft) finalizeBelanja(b.id, { date: s.date, payment: s.payAccount, payNow });

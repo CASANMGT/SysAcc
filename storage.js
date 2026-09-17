@@ -2081,7 +2081,9 @@ export function readyToShipLines(order) {
   const shipped = {};
   getShipments().filter((s) => s.orderId === order.id && s.status === 'confirmed')
     .forEach((s) => (s.lines || []).forEach((l) => { shipped[l.itemId || l.name] = (shipped[l.itemId || l.name] || 0) + (Number(l.qty) || 0); }));
-  return ((order && order.items) || []).map((l) => ({
+  // Pesanan pelanggan menyimpan barang di `items` (preorder) atau `lines` (penjualan kredit).
+  const src = ((order && order.items) || (order && order.lines) || []);
+  return src.map((l) => ({
     itemId: l.itemId || '', name: l.name, ordered: Number(l.qty) || 0,
     shipped: shipped[l.itemId || l.name] || 0,
     ready: Math.max((Number(l.qty) || 0) - (shipped[l.itemId || l.name] || 0), 0),
