@@ -1582,7 +1582,8 @@ export function snapshotAll() {
     shipments: getShipments(),
     impor: getImporSettings(),
     exportedAt: new Date().toISOString(),
-    version: 3
+    // v4: + belanjas/kolis/muatans/shipments/impor (v3 & lebih lama tetap bisa dipulihkan)
+    version: 4
   };
 }
 
@@ -2130,14 +2131,36 @@ export function confirmShipment(id, { date, payment } = {}) {
   const d = String(date || s.date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
   if (s.borneBy === 'company' && s.shippingCost > 0) {
+    // KEPUTUSAN: biaya kirim ditanggung perusahaan DIKAPITALISASI ke persediaan (bagian biaya pesanan),
+    // bukan langsung dibebankan — supaya margin nyata pesanan ikut menghitungnya.
     const cash = accountForPayment(payment || 'cash');
     postJournal({
       id: generateId(), date: d, memo: `Biaya kirim ${s.no}${s.recipient ? ' — ' + s.recipient : ''}`, ref: 'shipment', refId: s.id,
       lines: [
-        { account: '6208', debit: s.shippingCost, credit: 0, memo: 'Beban kirim & logistik' },
+        { account: INVENTORY_ACCOUNT, debit: s.shippingCost, credit: 0, memo: 'Biaya kirim (bagian harga pokok pesanan)' },
         { account: cash, debit: 0, credit: s.shippingCost, memo: 'Bayar kirim' },
       ],
     });
+    if (s.orderId) {
+      try {
+        if (getPreorderById(s.orderId)) {
+          const pos = getPreorders();
+          const pi = pos.findIndex((p) => p.id === s.orderId);
+          if (pi >= 0) {
+            pos[pi].deliveryCostIdr = (Number(pos[pi].deliveryCostIdr) || 0) + s.shippingCost;
+            pos[pi].events = (pos[pi].events || []).concat([{ date: d, stage: pos[pi].stage, note: 'Biaya kirim ditanggung perusahaan', tracking: '', schedule: '' }]);
+            savePreorders(pos);
+          }
+        } else {
+          const list2 = getCreditSales();
+          const ci = list2.findIndex((c) => c.id === s.orderId);
+          if (ci >= 0) {
+            list2[ci].deliveryCostIdr = (Number(list2[ci].deliveryCostIdr) || 0) + s.shippingCost;
+            saveCreditSales(list2);
+          }
+        }
+      } catch {}
+    }
   }
   if (s.kind === 'customer') {
     // Preorder: barang SUDAH masuk persediaan saat muatan tiba (receiveMuatan) → keluar saat dikirim.

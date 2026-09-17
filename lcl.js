@@ -623,6 +623,32 @@ export function markBelanjaLoss(belanjaId, { type = 'short', amount = 0, qty = 0
   });
   b.losses = (b.losses || []).concat({ date: d, type: kind, amount: amt, qty: q, note: String(note || '').slice(0, 80) });
   if (arrived) b.landedTotal = Math.max((Number(b.landedTotal) || 0) - amt, 0);
+  // KEPUTUSAN: kurang kirim/rusak/hilang pada pesanan pelanggan otomatis MENGURANGI nilai jual pesanan
+  // (dan karena itu piutang/sisa tagihannya), supaya pelanggan tidak ditagih barang yang tak pernah datang.
+  if (q > 0 && b.preorderId) {
+    try {
+      const pos = (() => { const v = JSON.parse(localStorage.getItem('wynara_preorders') || '[]'); return Array.isArray(v) ? v : []; })();
+      const pi = pos.findIndex((p) => p.id === b.preorderId);
+      if (pi >= 0) {
+        const po = pos[pi];
+        const lostNames = (b.lines || []).map((l) => String(l.name).toLowerCase());
+        let cut = q;
+        po.items = (po.items || []).map((l) => {
+          if (cut <= 0 || !lostNames.includes(String(l.name).toLowerCase())) return l;
+          const take = Math.min(cut, Number(l.qty) || 0);
+          cut -= take;
+          return { ...l, qty: Math.max((Number(l.qty) || 0) - take, 0) };
+        }).filter((l) => (Number(l.qty) || 0) > 0);
+        const sub = (po.items || []).reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+        po.subtotal = sub;
+        po.sellTotal = Math.max(sub - (Number(po.discount) || 0), 0);
+        po.events = (po.events || []).concat([{ date: d, stage: po.stage, note: `${label} ${q} pcs — nilai pesanan disesuaikan ke ${'Rp' + Math.round(po.sellTotal).toLocaleString('id-ID')}`, tracking: '', schedule: '' }]);
+        pos[pi] = po;
+        try { localStorage.setItem('wynara_preorders', JSON.stringify(pos)); } catch {}
+        logAudit('update', 'preorder', po.id, null, { shortShipment: q, sellTotal: po.sellTotal });
+      }
+    } catch {}
+  }
   // Kuantitas produk ikut dikurangi bila baris terkait produk.
   if (q > 0) {
     const totQty = (b.lines || []).reduce((s, l) => s + l.qty, 0);
@@ -676,7 +702,15 @@ export function belanjasForPreorder(poId) {
 }
 // Total biaya mendarat untuk pesanan pelanggan (alokasi bila muatan sudah tiba, else biaya dasar).
 export function preorderLandedTotal(poId) {
-  return belanjasForPreorder(poId).reduce((s, b) => s + (b.landedTotal != null ? b.landedTotal : b.totalIdr || 0), 0);
+  const base = belanjasForPreorder(poId).reduce((s, b) => s + (b.landedTotal != null ? b.landedTotal : b.totalIdr || 0), 0);
+  // Biaya kirim ke pelanggan yang ditanggung perusahaan ikut jadi bagian biaya pesanan (margin nyata).
+  let delivery = 0;
+  try {
+    const pos = JSON.parse(localStorage.getItem('wynara_preorders') || '[]');
+    const po = Array.isArray(pos) ? pos.find((p) => p.id === poId) : null;
+    delivery = Number(po && po.deliveryCostIdr) || 0;
+  } catch {}
+  return base + delivery;
 }
 // Sudah dibeli untuk satu pesanan (semua status belanja, termasuk draft) → untuk peringatan beli berlebih.
 export function purchasedQtyFor(orderId, itemId = null, name = null) {
