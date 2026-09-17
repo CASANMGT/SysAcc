@@ -2742,6 +2742,7 @@ function renderOrdersPanel() {
   // Ringkasan yang bisa diklik (requirement 2) — memfilter tabel di bawahnya.
   const goodsOf = (r) => {
     const st = orderStageU(r.stage);
+    if (st === 'draft') return 'belum_dibeli'; // draft menunggu difinalkan → masuk "Perlu diproses"
     if (r.kind === 'po') {
       if (['ordered', 'dp_paid'].includes(st)) return 'belum_dibeli';
       if (['in_wh', 'arrived', 'received'].includes(st)) return 'siap_dikirim';
