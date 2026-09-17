@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.20.0';
+const APP_VERSION = '2.20.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -297,6 +297,46 @@ function updateStorageState() {
   }
 }
 
+/* ===== Ikon outline (Material-style, satu set konsisten) ===== */
+const ICONS = {
+  home: 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z',
+  receipt: 'M6 2h12v20l-3-2-3 2-3-2-3 2z M9 7h6 M9 11h6',
+  bank: 'M3 10 12 4l9 6 M5 10v10 M19 10v10 M3 20h18 M9 14v6 M15 14v6',
+  cart: 'M3 4h2l2.4 11h11.2L21 7H6 M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2 M18 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2',
+  bag: 'M6 8h12l1 12H5z M9 8V6a3 3 0 0 1 6 0v2',
+  truck: 'M3 7h11v9H3z M14 10h4l3 3v3h-7 M7 19a1.6 1.6 0 1 0 0-3.2A1.6 1.6 0 0 0 7 19 M17.5 19a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2',
+  wallet: 'M3 7h15a3 3 0 0 1 3 3v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l3-4h9l3 4 M16 13h2',
+  building: 'M4 21V5l8-3v19 M12 21h8V9l-8-3 M8 8h1 M8 12h1 M8 16h1 M16 12h1 M16 16h1',
+  users: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7 M2 21c0-3.3 3.1-6 7-6s7 2.7 7 6 M17 4.5a3.5 3.5 0 0 1 0 7 M18 21c0-2.4-.8-4.5-2-6 3 .3 5 2.7 5 6',
+  box: 'M12 3 3 7.5V17l9 4.5 9-4.5V7.5z M3 7.5 12 12l9-4.5 M12 12v9.5',
+  handshake: 'M3 12l4-4 5 4 3-2 6 5 M8 8l4-4 4 4 M21 15l-5 5-4-4-3 2',
+  badge: 'M12 3l2.5 1.5L17 4l.8 2.6L20 8.5l-1.4 2.3L19 13l-2.5 1.2L15 17h-6l-1.5-2.8L5 13l.4-2.2L4 8.5l2.2-1.9L7 4l2.5.5z M9 21h6',
+  list: 'M4 6h16 M4 12h16 M4 18h16',
+  chart: 'M4 20V4 M4 20h16 M8 16v-5 M12 16V8 M16 16v-8 M20 16v-3',
+  settings: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7 M19.4 15a7.9 7.9 0 0 0 .1-1 7.9 7.9 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a8 8 0 0 0-1.7-1L15 4.6h-4l-.4 2.5a8 8 0 0 0-1.7 1l-2.3-1-2 3.4L6.6 13a8 8 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a8 8 0 0 0 1.7 1l.4 2.5h4l.4-2.5a8 8 0 0 0 1.7-1l2.3 1 2-3.4z',
+  dots: 'M6 12h.01 M12 12h.01 M18 12h.01',
+  plus: 'M12 5v14 M5 12h14',
+  search: 'M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15 M21 21l-5-5',
+  paperclip: 'M21 11l-8.5 8.5a4.6 4.6 0 0 1-6.5-6.5l8-8a3.2 3.2 0 0 1 4.5 4.5l-8 8a1.8 1.8 0 0 1-2.5-2.5l7-7',
+};
+function iconSvg(name, size = 18) {
+  const d = ICONS[name];
+  if (!d) return '';
+  const paths = d.split(' M').map((seg, i) => `<path d="${i === 0 ? seg : 'M' + seg}"/>`).join('');
+  return `<svg class="mi-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+// Hidrasi semua <span class="mi" data-ic="…"> menjadi SVG outline.
+function hydrateIcons(root = document) {
+  root.querySelectorAll('.mi[data-ic]').forEach((el) => {
+    if (el.dataset.done === '1') return;
+    const size = el.dataset.size ? Number(el.dataset.size) : 18;
+    el.innerHTML = iconSvg(el.dataset.ic, size);
+    el.dataset.done = '1';
+    el.style.display = 'inline-flex';
+    el.style.alignItems = 'center';
+  });
+}
+
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('appRoot').classList.add('hidden');
@@ -431,6 +471,7 @@ function applySimpleMode(mode) {
 function showApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appRoot').classList.remove('hidden');
+  hydrateIcons();
   const role = Storage.getRole();
   document.getElementById('appRoot').setAttribute('data-role', role);
   if (!Storage.getActor().user) Storage.setActor({ role, user: role === 'kasir' ? 'kasir' : 'admin' });

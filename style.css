@@ -4025,3 +4025,78 @@ body.mstore-off #transferOpenBtn { display: none !important; }
 .beli-side-sec { border-top: 1px solid #f1f5f9; margin-top: 10px; padding-top: 10px; font-size: 12px; }
 .beli-side-sec p { color: #475569; margin: 4px 0 0; }
 .beli-footer { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e2e8f0; padding: 10px 0; display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; }
+
+/* ============================================================
+   MATERIAL SWEEP — token, tipografi, kartu, fokus, kontrol
+   Hanya menyentuh tampilan; tidak mengubah perilaku apa pun.
+   ============================================================ */
+:root {
+  --m-bg: #f5f7fb;
+  --m-surface: #ffffff;
+  --m-border: #e3e8ef;
+  --m-text: #1f2937;
+  --m-text-2: #5b6b7c;
+  --m-primary: #2563eb;
+  --m-primary-weak: #eff6ff;
+  --m-radius: 14px;
+  --m-radius-sm: 10px;
+  --m-space: 8px;
+  --m-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .06);
+  --m-shadow-lg: 0 6px 24px rgba(16, 24, 40, .08);
+}
+body { background: var(--m-bg); color: var(--m-text); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+/* Kartu & panel */
+.dash-panel, .beli-card-box, .beli-side, .stock-card, .sales-card {
+  background: var(--m-surface); border: 1px solid var(--m-border); border-radius: var(--m-radius); box-shadow: var(--m-shadow);
+}
+.dash-panel { padding: calc(var(--m-space) * 2); }
+h1 { font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 20px; font-weight: 650; }
+h3 { font-size: 15px; font-weight: 650; color: var(--m-text); }
+.view-header p, p { color: var(--m-text-2); }
+/* Sidebar */
+.sidebar { background: var(--m-surface); border-right: 1px solid var(--m-border); }
+.sidebar-label { font-size: 10.5px; letter-spacing: .08em; color: #8b98a8; }
+.sidebar-item {
+  display: flex; align-items: center; gap: 12px; min-height: 44px;
+  border-radius: var(--m-radius-sm); font-size: 14.5px; font-weight: 500; color: #34455a;
+}
+.sidebar-item .mi { color: #64748b; }
+.sidebar-item:hover { background: #f1f5f9; }
+.sidebar-item.active { background: var(--m-primary); color: #fff; }
+.sidebar-item.active .mi { color: #fff; }
+.topbar { background: var(--m-surface); border-bottom: 1px solid var(--m-border); }
+/* Kontrol */
+.btn { min-height: 40px; border-radius: var(--m-radius-sm); font-weight: 600; font-size: 13.5px; }
+.btn-primary { background: var(--m-primary); border-color: var(--m-primary); }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-ghost { background: #fff; border: 1px solid var(--m-border); color: #34455a; }
+.btn-ghost:hover { background: #f8fafc; }
+input, select, textarea { border-radius: var(--m-radius-sm) !important; border-color: #cbd5e1 !important; font-size: 14px; }
+input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); border-color: var(--m-primary) !important; }
+.chip { min-height: 34px; border-radius: 9999px; font-weight: 600; }
+.chip.selected { background: var(--m-primary-weak); border-color: var(--m-primary); color: #1d4ed8; }
+/* Tabel */
+.report-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; }
+.report-table thead th { background: #f8fafc; color: #55657a; font-weight: 650; font-size: 12px; text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--m-border); }
+.report-table tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.report-table tbody tr:hover { background: #fafcff; }
+.amount-col { text-align: right; font-variant-numeric: tabular-nums; }
+/* Fokus keyboard terlihat */
+:focus-visible { outline: 2px solid var(--m-primary); outline-offset: 2px; border-radius: 8px; }
+/* Modal */
+.modal-content { border-radius: 16px; box-shadow: var(--m-shadow-lg); }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--m-border); }
+.modal-body { padding: 16px 20px; }
+.modal-footer { padding: 12px 20px; border-top: 1px solid var(--m-border); }
+/* Bottom nav */
+.bottomnav { background: var(--m-surface); border-top: 1px solid var(--m-border); }
+.bn-item { font-size: 11px; font-weight: 600; color: #64748b; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 52px; justify-content: center; }
+.bn-item.active { color: var(--m-primary); }
+.bn-item .mi { color: inherit; }
+.bn-add { background: var(--m-primary); color: #fff; border-radius: 9999px; box-shadow: var(--m-shadow); }
+@media (max-width: 640px) {
+  body { font-size: 15px; }
+  h1 { font-size: 22px; }
+  .dash-panel { padding: 12px; }
+}

@@ -191,30 +191,30 @@
       <div class="sidebar-body">
         <div class="sidebar-label">MENU</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item active" data-nav="ringkasan">📊 Ringkasan</button>
-          <button class="sidebar-item" id="sidebarTransaksi">🧾 Transaksi</button>
+          <button class="sidebar-item active" data-nav="ringkasan"><span class="mi" data-ic="home" aria-hidden="true"></span>Ringkasan</button>
+          <button class="sidebar-item" id="sidebarTransaksi"><span class="mi" data-ic="receipt" aria-hidden="true"></span>Transaksi</button>
         </nav>
         <div class="sidebar-label">KEUANGAN</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" id="kasBtnSidebar">💳 Kas &amp; Bank</button>
-          <button class="sidebar-item" id="salesBtnSidebar">🛒 Penjualan</button>
-          <button class="sidebar-item" id="pembelianBtnSidebar">🧺 Pembelian</button>
-          <button class="sidebar-item" id="muatanBtnSidebar">🧭 Pengiriman</button>
-          <button class="sidebar-item" id="biayaBtnSidebar">💸 Biaya</button>
-          <button class="sidebar-item" id="assetBtnSidebar">🏢 Aset Tetap</button>
+          <button class="sidebar-item" id="kasBtnSidebar"><span class="mi" data-ic="bank" aria-hidden="true"></span>Kas & Bank</button>
+          <button class="sidebar-item" id="salesBtnSidebar"><span class="mi" data-ic="cart" aria-hidden="true"></span>Penjualan</button>
+          <button class="sidebar-item" id="pembelianBtnSidebar"><span class="mi" data-ic="bag" aria-hidden="true"></span>Pembelian</button>
+          <button class="sidebar-item" id="muatanBtnSidebar"><span class="mi" data-ic="truck" aria-hidden="true"></span>Pengiriman</button>
+          <button class="sidebar-item" id="biayaBtnSidebar"><span class="mi" data-ic="wallet" aria-hidden="true"></span>Biaya</button>
+          <button class="sidebar-item" id="assetBtnSidebar"><span class="mi" data-ic="building" aria-hidden="true"></span>Aset Tetap</button>
         </nav>
         <div class="sidebar-label">DATA</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" id="contactsBtnSidebar">👥 Kontak</button>
-          <button class="sidebar-item" id="stockBtnSidebar">📦 Produk</button>
-          <button class="sidebar-item" id="loanBtnSidebar" aria-label="Pinjemin (Arsip)" hidden>🤝 Pinjemin</button>
-          <button class="sidebar-item" id="payrollBtnSidebar">🤵 Karyawan &amp; Gaji</button>
-          <button class="sidebar-item" id="coaBtnSidebar">📒 Daftar Akun</button>
+          <button class="sidebar-item" id="contactsBtnSidebar"><span class="mi" data-ic="users" aria-hidden="true"></span>Kontak</button>
+          <button class="sidebar-item" id="stockBtnSidebar"><span class="mi" data-ic="box" aria-hidden="true"></span>Produk</button>
+          <button class="sidebar-item" id="loanBtnSidebar" aria-label="Pinjemin (Arsip)" hidden><span class="mi" data-ic="handshake" aria-hidden="true"></span>Pinjemin</button>
+          <button class="sidebar-item" id="payrollBtnSidebar"><span class="mi" data-ic="badge" aria-hidden="true"></span>Karyawan & Gaji</button>
+          <button class="sidebar-item" id="coaBtnSidebar"><span class="mi" data-ic="list" aria-hidden="true"></span>Daftar Akun</button>
         </nav>
         <div class="sidebar-label">LAINNYA</div>
         <nav class="sidebar-nav">
-          <button class="sidebar-item" id="reportBtnSidebar">📄 Laporan</button>
-          <button class="sidebar-item" id="themeToggleSidebar">⚙️ Pengaturan</button>
+          <button class="sidebar-item" id="reportBtnSidebar"><span class="mi" data-ic="chart" aria-hidden="true"></span>Laporan</button>
+          <button class="sidebar-item" id="themeToggleSidebar"><span class="mi" data-ic="settings" aria-hidden="true"></span>Pengaturan</button>
         </nav>
         <div class="sidebar-help">
           <div class="sidebar-help-title">❓ Butuh bantuan?</div>
@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.20.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.20.1</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -542,7 +542,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.20.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.20.1</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -2444,11 +2444,11 @@
 </dialog>
 
 <nav class="bottomnav" id="bottomNav" aria-label="Navigasi utama">
-  <button type="button" class="bn-item active" data-bnav="ringkasan"><span aria-hidden="true">🏠</span>Beranda</button>
-  <button type="button" class="bn-item" data-bnav="pembelian"><span aria-hidden="true">🧺</span>Pembelian</button>
+  <button type="button" class="bn-item active" data-bnav="ringkasan"><span class="mi" data-ic="home" aria-hidden="true"></span>Beranda</button>
+  <button type="button" class="bn-item" data-bnav="pembelian"><span class="mi" data-ic="bag" aria-hidden="true"></span>Pembelian</button>
   <button type="button" class="bn-add" data-bnav="add" aria-label="Tambah transaksi" title="Tambah transaksi">＋</button>
-  <button type="button" class="bn-item" data-bnav="sales"><span aria-hidden="true">🛒</span>Penjualan</button>
-  <button type="button" class="bn-item" data-bnav="more" aria-haspopup="dialog"><span aria-hidden="true">⋯</span>Lainnya</button>
+  <button type="button" class="bn-item" data-bnav="sales"><span class="mi" data-ic="cart" aria-hidden="true"></span>Penjualan</button>
+  <button type="button" class="bn-item" data-bnav="more" aria-haspopup="dialog"><span class="mi" data-ic="dots" aria-hidden="true"></span>Lainnya</button>
 </nav>
 
 <dialog id="assetModal" class="modal">
@@ -2780,7 +2780,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.20.0';
+    window.__htmlVersion = '2.20.1';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

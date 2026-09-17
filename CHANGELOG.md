@@ -8,6 +8,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.20.1] - 2026-09-17 — Material visual sweep (masih di cabang pratinjau)
+
+- **Ikon outline menggantikan emoji di navigasi**: sidebar (Ringkasan, Transaksi, Kas & Bank, Penjualan, Pembelian, Pengiriman, Biaya, Aset Tetap, Kontak, Produk, Karyawan & Gaji, Daftar Akun, Laporan, Pengaturan) dan bottom-nav — satu set SVG 24×24 (stroke 1,6) yang dihidrasi oleh `hydrateIcons()`. Menu tetap bisa dibaca/diurutkan dari teksnya saja.
+- **Token tampilan**: latar `#f5f7fb`, permukaan putih, border `#e3e8ef`, radius 14/10, spasi kelipatan 8, bayangan halus.
+- **Tipografi**: teks isi 15 px (16 px di mobile), H1 26 px, bobot judul 650–700, `.amount-col` memakai angka tabular agar kolom rupiah rata.
+- **Kontrol**: tombol tinggi ≥40 px, input/select seragam, `:focus-visible` biru terlihat untuk navigasi keyboard, chip pill, bottom-nav 52 px dengan label di bawah ikon.
+- **Tabel**: header abu terang, baris hover, padding 10–12 px.
+- Tidak ada perubahan perilaku; uji tetap **376 lulus**.
+
 ## [2.20.0] - 2026-09-17 — cabang `feat/redesign-ux` (PRATINJAU, belum produksi)
 
 ### Redesign UI/UX Penjualan · Pembelian · Pengiriman
