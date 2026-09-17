@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.19.0';
+const APP_VERSION = '2.19.1';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -3796,7 +3796,13 @@ document.getElementById('muatanTabs')?.addEventListener('click', (e) => {
   if (b) showMuatanTab(b.dataset.mtab);
 });
 
+// Pembungkus tahan-gagal: satu blok error tidak boleh membuat seluruh halaman kosong.
 function renderMuatanPage() {
+  try { renderMuatanPageUnsafe(); }
+  catch (e) { console.error('Papan Muatan gagal render:', e); }
+  finally { try { showMuatanTab(muatanTab); } catch {} }
+}
+function renderMuatanPageUnsafe() {
   if (!document.getElementById('viewMuatan')) return;
   const fmt = (v) => 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
   const bels = getBelanjas();
@@ -4032,8 +4038,9 @@ function openBelanjaModal(preorderId = null) {
     </select>${forOrder ? `<div style="font-size:10.5px;color:#475569;margin-top:3px">Belanja ini untuk pesanan <b>${escapeHtml(forOrder.no)}</b>${forOrder.customer ? ' — ' + escapeHtml(forOrder.customer) : ''}</div>` : ''}</label>
     <label class="login-check" style="font-size:12px"><input type="checkbox" id="belanjaNewProducts" checked> 🆕 Buat produk <b>draft</b> untuk baris yang belum ada di katalog (aktif otomatis saat barang tiba)</label>
     <div id="belanjaEstimate" style="font-size:11.5px;color:#0f172a;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:8px 10px"></div>
+    <div id="belanjaError" role="alert" style="display:none;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;font-size:12px"></div>
     <div style="font-size:11px;color:#64748b">Jurnal: Dr Persediaan dalam Perjalanan (1211) / Cr kas. Ongkir laut (freight) <b>belum termasuk</b> di jurnal — ditambahkan saat muatan tiba (alokasi otomatis).</div>
-    <button type="submit" class="btn btn-primary" id="belanjaSave">🛍 Simpan belanja (bayar penuh)</button>
+    <button type="button" class="btn btn-primary" id="belanjaSave">🛍 Simpan belanja (bayar penuh)</button>
   </form>`;
   UI.openInfoModal(forOrder ? `🛍 Beli untuk pesanan ${forOrder.no}` : '🛍 Belanja marketplace', html);
   // Estimasi langsung (barang + ongkir China + estimasi laut). Selalu ditandai estimasi.
@@ -4069,15 +4076,28 @@ function openBelanjaModal(preorderId = null) {
   document.getElementById('belanjaSave')?.addEventListener('click', saveBelanja);
   const form = document.getElementById('belanjaForm');
   form?.addEventListener('submit', (e) => { e.preventDefault(); saveBelanja(); });
+  // Pesan kesalahan tampil DI DALAM modal (toast bisa tertutup modal sehingga terasa "tidak bisa disimpan").
+  function belanjaErr(msg) {
+    const el = document.getElementById('belanjaError');
+    if (el) { el.textContent = msg; el.style.display = 'block'; el.scrollIntoView({ block: 'nearest' }); }
+    else UI.showError(msg);
+  }
   function saveBelanja() {
     try {
-      const lines = String(document.getElementById('belanjaLines').value || '').split('\n').map((s) => s.trim()).filter(Boolean).map((s) => {
+      const linesEl = document.getElementById('belanjaLines');
+      if (!linesEl) return; // modal sudah tertutup (klik ganda) — jangan proses lagi
+      const rawLines = String(linesEl.value || '').split('\n').map((s) => s.trim()).filter(Boolean);
+      if (!rawLines.length) return belanjaErr('Isi minimal satu barang. Format satu baris: nama; qty; harga¥; berat kg (opsional). Contoh: Case iPhone 15; 40; 28; 0,35');
+      const lines = rawLines.map((s) => {
         const parts = s.split(';').map((x) => x.trim());
-        return { name: parts[0], qty: Number(parts[1]) || 1, cnyUnit: Number(parts[2]) || 0, weightKg: Number((parts[3] || '').replace(',', '.')) || 0 };
+        return { name: parts[0], qty: Number(String(parts[1] || '').replace(',', '.')) || 0, cnyUnit: Number(String(parts[2] || '').replace(',', '.')) || 0, weightKg: Number((parts[3] || '').replace(',', '.')) || 0 };
       });
+      const badLine = lines.find((l) => !l.name || !(l.qty > 0));
+      if (badLine) return belanjaErr('Baris "' + (badLine.name || '(tanpa nama)') + '" belum lengkap — butuh nama dan qty. Contoh: Case iPhone 15; 40; 28');
+      const kurs = Number(String(document.getElementById('belanjaKurs').value || '').replace(',', '.')) || 0;
+      if (!(kurs > 0)) return belanjaErr('Isi kurs yang benar-benar dibayar (Rp per ¥). Contoh: 2250');
       const poSel = document.getElementById('belanjaFor').value;
       const makeDrafts = !!document.getElementById('belanjaNewProducts')?.checked;
-      const kurs = Number(document.getElementById('belanjaKurs').value) || 0;
       // 2.1: produk baru dari China langsung dibuat sebagai draft (tidak menghambat pembelian).
       if (makeDrafts) {
         try {
@@ -4089,7 +4109,7 @@ function openBelanjaModal(preorderId = null) {
             const dup = Storage.createDraftProductFromBelanja({ name: l.name, cost: est, weightKg: l.weightKg || 0, price: est });
             l.itemId = dup.id;
           });
-        } catch (err) { UI.showError('Produk draft gagal dibuat: ' + (err && err.message ? err.message : '')); }
+        } catch (err) { belanjaErr('Produk draft gagal dibuat: ' + (err && err.message ? err.message : '')); }
       }
       const b = createBelanja({
         date: document.getElementById('belanjaDate').value,
@@ -4110,7 +4130,7 @@ function openBelanjaModal(preorderId = null) {
       renderMuatanPage();
       refresh();
       queueMirror();
-    } catch (e) { UI.showError(e && e.message ? e.message : 'Gagal simpan belanja'); }
+    } catch (e) { belanjaErr(e && e.message ? e.message : 'Gagal simpan belanja'); }
   }
 }
 

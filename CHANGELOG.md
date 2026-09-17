@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.19.1] - 2026-09-17
+
+### Perbaikan — Belanja tidak bisa disimpan & halaman terasa kosong
+- **Penyebab utama**: tombol **Simpan belanja** bertipe `submit` di dalam `<form>`, sementara klik juga punya handler sendiri → **penyimpanan jalan dua kali**. Panggilan kedua terjadi setelah modal tertutup, elemen sudah hilang, lalu melempar error yang menutupi pesan sukses — terlihat seperti "tidak bisa disimpan". Tombol kini `type="button"` dan fungsi menyimpan berhenti aman bila modal sudah tertutup.
+- **Pesan kesalahan tampil di dalam modal** (`#belanjaError`), bukan toast yang bisa tertutup modal — jadi bila baris belum diisi, pengguna melihat alasannya: "Isi minimal satu barang. Format: nama; qty; harga¥; berat kg". Validasi ditambah untuk qty kosong dan kurs ≤ 0.
+- **Render tahan-gagal**: `renderMuatanPage` dibungkus try/catch — satu blok bermasalah tidak lagi membuat seluruh Papan Muatan (dan tab Lokal & Hutang) kosong; tab tetap bisa diklik.
+- Angka koma diterima di qty/harga/berat (`28,5`), sejalan dengan input orang Indonesia.
+
 ## [2.19.0] - 2026-09-16
 
 ### Redesign langkah 6 — pengecualian §5.3 (jurnalnya sendiri)
