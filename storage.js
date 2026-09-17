@@ -1337,7 +1337,8 @@ const PEOPLE_KEY = 'ledger_people';
 function getPeopleList() {
   try {
     const data = localStorage.getItem(PEOPLE_KEY);
-    return data ? JSON.parse(data) : [];
+    const parsed = data ? JSON.parse(data) : [];
+    return Array.isArray(parsed) ? parsed : []; // jangan pernah kembalikan null
   } catch {
     return [];
   }
@@ -1459,7 +1460,8 @@ export function setCategoryBudget(category, amount) {
 export function getRecurring() {
   try {
     const v = localStorage.getItem('wynara_recurring');
-    return v ? JSON.parse(v) : [];
+    const parsed = v ? JSON.parse(v) : [];
+    return Array.isArray(parsed) ? parsed : []; // "null" di localStorage jangan sampai jadi null
   } catch { return []; }
 }
 

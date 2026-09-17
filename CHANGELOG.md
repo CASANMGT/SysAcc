@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.19.2] - 2026-09-17
+
+### Perbaikan lanjutan — simpan Belanja kebal gangguan render
+- **Penyimpanan tidak lagi bisa digagalkan oleh kesalahan render.** Setelah `createBelanja` berhasil, penyegaran tampilan (`renderMuatanPage`, `refresh`, `queueMirror`) dijalankan **best-effort** dengan try/catch masing-masing dan dicatat ke console. Sebelumnya satu error render ("can't access property 'length', list is null") muncul di dalam modal dan membuat penyimpanan yang sudah berhasil terlihat gagal.
+- **Getter diperkuat terhadap `null` di localStorage**: `getRecurring()` dan `getPeopleList()` kini selalu mengembalikan array (dulu bisa mengembalikan `null` bila kunci berisi `"null"`, memicu tepat jenis error `.length`/`.sort` di atas).
+- **Produk draft opsional**: bila pembuatan draft gagal, pesan hanya sebagai catatan dan **belanja tetap tersimpan**.
+- Uji regresi alur simpan Belanja (draft + belanja + snapshot) ditambahkan — 357 lulus.
+
 ## [2.19.1] - 2026-09-17
 
 ### Perbaikan — Belanja tidak bisa disimpan & halaman terasa kosong

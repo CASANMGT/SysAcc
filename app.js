@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.19.1';
+const APP_VERSION = '2.19.2';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -4109,7 +4109,7 @@ function openBelanjaModal(preorderId = null) {
             const dup = Storage.createDraftProductFromBelanja({ name: l.name, cost: est, weightKg: l.weightKg || 0, price: est });
             l.itemId = dup.id;
           });
-        } catch (err) { belanjaErr('Produk draft gagal dibuat: ' + (err && err.message ? err.message : '')); }
+        } catch (err) { belanjaErr('Catatan: produk draft gagal dibuat (' + (err && err.message ? err.message : 'tidak diketahui') + '). Belanja tetap bisa disimpan.'); }
       }
       const b = createBelanja({
         date: document.getElementById('belanjaDate').value,
@@ -4127,9 +4127,11 @@ function openBelanjaModal(preorderId = null) {
       UI.closeInfoModal();
       const nDraft = lines.filter((l) => l.itemId).length;
       UI.showSuccess(`Belanja ${b.no} tersimpan — ${fmt(b.totalIdr)}${nDraft ? ` • ${nDraft} produk siap (draft jadi aktif saat tiba)` : ''}`);
-      renderMuatanPage();
-      refresh();
-      queueMirror();
+      // Segarkan tampilan bersifat best-effort: kegagalan render TIDAK boleh membuat
+      // penyimpanan yang sudah berhasil terlihat seperti gagal.
+      try { renderMuatanPage(); } catch (e) { console.error('render Papan Muatan:', e); }
+      try { refresh(); } catch (e) { console.error('refresh setelah belanja:', e); }
+      try { queueMirror(); } catch (e) { console.error('mirror setelah belanja:', e); }
     } catch (e) { belanjaErr(e && e.message ? e.message : 'Gagal simpan belanja'); }
   }
 }
