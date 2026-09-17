@@ -3770,6 +3770,7 @@ function openOrderDetail(kind, id) {
       ${payRows ? `<div style="overflow-x:auto;margin-top:4px"><table class="report-table"><thead><tr><th>Tanggal</th><th>Jenis</th><th class="amount-col">Jumlah</th></tr></thead><tbody>${payRows}</tbody></table></div>` : '<div style="font-size:11.5px;color:#64748b;margin-top:4px">Belum ada pembayaran.</div>'}
     </div>
     <div><b style="font-size:12px">Riwayat</b><div style="margin-top:4px">${evRows || '<div style="font-size:11.5px;color:#64748b">Belum ada kejadian.</div>'}</div></div>
+    ${attachBlockHtml('pesanan', r.id, r.attachments || [], { title: 'Lampiran pesanan (chat, DP, dokumen)' })}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${bal > 0.01 ? `<button type="button" class="btn btn-primary detail-pay" data-kind="${kind}" data-id="${id}">💵 Terima pembayaran</button>` : ''}
       ${isPo ? `<button type="button" class="btn btn-ghost detail-cost" data-kind="${kind}" data-id="${id}">🧾 Catat biaya</button>
@@ -3778,27 +3779,56 @@ function openOrderDetail(kind, id) {
     </div>
   </div>`;
   UI.openInfoModal(`📄 Pesanan ${escapeHtml(r.no || r.invoiceNo || '')}`, html);
+  tempAttachRerender = () => openOrderDetail(kind, id);
+  const modalBody = document.getElementById('infoModalBody');
+  if (modalBody) bindAttachBlocks(modalBody);
 }
 
-/* ===== Lampiran (dipakai halaman Beli, Pengiriman, Detail Pesanan) ===== */
-function attachBlockHtml(seg, id, attachments) {
+/* ===== Lampiran (dipakai halaman Beli, Pengiriman, Detail Pesanan, Muatan, Koli) ===== */
+const KB = (n) => Math.max(1, Math.round((Number(n) || 0) / 1024));
+function attachBlockHtml(seg, id, attachments, { title = 'Lampiran dan tautan' } = {}) {
   const list = attachments || [];
-  return `<div class="beli-side-sec" data-attach="${seg}:${id}">
-    <b>Lampiran dan tautan</b>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-      <label class="btn btn-ghost" style="font-size:12px;padding:6px 10px;cursor:pointer">
-        📎 Tambah berkas<input type="file" class="attach-input" data-seg="${seg}" data-id="${id}" multiple accept="image/*,.pdf" style="display:none">
-      </label>
-      ${id ? '' : '<span class="beli-hint">Simpan dulu untuk menempel lampiran.</span>'}
+  const total = list.reduce((a, x) => a + (Number(x.size) || 0), 0);
+  return `<div class="beli-side-sec attach-block" data-attach="${seg}:${id || ''}">
+    <b>${escapeHtml(title)}</b>${list.length ? `<span class="beli-hint"> — ${list.length} berkas, ± ${KB(total)} KB</span>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">
+      ${id ? `<label class="btn btn-ghost" style="font-size:12px;padding:6px 10px;cursor:pointer">📎 Tambah berkas
+        <input type="file" class="attach-input" data-seg="${seg}" data-id="${id}" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" style="display:none"></label>`
+      : '<span class="beli-hint">Simpan dulu untuk menempel lampiran.</span>'}
     </div>
     <div class="attach-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      ${list.map((a) => `<div class="attach-item" data-file="${escapeHtml(a.id)}" style="border:1px solid #e2e8f0;border-radius:10px;padding:6px 8px;font-size:11.5px;display:flex;gap:6px;align-items:center">
-        <span>${a.kind === 'image' ? '🖼️' : '📄'}</span>
-        <a href="#" class="attach-open" data-file="${escapeHtml(a.id)}" style="color:#1d4ed8;text-decoration:none">${escapeHtml(a.name)}</a>
-        <button type="button" class="attach-del" data-seg="${seg}" data-id="${id}" data-file="${escapeHtml(a.id)}" style="background:none;border:none;cursor:pointer;color:#ef4444">✕</button>
+      ${list.map((a) => `<div class="attach-item" data-file="${escapeHtml(a.id)}" title="${escapeHtml(a.name)}">
+        ${a.kind === 'image'
+      ? `<img class="attach-thumb" alt="${escapeHtml(a.name)}" data-file="${escapeHtml(a.id)}" src="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;cursor:zoom-in;background:#f1f5f9">`
+      : `<span class="attach-thumb attach-doc" style="width:56px;height:56px;border-radius:8px;border:1px solid #e2e8f0;display:inline-flex;align-items:center;justify-content:center;font-size:20px;background:#f8fafc">📄</span>`}
+        <div style="display:flex;flex-direction:column;gap:2px;max-width:150px">
+          <a href="#" class="attach-open" data-file="${escapeHtml(a.id)}" style="color:#1d4ed8;text-decoration:none;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.name)}</a>
+          <span class="beli-hint">${a.kind === 'image' ? 'Gambar' : 'Dokumen'} • ${KB(a.size)} KB</span>
+          <button type="button" class="attach-del" data-seg="${seg}" data-id="${id}" data-file="${escapeHtml(a.id)}" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:11px;text-align:left;padding:0">Hapus</button>
+        </div>
       </div>`).join('') || '<span class="beli-hint">Belum ada lampiran.</span>'}
     </div>
   </div>`;
+}
+// Thumbnail dimuat dari IndexedDB/fallback setelah blok tampil.
+function hydrateAttachThumbs(root) {
+  root.querySelectorAll('img.attach-thumb[data-file]').forEach(async (img) => {
+    const f = await Files.getFile(img.dataset.file);
+    if (f && f.dataUrl) img.src = f.dataUrl;
+    else img.replaceWith(Object.assign(document.createElement('span'), { textContent: '⚠️', title: 'Berkas tidak ditemukan di perangkat ini', style: 'width:56px;height:56px;display:inline-flex;align-items:center;justify-content:center' }));
+  });
+}
+function openAttachPreview(id) {
+  Files.getFile(id).then((f) => {
+    if (!f) return UI.showError('Lampiran tidak ditemukan di perangkat ini');
+    const w = window.open('', '_blank');
+    if (!w) return UI.showError('Popup diblokir — izinkan popup untuk membuka lampiran');
+    const title = escapeHtml(f.name);
+    w.document.write(f.kind === 'image'
+      ? `<title>${title}</title><body style="margin:0;background:#0f172a"><img src="${f.dataUrl}" style="max-width:100%;display:block;margin:0 auto"></body>`
+      : `<title>${title}</title><iframe src="${f.dataUrl}" style="border:0;width:100%;height:100vh"></iframe>`);
+    w.document.close();
+  });
 }
 function bindAttachBlocks(root) {
   root.querySelectorAll('.attach-input').forEach((inp) => inp.addEventListener('change', async (e) => {
@@ -3814,28 +3844,29 @@ function bindAttachBlocks(root) {
     if (ok) UI.showSuccess(`${ok} lampiran tersimpan`);
     if (failMsg) UI.showError(failMsg);
     e.target.value = '';
-    if (typeof beliState !== 'undefined' && beliState && document.getElementById('viewBeliBaru') && !document.getElementById('viewBeliBaru').classList.contains('hidden')) { renderBeliBaru(); return; }
-    if (kirimState && document.getElementById('viewKirimBaru') && !document.getElementById('viewKirimBaru').classList.contains('hidden')) { renderKirimBaru(); return; }
-    try { renderSalesPage(); } catch {}
+    rerenderAttachHost();
   }));
-  root.querySelectorAll('.attach-open').forEach((a) => a.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const f = await Files.getFile(a.dataset.file);
-    if (!f) return UI.showError('Lampiran tidak ditemukan di perangkat ini');
-    const w = window.open('', '_blank');
-    if (!w) return UI.showError('Popup diblokir — izinkan popup untuk membuka lampiran');
-    w.document.write(f.kind === 'image' ? `<title>${escapeHtml(f.name)}</title><img src="${f.dataUrl}" style="max-width:100%">` : `<title>${escapeHtml(f.name)}</title><iframe src="${f.dataUrl}" style="border:0;width:100%;height:100vh"></iframe>`);
-    w.document.close();
-  }));
+  root.querySelectorAll('.attach-open').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); openAttachPreview(a.dataset.file); }));
+  root.querySelectorAll('img.attach-thumb[data-file]').forEach((img) => img.addEventListener('click', () => openAttachPreview(img.dataset.file)));
   root.querySelectorAll('.attach-del').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm('Hapus lampiran ini?')) return;
     await Files.detachFrom(b.dataset.seg, b.dataset.id, b.dataset.file);
     UI.showSuccess('Lampiran dihapus');
+    rerenderAttachHost();
+  }));
+  hydrateAttachThumbs(root);
+}
+// Segarkan tampilan yang sedang terbuka setelah lampiran berubah.
+function rerenderAttachHost() {
+  try {
     if (document.getElementById('viewBeliBaru') && !document.getElementById('viewBeliBaru').classList.contains('hidden')) { renderBeliBaru(); return; }
     if (document.getElementById('viewKirimBaru') && !document.getElementById('viewKirimBaru').classList.contains('hidden')) { renderKirimBaru(); return; }
-    try { renderSalesPage(); } catch {}
-  }));
+    const im = document.getElementById('infoModal');
+    if (im && im.open && tempAttachRerender) { tempAttachRerender(); return; }
+    renderSalesPage();
+  } catch {}
 }
+let tempAttachRerender = null;
 
 /* ===== Pengiriman baru (halaman penuh, mengikuti mockup) ===== */
 let kirimState = null;
@@ -4786,7 +4817,8 @@ function renderMuatanPageUnsafe() {
         <td class="amount-col">${(k.cbm || 0).toFixed(2)}${k.cbm < 0.1 ? ' <span style="color:#b45309;font-weight:700">→0,1</span>' : ''}</td>
         <td class="amount-col">${k.weightKg || '—'}</td>
         <td style="font-size:12px">${escapeHtml((muats.find((x) => x.id === k.muatanId) || {}).code || '—')}${k.deferred ? ' <span style="color:#b45309">(tunda)</span>' : ''}</td>
-        <td style="font-size:12px">${(k.belanjaIds || []).length}</td></tr>`).join('')}
+        <td style="font-size:12px">${(k.belanjaIds || []).length}</td>
+        <td><button type="button" class="btn btn-ghost koli-attach" data-id="${k.id}" style="font-size:11px;padding:2px 8px" title="Lampiran koli (foto paket, packing list)">📎 ${(k.attachments || []).length || ''}</button></td></tr>`).join('')}
     </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada koli. Cek-in paket dari daftar forwarder.</p>';
   }
   // Muatan list (tab Muatan)
@@ -5131,8 +5163,13 @@ function openMuatanDetailModal(muatanId) {
         ${m.allocated ? '<span style="font-size:12px;color:#059669;font-weight:700">✔ Biaya sudah dialokasi</span>' : ''}
       </div>
       ${m.freightBilled ? `<div style="font-size:11px;color:#64748b">Ongkos dibill <b>${fmt(m.freightBilled)}</b>${m.departed ? ' • berangkat ' + escapeHtml(m.departed) : ''}</div>` : ''}
+      ${attachBlockHtml('muatan', m.id, m.attachments || [], { title: 'Lampiran muatan (invoice forwarder, packing list)' })}
+      ${(m.koliIds || []).length ? `<div style="margin-top:6px"><b style="font-size:12px">Lampiran per koli</b>${(m.koliIds || []).map((kid) => { const k = getKoliById(kid); if (!k) return ''; return `<div style="border:1px solid #f1f5f9;border-radius:10px;padding:8px;margin-top:6px">${attachBlockHtml('koli', k.id, k.attachments || [], { title: 'Koli ' + k.parcelNo })}</div>`; }).join('')}</div>` : ''}
     </div>`;
     UI.openInfoModal(`🚢 Muatan ${m.code || m.id}`, html);
+    tempAttachRerender = () => openMuatanDetailModal(muatanId);
+    const modalBody = document.getElementById('infoModalBody');
+    if (modalBody) bindAttachBlocks(modalBody);
     document.querySelectorAll('.koli-load').forEach((el) => el.addEventListener('click', () => { try { loadKoli(muatanId, el.dataset.id); openMuatanDetailModal(muatanId); } catch (e) { UI.showError(e.message); } }));
     document.querySelectorAll('.koli-unload').forEach((el) => el.addEventListener('click', () => { try { unloadKoli(muatanId, el.dataset.id); openMuatanDetailModal(muatanId); } catch (e) { UI.showError(e.message); } }));
     document.querySelectorAll('.muatan-depart').forEach((el) => el.addEventListener('click', () => openDepartModal(el.dataset.id)));
@@ -5320,6 +5357,17 @@ document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
   const openMut = e.target.closest('.mtab-open-muatan');
   if (openMut) { openMuatanDetailModal(openMut.dataset.id); return; }
   const loss = e.target.closest('.belanja-loss');
+  const koliAtt = e.target.closest('.koli-attach');
+  if (koliAtt) {
+    const k = getKoliById(koliAtt.dataset.id);
+    if (k) {
+      UI.openInfoModal(`🧾 Koli ${escapeHtml(k.parcelNo)}`, attachBlockHtml('koli', k.id, k.attachments || [], { title: 'Lampiran koli' }));
+      tempAttachRerender = () => { const kk = getKoliById(koliAtt.dataset.id); UI.openInfoModal(`🧾 Koli ${escapeHtml(kk.parcelNo)}`, attachBlockHtml('koli', kk.id, kk.attachments || [], { title: 'Lampiran koli' })); const mb = document.getElementById('infoModalBody'); if (mb) bindAttachBlocks(mb); };
+      const mb = document.getElementById('infoModalBody');
+      if (mb) bindAttachBlocks(mb);
+    }
+    return;
+  }
   if (loss) { openBelanjaLossId = loss.dataset.id; openBelanjaLossPrompt(loss.dataset.id); return; }
   const fin = e.target.closest('.belanja-final');
   if (fin) {
