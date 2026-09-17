@@ -2058,6 +2058,104 @@ export function receiveStockBySource(itemId, qty, unitCost, { date, payment, sou
   return updated;
 }
 
+// ===== Pengiriman (shipment) — pengiriman lokal ke pelanggan, dukung kirim sebagian =====
+const SHIP_KEY = 'wynara_shipments';
+export function getShipments() {
+  try { const v = JSON.parse(localStorage.getItem(SHIP_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+function saveShipments(list) { try { localStorage.setItem(SHIP_KEY, JSON.stringify(list)); } catch {} }
+export function nextShipmentNo() {
+  const n = getShipments().length + 1;
+  const d = new Date();
+  return `SJ-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${String(n).padStart(3, '0')}`;
+}
+// Sudah dikirim untuk satu pesanan (per item) — dari pengiriman yang dikonfirmasi.
+export function shippedQtyFor(orderId, itemId = null) {
+  return getShipments().filter((s) => s.orderId === orderId && s.status === 'confirmed')
+    .flatMap((s) => s.lines || [])
+    .filter((l) => !itemId || l.itemId === itemId)
+    .reduce((a, l) => a + (Number(l.qty) || 0), 0);
+}
+// Siap dikirim per baris pesanan = dipesan − sudah dikirim.
+export function readyToShipLines(order) {
+  const shipped = {};
+  getShipments().filter((s) => s.orderId === order.id && s.status === 'confirmed')
+    .forEach((s) => (s.lines || []).forEach((l) => { shipped[l.itemId || l.name] = (shipped[l.itemId || l.name] || 0) + (Number(l.qty) || 0); }));
+  return ((order && order.items) || []).map((l) => ({
+    itemId: l.itemId || '', name: l.name, ordered: Number(l.qty) || 0,
+    shipped: shipped[l.itemId || l.name] || 0,
+    ready: Math.max((Number(l.qty) || 0) - (shipped[l.itemId || l.name] || 0), 0),
+    price: Number(l.price) || 0,
+  }));
+}
+export function createShipment(d = {}) {
+  requireCap('ledger');
+  const kind = ['customer', 'supplier', 'transfer'].includes(d.kind) ? d.kind : 'customer';
+  const lines = (Array.isArray(d.lines) ? d.lines : [])
+    .filter((l) => (l.itemId || l.name) && Number(l.qty) > 0)
+    .map((l) => ({ itemId: String(l.itemId || ''), name: String(l.name || '').slice(0, 80), qty: Math.floor(Number(l.qty) || 0) }));
+  if (!lines.length) throw new Error('Pilih minimal satu barang untuk dikirim');
+  const date = String(d.date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(date);
+  const rec = {
+    id: generateId(), no: nextShipmentNo(), kind, date,
+    orderId: String(d.orderId || ''), orderNo: String(d.orderNo || ''),
+    recipient: String(d.recipient || '').slice(0, 60), address: String(d.address || '').slice(0, 160),
+    origin: String(d.origin || '').slice(0, 60),
+    courier: String(d.courier || '').slice(0, 30), service: String(d.service || '').slice(0, 30),
+    tracking: String(d.tracking || '').slice(0, 40),
+    shippingCost: Math.max(Number(d.shippingCost) || 0, 0),
+    borneBy: d.borneBy === 'customer' ? 'customer' : 'company',
+    status: 'draft', lines,
+    note: String(d.note || '').slice(0, 120), createdAt: new Date().toISOString(),
+  };
+  saveShipments(getShipments().concat(rec));
+  logAudit('create', 'shipment', rec.id, null, { no: rec.no, kind, lines: lines.length, draft: !!d.draft });
+  return rec;
+}
+// Konfirmasi pengiriman: tandai pesanan terkirim + biaya kirim (bila ditanggung perusahaan).
+export function confirmShipment(id, { date, payment } = {}) {
+  requireCap('ledger');
+  const list = getShipments();
+  const i = list.findIndex((s) => s.id === id);
+  if (i < 0) throw new Error('Pengiriman tidak ditemukan');
+  const s = list[i];
+  if (s.status === 'confirmed') throw new Error('Pengiriman ini sudah dikonfirmasi');
+  const d = String(date || s.date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  if (s.borneBy === 'company' && s.shippingCost > 0) {
+    const cash = accountForPayment(payment || 'cash');
+    postJournal({
+      id: generateId(), date: d, memo: `Biaya kirim ${s.no}${s.recipient ? ' — ' + s.recipient : ''}`, ref: 'shipment', refId: s.id,
+      lines: [
+        { account: '6208', debit: s.shippingCost, credit: 0, memo: 'Beban kirim & logistik' },
+        { account: cash, debit: 0, credit: s.shippingCost, memo: 'Bayar kirim' },
+      ],
+    });
+  }
+  if (s.kind === 'customer') try { applyStockMove ? null : null; } catch {}
+  s.status = 'confirmed';
+  list[i] = s;
+  saveShipments(list);
+  // Pesanan: tandai terkirim (hanya untuk pengiriman ke pelanggan).
+  if (s.kind === 'customer' && s.orderId) {
+    const totalOrdered = 0;
+    void totalOrdered;
+    const order = getPreorderById(s.orderId) || getCreditSaleById(s.orderId);
+    if (order) {
+      const lines = readyToShipLines(order);
+      const allSent = lines.every((l) => l.ready <= 0);
+      if (getPreorderById(s.orderId)) {
+        trackPreorder(s.orderId, { stage: allSent ? 'sent' : 'in_wh', date: d, note: `Kirim ${allSent ? 'lengkap' : 'sebagian'} via ${s.courier || 'kurir'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
+      } else {
+        trackCreditOrder(s.orderId, { stage: allSent ? 'sent' : 'received', date: d, note: `Kirim ${allSent ? 'lengkap' : 'sebagian'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
+      }
+    }
+  }
+  logAudit('update', 'shipment', id, null, { confirmed: true });
+  return s;
+}
+
 // ===== Produk draft (dibuat dari pembelian China; jadi aktif saat barang tiba) =====
 // Draft: tampil di katalog & pipeline dengan badge, TIDAK dihitung sebagai stok siap jual.
 export function isDraft(item) { return !!(item && item.status === 'draft'); }

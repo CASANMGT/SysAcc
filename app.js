@@ -3759,6 +3759,191 @@ function openOrderDetail(kind, id) {
   UI.openInfoModal(`📄 Pesanan ${escapeHtml(r.no || r.invoiceNo || '')}`, html);
 }
 
+/* ===== Pengiriman baru (halaman penuh, mengikuti mockup) ===== */
+let kirimState = null;
+function openKirimBaru(orderId = '') {
+  const orders = Storage.getPreorders().filter((p) => p.stage !== 'cancelled')
+    .concat(Storage.getCreditSales().filter((c) => c.stage !== 'done'))
+    .map((o) => ({ id: o.id, no: o.no || o.invoiceNo, customer: o.customer || '', stage: o.stage, kind: Storage.getPreorderById(o.id) ? 'po' : 'jual' }));
+  const first = orderId || (orders[0] ? orders[0].id : '');
+  const order = orders.find((o) => o.id === first);
+  kirimState = {
+    kind: 'customer', orderId: first, orders,
+    recipient: order ? order.customer : '', address: '', origin: 'Gudang Jakarta',
+    courier: 'JNE', service: 'REG', date: new Date().toISOString().split('T')[0], tracking: '',
+    shippingCost: 0, borneBy: 'company', note: '', lines: [],
+  };
+  kirimState.lines = kirimLinesFor(first);
+  renderKirimBaru();
+  document.querySelectorAll('.view-section').forEach((v) => v.classList.add('hidden'));
+  document.getElementById('viewKirimBaru')?.classList.remove('hidden');
+  try { window.scrollTo(0, 0); } catch {}
+}
+function kirimLinesFor(orderId) {
+  const order = Storage.getPreorderById(orderId) || Storage.getCreditSaleById(orderId);
+  if (!order) return [];
+  return Storage.readyToShipLines(order).map((l) => ({ ...l, send: l.ready, checked: l.ready > 0 }));
+}
+function closeKirimBaru() { document.getElementById('muatanBtnSidebar')?.click(); }
+
+function renderKirimBaru() {
+  const host = document.getElementById('viewKirimBaru');
+  if (!host || !kirimState) return;
+  const s = kirimState;
+  const fmt = (v) => Reports.formatCurrency(v);
+  const order = s.orders.find((o) => o.id === s.orderId);
+  const active = s.lines.filter((l) => l.checked && Number(l.send) > 0);
+  const sendQty = active.reduce((a, l) => a + (Number(l.send) || 0), 0);
+  const anyReady = s.lines.some((l) => l.ready > 0);
+  const tab = (k, label, on) => `<button type="button" class="${on ? 'beli-card on' : 'beli-card'}" data-kindtab="${k}"><b>${label}</b><span>${k === 'customer' ? 'Kirim ke pembeli' : k === 'supplier' ? 'Terima dari supplier' : 'Antar gudang'}</span></button>`;
+  host.innerHTML = `
+  <div class="view-header">
+    <div><p style="font-size:12px;color:#64748b;margin:0 0 4px">Pengiriman / Baru</p><h1>Pengiriman baru</h1><p>Pilih pesanan. Barang dan alamat terisi otomatis.</p></div>
+  </div>
+  <div class="beli-grid">
+    <div>
+      <section class="beli-card-box">
+        <div class="beli-opts">
+          ${tab('customer', '🚚 Ke pelanggan', s.kind === 'customer')}
+          ${tab('supplier', '📥 Dari supplier', s.kind === 'supplier')}
+          ${tab('transfer', '🔁 Antargudang', s.kind === 'transfer')}
+        </div>
+      </section>
+      ${s.kind !== 'customer' ? `<section class="beli-card-box">
+        <div class="beli-step"><span>i</span> ${s.kind === 'supplier' ? 'Penerimaan dari supplier' : 'Transfer antargudang'}</div>
+        <div class="beli-note">ⓘ ${s.kind === 'supplier' ? 'Barang dari supplier lokal dicatat di <b>Pembelian</b> (tombol ＋ Beli lokal / Terima Barang), supaya jurnal persediaannya benar — tidak digandakan di sini.' : 'Pindah stok antar toko memakai <b>Produk → Transfer</b> agar stok per gudang tetap konsisten.'}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-primary" id="kirimGotoBeli">🧺 Buka Pembelian</button>
+          <button type="button" class="btn btn-ghost" id="kirimGotoProduk">📦 Buka Produk</button>
+        </div>
+      </section>` : ''}
+      ${s.kind === 'customer' ? `
+      <section class="beli-card-box">
+        <div class="beli-step"><span>1</span> Pesanan dan tujuan</div>
+        <div class="beli-row">
+          <div class="beli-field"><label>Pilih pesanan penjualan</label>
+            <select id="kirimOrder">${s.orders.map((o) => `<option value="${o.id}"${o.id === s.orderId ? ' selected' : ''}>${escapeHtml(o.no || '')} · ${escapeHtml(o.customer || '')}</option>`).join('')}</select></div>
+          <div class="beli-field"><label>Asal / gudang pengiriman</label><input id="kirimOrigin" value="${escapeHtml(s.origin)}"></div>
+          <div class="beli-field"><label>Penerima</label><input id="kirimRecipient" value="${escapeHtml(s.recipient)}"></div>
+          <div class="beli-field"><label>Alamat pengiriman</label><input id="kirimAddress" value="${escapeHtml(s.address)}" placeholder="Alamat lengkap"></div>
+        </div>
+      </section>
+
+      <section class="beli-card-box">
+        <div class="beli-step"><span>2</span> Barang yang dikirim</div>
+        ${!s.lines.length ? '<div class="beli-note">Pesanan ini belum punya barang.</div>' : `
+        <table class="beli-table">
+          <thead><tr><th style="width:36px"></th><th>Produk</th><th style="width:110px">Siap dikirim</th><th style="width:130px">Kirim sekarang</th></tr></thead>
+          <tbody>${s.lines.map((l, i) => `<tr>
+            <td><input type="checkbox" data-i="${i}" data-f="checked"${l.checked ? ' checked' : ''}${l.ready <= 0 ? ' disabled' : ''}></td>
+            <td><b style="font-size:13px">${escapeHtml(l.name)}</b>${l.shipped ? `<div class="beli-hint">sudah dikirim ${l.shipped} dari ${l.ordered}</div>` : ''}</td>
+            <td>${l.ready}</td>
+            <td><input type="number" min="0" max="${l.ready}" data-i="${i}" data-f="send" value="${Number(l.send) || 0}"${l.ready <= 0 ? ' disabled' : ''}></td>
+          </tr>`).join('')}</tbody>
+        </table>
+        <div class="beli-note">ⓘ Bisa kirim sebagian. Sisa barang tetap menunggu pengiriman.</div>`}
+      </section>
+
+      <section class="beli-card-box">
+        <div class="beli-step"><span>3</span> Kurir dan jadwal</div>
+        <div class="beli-row">
+          <div class="beli-field"><label>Kurir</label><select id="kirimCourier">${['JNE', 'J&T', 'SiCepat', 'Gojek', 'Grab', 'Kirim sendiri'].map((c) => `<option${c === s.courier ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
+          <div class="beli-field"><label>Layanan</label><select id="kirimService">${['REG', 'YES', 'OKE', 'Instant', 'Cargo'].map((c) => `<option${c === s.service ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
+          <div class="beli-field"><label>Tanggal kirim</label><input type="date" id="kirimDate" value="${escapeHtml(s.date)}"></div>
+          <div class="beli-field"><label>Nomor resi <span class="beli-hint">bisa diisi nanti</span></label><input id="kirimTracking" value="${escapeHtml(s.tracking)}"></div>
+        </div>
+        <div class="beli-row">
+          <div class="beli-field"><label>Biaya kirim (Rp)</label><input type="number" min="0" id="kirimCost" value="${Number(s.shippingCost) || 0}"></div>
+          <div class="beli-field"><label>Biaya ditanggung</label><select id="kirimBorne">
+            <option value="company"${s.borneBy === 'company' ? ' selected' : ''}>Perusahaan (beban kirim)</option>
+            <option value="customer"${s.borneBy === 'customer' ? ' selected' : ''}>Pelanggan (tidak dibebankan)</option>
+          </select></div>
+        </div>
+      </section>` : ''}
+    </div>
+
+    <aside>
+      <div class="beli-side">
+        <h3>Ringkasan pengiriman <span class="chip" style="font-size:10px">Draft</span></h3>
+        ${order ? `<div class="beli-sum"><span>Pesanan</span><b>${escapeHtml(order.no || '')}</b></div>` : ''}
+        <div class="beli-sum"><span>Penerima</span><b>${escapeHtml(s.recipient || '—')}</b></div>
+        <div class="beli-sum"><span>Asal</span><b>${escapeHtml(s.origin || '—')}</b></div>
+        <div class="beli-sum"><span>Tujuan</span><b>${escapeHtml(s.address ? s.address.slice(0, 24) : '—')}</b></div>
+        <div class="beli-sum"><span>Barang</span><b>${sendQty} unit</b></div>
+        <div class="beli-sum"><span>Kurir</span><b>${escapeHtml(s.courier)} ${escapeHtml(s.service)}</b></div>
+        <div class="beli-sum"><span>Biaya kirim</span><b>${fmt(Number(s.shippingCost) || 0)}</b></div>
+        <div class="beli-side-sec"><b>Simpan dulu, kirim kemudian</b><p>Menyimpan draft belum mengubah stok atau status pesanan.</p></div>
+        ${anyReady ? '' : '<div class="beli-warn">⚠️ Semua barang pesanan ini sudah dikirim.</div>'}
+      </div>
+    </aside>
+  </div>
+  <div class="beli-footer">
+    <button type="button" class="btn btn-ghost" id="kirimCancel">Batal</button>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="btn btn-secondary" id="kirimSaveDraft">Simpan draft</button>
+      <button type="button" class="btn btn-primary" id="kirimConfirm">Konfirmasi pengiriman</button>
+    </div>
+  </div>`;
+  bindKirimBaru();
+}
+
+function bindKirimBaru() {
+  const host = document.getElementById('viewKirimBaru');
+  const s = kirimState;
+  if (!host || !s) return;
+  const rerender = () => renderKirimBaru();
+  const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+  host.querySelectorAll('[data-kindtab]').forEach((el) => el.addEventListener('click', () => { s.kind = el.dataset.kindtab; rerender(); }));
+  on('kirimOrder', 'change', (e) => { s.orderId = e.target.value; const o = s.orders.find((x) => x.id === s.orderId); s.recipient = o ? o.customer : ''; s.lines = kirimLinesFor(s.orderId); rerender(); });
+  on('kirimOrigin', 'input', (e) => { s.origin = e.target.value; });
+  on('kirimRecipient', 'input', (e) => { s.recipient = e.target.value; });
+  on('kirimAddress', 'input', (e) => { s.address = e.target.value; });
+  on('kirimCourier', 'change', (e) => { s.courier = e.target.value; });
+  on('kirimService', 'change', (e) => { s.service = e.target.value; });
+  on('kirimDate', 'change', (e) => { s.date = e.target.value; });
+  on('kirimTracking', 'input', (e) => { s.tracking = e.target.value; });
+  on('kirimCost', 'input', (e) => { s.shippingCost = Number(e.target.value) || 0; });
+  on('kirimBorne', 'change', (e) => { s.borneBy = e.target.value; });
+  on('kirimCancel', 'click', () => closeKirimBaru());
+  on('kirimSaveDraft', 'click', () => saveKirim(true));
+  on('kirimConfirm', 'click', () => saveKirim(false));
+  on('kirimGotoBeli', 'click', () => document.getElementById('pembelianBtnSidebar')?.click());
+  on('kirimGotoProduk', 'click', () => document.getElementById('stockBtnSidebar')?.click());
+  host.querySelectorAll('input[data-f]').forEach((el) => el.addEventListener('change', () => {
+    const i = Number(el.dataset.i); const f = el.dataset.f;
+    if (f === 'checked') s.lines[i].checked = el.checked;
+    else s.lines[i].send = Math.min(Math.max(Number(el.value) || 0, 0), s.lines[i].ready);
+    rerender();
+  }));
+}
+
+function saveKirim(asDraft) {
+  const s = kirimState; if (!s) return;
+  const err = (m) => UI.showError(m);
+  if (s.kind !== 'customer') return err('Gunakan alur yang sudah ada untuk jenis pengiriman ini.');
+  if (!s.orderId) return err('Pilih pesanan dulu.');
+  const lines = s.lines.filter((l) => l.checked && Number(l.send) > 0);
+  if (!lines.length) return err('Pilih minimal satu barang dan jumlah yang dikirim.');
+  if (!s.recipient.trim()) return err('Penerima wajib diisi.');
+  try {
+    const rec = Storage.createShipment({
+      kind: 'customer', orderId: s.orderId, orderNo: (s.orders.find((o) => o.id === s.orderId) || {}).no || '',
+      recipient: s.recipient, address: s.address, origin: s.origin,
+      courier: s.courier, service: s.service, date: s.date, tracking: s.tracking,
+      shippingCost: s.shippingCost, borneBy: s.borneBy, note: s.note, draft: !!asDraft,
+      lines: lines.map((l) => ({ itemId: l.itemId, name: l.name, qty: l.send })),
+    });
+    if (!asDraft) Storage.confirmShipment(rec.id, { date: s.date, payment: 'cash' });
+    UI.showSuccess(asDraft
+      ? `Draft pengiriman ${rec.no} disimpan`
+      : `Pengiriman ${rec.no} dikonfirmasi — ${lines.reduce((a, l) => a + l.send, 0)} unit dikirim${s.shippingCost > 0 && s.borneBy === 'company' ? ' · biaya kirim dijurnal' : ''}`);
+    closeKirimBaru();
+    try { renderSalesPage(); } catch {}
+    try { refresh(); } catch {}
+    try { queueMirror(); } catch {}
+  } catch (e) { err(e && e.message ? e.message : 'Gagal menyimpan pengiriman'); }
+}
+
 /* ===== Penjualan baru (halaman penuh, mengikuti mockup) ===== */
 let jualState = null;
 function openJualBaru(presetMode = 'ready') {
@@ -4990,6 +5175,7 @@ document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
 document.getElementById('pembelianMarketBtn')?.addEventListener('click', () => openBeliBaru());
 document.getElementById('muatanKoliBtn')?.addEventListener('click', () => openKoliModal());
 document.getElementById('muatanBatchBtn')?.addEventListener('click', () => openMuatanCreateModal());
+document.getElementById('pengirimanBaruBtn')?.addEventListener('click', () => openKirimBaru());
 
 /* ===== Halaman Biaya ===== */
 
