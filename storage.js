@@ -1,7 +1,8 @@
 import { totalOwed } from './loanmath.js';
 import { sanitizeJkkRate, JKK_DEFAULT } from './payroll.js';
-import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, buildPreorderPayJournal, buildPreorderCostJournal, buildPreorderSettleJournal, findUnbalanced } from './journals.js';
+import { buildEntryJournal, buildLoanJournal, buildRepaymentJournal, buildPurchaseJournal, buildPurchasePayJournal, buildPayrollKasbonJournal, buildRestockJournal, buildAdjustJournal, buildSaleReturnJournal, buildBankLineJournal, buildCreditSaleJournal, buildCreditPaymentJournal, buildPreorderPayJournal, buildPreorderCostJournal, buildPreorderSettleJournal, buildPreorderRefundJournal, findUnbalanced } from './journals.js';
 import { getAccounts, ACCOUNTS, COA_RENUMBER, INVENTORY_ACCOUNT, accountForPayment } from './coa.js';
+import { exportBlobs, importBlobs } from './files.js';
 
 const STORAGE_KEY = 'ledger_entries';
 
@@ -316,8 +317,11 @@ export function exportEntries() {
   return JSON.stringify(entries, null, 2);
 }
 
-export function exportJSON() {
+export async function exportJSON() {
   const data = snapshotAll();
+  // Lampiran (blob) ikut ke dalam backup supaya benar-benar bisa dipulihkan di perangkat lain.
+  try { data.files = await exportBlobs(); }
+  catch { data.files = []; data.filesError = true; }
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -761,7 +765,7 @@ export function validateBackupJSON(text) {
   return { ok: true, errors, skipped: 0 };
 }
 
-function importJSONFile(file) {
+async function importJSONFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -919,7 +923,12 @@ function importJSONFile(file) {
               try { localStorage.setItem(COA_KEY, JSON.stringify(getCustomAccounts().concat(clean))); } catch { skipped += clean.length; }
             }
           }
-        resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, purchases: cB || 0, skipped });
+        // Lampiran (blob) dari backup — dipulihkan tanpa menimpa berkas yang sudah ada.
+        importBlobs(data.files).then((cF) => {
+          resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, purchases: cB || 0, files: cF || 0, skipped });
+        }).catch(() => {
+          resolve({ entries: cE, loans: cL, repayments: cR, people: cP, journals: cJ || 0, items: cI || 0, employees: cM || 0, purchases: cB || 0, files: 0, skipped });
+        });
       } catch (err) {
         reject(new Error('Gagal membaca JSON: ' + err.message));
       }
@@ -1579,8 +1588,11 @@ export function snapshotAll() {
     belanjas: (() => { try { return JSON.parse(localStorage.getItem('wynara_belanja') || '[]'); } catch { return []; } })(),
     kolis: (() => { try { return JSON.parse(localStorage.getItem('wynara_koli') || '[]'); } catch { return []; } })(),
     muatans: (() => { try { return JSON.parse(localStorage.getItem('wynara_muatan') || '[]'); } catch { return []; } })(),
+    shipments: getShipments(),
+    impor: getImporSettings(),
     exportedAt: new Date().toISOString(),
-    version: 3
+    // v4: + belanjas/kolis/muatans/shipments/impor (v3 & lebih lama tetap bisa dipulihkan)
+    version: 4
   };
 }
 
@@ -1669,6 +1681,8 @@ export function restoreAll(snap) {
   if (Array.isArray(snap.belanjas)) { try { localStorage.setItem('wynara_belanja', JSON.stringify(snap.belanjas)); } catch {} }
   if (Array.isArray(snap.kolis)) { try { localStorage.setItem('wynara_koli', JSON.stringify(snap.kolis)); } catch {} }
   if (Array.isArray(snap.muatans)) { try { localStorage.setItem('wynara_muatan', JSON.stringify(snap.muatans)); } catch {} }
+  if (Array.isArray(snap.shipments)) { try { localStorage.setItem('wynara_shipments', JSON.stringify(snap.shipments)); } catch {} }
+  if (snap.impor && typeof snap.impor === 'object') { try { localStorage.setItem('wynara_impor', JSON.stringify(snap.impor)); } catch {} }
   let cE = 0, cL = 0, cR = 0, cP = 0;
   if (Array.isArray(snap.entries)) {
     const valid = snap.entries.map(sanitizeEntry).filter(Boolean);
@@ -2056,6 +2070,138 @@ export function receiveStockBySource(itemId, qty, unitCost, { date, payment, sou
   }
   logAudit('create', 'receive-stock', itemId, null, { qty: q, cost, source: src });
   return updated;
+}
+
+// ===== Pengiriman (shipment) — pengiriman lokal ke pelanggan, dukung kirim sebagian =====
+const SHIP_KEY = 'wynara_shipments';
+export function getShipments() {
+  try { const v = JSON.parse(localStorage.getItem(SHIP_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+function saveShipments(list) { try { localStorage.setItem(SHIP_KEY, JSON.stringify(list)); } catch {} }
+export function nextShipmentNo() {
+  const n = getShipments().length + 1;
+  const d = new Date();
+  return `SJ-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}-${String(n).padStart(3, '0')}`;
+}
+// Sudah dikirim untuk satu pesanan (per item) — dari pengiriman yang dikonfirmasi.
+export function shippedQtyFor(orderId, itemId = null) {
+  return getShipments().filter((s) => s.orderId === orderId && s.status === 'confirmed')
+    .flatMap((s) => s.lines || [])
+    .filter((l) => !itemId || l.itemId === itemId)
+    .reduce((a, l) => a + (Number(l.qty) || 0), 0);
+}
+// Siap dikirim per baris pesanan = dipesan − sudah dikirim.
+export function readyToShipLines(order) {
+  const shipped = {};
+  getShipments().filter((s) => s.orderId === order.id && s.status === 'confirmed')
+    .forEach((s) => (s.lines || []).forEach((l) => { shipped[l.itemId || l.name] = (shipped[l.itemId || l.name] || 0) + (Number(l.qty) || 0); }));
+  // Pesanan pelanggan menyimpan barang di `items` (preorder) atau `lines` (penjualan kredit).
+  const src = ((order && order.items) || (order && order.lines) || []);
+  return src.map((l) => ({
+    itemId: l.itemId || '', name: l.name, ordered: Number(l.qty) || 0,
+    shipped: shipped[l.itemId || l.name] || 0,
+    ready: Math.max((Number(l.qty) || 0) - (shipped[l.itemId || l.name] || 0), 0),
+    price: Number(l.price) || 0,
+  }));
+}
+export function createShipment(d = {}) {
+  requireCap('ledger');
+  const kind = ['customer', 'supplier', 'transfer'].includes(d.kind) ? d.kind : 'customer';
+  const lines = (Array.isArray(d.lines) ? d.lines : [])
+    .filter((l) => (l.itemId || l.name) && Number(l.qty) > 0)
+    .map((l) => ({ itemId: String(l.itemId || ''), name: String(l.name || '').slice(0, 80), qty: Math.floor(Number(l.qty) || 0) }));
+  if (!lines.length) throw new Error('Pilih minimal satu barang untuk dikirim');
+  const date = String(d.date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(date);
+  const rec = {
+    id: generateId(), no: nextShipmentNo(), kind, date,
+    orderId: String(d.orderId || ''), orderNo: String(d.orderNo || ''),
+    recipient: String(d.recipient || '').slice(0, 60), address: String(d.address || '').slice(0, 160),
+    origin: String(d.origin || '').slice(0, 60),
+    courier: String(d.courier || '').slice(0, 30), service: String(d.service || '').slice(0, 30),
+    tracking: String(d.tracking || '').slice(0, 40),
+    shippingCost: Math.max(Number(d.shippingCost) || 0, 0),
+    borneBy: d.borneBy === 'customer' ? 'customer' : 'company',
+    status: 'draft', lines,
+    note: String(d.note || '').slice(0, 120), createdAt: new Date().toISOString(),
+  };
+  saveShipments(getShipments().concat(rec));
+  logAudit('create', 'shipment', rec.id, null, { no: rec.no, kind, lines: lines.length, draft: !!d.draft });
+  return rec;
+}
+// Konfirmasi pengiriman: tandai pesanan terkirim + biaya kirim (bila ditanggung perusahaan).
+export function confirmShipment(id, { date, payment } = {}) {
+  requireCap('ledger');
+  const list = getShipments();
+  const i = list.findIndex((s) => s.id === id);
+  if (i < 0) throw new Error('Pengiriman tidak ditemukan');
+  const s = list[i];
+  if (s.status === 'confirmed') throw new Error('Pengiriman ini sudah dikonfirmasi');
+  const d = String(date || s.date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  if (s.borneBy === 'company' && s.shippingCost > 0) {
+    // KEPUTUSAN: biaya kirim ditanggung perusahaan DIKAPITALISASI ke persediaan (bagian biaya pesanan),
+    // bukan langsung dibebankan — supaya margin nyata pesanan ikut menghitungnya.
+    const cash = accountForPayment(payment || 'cash');
+    postJournal({
+      id: generateId(), date: d, memo: `Biaya kirim ${s.no}${s.recipient ? ' — ' + s.recipient : ''}`, ref: 'shipment', refId: s.id,
+      lines: [
+        { account: INVENTORY_ACCOUNT, debit: s.shippingCost, credit: 0, memo: 'Biaya kirim (bagian harga pokok pesanan)' },
+        { account: cash, debit: 0, credit: s.shippingCost, memo: 'Bayar kirim' },
+      ],
+    });
+    if (s.orderId) {
+      try {
+        if (getPreorderById(s.orderId)) {
+          const pos = getPreorders();
+          const pi = pos.findIndex((p) => p.id === s.orderId);
+          if (pi >= 0) {
+            pos[pi].deliveryCostIdr = (Number(pos[pi].deliveryCostIdr) || 0) + s.shippingCost;
+            pos[pi].events = (pos[pi].events || []).concat([{ date: d, stage: pos[pi].stage, note: 'Biaya kirim ditanggung perusahaan', tracking: '', schedule: '' }]);
+            savePreorders(pos);
+          }
+        } else {
+          const list2 = getCreditSales();
+          const ci = list2.findIndex((c) => c.id === s.orderId);
+          if (ci >= 0) {
+            list2[ci].deliveryCostIdr = (Number(list2[ci].deliveryCostIdr) || 0) + s.shippingCost;
+            saveCreditSales(list2);
+          }
+        }
+      } catch {}
+    }
+  }
+  if (s.kind === 'customer') {
+    // Preorder: barang SUDAH masuk persediaan saat muatan tiba (receiveMuatan) → keluar saat dikirim.
+    // Penjualan ready/kredit: stok sudah keluar saat penjualan dibuat → jangan dikurangi dua kali.
+    if (getPreorderById(s.orderId)) {
+      for (const l of s.lines) {
+        if (!l.itemId) continue;
+        try { applyStockMove(l.itemId, { qtyOut: Number(l.qty) || 0, ref: 'shipment', note: `Kirim ${s.no}`, type: 'ship' }); }
+        catch (err) { logAudit('update', 'shipment', s.id, null, { stockSkip: l.name, reason: String((err && err.message) || '') }); }
+      }
+    }
+  }
+  s.status = 'confirmed';
+  list[i] = s;
+  saveShipments(list);
+  // Pesanan: tandai terkirim (hanya untuk pengiriman ke pelanggan).
+  if (s.kind === 'customer' && s.orderId) {
+    const order = getPreorderById(s.orderId) || getCreditSaleById(s.orderId);
+    if (order) {
+      const lines = readyToShipLines(order);
+      const allSent = lines.every((l) => l.ready <= 0);
+      if (getPreorderById(s.orderId)) {
+        trackPreorder(s.orderId, { stage: allSent ? 'sent' : 'in_wh', date: d, note: `Kirim ${allSent ? 'lengkap' : 'sebagian'} via ${s.courier || 'kurir'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
+      } else if (allSent) {
+        trackCreditOrder(s.orderId, { stage: 'received', date: d, note: `Kirim lengkap via ${s.courier || 'kurir'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
+      } else {
+        trackCreditOrder(s.orderId, { stage: order.stage, date: d, note: `Kirim sebagian via ${s.courier || 'kurir'}${s.tracking ? ' — resi ' + s.tracking : ''}`, tracking: s.tracking, schedule: '' });
+      }
+    }
+  }
+  logAudit('update', 'shipment', id, null, { confirmed: true });
+  return s;
 }
 
 // ===== Produk draft (dibuat dari pembelian China; jadi aktif saat barang tiba) =====
@@ -2711,6 +2857,35 @@ export function preorderPaidTotal(po) {
 export function preorderBalance(po) {
   return Math.max(preorderSellTotal(po) - preorderPaidTotal(po), 0);
 }
+// Kelebihan bayar: pelanggan sudah bayar melebihi nilai pesanan (mis. setelah kurang kirim) → harus dikembalikan.
+export function preorderRefundTotal(po) {
+  return ((po && po.refunds) || []).reduce((s, r) => s + Math.max(Number(r.amount) || 0, 0), 0);
+}
+export function preorderRefundDue(po) {
+  return Math.max(preorderPaidTotal(po) - preorderRefundTotal(po) - preorderSellTotal(po), 0);
+}
+// Refund ke pelanggan: uang muka (2101) berkurang, kas keluar.
+export function refundPreorder(id, { amount, date, payment, note } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  const due = preorderRefundDue(po);
+  const amt = Math.round(Number(amount) || 0);
+  if (amt <= 0) throw new Error('Jumlah refund harus > 0');
+  if (amt > due + 0.01) throw new Error(`Melebihi kelebihan bayar (Rp ${Math.round(due).toLocaleString('id-ID')})`);
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const j = buildPreorderRefundJournal({ date: d, amount: amt, payment: payment || 'transfer', memo: `Refund kelebihan bayar ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
+  if (j) { j.refId = id; postJournal(j); }
+  po.refunds = (po.refunds || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'transfer', note: String(note || '').slice(0, 80) });
+  po.events = (po.events || []).concat([{ date: d, stage: po.stage, note: `Refund ke pelanggan Rp ${Math.round(amt).toLocaleString('id-ID')}`, tracking: '', schedule: '' }]);
+  list[i] = po;
+  savePreorders(list);
+  logAudit('create', 'preorder-refund', id, null, { amount: amt });
+  return po;
+}
 export function preorderProfit(po) {
   return preorderPaidTotal(po) - preorderCostTotal(po);
 }
@@ -2723,7 +2898,7 @@ function nextPreorderNo() {
 // months = estimasi berapa bulan barang tiba (preorder luar negeri).
 // Buat pesanan titip beli: DP opsional langsung masuk (Cr 2101 Customer Deposit).
 // months = estimasi berapa bulan barang tiba (preorder luar negeri); fx = kurs Rp per ¥.
-export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx, target, channel, shopId } = {}) {
+export function createPreorder({ date, customer, items, deposit, payment, note, eta, months, discount, fx, target, channel, shopId, draft } = {}) {
   requireCap('ledger');
   const isStock = target === 'stock';
   if (isStock) {
@@ -2753,15 +2928,17 @@ export function createPreorder({ date, customer, items, deposit, payment, note, 
     shopId: (shopId || '').slice(0, 60),
     customer: String(customer || '').trim().slice(0, 60),
     items: cleanItems, subtotal: sub, discount: disc, sellTotal, deposit: dp, payment: payment || 'cash',
-    costs: [], payments: [], stage: dp > 0 ? 'dp_paid' : 'ordered',
+    costs: [], payments: [], status: draft ? 'draft' : 'final',
+    stage: draft ? 'draft' : (dp > 0 ? 'dp_paid' : 'ordered'),
     events: [{ date: d, stage: dp > 0 ? 'dp_paid' : 'ordered', note: customer ? 'Pesanan dibuat' : 'Pesanan dibuat', tracking: '', schedule: '' }],
     note: String(note || '').slice(0, 120), createdAt: new Date().toISOString(),
   };
-  if (dp > 0) {
+  if (dp > 0 && !draft) {
     const j = buildPreorderPayJournal({ date: d, amount: dp, payment: rec.payment, memo: `DP titip beli ${rec.no}${rec.customer ? ' — ' + rec.customer : ''}` });
     if (j) { j.refId = id; postJournal(j); }
     rec.payments = [{ id: generateId(), date: d, amount: dp, payment: rec.payment, kind: 'DP', note: 'DP saat pesan' }];
   }
+  if (draft) { rec.deposit = 0; rec.plannedDeposit = dp; } // draft belum menerima uang
   const list = getPreorders().concat(rec);
   savePreorders(list);
   logAudit('create', 'preorder', id, null, { no: rec.no, sellTotal, deposit: dp });
@@ -2812,6 +2989,33 @@ export function addPreorderCost(id, { amount, kind, date, payment, note } = {}) 
   logAudit('create', 'preorder-cost', id, null, { amount: amt, kind: k });
   return po;
 }
+// Finalkan draft pesanan: catat DP (bila benar-benar diterima) dan masukkan ke alur pesanan.
+export function finalizePreorderDraft(id, { deposit, payment, date } = {}) {
+  requireCap('ledger');
+  const list = getPreorders();
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) throw new Error('Pesanan tidak ditemukan');
+  const po = list[i];
+  if (po.status !== 'draft') throw new Error('Pesanan ini bukan draft');
+  const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
+  assertUnlocked(d);
+  const amt = Math.min(Math.max(Math.round(Number(deposit) || 0), 0), preorderSellTotal(po));
+  if (amt > 0) {
+    const j = buildPreorderPayJournal({ date: d, amount: amt, payment: payment || 'transfer', memo: `DP titip beli ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
+    if (j) { j.refId = id; postJournal(j); }
+    po.payments = (po.payments || []).concat({ id: generateId(), date: d, amount: amt, payment: payment || 'transfer', kind: 'DP', note: 'DP saat finalisasi' });
+    po.deposit = amt;
+  }
+  po.status = 'final';
+  po.stage = amt > 0 ? 'dp_paid' : 'ordered';
+  po.events = (po.events || []).concat([{ date: d, stage: po.stage, note: 'Pesanan difinalkan', tracking: '', schedule: '' }]);
+  list[i] = po;
+  savePreorders(list);
+  logAudit('update', 'preorder', id, null, { final: true, deposit: amt });
+  return po;
+}
+
+
 // Barang dibeli & dikirim (pengiriman dari China): hanya update tahap.
 export function shipPreorder(id, { note, tracking, cny } = {}) {
   requireCap('ledger');
@@ -2847,7 +3051,8 @@ export function settlePreorder(id, { date, payment, note, costGoodsOvr } = {}) {
     po.stage = 'shipping';
   }
   const cur = getPreorderById(id) || po;
-  const paid = preorderPaidTotal(cur);
+  // Pendapatan yang diakui = uang yang benar-benar ditahan (bayar − refund), bukan total bayar bruto.
+  const paid = Math.max(preorderPaidTotal(cur) - preorderRefundTotal(cur), 0);
   const goods = costGoodsOvr != null ? Math.max(Math.round(Number(costGoodsOvr) || 0), 0) : preorderGoodsCost(cur);
   const j = buildPreorderSettleJournal({ date: d, totalPaid: paid, costGoods: goods, memo: `Pelunasan titip beli ${po.no}${po.customer ? ' — ' + po.customer : ''}` });
   if (j) { j.refId = id; postJournal(j); }

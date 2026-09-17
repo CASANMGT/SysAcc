@@ -6,6 +6,32 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+---
+
+## [2.20.1] - 2026-09-17 — Material visual sweep (masih di cabang pratinjau)
+
+- **Ikon outline menggantikan emoji di navigasi**: sidebar (Ringkasan, Transaksi, Kas & Bank, Penjualan, Pembelian, Pengiriman, Biaya, Aset Tetap, Kontak, Produk, Karyawan & Gaji, Daftar Akun, Laporan, Pengaturan) dan bottom-nav — satu set SVG 24×24 (stroke 1,6) yang dihidrasi oleh `hydrateIcons()`. Menu tetap bisa dibaca/diurutkan dari teksnya saja.
+- **Token tampilan**: latar `#f5f7fb`, permukaan putih, border `#e3e8ef`, radius 14/10, spasi kelipatan 8, bayangan halus.
+- **Tipografi**: teks isi 15 px (16 px di mobile), H1 26 px, bobot judul 650–700, `.amount-col` memakai angka tabular agar kolom rupiah rata.
+- **Kontrol**: tombol tinggi ≥40 px, input/select seragam, `:focus-visible` biru terlihat untuk navigasi keyboard, chip pill, bottom-nav 52 px dengan label di bawah ikon.
+- **Tabel**: header abu terang, baris hover, padding 10–12 px.
+- Tidak ada perubahan perilaku; uji tetap **376 lulus**.
+
+## [2.20.0] - 2026-09-17 — cabang `feat/redesign-ux` (PRATINJAU, belum produksi)
+
+### Redesign UI/UX Penjualan · Pembelian · Pengiriman
+- **Navigasi dipisah**: Penjualan · Pembelian · Pengiriman (bottom nav: Beranda · Penjualan · ＋ · Pembelian · Lainnya).
+- **Penjualan**: kartu ringkasan yang bisa diklik (Perlu diproses / Menunggu pembayaran / Siap dikirim / Biaya belum lengkap), tab Perlu diproses · Tagihan · Produk · Ringkasan, pencarian, tabel dengan **Status barang** dan **Pembayaran** terpisah, **Estimasi tiba** dari batch, satu aksi utama + menu ⋯, progres kirim "x dari y terkirim", badge Draft + Finalkan.
+- **Penjualan baru (halaman penuh)**: kartu mode (Barang tersedia / Preorder), pelanggan wajib untuk preorder, tabel baris bisa diedit + scan barcode (Enter), **DP yang diminta dipisah dari pembayaran diterima**, ringkasan sticky, Simpan draft (preorder) / Buat pesanan.
+- **Pembelian**: halaman penuh **Beli dari marketplace** (3 langkah + ringkasan sticky + footer tetap) dengan tabel baris editable, pembelian sebagian, peringatan beli berlebih ("dipesan · sudah dibeli · sisa perlu dibeli"), mode pembayaran **Belum dibayar / Sebagian / Lunas**, **Simpan draft tidak menggerakkan kas** (`finalizeBelanja`, `payBelanja`).
+- **Pengiriman**: halaman penuh dengan tab Ke pelanggan / Dari supplier / Antargudang; **kirim sebagian** per baris (`readyToShipLines`), biaya kirim + penanggung, **Pengiriman terbaru** dengan lampiran; tiba & alokasi muatan → modal produk aktif & modal/pcs dari alokasi.
+- **Lampiran**: `files.js` (IndexedDB + fallback, kompresi gambar 1600 px, batas ±900 KB), tempel di Belanja, Pengiriman, Pesanan, Muatan, dan per Koli; **ikut di JSON backup** (`files[]`) dan dipulihkan (`importBlobs`).
+- **Akuntansi**: stok preorder keluar saat pengiriman (bukan dobel dengan penjualan ready), kurang kirim otomatis menurunkan `sellTotal` + piutang, biaya kirim ditanggung perusahaan dikapitalisasi ke persediaan (masuk margin nyata), refund kelebihan bayar (Dr 2101 / Cr kas) dengan penyelesaian memakai uang neto.
+- **Perbaikan audit**: `lcl.js load()` memvalidasi array (kunci `"null"` tidak lagi mematikan Belanja/Koli/Muatan), `shipments`/`impor` ikut backup & sinkron, penjualan ready wajib item katalog + cek stok, `sw.js` meng-cache `lcl.js`/`freight.js`/`files.js`.
+- Uji: **376 lulus** (20 berkas).
+
+> ⚠️ Catatan: cabang ini memakai proyek Supabase yang sama. Untuk pratinjau, masuk dengan akun lokal **admin/admin** agar data produksi tidak tersentuh.
+
 ## [2.19.4] - 2026-09-17
 
 ### Akar masalah ditemukan (laporan pengguna) — `lcl.js` satu-satunya pembaca tanpa penjaga array

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, snapshotAll, restoreAll, importBankLines, getShops, saveShops, getActiveShopId, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, creditPaidTotal, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, saveShops, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -582,6 +582,17 @@ describe('produk: varian & diskon', () => {
     expect(itemNetPrice(it)).toBe(75000);
     expect(itemVariantLabel(it)).toBe('L / Hitam');
   });
+  it('AUDIT: shipments & impor ikut backup (tidak hilang saat restore)', () => {
+    createShipment({ kind: 'customer', recipient: 'Andi', lines: [{ name: 'Lampu', qty: 1 }] });
+    saveImporSettings({ kurs: 2400, ratePerCbm: 3000000 });
+    const snap = JSON.parse(JSON.stringify(snapshotAll()));
+    expect(snap.shipments.length).toBe(1);
+    expect(snap.impor.kurs).toBe(2400);
+    localStorage.clear();
+    restoreAll(snap);
+    expect(getShipments().length).toBe(1);
+    expect(getImporSettings().kurs).toBe(2400);
+  });
   it('3.1 terima barang per sumber: hutang → Cr 2102, awal → Cr 3101', () => {
     const it = saveItem({ name: 'Kabel', price: 20000, stock: 0 });
     receiveStockBySource(it.id, 5, 12000, { date: '2026-08-10', source: 'hutang' });
@@ -663,7 +674,7 @@ describe('kasbon karyawan (storage)', () => {
     expect(loan.employeeId).toBe(emp.id);
   });
   it('applyPayrollKasbon mengurangi sisa + jurnal Dr Beban Gaji Cr Piutang', () => {
-    const emp = saveEmployee({ name: 'Ani Kasbon', baseSalary: 4000000 });
+    saveEmployee({ name: 'Ani Kasbon', baseSalary: 4000000 });
     const loan = createLoan({ direction: 'given', person: 'Ani Kasbon', amount: 1000000, date: '2026-08-01' });
     const rep = applyPayrollKasbon(loan.id, 300000, '2026-08-31', '2026-08');
     expect(rep.source).toBe('payroll');
@@ -673,7 +684,7 @@ describe('kasbon karyawan (storage)', () => {
     expect(j.lines.find(l => l.account === '1201').credit).toBe(300000);
   });
   it('applyPayrollKasbon dibatasi sisa; lunas → status paid', () => {
-    const emp = saveEmployee({ name: 'Clamp Kasbon', baseSalary: 4000000 });
+    saveEmployee({ name: 'Clamp Kasbon', baseSalary: 4000000 });
     const loan = createLoan({ direction: 'given', person: 'Clamp Kasbon', amount: 500000, date: '2026-08-01' });
     const rep = applyPayrollKasbon(loan.id, 9999999, '2026-08-31', '2026-08');
     expect(rep.amount).toBe(500000);

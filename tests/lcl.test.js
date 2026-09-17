@@ -4,9 +4,9 @@ import {
   getBelanjas, createBelanja, refundBelanja,
   getKolis, checkInKoli, updateKoli, assignBelanjaToKoli,
   getMuatans, getMuatanById, createMuatan, loadKoli,
-  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder,
+  departMuatan, allocateBatch, receiveMuatan, getLastAllocation, migrateLegacyTitipBeli, costVariance, markBelanjaLoss, refusePreorder, toBuyLinesFor, preorderLandedTotal, finalizeBelanja, payBelanja, belanjaOutstanding,
 } from '../lcl.js';
-import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, createDraftProductFromBelanja } from '../storage.js';
+import { getAllJournals, postJournal, saveItem, getItemById, createPreorder, addPreorderCost, finalizePreorderDraft, preorderSellTotal, preorderBalance, refundPreorder, preorderRefundDue, settlePreorder, getPreorderById, createShipment, confirmShipment, readyToShipLines, createDraftProductFromBelanja } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -198,6 +198,124 @@ describe('§5.3 pengecualian', () => {
   });
 });
 
+describe('draft pesanan penjualan', () => {
+  it('draft tidak menerima DP (tanpa jurnal); finalisasi mencatat DP', () => {
+    const j0 = getAllJournals().length;
+    const po = createPreorder({ date: '2026-09-17', customer: 'Andi', items: [{ name: 'Lampu', qty: 2, price: 700000 }], deposit: 1000000, draft: true });
+    expect(po.status).toBe('draft');
+    expect(po.stage).toBe('draft');
+    expect(po.deposit).toBe(0);
+    expect(po.plannedDeposit).toBe(1000000);
+    expect(getAllJournals().length).toBe(j0); // belum ada uang masuk
+    const fin = finalizePreorderDraft(po.id, { deposit: 1000000, payment: 'transfer', date: '2026-09-18' });
+    expect(fin.status).toBe('final');
+    expect(fin.stage).toBe('dp_paid');
+    expect(fin.deposit).toBe(1000000);
+    expect(getAllJournals().length).toBe(j0 + 1); // DP dijurnal saat finalisasi
+    expect(getAllJournals().slice(-1)[0].ref).toBe('preorder');
+  });
+});
+
+describe('pengiriman sebagian', () => {
+  it('siap dikirim = dipesan − sudah dikirim; konfirmasi kirim sebagian tidak menandai lunas kirim', () => {
+    const po = createPreorder({ date: '2026-09-17', customer: 'Andi', items: [{ name: 'Lampu', qty: 3, price: 100000 }], deposit: 0, draft: true });
+    finalizePreorderDraft(po.id, { deposit: 0 });
+    let ready = readyToShipLines(getPreorderById(po.id));
+    expect(ready[0].ready).toBe(3);
+    const s1 = createShipment({ kind: 'customer', orderId: po.id, recipient: 'Andi', courier: 'JNE', date: '2026-09-18', lines: [{ name: 'Lampu', qty: 2 }] });
+    confirmShipment(s1.id, { date: '2026-09-18' });
+    ready = readyToShipLines(getPreorderById(po.id));
+    expect(ready[0].shipped).toBe(2);
+    expect(ready[0].ready).toBe(1);
+    expect(getPreorderById(po.id).stage).not.toBe('sent'); // masih ada sisa
+    const s2 = createShipment({ kind: 'customer', orderId: po.id, recipient: 'Andi', date: '2026-09-20', lines: [{ name: 'Lampu', qty: 1 }] });
+    confirmShipment(s2.id, { date: '2026-09-20' });
+    expect(readyToShipLines(getPreorderById(po.id))[0].ready).toBe(0);
+    expect(getPreorderById(po.id).stage).toBe('sent');
+  });
+  it('biaya kirim ditanggung perusahaan dijurnal; ditanggung pelanggan tidak', () => {
+    const po = createPreorder({ date: '2026-09-17', customer: 'Budi', items: [{ name: 'X', qty: 1, price: 50000 }], draft: true });
+    finalizePreorderDraft(po.id, {});
+    const j0 = getAllJournals().length;
+    const s = createShipment({ kind: 'customer', orderId: po.id, recipient: 'Budi', shippingCost: 35000, borneBy: 'company', date: '2026-09-18', lines: [{ name: 'X', qty: 1 }] });
+    confirmShipment(s.id, { date: '2026-09-18' });
+    const j = getAllJournals().slice(-1)[0];
+    expect(getAllJournals().length).toBe(j0 + 1);
+    expect(j.lines[0].account).toBe('1105'); // dikapitalisasi ke persediaan (bagian biaya pesanan)
+    expect(getPreorderById(po.id).deliveryCostIdr).toBe(35000);
+    expect(preorderLandedTotal(po.id)).toBe(35000); // ikut margin nyata
+    const po2 = createPreorder({ date: '2026-09-17', customer: 'Cici', items: [{ name: 'Y', qty: 1, price: 50000 }], draft: true });
+    finalizePreorderDraft(po2.id, {});
+    const j1 = getAllJournals().length;
+    const s2 = createShipment({ kind: 'customer', orderId: po2.id, recipient: 'Cici', shippingCost: 20000, borneBy: 'customer', date: '2026-09-18', lines: [{ name: 'Y', qty: 1 }] });
+    confirmShipment(s2.id, { date: '2026-09-18' });
+    expect(getAllJournals().length).toBe(j1); // pelanggan yang tanggung → tanpa jurnal beban
+  });
+});
+
+describe('kurang kirim menurunkan nilai pesanan (keputusan pemilik)', () => {
+  it('qty hilang mengurangi item & sellTotal pesanan, sisa tagihan ikut turun', () => {
+    const po = createPreorder({ date: '2026-09-17', customer: 'Dewi', items: [{ name: 'Lampu', qty: 10, price: 100000 }], deposit: 200000 });
+    expect(preorderSellTotal(getPreorderById(po.id))).toBe(1000000);
+    const b = createBelanja({ lines: [{ name: 'Lampu', qty: 10, cnyUnit: 20 }], kursAgen: 2000, preorderId: po.id, purpose: 'preorder', draft: true });
+    markBelanjaLoss(b.id, { type: 'short', amount: 200000, qty: 2, date: '2026-09-20' });
+    const after = getPreorderById(po.id);
+    expect(after.items[0].qty).toBe(8);
+    expect(preorderSellTotal(after)).toBe(800000);
+    expect(preorderBalance(after)).toBe(600000); // 800.000 − DP 200.000
+  });
+});
+
+describe('stok preorder keluar saat dikirim (bukan dua kali)', () => {
+  it('kirim preorder mengurangi stok; penjualan ready tidak dikurangi lagi', () => {
+    const it = saveItem({ name: 'Lampu', price: 150000, cost: 90000, stock: 10 });
+    const po = createPreorder({ date: '2026-09-17', customer: 'Andi', items: [{ itemId: it.id, name: 'Lampu', qty: 4, price: 150000 }], draft: true });
+    finalizePreorderDraft(po.id, { deposit: 0 });
+    const s = createShipment({ kind: 'customer', orderId: po.id, recipient: 'Andi', date: '2026-09-18', lines: [{ itemId: it.id, name: 'Lampu', qty: 3 }] });
+    confirmShipment(s.id, { date: '2026-09-18' });
+    expect(getItemById(it.id).stock).toBe(7); // 10 − 3
+    const s2 = createShipment({ kind: 'customer', orderId: po.id, recipient: 'Andi', date: '2026-09-20', lines: [{ itemId: it.id, name: 'Lampu', qty: 1 }] });
+    confirmShipment(s2.id, { date: '2026-09-20' });
+    expect(getItemById(it.id).stock).toBe(6); // 10 − 4
+    expect(getPreorderById(po.id).stage).toBe('sent');
+  });
+});
+
+describe('pembelian sebagian pesanan (konsumsi baris)', () => {
+  it('toBuyLinesFor menghitung sisa; beli sebagian mengurangi sisa', () => {
+    const po = createPreorder({ date: '2026-09-17', customer: 'Budi', items: [{ name: 'Kabel', qty: 10, price: 20000 }], deposit: 0 });
+    expect(toBuyLinesFor(getPreorderById(po.id))[0].remaining).toBe(10);
+    createBelanja({ lines: [{ name: 'Kabel', qty: 4, cnyUnit: 5 }], kursAgen: 2000, preorderId: po.id, purpose: 'preorder' });
+    const row = toBuyLinesFor(getPreorderById(po.id))[0];
+    expect(row.bought).toBe(4);
+    expect(row.remaining).toBe(6);
+  });
+});
+
+describe('refund kelebihan bayar pelanggan', () => {
+  it('kurang kirim → kelebihan bayar terdeteksi; refund Dr 2101 / Cr kas; pelunasan pakai neto', () => {
+    const po = createPreorder({ date: '2026-09-17', customer: 'Dewi', items: [{ name: 'Lampu', qty: 10, price: 100000 }], deposit: 1000000 });
+    const b = createBelanja({ lines: [{ name: 'Lampu', qty: 10, cnyUnit: 20 }], kursAgen: 2000, preorderId: po.id, purpose: 'preorder', draft: true });
+    markBelanjaLoss(b.id, { type: 'short', amount: 100000, qty: 3, date: '2026-09-20' });
+    const after = getPreorderById(po.id);
+    expect(preorderSellTotal(after)).toBe(700000);
+    expect(preorderRefundDue(after)).toBe(300000); // sudah bayar 1.000.000 untuk nilai 700.000
+    const j0 = getAllJournals().length;
+    refundPreorder(po.id, { amount: 300000, date: '2026-09-21', payment: 'transfer' });
+    expect(getAllJournals().length).toBe(j0 + 1);
+    const j = getAllJournals().slice(-1)[0];
+    expect(j.lines[0].account).toBe('2101');
+    expect(j.lines[1].account).toBe('1101');
+    expect(preorderRefundDue(getPreorderById(po.id))).toBe(0);
+    expect(() => refundPreorder(po.id, { amount: 1 })).toThrow(/Melebihi/);
+    // Pelunasan: pendapatan diakui hanya sebesar uang yang ditahan (1.000.000 − 300.000)
+    settlePreorder(po.id, { date: '2026-09-22' });
+    const js = getAllJournals().slice(-1)[0];
+    const rev = js.lines.find((l) => l.account === '4101');
+    expect(rev.credit).toBe(700000 + 0); // deposit neto = pendapatan (tanpa sisa tagihan)
+  });
+});
+
 describe('estimasi vs aktual', () => {
   it('selisih dihitung dari estimatedIdr vs landedTotal', () => {
     const { muatan, belanja } = setupWorkedExample();
@@ -230,6 +348,36 @@ describe('produk draft dari belanja China', () => {
     expect(after.status).toBe('aktif');
     expect(after.cost).toBe(158531);
     expect(after.stock).toBe(40);
+  });
+});
+
+describe('pembelian: draft → final → pembayaran', () => {
+  it('draft tidak menjurnal; final menjurnal Dr 1211 / Cr kas + Cr 2102', () => {
+    const j0 = getAllJournals().length;
+    const b = createBelanja({ lines: [{ name: 'Lampu', qty: 2, cnyUnit: 100 }], ongkirCny: 20, kursAgen: 2300, draft: true, purpose: 'stock' });
+    expect(b.status).toBe('draft');
+    expect(getAllJournals().length).toBe(j0); // kas belum bergerak
+    expect(belanjaOutstanding(b)).toBe(0);    // draft belum jadi hutang
+    const total = b.totalIdr;                 // (200 + 20) × 2300
+    expect(total).toBe(506000);
+    const fin = finalizeBelanja(b.id, { date: '2026-09-17', payment: 'transfer', payNow: 200000 });
+    expect(fin.status).toBe('final');
+    const j = getAllJournals().slice(-1)[0];
+    expect(j.lines[0].account).toBe('1211');
+    expect(j.lines[0].debit).toBe(total);
+    expect(j.lines.find(l => l.account === '2102').credit).toBe(total - 200000);
+    expect(belanjaOutstanding(getBelanjas()[0])).toBe(total - 200000);
+  });
+
+  it('pelunasan mengurangi hutang; lebih bayar ditolak', () => {
+    const b = createBelanja({ lines: [{ name: 'X', qty: 1, cnyUnit: 100 }], kursAgen: 2000, draft: true });
+    expect(() => payBelanja(b.id, { amount: 1000 })).toThrow(/final/i); // belum final
+    finalizeBelanja(b.id, { payNow: 0 });
+    expect(belanjaOutstanding(getBelanjas()[0])).toBe(200000);
+    expect(() => payBelanja(b.id, { amount: 300000 })).toThrow(/Melebihi/);
+    payBelanja(b.id, { amount: 200000 });
+    expect(belanjaOutstanding(getBelanjas()[0])).toBe(0);
+    expect(getAllJournals().slice(-1)[0].lines[0].account).toBe('2102');
   });
 });
 
