@@ -198,8 +198,8 @@
         <nav class="sidebar-nav">
           <button class="sidebar-item" id="kasBtnSidebar">💳 Kas &amp; Bank</button>
           <button class="sidebar-item" id="salesBtnSidebar">🛒 Penjualan</button>
-          <button class="sidebar-item" id="pembelianBtnSidebar" aria-label="Pembelian (dipindah ke Papan Muatan)" hidden>🧺 Pembelian</button>
-          <button class="sidebar-item" id="muatanBtnSidebar">📦 Papan Muatan</button>
+          <button class="sidebar-item" id="pembelianBtnSidebar">🧺 Pembelian</button>
+          <button class="sidebar-item" id="muatanBtnSidebar">🧭 Pengiriman</button>
           <button class="sidebar-item" id="biayaBtnSidebar">💸 Biaya</button>
           <button class="sidebar-item" id="assetBtnSidebar">🏢 Aset Tetap</button>
         </nav>
@@ -717,40 +717,49 @@
 
         <div id="viewPembelian" class="view-section hidden">
           <div class="view-header">
-            <div><h1>🧺 Pembelian</h1><p>Halaman ini dipindah ke <b>Papan Muatan → Lokal &amp; Hutang</b>.</p></div>
-            <div><button class="btn btn-primary" id="pembelianGotoMuatan">📦 Buka Papan Muatan</button></div>
+            <div><h1>🧺 Pembelian</h1><p id="pembelianSubtitle">Pembelian marketplace &amp; supplier lokal — hutang dan pembayarannya</p></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="pembelianMarketBtn">🛍 Beli dari marketplace</button>
+              <button class="btn btn-ghost" id="pembelianBuyBtn" title="Beli lokal tunai/hutang atau stok awal">＋ Beli lokal</button>
+              <button class="btn btn-ghost" id="pembelianSupplierBtn">🧾 Hutang &amp; Bayar</button>
+            </div>
+          </div>
+          <div id="pembelianKpi" class="stock-kpi" aria-label="Ringkasan pembelian lokal"></div>
+          <div class="dash-panel" style="padding:16px">
+            <h3 style="margin-bottom:8px">📥 Pembelian Lokal &amp; Hutang Supplier</h3>
+            <div id="pembelianList"></div>
+          </div>
+          <div class="dash-panel" style="padding:16px;margin-top:16px">
+            <h3 style="margin-bottom:2px">🛒 Pesanan Preorder (sisi beli)</h3>
+            <p id="pembelianPoSubtitle" style="font-size:11px;color:#64748b;margin:0 0 8px">Biaya &amp; tahap beli — daftar pembayaran pelanggan di halaman Penjualan → Pesanan Berjalan.</p>
+            <div id="pembelianPoList"></div>
+          </div>
+          <div class="dash-panel" style="padding:16px;margin-top:16px">
+            <h3 style="margin-bottom:8px">🛍 Pembelian Marketplace (Belanja)</h3>
+            <p style="font-size:11px;color:#64748b;margin:0 0 8px">Order marketplace China yang sudah dibeli. Koli &amp; muatannya dipantau di <b>Pengiriman</b>.</p>
+            <div id="pembelianBelanjaList"></div>
           </div>
         </div>
 
         <div id="viewMuatan" class="view-section hidden">
           <div class="view-header">
-            <div><h1>📦 Papan Muatan</h1><p id="muatanSubtitle">Pembelian impor &amp; lokal dalam satu tempat — dari belanja sampai biaya mendarat</p></div>
+            <div><h1>🧭 Pengiriman</h1><p id="muatanSubtitle">Koli di gudang China, muatan LCL, dan biaya mendarat</p></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-primary" id="muatanBelanjaBtn">＋ Belanja marketplace</button>
               <button class="btn btn-ghost" id="muatanKoliBtn">🧾 Cek-in koli</button>
-              <button class="btn btn-ghost" id="muatanBatchBtn">🚢 Muatan baru</button>
-              <button class="btn btn-ghost" id="pembelianBuyBtn" title="Beli / terima barang: supplier lokal · impor China · stok awal">＋ Beli</button>
+              <button class="btn btn-primary" id="muatanBatchBtn">🚢 Muatan baru</button>
             </div>
           </div>
-          <div class="chip-group" id="muatanTabs" role="tablist" aria-label="Bagian pembelian" style="margin:4px 0 12px;flex-wrap:wrap">
+          <div class="chip-group" id="muatanTabs" role="tablist" aria-label="Bagian pengiriman" style="margin:4px 0 12px;flex-wrap:wrap">
             <button type="button" class="chip selected" data-mtab="papan" role="tab" aria-selected="true">📋 Papan</button>
-            <button type="button" class="chip" data-mtab="belanja" role="tab" aria-selected="false">🛍 Belanja</button>
             <button type="button" class="chip" data-mtab="koli" role="tab" aria-selected="false">🧾 Koli</button>
             <button type="button" class="chip" data-mtab="muatan" role="tab" aria-selected="false">🚢 Muatan</button>
-            <button type="button" class="chip" data-mtab="lokal" role="tab" aria-selected="false">🏪 Lokal &amp; Hutang</button>
           </div>
-          <div id="muatanKpi" class="stock-kpi" aria-label="Ringkasan muatan"></div>
+          <div id="muatanKpi" class="stock-kpi" aria-label="Ringkasan pengiriman"></div>
           <section id="mTabPapan">
             <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">
               <div class="dash-panel" style="flex:1;min-width:260px;padding:14px"><h3 style="margin-bottom:8px">🏬 Di gudang China</h3><div id="muatanColChina"></div></div>
               <div class="dash-panel" style="flex:1;min-width:260px;padding:14px"><h3 style="margin-bottom:8px">🚢 Dalam perjalanan</h3><div id="muatanColSea"></div></div>
               <div class="dash-panel" style="flex:1;min-width:260px;padding:14px"><h3 style="margin-bottom:8px">📥 Tiba — alokasi biaya</h3><div id="muatanColArrived"></div></div>
-            </div>
-          </section>
-          <section id="mTabBelanja" hidden>
-            <div class="dash-panel" style="padding:16px">
-              <h3 style="margin-bottom:8px">🛒 Daftar Belanja (order marketplace)</h3>
-              <div id="muatanBelanjaList"></div>
             </div>
           </section>
           <section id="mTabKoli" hidden>
@@ -767,18 +776,6 @@
             <div class="dash-panel" style="padding:16px;margin-top:16px">
               <h3 style="margin-bottom:8px">📊 Selisih estimasi vs aktual</h3>
               <div id="muatanVariance"></div>
-            </div>
-          </section>
-          <section id="mTabLokal" hidden>
-            <div id="pembelianKpi" class="stock-kpi" aria-label="Ringkasan pembelian lokal"></div>
-            <div class="dash-panel" style="padding:16px">
-              <h3 style="margin-bottom:8px">📥 Pembelian Lokal &amp; Hutang Supplier</h3>
-              <div id="pembelianList"></div>
-            </div>
-            <div class="dash-panel" style="padding:16px;margin-top:16px">
-              <h3 style="margin-bottom:2px">🛒 Pesanan Preorder (sisi beli)</h3>
-              <p id="pembelianPoSubtitle" style="font-size:11px;color:#64748b;margin:0 0 8px">Biaya &amp; tahap beli — daftar pembayaran pelanggan di halaman Penjualan → Pesanan Berjalan.</p>
-              <div id="pembelianPoList"></div>
             </div>
           </section>
         </div>
@@ -2439,7 +2436,7 @@
 
 <nav class="bottomnav" id="bottomNav" aria-label="Navigasi utama">
   <button type="button" class="bn-item active" data-bnav="ringkasan"><span aria-hidden="true">🏠</span>Beranda</button>
-  <button type="button" class="bn-item" data-bnav="muatan"><span aria-hidden="true">📦</span>Papan Muatan</button>
+  <button type="button" class="bn-item" data-bnav="pembelian"><span aria-hidden="true">🧺</span>Pembelian</button>
   <button type="button" class="bn-add" data-bnav="add" aria-label="Tambah transaksi" title="Tambah transaksi">＋</button>
   <button type="button" class="bn-item" data-bnav="sales"><span aria-hidden="true">🛒</span>Penjualan</button>
   <button type="button" class="bn-item" data-bnav="more" aria-haspopup="dialog"><span aria-hidden="true">⋯</span>Lainnya</button>

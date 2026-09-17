@@ -942,7 +942,7 @@ function bindEvents() {
     if (sel) document.querySelector(sel)?.classList.add('active');
     document.querySelectorAll('.sidebar-item').forEach(b => b.removeAttribute('aria-current'));
     if (sel) document.querySelector(sel)?.setAttribute('aria-current', 'page');
-    const bnView = { viewRingkasan: 'ringkasan', viewMuatan: 'muatan', viewSales: 'sales', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewStock: 'stock', viewLaporan: 'reports' }[viewId];
+    const bnView = { viewRingkasan: 'ringkasan', viewPembelian: 'pembelian', viewMuatan: 'muatan', viewSales: 'sales', viewTransaksi: 'transaksi', viewPayroll: 'gaji', viewStock: 'stock', viewLaporan: 'reports' }[viewId];
     document.querySelectorAll('#bottomNav .bn-item').forEach(b => {
       const on = b.dataset.bnav === bnView;
       b.classList.toggle('active', on);
@@ -1073,6 +1073,7 @@ function bindEvents() {
     if (!b) return;
     const t = b.dataset.bnav;
     if (t === 'ringkasan') showView('viewRingkasan');
+    else if (t === 'pembelian') showView('viewPembelian');
     else if (t === 'muatan') showView('viewMuatan');
     else if (t === 'sales') showView('viewSales');
     else if (t === 'transaksi') showView('viewTransaksi');
@@ -1085,7 +1086,7 @@ function bindEvents() {
         { goto: 'stock', icon: '📦', label: 'Produk', aria: 'Produk dan stok' },
         { goto: 'sales', icon: '🛒', label: 'Penjualan', aria: 'Laporan penjualan' },
         { goto: 'pembelian', icon: '🧺', label: 'Pembelian', aria: 'Pembelian dan hutang supplier' },
-        { goto: 'muatan', icon: '📦', label: 'Papan Muatan', aria: 'Belanja China dan muatan LCL' },
+        { goto: 'pengiriman', icon: '🧭', label: 'Pengiriman', aria: 'Koli, muatan, biaya mendarat' },
         { goto: 'preorder', icon: '🌏', label: 'Titip Beli', aria: 'Titip beli pelanggan' },
         { goto: 'biaya', icon: '💸', label: 'Biaya', aria: 'Pengeluaran operasional' },
         { goto: 'kas', icon: '💳', label: 'Kas', aria: 'Kas dan rekonsiliasi' },
@@ -1127,7 +1128,8 @@ function bindEvents() {
     if (target === 'loans') UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople());
     else if (target === 'stock') showView('viewStock');
     else if (target === 'sales') showView('viewSales');
-    else if (target === 'pembelian') { showView('viewMuatan'); showMuatanTab('lokal'); }
+    else if (target === 'pembelian') showView('viewPembelian');
+    else if (target === 'pengiriman') showView('viewMuatan');
     else if (target === 'muatan') showView('viewMuatan');
     else if (target === 'preorder') showView('viewSales');
     else if (target === 'biaya') showView('viewBiaya');
@@ -3732,6 +3734,8 @@ function renderPembelianPage() {
     }).join('')}
         </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada titip beli (preorder).</p>';
   }
+  // Daftar Belanja (pembelian marketplace) kini tampil di halaman Pembelian.
+  try { renderMuatanPage(); } catch {}
 }
 
 function handleStockReceive(id) {
@@ -3777,19 +3781,17 @@ document.getElementById('infoModalBody')?.addEventListener('click', (e) => {
 });
 
 /* ===== Papan Muatan (LCL consolidation) ===== */
-// Stage 7: Papan Muatan jadi rumah pembelian — tab Papan/Belanja/Koli/Muatan/Lokal & Hutang
+// Pengiriman: Papan · Koli · Muatan (pembelian dipindah ke halaman Pembelian)
 let muatanTab = 'papan';
 function showMuatanTab(tab) {
-  muatanTab = ['papan', 'belanja', 'koli', 'muatan', 'lokal'].includes(tab) ? tab : 'papan';
-  const map = { papan: 'mTabPapan', belanja: 'mTabBelanja', koli: 'mTabKoli', muatan: 'mTabMuatan', lokal: 'mTabLokal' };
+  muatanTab = ['papan', 'koli', 'muatan'].includes(tab) ? tab : 'papan';
+  const map = { papan: 'mTabPapan', koli: 'mTabKoli', muatan: 'mTabMuatan' };
   Object.entries(map).forEach(([k, id]) => { const el = document.getElementById(id); if (el) el.hidden = k !== muatanTab; });
   document.querySelectorAll('#muatanTabs .chip').forEach((b) => {
     const on = b.dataset.mtab === muatanTab;
     b.classList.toggle('selected', on);
     b.setAttribute('aria-selected', String(on));
   });
-  document.querySelectorAll('#muatanTabs')?.forEach(() => {});
-  if (muatanTab === 'lokal') { try { renderPembelianPage(); } catch {} }
 }
 document.getElementById('muatanTabs')?.addEventListener('click', (e) => {
   const b = e.target.closest('[data-mtab]');
@@ -3874,7 +3876,7 @@ function renderMuatanPageUnsafe() {
   }
 
   // Daftar belanja
-  const listBox = document.getElementById('muatanBelanjaList');
+  const listBox = document.getElementById('pembelianBelanjaList') || document.getElementById('muatanBelanjaList');
   if (listBox) {
     const STAGE = { paid: 'Dipesan', china: 'Di gudang China', batch: 'Muat ke muatan', ship: 'Di kapal', arrived: 'Sampai gudang', done: 'Selesai' };
     const COLOR = { paid: '#94a3b8', china: '#f59e0b', batch: '#8b5cf6', ship: '#3b82f6', arrived: '#059669', done: '#64748b' };
@@ -4434,10 +4436,9 @@ document.getElementById('viewMuatan')?.addEventListener('click', (e) => {
   const card = e.target.closest('[data-muatan]');
   if (card) openMuatanDetailModal(card.dataset.muatan);
 });
-document.getElementById('muatanBelanjaBtn')?.addEventListener('click', () => openBelanjaModal());
+document.getElementById('pembelianMarketBtn')?.addEventListener('click', () => openBelanjaModal());
 document.getElementById('muatanKoliBtn')?.addEventListener('click', () => openKoliModal());
 document.getElementById('muatanBatchBtn')?.addEventListener('click', () => openMuatanCreateModal());
-document.getElementById('pembelianGotoMuatan')?.addEventListener('click', () => { showMuatanTab('lokal'); document.getElementById('muatanBtnSidebar')?.click(); });
 
 /* ===== Halaman Biaya ===== */
 
