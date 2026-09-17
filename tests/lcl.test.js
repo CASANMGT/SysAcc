@@ -154,6 +154,21 @@ describe('migrasi Titip Beli lama', () => {
   });
 });
 
+describe('ketahanan data rusak (kunci berisi "null")', () => {
+  it('getBelanjas/getKolis/getMuatans mengembalikan array kosong, dan createBelanja tetap bisa', () => {
+    ['wynara_belanja', 'wynara_koli', 'wynara_muatan'].forEach((k) => localStorage.setItem(k, 'null'));
+    expect(getBelanjas()).toEqual([]);
+    expect(getKolis()).toEqual([]);
+    expect(getMuatans()).toEqual([]);
+    const b = createBelanja({ lines: [{ name: 'pepper', qty: 100, cnyUnit: 4 }], kursAgen: 2300, ongkirCny: 10, purpose: 'stock' });
+    expect(b.no).toMatch(/^BLJ-/);
+    expect(getBelanjas().length).toBe(1);
+  });
+  it('save menolak nilai non-array (tidak menulis "null" lagi)', () => {
+    expect(() => markBelanjaLoss('tidak-ada', { amount: 1 })).toThrow();
+  });
+});
+
 describe('§5.3 pengecualian', () => {
   it('kurang kirim/rusak/hilang: Dr 5199 / Cr 1211 (belum tiba) dan landedTotal turun setelah tiba', () => {
     const { muatan, belanja } = setupWorkedExample();

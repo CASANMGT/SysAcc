@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.19.4] - 2026-09-17
+
+### Akar masalah ditemukan (laporan pengguna) — `lcl.js` satu-satunya pembaca tanpa penjaga array
+- **`load()` di lcl.js kini memvalidasi array**: kunci localStorage berisi string `"null"` lolos dari fallback `|| '[]'` (karena truthy), `JSON.parse` mengembalikan `null`, lalu `nextNo(list, 'BLJ')` menghitung `list.length` → **"can't access property 'length', list is null"**. Penjaga yang sama dipakai seluruh `storage.js`; hanya modul lcl.js yang melewatkannya — dan modul itu dipakai bersama `getBelanjas`/`getKolis`/`getMuatans`, jadi Koli & Muatan akan gagal dengan cara yang sama.
+- **`save()` menolak nilai non-array** sehingga `"null"` tidak pernah ditulis lagi (penyebab awal: jalur restore/import yang menyerahkan `null`).
+- Guard yang sama diterapkan pada pembacaan langsung `wynara_preorders` di `migrateLegacyTitipBeli` dan `refusePreorder`.
+- **Label estimasi diperjelas**: baris per-pcs kini berbunyi "Rp 9.430/pcs **sebelum ongkir laut**" dan baris di atasnya "Barang + ongkir China (ongkir laut belum termasuk)" — laut biasanya komponen terbesar, jadi angka itu tidak boleh terbaca sebagai harga pokok final.
+- Uji ketahanan data rusak: ketiga kunci diisi `"null"` → semua pembaca mengembalikan array kosong dan `createBelanja` tetap berhasil. Suite **359 lulus**.
+
 ## [2.19.3] - 2026-09-17
 
 ### Diagnostik — pesan kesalahan menyertakan jejak teknis

@@ -41,7 +41,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.19.3';
+const APP_VERSION = '2.19.4';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -4065,7 +4065,7 @@ function openBelanjaModal(preorderId = null) {
       const goodsCny = k.goodsCny, qty = k.qty;
       est.innerHTML = `Harga barang ¥${goodsCny.toLocaleString('id-ID')}${qty ? ' × ' + qty + ' pcs' : ''} × Rp${kurs.toLocaleString('id-ID')} → <b>${fmt(k.goodsIdr)}</b><br>
         Ongkir China ¥${ongkir.toLocaleString('id-ID')} → <b>${fmt(k.ongkirIdr)}</b>${air ? `<br>Estimasi udara ${Math.round(totalKg * 100) / 100} kg × Rp${im.ratePerKg.toLocaleString('id-ID')}/kg → <b>${fmt(air.amount)}</b>` : ''}<br>
-        <span style="color:#64748b">${air ? 'Estimasi modal' : 'Estimasi modal barang (belum ongkir laut)'} → <b>${fmt(subtotal)}</b>${qty ? ' · ' + fmt(Math.round(subtotal / qty)) + '/pcs' : ''}</span><br>
+        <span style="color:#64748b">${air ? 'Estimasi modal' : 'Barang + ongkir China (ongkir laut belum termasuk)'} → <b>${fmt(subtotal)}</b>${qty ? ' · <b>' + fmt(Math.round(subtotal / qty)) + '/pcs</b> <span style="color:#b45309">sebelum ongkir laut</span>' : ''}</span><br>
         <span style="color:#b45309">⚠ Estimasi — ${air ? 'berat tertagih final & nilai volumetrik' : 'ongkir laut (' + (im.ratePerCbm / 1e6).toFixed(1) + 'jt/CBM)'} dihitung saat barang tiba${!air && mode === 'air' ? ' (rate udara belum diatur di Pengaturan → Impor)' : ''}.</span>`;
     } catch { est.textContent = ''; }
   };

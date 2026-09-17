@@ -18,8 +18,18 @@ const KOLI_KEY = 'wynara_koli';
 const MUATAN_KEY = 'wynara_muatan';
 
 function jid(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
-function load(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } }
-function save(key, list) { try { localStorage.setItem(key, JSON.stringify(list)); } catch { throw new Error('Gagal simpan data'); } }
+// PENTING: kunci yang berisi string "null" lolos dari `|| '[]'` (truthy) dan JSON.parse
+// mengembalikan null — itulah yang dulu membuat `list.length` di nextNo meledak.
+function load(key) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+function save(key, list) {
+  if (!Array.isArray(list)) throw new Error('Data tidak valid (bukan daftar) — muat ulang lalu coba lagi');
+  try { localStorage.setItem(key, JSON.stringify(list)); } catch { throw new Error('Gagal simpan data'); }
+}
 function num(v) { const n = Math.round(Number(v) || 0); return n > 0 ? n : 0; }
 function nextNo(list, prefix) {
   const d = new Date();
@@ -458,7 +468,7 @@ export function receiveMuatan(muatanId, { date, koliIds = null } = {}) {
 export function migrateLegacyTitipBeli() {
   let changed = 0;
   let pos = [];
-  try { pos = JSON.parse(localStorage.getItem('wynara_preorders') || '[]'); } catch { return { migrated: 0 }; }
+  try { const v = JSON.parse(localStorage.getItem('wynara_preorders') || '[]'); pos = Array.isArray(v) ? v : []; } catch { return { migrated: 0 }; }
   const bels = getBelanjas();
   const kolis = getKolis();
   const muats = getMuatans();
@@ -561,7 +571,7 @@ export function markBelanjaLoss(belanjaId, { type = 'short', amount = 0, qty = 0
 export function refusePreorder(poId, { date, note } = {}) {
   const d = String(date || new Date().toISOString().split('T')[0]).slice(0, 10);
   assertUnlocked(d);
-  const list = (() => { try { return JSON.parse(localStorage.getItem('wynara_preorders') || '[]'); } catch { return []; } })();
+  const list = (() => { try { const v = JSON.parse(localStorage.getItem('wynara_preorders') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
   const i = list.findIndex((p) => p.id === poId);
   if (i < 0) throw new Error('Pesanan tidak ditemukan');
   const po = list[i];
