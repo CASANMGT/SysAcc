@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.23.2';
+const APP_VERSION = '2.24.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -787,6 +787,107 @@ function iconSvg(name, size = 18) {
   return `<svg class="mi-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 // Hidrasi semua <span class="mi" data-ic="…"> menjadi SVG outline.
+/* ===== Pencarian dokumen global: resi, invoice, nomor pesanan, produk, kontak ===== */
+function globalSearchDocs(q) {
+  const t = String(q || '').trim().toLowerCase();
+  if (t.length < 2) return [];
+  const has = (...vals) => vals.some((v) => String(v == null ? '' : v).toLowerCase().includes(t));
+  const R = [];
+  const push = (type, id, title, sub, act) => R.push({ type, id, title, sub, act });
+  try {
+    // Pesanan penjualan (preorder + kredit/invoice)
+    Storage.getPreorders().forEach((p) => {
+      if (has(p.no, p.customer, (p.items || []).map((l) => l.name).join(' '))) push('Pesanan', p.id, `${p.no || ''} — ${p.customer || '—'}`, (p.items || []).slice(0, 3).map((l) => `${l.qty}× ${l.name}`).join(', '), () => openOrderDetail('po', p.id));
+    });
+    Storage.getCreditSales().forEach((c) => {
+      if (has(c.invoiceNo, c.customer, c.no)) push('Invoice penjualan', c.id, `${c.invoiceNo || c.no || ''} — ${c.customer || '—'}`, Reports.formatCurrency(Number(c.total) || 0), () => openOrderDetail('jual', c.id));
+    });
+    // Belanja marketplace (nomor, seller, resi China, nomor pesanan marketplace)
+    getBelanjas().forEach((b) => {
+      if (has(b.no, b.seller, b.chinaTracking, b.orderNo, b.link)) push('Belanja marketplace', b.id, `${b.no} — ${b.seller || ''}`, `${MARKETPLACES.find((m) => m.id === b.marketplace)?.label || ''} • ${Reports.formatCurrency(b.totalIdr)}${b.chinaTracking ? ' • resi ' + b.chinaTracking : ''}`, () => { document.getElementById('pembelianBtnSidebar')?.click(); });
+    });
+    // Koli
+    getKolis().forEach((k) => {
+      if (has(k.parcelNo, k.note)) push('Koli', k.id, k.parcelNo, `${(k.cbm || 0).toFixed(2)} CBM • ${k.belanjaIds.length} belanja`, () => {
+        document.getElementById('muatanBtnSidebar')?.click();
+        setTimeout(() => { const m = document.querySelector('.koli-attach[data-id="' + k.id + '"]'); if (m) m.click(); }, 220);
+      });
+    });
+    // Muatan (batch) + resi/forwarder
+    getMuatans().forEach((m) => {
+      if (has(m.code, m.forwarder, m.tracking)) push('Muatan', m.id, m.code, `${m.mode === 'air' ? 'Udara' : 'LCL'} • ${m.forwarder || ''}${m.eta ? ' • ETA ' + m.eta : ''}`, () => openMuatanDetailModal(m.id));
+    });
+    // Pengiriman (surat jalan) + resi kurir
+    Storage.getShipments().forEach((s) => {
+      if (has(s.no, s.tracking, s.recipient, s.address, s.courier, s.orderNo)) push('Pengiriman', s.id, `${s.no} — ${s.recipient || ''}`, `${s.courier || ''} ${s.service || ''}${s.tracking ? ' • resi ' + s.tracking : ''} • ${s.status === 'draft' ? 'Draft' : 'Terkirim'}`, () => { document.getElementById('muatanBtnSidebar')?.click(); });
+    });
+    // Transaksi (deskripsi / orang / kategori) & produk & kontak
+    Storage.getAllEntries().forEach((e) => {
+      if (has(e.description, e.person, e.category, e.amount)) push('Transaksi', e.id, e.description || Reports.getCategoryLabel(e.category), `${e.date} • ${Reports.formatCurrency(Number(e.amount) || 0)}${e.person ? ' • ' + e.person : ''}`, () => { document.getElementById('sidebarTransaksi')?.click(); });
+    });
+    Storage.getAllItems().forEach((it) => {
+      if (has(it.name, it.sku, it.barcode)) push('Produk', it.id, Storage.fullItemName(it), `stok ${it.stock} • ${it.sku || ''}${it.status === 'draft' ? ' • Draft' : ''}`, () => { if (typeof openStockActionSheet === 'function') openStockActionSheet(it.id); else document.getElementById('stockBtnSidebar')?.click(); });
+    });
+    Storage.getAllPeople().forEach((p) => {
+      if (has(p.name, p.phone)) push('Kontak', p.id, p.name, p.phone || p.type || '', () => { document.getElementById('contactsBtnSidebar')?.click(); });
+    });
+  } catch {}
+  // Batasi: maksimal 5 per jenis, 30 total
+  const byType = {};
+  const out = [];
+  for (const r of R) {
+    byType[r.type] = (byType[r.type] || 0) + 1;
+    if (byType[r.type] > 5) continue;
+    out.push(r);
+    if (out.length >= 30) break;
+  }
+  return out;
+}
+function renderGlobalSearch(q) {
+  const box = document.getElementById('globalSearchResults');
+  if (!box) return;
+  const rows = globalSearchDocs(q);
+  if (!String(q || '').trim()) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  if (!rows.length) { box.innerHTML = '<div class="gsearch-empty">Tidak ada dokumen yang cocok. Coba nomor pesanan, resi, invoice, nama produk, atau kontak.</div>'; box.classList.remove('hidden'); return; }
+  let lastType = '';
+  box.innerHTML = rows.map((r, i) => {
+    const head = r.type !== lastType ? `<div class="gsearch-group">${escapeHtml(r.type)}</div>` : '';
+    lastType = r.type;
+    return `${head}<button type="button" class="gsearch-item" data-gs="${i}" role="option">
+      <span style="flex:1;min-width:0"><span class="gs-title" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.title)}</span>
+      <span class="gs-sub" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.sub || '')}</span></span>
+      <span style="font-size:11px;color:#94a3b8">buka →</span></button>`;
+  }).join('');
+  box.classList.remove('hidden');
+  box.querySelectorAll('.gsearch-item').forEach((b) => b.addEventListener('click', () => {
+    const r = rows[Number(b.dataset.gs)];
+    box.classList.add('hidden'); box.innerHTML = '';
+    try { if (r && typeof r.act === 'function') r.act(); } catch (e) { console.error(e); }
+  }));
+}
+function bindGlobalSearch() {
+  ['searchInputTop', 'searchInput'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.gsBound === '1') return;
+    el.dataset.gsBound = '1';
+    el.addEventListener('input', (e) => {
+      renderGlobalSearch(e.target.value);
+      // Sinkronkan ke kotak pencarian lainnya agar filter transaksi ikut
+      const other = document.getElementById(id === 'searchInputTop' ? 'searchInput' : 'searchInputTop');
+      const o = document.getElementById(other);
+      if (o && o.value !== e.target.value && id === 'searchInputTop') { o.value = e.target.value; o.dispatchEvent(new Event('input')); }
+    });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { const box = document.getElementById('globalSearchResults'); box?.classList.add('hidden'); }
+      if (e.key === 'Enter') { const first = document.querySelector('#globalSearchResults .gsearch-item'); if (first) { e.preventDefault(); first.click(); } }
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.topbar-search') || e.target.closest('#searchInput')) return;
+    document.getElementById('globalSearchResults')?.classList.add('hidden');
+  });
+}
+
 function hydrateIcons(root = document) {
   root.querySelectorAll('.mi[data-ic]').forEach((el) => {
     if (el.dataset.done === '1') return;
@@ -2867,6 +2968,7 @@ function render() {
 
   renderFilterPills();
   renderChecklistBadge();
+  bindGlobalSearch();
   syncTopbarPeriod();
   renderArusKasChart(searchFiltered);
   renderDonut(categories);

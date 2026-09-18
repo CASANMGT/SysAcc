@@ -1,5 +1,4 @@
 * {
-  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
@@ -4100,3 +4099,12 @@ input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px
   h1 { font-size: 22px; }
   .dash-panel { padding: 12px; }
 }
+
+/* Pencarian dokumen global (resi, invoice, nomor pesanan, produk, kontak) */
+.gsearch-panel { position: absolute; top: 44px; left: 0; right: 0; z-index: 60; background: #fff; border: 1px solid #e3e8ef; border-radius: 14px; box-shadow: 0 12px 32px rgba(16,24,40,.14); max-height: 60vh; overflow-y: auto; padding: 6px; }
+.gsearch-group { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; color: #8b98a8; padding: 8px 10px 4px; text-transform: uppercase; }
+.gsearch-item { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; background: none; border: none; border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+.gsearch-item:hover, .gsearch-item:focus-visible { background: #f1f5f9; }
+.gsearch-item .gs-title { font-size: 13px; font-weight: 600; color: #1f2937; }
+.gsearch-item .gs-sub { font-size: 11px; color: #64748b; }
+.gsearch-empty { font-size: 12px; color: #64748b; padding: 12px; }

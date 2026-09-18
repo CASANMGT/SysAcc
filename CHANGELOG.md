@@ -8,6 +8,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.24.0] - 2026-09-17 — pencarian dokumen global
+
+- **Satu kotak cari di header untuk semua dokumen.** Ketik minimal 2 huruf (nomor pesanan, **resi China/kurir**, **nomor invoice**, nomor pesanan marketplace, nama seller, nama produk/SKU/barcode, nama kontak, deskripsi transaksi) → hasil muncul sebagai panel bergrup per jenis: **Pesanan · Invoice penjualan · Belanja marketplace · Koli · Muatan · Pengiriman · Transaksi · Produk · Kontak** (maks 5 per jenis).
+- **Langsung membuka dokumennya**: pesanan & invoice → Detail Pesanan; muatan → detail muatan; koli → lampiran koli; produk → lembar aksi produk; belanja/pengiriman → halaman terkait. Navigasi lewat tombol sidebar agar tidak bergantung scope `init()`.
+- **Keyboard**: `Enter` membuka hasil pertama, `Esc` menutup panel; klik di luar menutup otomatis. Pencarian tetap menyaring daftar Transaksi seperti sebelumnya (dua kotak cari disinkronkan).
+- Uji: **380 lulus**.
+
 ## [2.23.2] - 2026-09-17 — checklist pindah ke Laporan → Pajak
 
 - **Ringkasan kini hanya menampilkan badge ringkas**: *"Checklist 2026-09: 4 langkah belum selesai"* dengan daftar tenggat yang sudah lewat (merah) atau langkah berikutnya, plus tautan **Buka di Laporan → Pajak**. Tidak lagi memakan ruang dashboard harian.
