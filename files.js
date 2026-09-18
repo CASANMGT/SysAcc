@@ -1,3 +1,4 @@
+/* global atob */
 // files.js — Lampiran (PI, packing list, BL/AWB, screenshot chat, foto barang).
 // Gambar dikompres dulu (maks 1600 px, JPEG 0.75). Disimpan di IndexedDB;
 // bila IDB tidak tersedia (atau berkas kecil), fallback ke localStorage dengan batas ukuran.
@@ -6,7 +7,10 @@
 const DB_NAME = 'wynara-files';
 const STORE = 'files';
 const LS_PREFIX = 'wynara_file_';
-const MAX_STORE_BYTES = 900 * 1024;   // batas per berkas setelah kompresi (fallback localStorage)
+// Batas per berkas: IndexedDB sanggup besar, fallback localStorage tidak.
+const MAX_IDB_BYTES = 8 * 1024 * 1024;      // 8 MB (dokumen scan multi-halaman)
+const MAX_LS_BYTES = 900 * 1024;             // fallback localStorage
+const MAX_STORE_BYTES = MAX_IDB_BYTES;       // dipakai pesan & validasi utama
 const MAX_W = 1600;
 
 function uid() { return 'F' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -85,14 +89,15 @@ export async function saveFile(input, { compress = true } = {}) {
     size: dataUrl.length, kind: /^data:image\//.test(dataUrl) ? 'image' : 'file',
     at: new Date().toISOString(),
   };
-  if (dataUrl.length > MAX_STORE_BYTES) throw new Error('Berkas terlalu besar (maks ±900 KB setelah kompresi)');
+  if (dataUrl.length > MAX_STORE_BYTES) throw new Error(`Berkas terlalu besar (maks ${Math.round(MAX_STORE_BYTES / 1048576)} MB per berkas)`);
   try {
     const db = await openDb();
     await idbTx(db, 'readwrite', (s) => s.put({ ...meta, dataUrl }, id));
     try { db.close(); } catch {}
     return meta;
   } catch {
-    // Fallback: localStorage (hanya untuk berkas kecil).
+    // Fallback: localStorage — hanya untuk berkas kecil.
+    if (dataUrl.length > MAX_LS_BYTES) throw new Error(`Penyimpanan browser penuh untuk berkas ${Math.round(dataUrl.length / 1024)} KB — berkas ini butuh IndexedDB (maks ${Math.round(MAX_LS_BYTES / 1024)} KB di mode fallback)`);
     try { localStorage.setItem(LS_PREFIX + id, JSON.stringify({ ...meta, dataUrl })); } catch { throw new Error('Penyimpanan lampiran penuh'); }
     return meta;
   }
@@ -107,8 +112,19 @@ export async function getFile(id) {
     const db = await openDb();
     const v = await idbTx(db, 'readonly', (s) => s.get(id));
     try { db.close(); } catch {}
-    return v || null;
-  } catch { return null; }
+    if (v) return v;
+  } catch {}
+  // Tidak ada di perangkat ini → coba ambil dari server (kalau lampiran pernah disinkronkan).
+  const cloud = await cloudGet(id);
+  if (cloud) {
+    try {
+      const db = await openDb();
+      await idbTx(db, 'readwrite', (s) => s.put(cloud, id));
+      try { db.close(); } catch {}
+    } catch {}
+    return cloud;
+  }
+  return null;
 }
 
 export async function deleteFile(id) {
@@ -119,6 +135,84 @@ export async function deleteFile(id) {
     try { db.close(); } catch {}
   } catch {}
   return true;
+}
+
+// ---------- Sinkron lampiran ke Supabase Storage (bucket: wynara-files) ----------
+// Butuh bucket privat + policy: authenticated boleh select/insert/update/delete.
+// Bila bucket belum ada, fungsi melempar pesan yang menjelaskan cara membuatnya (tidak diam-diam gagal).
+import { getCloudConfig, getCloudSession } from './supabase.js';
+const BUCKET = 'wynara-files';
+const UPLOADED_KEY = 'wynara_files_uploaded';
+
+function uploadedSet() {
+  try { const v = JSON.parse(localStorage.getItem(UPLOADED_KEY) || '[]'); return new Set(Array.isArray(v) ? v : []); } catch { return new Set(); }
+}
+function markUploaded(id) {
+  const s = uploadedSet(); s.add(id);
+  try { localStorage.setItem(UPLOADED_KEY, JSON.stringify(Array.from(s).slice(-2000))); } catch {}
+}
+export function cloudFileInfo() {
+  const cfg = getCloudConfig();
+  const ses = getCloudSession();
+  return { configured: !!(cfg && cfg.url), signedIn: !!ses, bucket: BUCKET, uploaded: uploadedSet().size };
+}
+function dataUrlToBlob(dataUrl, type) {
+  const m = /^data:([^;]+);base64,(.*)$/.exec(dataUrl || '');
+  if (!m) throw new Error('Format berkas tidak dikenal');
+  const bin = atob(m[2]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: type || m[1] || 'application/octet-stream' });
+}
+async function cloudPut(rec) {
+  const cfg = getCloudConfig();
+  const ses = getCloudSession();
+  if (!cfg || !ses) throw new Error('Belum masuk akun online — lampiran tidak bisa diunggah');
+  const res = await fetch(`${cfg.url}/storage/v1/object/${BUCKET}/${encodeURIComponent(rec.id)}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${ses.access_token}`, 'Content-Type': rec.type || 'application/octet-stream', 'x-upsert': 'true' },
+    body: dataUrlToBlob(rec.dataUrl, rec.type),
+  });
+  if (res.status === 404 || res.status === 400) {
+    const t = await res.text().catch(() => '');
+    if (/bucket/i.test(t) || res.status === 404) throw new Error(`Bucket "${BUCKET}" belum ada di Supabase — buat bucket privat dengan nama itu (Storage → New bucket).`);
+  }
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`Unggah gagal (${res.status})${t ? ': ' + t.slice(0, 120) : ''}`);
+  }
+  return true;
+}
+async function cloudGet(id) {
+  const cfg = getCloudConfig();
+  const ses = getCloudSession();
+  if (!cfg || !ses) return null;
+  try {
+    const res = await fetch(`${cfg.url}/storage/v1/object/${BUCKET}/${encodeURIComponent(id)}`, {
+      headers: { Authorization: `Bearer ${ses.access_token}` },
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ''));
+      r.onerror = () => reject(new Error('baca-cloud'));
+      r.readAsDataURL(blob);
+    });
+    return { id, name: id, type: blob.type, kind: /^data:image\//.test(dataUrl) ? 'image' : 'file', size: dataUrl.length, dataUrl, fromCloud: true };
+  } catch { return null; }
+}
+// Unggah semua lampiran lokal yang belum pernah diunggah.
+export async function syncFilesToCloud() {
+  const all = await exportBlobs();
+  const done = uploadedSet();
+  let up = 0, fail = 0, firstErr = '';
+  for (const rec of all) {
+    if (done.has(rec.id)) continue;
+    try { await cloudPut(rec); markUploaded(rec.id); up++; }
+    catch (e) { fail++; if (!firstErr) firstErr = e && e.message ? e.message : 'gagal'; if (fail > 3) break; }
+  }
+  return { total: all.length, uploaded: up, failed: fail, error: firstErr, already: done.size };
 }
 
 // ---------- Ekspor/impor blob untuk JSON backup ----------

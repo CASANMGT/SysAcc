@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.25.0';
+const APP_VERSION = '2.26.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1472,8 +1472,8 @@ function bindEvents() {
   document.getElementById('contactsBtnSidebar')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
   document.getElementById('loanBtnSidebar')?.addEventListener('click', () => UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople()));
   document.getElementById('stockBtnSidebar')?.addEventListener('click', () => showView('viewStock'));
-  document.getElementById('saleEntryBtn')?.addEventListener('click', () => UI.openSale());
-  document.getElementById('saleEntryBtn2')?.addEventListener('click', () => UI.openSale());
+  document.getElementById('saleEntryBtn')?.addEventListener('click', () => openJualBaru('ready'));
+  document.getElementById('saleEntryBtn2')?.addEventListener('click', () => openJualBaru('ready'));
   document.getElementById('payrollBtnSidebar')?.addEventListener('click', () => showView('viewPayroll'));
   document.getElementById('kasOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.openKas(); });
   document.getElementById('bankOpenBtn')?.addEventListener('click', () => { refreshKas(); UI.setBankRows([]); UI.openBank(); });
@@ -1899,6 +1899,22 @@ function bindEvents() {
   document.getElementById('closeSettingsCancel')?.addEventListener('click', closeSettings);
   document.getElementById('settingsModal')?.addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
+  document.getElementById('filesSyncBtn')?.addEventListener('click', async () => {
+    const label = document.getElementById('filesSyncLabel');
+    const info = (() => { try { return Files.cloudFileInfo(); } catch { return { configured: false, signedIn: false, uploaded: 0 }; } })();
+    if (!info.signedIn) return UI.showError('Masuk akun online dulu (Sinkron Online) sebelum mengunggah lampiran.');
+    if (label) label.textContent = 'Mengunggah…';
+    try {
+      const r = await Files.syncFilesToCloud();
+      if (label) label.textContent = `${r.uploaded} diunggah • ${r.already} sudah ada${r.failed ? ` • ${r.failed} gagal` : ''}`;
+      if (r.uploaded) UI.showSuccess(`${r.uploaded} lampiran diunggah ke server (${r.total} total di perangkat ini)`);
+      else if (r.error) UI.showError(r.error);
+      else UI.showInfo('Semua lampiran sudah ada di server');
+    } catch (e) {
+      if (label) label.textContent = '';
+      UI.showError(e && e.message ? e.message : 'Gagal mengunggah lampiran');
+    }
+  });
   document.getElementById('exportJsonBtn')?.addEventListener('click', () => { Storage.exportJSON(); UI.showSuccess('Backup JSON diunduh'); });
   document.getElementById('loansArchiveBtn')?.addEventListener('click', () => {
     UI.openLoans(getFilteredLoans(), Storage.getAllRepayments(), computeLoanSummary(), Storage.getAllLoans(), Storage.getAllPeople());
@@ -1949,7 +1965,7 @@ function bindEvents() {
     else if (rowEdit) { const it = Storage.getItemById(rowEdit.dataset.id); if (it) { UI.fillStockForm(it); UI.openStock(); } }
     else if (rowQr) openBarcode(rowQr.dataset.id);
     else if (bc && bc.dataset.id) openBarcode(bc.dataset.id);
-    else if (jual) UI.openSale();
+    else if (jual) openJualBaru('ready');
     else if (restock) handleStockRestockGroup(restock.dataset.key);
     else if (hist) handleStockHistoryGroup(hist.dataset.key);
   });

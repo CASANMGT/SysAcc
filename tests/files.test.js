@@ -21,9 +21,14 @@ describe('lampiran: simpan, ambil, hapus', () => {
     expect(await getFile(meta.id)).toBeNull();
   });
 
-  it('menolak berkas kelewat besar', async () => {
-    const big = 'data:text/plain;base64,' + 'A'.repeat(950 * 1024);
+  it('menolak berkas kelewat besar (di atas batas 8 MB)', async () => {
+    const big = 'data:text/plain;base64,' + 'A'.repeat(Math.ceil(8.4 * 1024 * 1024));
     await expect(saveFile({ name: 'gede.pdf', type: 'text/plain', dataUrl: big }, { compress: false })).rejects.toThrow(/besar/);
+  });
+
+  it('fallback tanpa IndexedDB menolak berkas > 900 KB dengan pesan jelas', async () => {
+    const mid = 'data:text/plain;base64,' + 'A'.repeat(950 * 1024);
+    await expect(saveFile({ name: 'sedang.pdf', type: 'text/plain', dataUrl: mid }, { compress: false })).rejects.toThrow(/IndexedDB/);
   });
 
   it('compressImage aman saat canvas tak tersedia (mengembalikan apa adanya)', async () => {

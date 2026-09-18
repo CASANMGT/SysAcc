@@ -8,6 +8,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.26.0] - 2026-09-17 — lampiran ke server, batas berkas, satu pintu penjualan
+
+### Ditambahkan
+- **Sinkron lampiran ke Supabase Storage** (bucket `wynara-files`) — tombol **"☁️ Sinkron lampiran ke server"** di Pengaturan → Arsip: mengunggah semua lampiran lokal yang belum ada di server, dengan status ("N diunggah • M sudah ada"). `getFile()` kini otomatis **menarik dari server** bila berkas tidak ada di perangkat (jadi buka lampiran di HP lain tetap jalan), lalu menyimpannya ke IndexedDB lokal.
+  - **Perlu disiapkan sekali di Supabase**: buat bucket **privat** bernama `wynara-files`, lalu tambahkan policy untuk `authenticated` (select/insert/update/delete pada bucket tersebut). Bila bucket belum ada, aplikasi memberi pesan yang menjelaskannya — bukan gagal diam-diam.
+- **Batas berkas naik**: 8 MB per berkas bila IndexedDB tersedia (dokumen scan multi-halaman), fallback localStorage tetap 900 KB dengan pesan yang jelas menyebut IndexedDB.
+
+### Diubah
+- **Satu pintu penjualan**: tombol "Jual" di Beranda/Produk dan aksi "Jual" pada daftar produk kini membuka **halaman Penjualan baru** (bukan modal lama). Modal lama tetap ada di kode untuk kompatibilitas, tetapi tidak lagi dijangkau dari antarmuka.
+- Uji: **382 lulus**.
+
 ## [2.25.0] - 2026-09-17 — pencarian lampiran & checklist minggu pertama
 
 ### Ditambahkan
