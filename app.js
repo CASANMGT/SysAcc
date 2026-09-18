@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.23.1';
+const APP_VERSION = '2.23.2';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -625,8 +625,41 @@ function checklistSteps(monthKey) {
   };
   return steps.map((s) => ({ ...s, done: auto[s.id] === true || !!(saved[s.id] && saved[s.id].done), auto: auto[s.id] === true, overdue: new Date(s.due + 'T00:00:00') < new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00') }));
 }
-function renderChecklistCard() {
+function checklistSummary(monthKey) {
+  const steps = checklistSteps(monthKey);
+  const pending = steps.filter((s) => !s.done);
+  const overdue = pending.filter((s) => s.overdue);
+  return { steps, pending, overdue, doneCount: steps.length - pending.length };
+}
+
+// Ringkasan: badge ringkas saja (jumlah terlambat) — checklist penuh pindah ke Laporan → Pajak.
+function renderChecklistBadge() {
   const host = document.getElementById('checklistCard');
+  if (!host) return;
+  const mk = new Date().toISOString().slice(0, 7);
+  const { pending, overdue, doneCount, steps } = checklistSummary(mk);
+  if (!pending.length) {
+    host.innerHTML = `<div class="dash-panel" style="padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <span style="color:#059669;font-weight:700">✓ Checklist ${escapeHtml(mk)} selesai</span>
+      <span style="font-size:11.5px;color:#64748b">${doneCount}/${steps.length} langkah</span>
+      <a href="#" class="ck-open-report" style="margin-left:auto;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none">Buka checklist →</a></div>`;
+  } else {
+    host.innerHTML = `<div class="dash-panel" style="padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;${overdue.length ? 'border-color:#fecaca;background:#fef2f2' : ''}">
+      <span style="font-weight:700;font-size:13px">${overdue.length ? '⏰' : '🗓️'} Checklist ${escapeHtml(mk)}: <b>${pending.length} langkah belum selesai</b></span>
+      ${overdue.length ? `<span style="font-size:11.5px;color:#b91c1c">${overdue.length} sudah lewat tenggat: ${escapeHtml(overdue.slice(0, 3).map((s) => s.label.split('(')[0].trim()).join(', '))}${overdue.length > 3 ? '…' : ''}</span>` : `<span style="font-size:11.5px;color:#64748b">Berikutnya: ${escapeHtml(pending[0].label)} • tenggat ${escapeHtml(pending[0].due)}</span>`}
+      <a href="#" class="ck-open-report" style="margin-left:auto;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none">Buka di Laporan → Pajak →</a></div>`;
+  }
+  host.querySelectorAll('.ck-open-report').forEach((a) => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    // showView() bersarang di dalam init(); pindah halaman lewat tombol sidebar agar aman dari scope.
+    document.getElementById('reportBtnSidebar')?.click();
+    setTimeout(() => { const tab = document.querySelector('.page-report-tab[data-report="tax"]'); if (tab) tab.click(); }, 50);
+  }));
+}
+
+// Checklist penuh — dirender di Laporan → tab Pajak.
+function renderChecklistFull() {
+  const host = document.getElementById('checklistReportHost');
   if (!host) return;
   const monthKey = new Date().toISOString().slice(0, 7);
   const steps = checklistSteps(monthKey);
@@ -641,12 +674,24 @@ function renderChecklistCard() {
         <span style="font-size:13px;${s.done ? 'text-decoration:line-through;color:#64748b' : 'font-weight:600'}">${escapeHtml(s.label)}</span>
         <span style="display:block;font-size:11px;color:${!s.done && s.overdue ? '#b91c1c' : '#64748b'}">Tenggat ${escapeHtml(s.due)}${s.auto ? ' • terdeteksi otomatis' : ''}${s.note ? ' • ' + escapeHtml(s.note) : ''}</span>
       </span></label>`).join('')}
-    <div style="font-size:11px;color:#64748b;margin-top:8px">Tenggat mengikuti aturan umum: PPh 21 &amp; PPh 23 tanggal 10, PPh Final tanggal 15, tutup buku &amp; backup di akhir bulan.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button type="button" class="btn btn-primary" id="ckPackBtn" style="font-size:12px">📦 Cetak paket bulanan ini</button>
+      <span style="font-size:11px;color:#64748b;align-self:center">Tenggat: PPh 21 &amp; PPh 23 tanggal 10, PPh Final tanggal 15, tutup buku &amp; backup akhir bulan.</span>
+    </div>
   </div>`;
   host.querySelectorAll('.cl-step').forEach((cb) => cb.addEventListener('change', () => {
-    try { Storage.setChecklistStep(monthKey, cb.dataset.step, cb.checked); renderChecklistCard(); }
+    try { Storage.setChecklistStep(monthKey, cb.dataset.step, cb.checked); renderChecklistFull(); renderChecklistBadge(); }
     catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyimpan checklist'); }
   }));
+  document.getElementById('ckPackBtn')?.addEventListener('click', () => printMonthlyPack(monthKey));
+}
+
+// Dipanggil dari renderPageReport: checklist hanya tampil di tab Pajak.
+function renderChecklistHome(mode) {
+  const host = document.getElementById('checklistReportHost');
+  if (!host) return;
+  if (mode === 'page') renderChecklistFull();
+  else host.innerHTML = '';
 }
 
 /* ===== Bukti potong PPh 21 (per karyawan, bulan berjalan) ===== */
@@ -2821,7 +2866,7 @@ function render() {
   );
 
   renderFilterPills();
-  renderChecklistCard();
+  renderChecklistBadge();
   syncTopbarPeriod();
   renderArusKasChart(searchFiltered);
   renderDonut(categories);
@@ -5147,7 +5192,7 @@ document.getElementById('viewBiaya')?.addEventListener('click', (e) => {
       Storage.setEntryVerified(v.dataset.id, true);
       UI.showSuccess('Pengeluaran ditandai sudah diverifikasi');
       renderBiayaPage();
-      try { renderChecklistCard(); } catch {}
+      try { renderChecklistBadge(); } catch {}
     } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal verifikasi'); }
     return;
   }
@@ -6513,6 +6558,8 @@ function renderPageReport() {
   }
   UI.renderReportPage(currentReportType, computeReportData(currentReportType));
   renderPageHealth();
+  // Checklist pajak & tutup buku hanya tampil di tab Pajak (Ringkasan cukup badge singkat)
+  try { renderChecklistHome(currentReportType === 'tax' ? 'page' : 'none'); } catch {}
 }
 // Kertas kerja ringkas: sekilas keadaan (jurnal pincang, penutupan terakhir, kunci)
 function renderPageHealth() {

@@ -8,6 +8,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.23.2] - 2026-09-17 — checklist pindah ke Laporan → Pajak
+
+- **Ringkasan kini hanya menampilkan badge ringkas**: *"Checklist 2026-09: 4 langkah belum selesai"* dengan daftar tenggat yang sudah lewat (merah) atau langkah berikutnya, plus tautan **Buka di Laporan → Pajak**. Tidak lagi memakan ruang dashboard harian.
+- **Checklist penuh (dengan centang, progres, tenggat, dan status otomatis) pindah ke Laporan → tab Pajak**, lengkap dengan tombol **📦 Cetak paket bulanan ini** — jadi semua urusan tutup bulan, pajak, dan penyerahan paket laporan berada di satu tempat.
+
 ## [2.23.1] - 2026-09-17 — paket bulanan lengkap
 
 - **Paket bulanan kini 7 bagian**: (1) Laba Rugi, (2) Neraca + peringatan selisih, (3) Neraca Saldo, (4) **Pajak — PPh Final UMKM 0,5%** (omzet bulan ini → setoran tanggal 15, plus omzet kumulatif tahun untuk memantau batas Rp4,8 M; peringatan bila batas terlampaui) dan PPN bila PKP, (5) **Arus Kas** — saldo awal, penerimaan, pengeluaran, arus bersih, saldo akhir, plus kelompok **operasional / investasi / pendanaan**, (6) **Rekonsiliasi Bank** — jumlah baris mutasi, sudah/belum dicocokkan, daftar sisa yang belum cocok, dengan peringatan bila belum selesai, (7) Daftar Gaji.
