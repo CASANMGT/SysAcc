@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-/* global File */
+/* global File, Buffer */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { saveFile, getFile, deleteFile, attachTo, detachFrom, fileToDataUrl, compressImage, exportBlobs, importBlobs, attachmentsOf } from '../files.js';
+import { saveFile, getFile, deleteFile, attachTo, detachFrom, fileToDataUrl, compressImage, exportBlobs, importBlobs, attachmentsOf, storageMode, maxFileBytes } from '../files.js';
 import { createBelanja, getBelanjas } from '../lcl.js';
 import { createEntry, getEntryById } from '../storage.js';
 import { createShipment, getShipments } from '../storage.js';
@@ -41,6 +41,22 @@ describe('lampiran: simpan, ambil, hapus', () => {
     const f = new File([new Uint8Array([1, 2, 3])], 'x.bin', { type: 'application/octet-stream' });
     const url = await fileToDataUrl(f);
     expect(url.startsWith('data:')).toBe(true);
+  });
+});
+
+describe('cari isi berkas teks & mode penyimpanan', () => {
+  it('mengekstrak teks dari CSV/TXT (bukan gambar) agar isinya bisa dicari', async () => {
+    const csv = 'data:text/csv;base64,' + Buffer.from('No,Nama,Resi\n1,Packing List SO-001,JX123456\n').toString('base64');
+    const m = await saveFile({ name: 'packing.csv', type: 'text/csv', dataUrl: csv }, { compress: false });
+    expect(m.kind).toBe('file');
+    expect(String(m.text || '')).toMatch(/Packing List SO-001/);
+    const img = await saveFile({ name: 'foto.jpg', type: 'image/jpeg', dataUrl: 'data:image/png;base64,AAA' }, { compress: false });
+    expect(img.text).toBeUndefined(); // gambar tidak diekstrak
+  });
+  it('melaporkan mode penyimpanan & batas berkas', () => {
+    const mode = storageMode();
+    expect(['idb', 'local']).toContain(mode);
+    expect(maxFileBytes()).toBe(mode === 'idb' ? 8 * 1024 * 1024 : 900 * 1024);
   });
 });
 

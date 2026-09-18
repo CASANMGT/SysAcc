@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.26.0';
+const APP_VERSION = '2.27.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -907,7 +907,7 @@ function globalSearchDocs(q) {
     attachSegs.forEach(([seg, list, titleOf, act]) => {
       (list || []).forEach((rec) => {
         (rec.attachments || []).forEach((a) => {
-          if (has(a.name)) push(`Lampiran ${seg}`, rec.id + ':' + a.id, a.name, `${titleOf(rec)}${a.size ? ' • ' + Math.round(a.size / 1024) + ' KB' : ''}`, () => act(rec));
+          if (has(a.name, a.text)) push(`Lampiran ${seg}`, rec.id + ':' + a.id, a.name, `${titleOf(rec)}${a.size ? ' • ' + Math.round(a.size / 1024) + ' KB' : ''}`, () => act(rec));
         });
       });
     });
@@ -915,7 +915,7 @@ function globalSearchDocs(q) {
     try {
       const pv = JSON.parse(localStorage.getItem('wynara_payroll_attachments') || '{}');
       Object.keys(pv || {}).forEach((mk) => (Array.isArray(pv[mk]) ? pv[mk] : []).forEach((a) => {
-        if (has(a.name)) push('Lampiran payroll', mk + ':' + a.id, a.name, `Payroll ${mk}`, () => document.getElementById('payrollBtnSidebar')?.click());
+        if (has(a.name, a.text)) push('Lampiran payroll', mk + ':' + a.id, a.name, `Payroll ${mk}`, () => document.getElementById('payrollBtnSidebar')?.click());
       }));
     } catch {}
   } catch {}
@@ -4498,8 +4498,13 @@ const KB = (n) => Math.max(1, Math.round((Number(n) || 0) / 1024));
 function attachBlockHtml(seg, id, attachments, { title = 'Lampiran dan tautan' } = {}) {
   const list = attachments || [];
   const total = list.reduce((a, x) => a + (Number(x.size) || 0), 0);
+  // Jelaskan batas penyimpanan yang berlaku di browser ini (bukan kejutan saat unggah gagal).
+  const mode = (() => { try { return Files.storageMode(); } catch { return 'idb'; } })();
+  const limitTxt = mode === 'local'
+    ? `<div class="beli-warn" style="margin-top:6px">⚠ Browser ini memblokir IndexedDB, jadi lampiran dibatasi <b>900 KB</b> per berkas dan tidak bisa disinkronkan ke server. Coba mode privat/incognito biasa atau browser lain.</div>`
+    : `<div class="beli-hint" style="margin-top:4px">Maks ${Math.round(Files.maxFileBytes() / 1048576)} MB per berkas • gambar otomatis dikompres${list.length ? ` • ${list.length} berkas, ± ${KB(total)} KB` : ''}</div>`;
   return `<div class="beli-side-sec attach-block" data-attach="${seg}:${id || ''}">
-    <b>${escapeHtml(title)}</b>${list.length ? `<span class="beli-hint"> — ${list.length} berkas, ± ${KB(total)} KB</span>` : ''}
+    <b>${escapeHtml(title)}</b>${list.length && mode !== 'local' ? `<span class="beli-hint"> — ${list.length} berkas, ± ${KB(total)} KB</span>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">
       ${id ? `<label class="btn btn-ghost" style="font-size:12px;padding:6px 10px;cursor:pointer">📎 Tambah berkas
         <input type="file" class="attach-input" data-seg="${seg}" data-id="${id}" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" style="display:none"></label>`
@@ -4517,6 +4522,7 @@ function attachBlockHtml(seg, id, attachments, { title = 'Lampiran dan tautan' }
         </div>
       </div>`).join('') || '<span class="beli-hint">Belum ada lampiran.</span>'}
     </div>
+    ${limitTxt}
   </div>`;
 }
 // Thumbnail dimuat dari IndexedDB/fallback setelah blok tampil.

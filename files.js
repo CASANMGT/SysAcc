@@ -13,6 +13,27 @@ const MAX_LS_BYTES = 900 * 1024;             // fallback localStorage
 const MAX_STORE_BYTES = MAX_IDB_BYTES;       // dipakai pesan & validasi utama
 const MAX_W = 1600;
 
+// Mode penyimpanan yang benar-benar dipakai browser ini — dipakai UI untuk memberi tahu pengguna.
+export function storageMode() {
+  try { return (typeof indexedDB !== 'undefined' && indexedDB) ? 'idb' : 'local'; } catch { return 'local'; }
+}
+export function maxFileBytes() { return storageMode() === 'idb' ? MAX_IDB_BYTES : MAX_LS_BYTES; }
+
+// Ekstrak teks dari berkas teks (txt/csv/md/json) agar isinya bisa dicari, bukan hanya namanya.
+const TEXT_LIKE = /^(text\/|application\/(csv|json|x-ndjson))/i;
+function sniffText(meta, dataUrl) {
+  const name = String((meta && meta.name) || '');
+  const type = String((meta && meta.type) || '');
+  const byName = /\.(txt|csv|md|json|tsv|log)$/i.test(name);
+  if (!TEXT_LIKE.test(type) && !byName) return '';
+  try {
+    const m = /^data:([^;]+);base64,(.*)$/.exec(dataUrl || '');
+    if (!m) return '';
+    const bin = atob(m[2]);
+    return bin.slice(0, 4000).replace(/\s+/g, ' ').trim();
+  } catch { return ''; }
+}
+
 function uid() { return 'F' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
 function openDb() {
@@ -89,6 +110,8 @@ export async function saveFile(input, { compress = true } = {}) {
     size: dataUrl.length, kind: /^data:image\//.test(dataUrl) ? 'image' : 'file',
     at: new Date().toISOString(),
   };
+  const text = sniffText({ name, type }, dataUrl);
+  if (text) meta.text = text; // isi berkas teks ikut tercari (tidak untuk gambar/pdf)
   if (dataUrl.length > MAX_STORE_BYTES) throw new Error(`Berkas terlalu besar (maks ${Math.round(MAX_STORE_BYTES / 1048576)} MB per berkas)`);
   try {
     const db = await openDb();

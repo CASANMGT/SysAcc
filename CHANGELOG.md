@@ -8,6 +8,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.27.0] - 2026-09-17 — cari isi berkas & jelaskan batas penyimpanan
+
+- **Pencarian lampiran kini menyertakan isi berkas teks**: saat menyimpan berkas teks (txt/csv/tsv/md/json/log), 4.000 karakter pertama disimpan sebagai metadata dan ikut tercari — jadi "JX123456" (nomor resi di dalam CSV packing list) ketemu walaupun nama berkasnya "packing.csv". Gambar dan PDF **tidak** diekstrak (butuh OCR); dokumen PDF hanya bisa dicari lewat namanya.
+- **Batas penyimpanan dijelaskan di layar blok lampiran**: bila browser memblokir IndexedDB, muncul peringatan bahwa lampiran dibatasi 900 KB dan tidak bisa disinkronkan (beserta saran); pada kondisi normal tertulis "Maks 8 MB per berkas • gambar otomatis dikompres". Tidak ada lagi kejutan saat unggah gagal.
+- `storageMode()` / `maxFileBytes()` dipakai UI dan diuji.
+- Uji: **384 lulus**.
+
 ## [2.26.0] - 2026-09-17 — lampiran ke server, batas berkas, satu pintu penjualan
 
 ### Ditambahkan
