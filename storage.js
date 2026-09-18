@@ -1592,6 +1592,7 @@ export function snapshotAll() {
     shipments: getShipments(),
     impor: getImporSettings(),
     checklist: (() => { try { return JSON.parse(localStorage.getItem('wynara_checklist') || '{}'); } catch { return {}; } })(),
+    onboarding: (() => { try { return JSON.parse(localStorage.getItem('wynara_onboarding') || '{}'); } catch { return {}; } })(),
     exportedAt: new Date().toISOString(),
     // v4: + belanjas/kolis/muatans/shipments/impor (v3 & lebih lama tetap bisa dipulihkan)
     version: 4
@@ -1686,6 +1687,7 @@ export function restoreAll(snap) {
   if (Array.isArray(snap.shipments)) { try { localStorage.setItem('wynara_shipments', JSON.stringify(snap.shipments)); } catch {} }
   if (snap.impor && typeof snap.impor === 'object') { try { localStorage.setItem('wynara_impor', JSON.stringify(snap.impor)); } catch {} }
   if (snap.checklist && typeof snap.checklist === 'object') { try { localStorage.setItem('wynara_checklist', JSON.stringify(snap.checklist)); } catch {} }
+  if (snap.onboarding && typeof snap.onboarding === 'object') { try { localStorage.setItem('wynara_onboarding', JSON.stringify(snap.onboarding)); } catch {} }
   let cE = 0, cL = 0, cR = 0, cP = 0;
   if (Array.isArray(snap.entries)) {
     const valid = snap.entries.map(sanitizeEntry).filter(Boolean);
@@ -2647,6 +2649,19 @@ export function setEntryVerified(id, verified = true) {
 export function unverifiedCount(monthKey = '') {
   const mk = String(monthKey || '').slice(0, 7);
   return getEntries().filter((e) => e.type === 'expense' && !e.verified && (!mk || String(e.date).slice(0, 7) === mk)).length;
+}
+
+// ===== Checklist minggu pertama (advisory, sekali pakai) =====
+const ONB_KEY = 'wynara_onboarding';
+export function getOnboarding() {
+  try { const v = JSON.parse(localStorage.getItem(ONB_KEY) || '{}'); return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; } catch { return {}; }
+}
+export function setOnboardingStep(stepId, done) {
+  const m = getOnboarding();
+  m[stepId] = done ? { done: true, at: new Date().toISOString() } : { done: false };
+  try { localStorage.setItem(ONB_KEY, JSON.stringify(m)); } catch {}
+  logAudit('update', 'onboarding', stepId, null, { done: !!done });
+  return m;
 }
 
 // ===== Checklist pajak & tutup buku (advisory) =====

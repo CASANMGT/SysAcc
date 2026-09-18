@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, payrollPaidEmployeeIds, getChecklist, setChecklistStep, setEntryVerified, unverifiedCount, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, saveShops, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
+import { validateBackupJSON, importEntries, getAllEntries, clearAllEntries, createEntry, createLoan, addRepayment, getLoanById, updateLoan, getEntryById, parseCsvRow, lockMonth, unlockMonth, isMonthLocked, getLockedMonths, assertUnlocked, postJournal, saveCustomAccount, getCustomAccounts, deleteCustomAccount, saveItem, getItemById, getAllItems, deleteItem, getStockMoves, getStockGroups, restockItem, adjustStock, transferStock, setItemsActive, setItemsCategory, setItemsUnit, setItemsPricePct, deleteItemsBulk, getReorderList, returnSale, getSaleReturns, returnedQtyFor, itemNetPrice, itemVariantLabel, fullItemName, importItemsBulk, dataHealthCheck, applyStockMove, receiveStockBySource, payrollPaidEmployeeIds, getChecklist, setChecklistStep, getOnboarding, setOnboardingStep, setEntryVerified, unverifiedCount, createShipment, getShipments, saveImporSettings, getImporSettings, snapshotAll, restoreAll, importBankLines, saveShops, setActiveShopId, shopStockOf, createPurchase, addPurchasePayment, getPurchaseById, purchaseOutstanding, deletePurchase, deleteEntry, getAllJournals, getAllRepayments, getKasbonLoans, applyPayrollKasbon, saveEmployee, backupSelfTest, getLastSelfTest, getUmp, saveUmp, getLeave, addLeave, getRole, setRole, setRolePersisted, clearPersistedRole, setActor, getActor, isKasir, requireOwner, can, requireCap, setRolePin, rolePinEnabled, verifyRolePin, logAudit, getAudit, createCreditSale, getCreditSales, getCreditSaleById, creditOutstanding, payCreditSale, deleteCreditSale, creditSalesSummary, createPreorder, addPreorderCost, receivePreorderStock } from '../storage.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -581,6 +581,13 @@ describe('produk: varian & diskon', () => {
     expect(it.discountPct).toBe(25);
     expect(itemNetPrice(it)).toBe(75000);
     expect(itemVariantLabel(it)).toBe('L / Hitam');
+  });
+  it('AUDIT: checklist minggu pertama tersimpan & masuk backup', () => {
+    expect(getOnboarding()).toEqual({});
+    setOnboardingStep('equity', true);
+    expect(getOnboarding().equity.done).toBe(true);
+    setOnboardingStep('equity', false);
+    expect(getOnboarding().equity.done).toBe(false);
   });
   it('AUDIT: checklist bulanan tersimpan per bulan & ikut backup', () => {
     expect(getChecklist('2026-09')).toEqual({});

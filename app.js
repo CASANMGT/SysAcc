@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.24.0';
+const APP_VERSION = '2.25.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -787,6 +787,70 @@ function iconSvg(name, size = 18) {
   return `<svg class="mi-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 // Hidrasi semua <span class="mi" data-ic="…"> menjadi SVG outline.
+/* ===== Checklist minggu pertama (auto-deteksi + centang manual) ===== */
+function onboardingSteps() {
+  const saved = (() => { try { return Storage.getOnboarding(); } catch { return {}; } })();
+  const has = (id) => !!(saved[id] && saved[id].done);
+  const equity = (() => { try { return Number((Storage.getOpeningEquity() || {}).amount) || 0; } catch { return 0; } })();
+  const coa = (() => { try { return (Storage.getCustomAccounts() || []).length; } catch { return 0; } })();
+  const opening = (() => { try { const d = Storage.getOpeningDraft(); return Object.keys((d && d.rows) || {}).length; } catch { return 0; } })();
+  const bank = (() => { try { return (Storage.getBankStatement() || []).length; } catch { return 0; } })();
+  const items = (() => { try { return Storage.getAllItems().length; } catch { return 0; } })();
+  const people = (() => { try { return Storage.getAllPeople().length; } catch { return 0; } })();
+  const emps = (() => { try { return Storage.getAllEmployees().length; } catch { return 0; } })();
+  const sales = (() => { try { return Storage.getAllEntries().filter((e) => e.category === 'jualan').length; } catch { return 0; } })();
+  const payroll = (() => { try { return Storage.getAllEntries().filter((e) => e.category === 'gaji-out').length; } catch { return 0; } })();
+  const backup = (() => { try { return !!Storage.getLastBackup(); } catch { return false; } })();
+  const taxDecided = (() => { try { return localStorage.getItem('wynara_taxpkp') !== null; } catch { return false; } })();
+  return [
+    { id: 'tax', label: 'Tetapkan status pajak (PKP / Non-PKP)', hint: 'Pengaturan → Terdaftar PKP. Non-PKP menyembunyikan seluruh PPN.', done: taxDecided || has('tax'), auto: taxDecided, act: () => openSettings() },
+    { id: 'equity', label: 'Isi modal awal usaha', hint: 'Pengaturan → Modal Awal Usaha (dasar Neraca).', done: equity > 0 || has('equity'), auto: equity > 0, act: () => openSettings() },
+    { id: 'coa', label: 'Periksa Daftar Akun', hint: 'Sesuaikan akun kas/bank dan beban dengan usaha Anda.', done: coa > 0 || has('coa'), auto: coa > 0, act: () => document.getElementById('coaBtnSidebar')?.click() },
+    { id: 'opening', label: 'Isi saldo awal per akun', hint: 'Kalau pindahan dari pembukuan lain — supaya Neraca tidak mulai dari nol.', done: opening > 0 || has('opening'), auto: opening > 0, act: () => openSettings() },
+    { id: 'product', label: 'Tambahkan produk pertama', hint: 'Diperlukan untuk penjualan stok & kartu stok.', done: items > 0 || has('product'), auto: items > 0, act: () => document.getElementById('stockBtnSidebar')?.click() },
+    { id: 'contact', label: 'Tambahkan pelanggan / supplier', hint: 'Kontak dipakai untuk piutang, utang, dan kwitansi.', done: people > 0 || has('contact'), auto: people > 0, act: () => document.getElementById('contactsBtnSidebar')?.click() },
+    { id: 'bank', label: 'Impor mutasi bank pertama', hint: 'Kas & Bank → Mutasi Bank (BCA/Mandiri/BRI) untuk rekonsiliasi.', done: bank > 0 || has('bank'), auto: bank > 0, act: () => { const b = document.getElementById('kasPageBankBtn'); if (b) b.click(); else document.getElementById('kasBtnSidebar')?.click(); } },
+    { id: 'sale', label: 'Catat penjualan pertama', hint: 'Penjualan → ＋ Penjualan baru.', done: sales > 0 || has('sale'), auto: sales > 0, act: () => document.getElementById('salesBtnSidebar')?.click() },
+    { id: 'employee', label: 'Tambahkan karyawan', hint: 'Diperlukan sebelum menjalankan payroll.', done: emps > 0 || has('employee'), auto: emps > 0, act: () => document.getElementById('payrollBtnSidebar')?.click() },
+    { id: 'payroll', label: 'Jalankan payroll pertama', hint: 'Karyawan & Gaji → tab Proses → Proses bulan ini.', done: payroll > 0 || has('payroll'), auto: payroll > 0, act: () => document.getElementById('payrollBtnSidebar')?.click() },
+    { id: 'backup', label: 'Unduh backup JSON pertama', hint: 'Pengaturan → JSON Backup. Lakukan rutin tiap bulan.', done: backup || has('backup'), auto: backup, act: () => openSettings() },
+  ];
+}
+function renderOnboardingCard() {
+  const host = document.getElementById('firstWeekCard');
+  if (!host) return;
+  const steps = onboardingSteps();
+  const doneCount = steps.filter((s) => s.done).length;
+  const remaining = steps.filter((s) => !s.done);
+  if (!remaining.length) { host.innerHTML = ''; host.hidden = true; return; }
+  host.hidden = false;
+  const pct = Math.round((doneCount / steps.length) * 100);
+  host.innerHTML = `<div class="dash-panel" style="padding:16px;margin-bottom:16px;border:1px dashed #bfdbfe;background:#f8fbff">
+    <div class="dash-panel-head"><div>
+      <h3>🧭 Minggu pertama — siapkan pembukuan (${doneCount}/${steps.length})</h3>
+      <p style="font-size:11.5px;color:#64748b">Urutan yang disarankan sebelum menyerahkan laporan pertama. Bisa dikerjakan sambil jalan; tidak memblokir apa pun.</p>
+    </div></div>
+    <div style="height:6px;background:#e8eef8;border-radius:9999px;overflow:hidden;margin:8px 0 12px"><div style="height:100%;width:${pct}%;background:#2563eb"></div></div>
+    ${steps.map((s) => `<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #eef2f7">
+      <input type="checkbox" class="onb-step" data-step="${s.id}"${s.done ? ' checked' : ''}${s.auto ? ' disabled' : ''} style="margin-top:3px" aria-label="${escapeHtml(s.label)}">
+      <span style="flex:1;min-width:0">
+        <span style="font-size:13px;${s.done ? 'text-decoration:line-through;color:#64748b' : 'font-weight:600'}">${escapeHtml(s.label)}</span>
+        <span style="display:block;font-size:11px;color:#64748b">${s.auto ? 'terdeteksi otomatis' : escapeHtml(s.hint)}</span>
+      </span>
+      ${s.done ? '' : `<button type="button" class="btn btn-ghost onb-go" data-step="${s.id}" style="font-size:11px;padding:3px 10px">Buka →</button>`}
+    </div>`).join('')}
+  </div>`;
+  host.querySelectorAll('.onb-step').forEach((cb) => cb.addEventListener('change', () => {
+    try { Storage.setOnboardingStep(cb.dataset.step, cb.checked); renderOnboardingCard(); }
+    catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menyimpan'); }
+  }));
+  host.querySelectorAll('.onb-go').forEach((b) => b.addEventListener('click', () => {
+    const s = steps.find((x) => x.id === b.dataset.step);
+    try { if (s && s.act) s.act(); } catch {}
+    setTimeout(() => { try { renderOnboardingCard(); } catch {} }, 400);
+  }));
+}
+
 /* ===== Pencarian dokumen global: resi, invoice, nomor pesanan, produk, kontak ===== */
 function globalSearchDocs(q) {
   const t = String(q || '').trim().toLowerCase();
@@ -831,6 +895,29 @@ function globalSearchDocs(q) {
     Storage.getAllPeople().forEach((p) => {
       if (has(p.name, p.phone)) push('Kontak', p.id, p.name, p.phone || p.type || '', () => { document.getElementById('contactsBtnSidebar')?.click(); });
     });
+    // Lampiran berdasarkan nama berkas (mis. "cari packing list")
+    const attachSegs = [
+      ['belanja', getBelanjas(), (r) => `Belanja ${r.no}${r.seller ? ' — ' + r.seller : ''}`, () => document.getElementById('pembelianBtnSidebar')?.click()],
+      ['pengiriman', Storage.getShipments(), (r) => `Pengiriman ${r.no}${r.recipient ? ' — ' + r.recipient : ''}`, () => document.getElementById('muatanBtnSidebar')?.click()],
+      ['muatan', getMuatans(), (r) => `Muatan ${r.code}`, (rec) => openMuatanDetailModal(rec.id)],
+      ['koli', getKolis(), (r) => `Koli ${r.parcelNo}`, (rec) => { document.getElementById('muatanBtnSidebar')?.click(); setTimeout(() => { const m = document.querySelector('.koli-attach[data-id="' + rec.id + '"]'); if (m) m.click(); }, 220); }],
+      ['pesanan', Storage.getPreorders(), (r) => `Pesanan ${r.no}${r.customer ? ' — ' + r.customer : ''}`, (rec) => openOrderDetail('po', rec.id)],
+      ['biaya', Storage.getAllEntries(), (r) => `Biaya ${r.description || ''}`, () => document.getElementById('biayaBtnSidebar')?.click()],
+    ];
+    attachSegs.forEach(([seg, list, titleOf, act]) => {
+      (list || []).forEach((rec) => {
+        (rec.attachments || []).forEach((a) => {
+          if (has(a.name)) push(`Lampiran ${seg}`, rec.id + ':' + a.id, a.name, `${titleOf(rec)}${a.size ? ' • ' + Math.round(a.size / 1024) + ' KB' : ''}`, () => act(rec));
+        });
+      });
+    });
+    // Lampiran payroll (per bulan)
+    try {
+      const pv = JSON.parse(localStorage.getItem('wynara_payroll_attachments') || '{}');
+      Object.keys(pv || {}).forEach((mk) => (Array.isArray(pv[mk]) ? pv[mk] : []).forEach((a) => {
+        if (has(a.name)) push('Lampiran payroll', mk + ':' + a.id, a.name, `Payroll ${mk}`, () => document.getElementById('payrollBtnSidebar')?.click());
+      }));
+    } catch {}
   } catch {}
   // Batasi: maksimal 5 per jenis, 30 total
   const byType = {};
@@ -2968,6 +3055,7 @@ function render() {
 
   renderFilterPills();
   renderChecklistBadge();
+  renderOnboardingCard();
   bindGlobalSearch();
   syncTopbarPeriod();
   renderArusKasChart(searchFiltered);

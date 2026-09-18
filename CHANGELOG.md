@@ -8,6 +8,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.25.0] - 2026-09-17 — pencarian lampiran & checklist minggu pertama
+
+### Ditambahkan
+- **Lampiran ikut tercari berdasarkan nama berkas** — ketik "packing list", "PI", "surat jalan", atau nomor resi di kotak cari header dan hasilnya muncul sebagai grup **Lampiran belanja / pengiriman / muatan / koli / pesanan / biaya / payroll**, lengkap dengan nama dokumen, pemiliknya, dan ukuran; klik untuk membuka dokumen/record terkait. (Sebelumnya lampiran hanya bisa ditemukan kalau ingat record-nya.)
+- **Checklist "Minggu pertama"** di Ringkasan untuk pegawai admin baru — 11 langkah berurutan dengan **deteksi otomatis** dan tombol **Buka →**:
+  status pajak (PKP/Non-PKP) · modal awal · periksa Daftar Akun · saldo awal per akun · produk pertama · pelanggan/supplier · impor mutasi bank · penjualan pertama · tambah karyawan · jalankan payroll pertama · backup JSON pertama.
+  Panel menghilang otomatis setelah semua selesai; centang manual tetap tersimpan (`wynara_onboarding`, ikut backup & sinkron).
+
+### Catatan
+- Uji: **381 lulus**.
+
 ## [2.24.0] - 2026-09-17 — pencarian dokumen global
 
 - **Satu kotak cari di header untuk semua dokumen.** Ketik minimal 2 huruf (nomor pesanan, **resi China/kurir**, **nomor invoice**, nomor pesanan marketplace, nama seller, nama produk/SKU/barcode, nama kontak, deskripsi transaksi) → hasil muncul sebagai panel bergrup per jenis: **Pesanan · Invoice penjualan · Belanja marketplace · Koli · Muatan · Pengiriman · Transaksi · Produk · Kontak** (maks 5 per jenis).
