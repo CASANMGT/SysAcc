@@ -8,6 +8,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.32.0] - 2026-09-17 — Sprint 2: jangan kehilangan pekerjaan
+
+### Ditambahkan
+- **Penjaga perubahan belum tersimpan** pada tiga form halaman penuh (Penjualan baru, Pembelian baru, Pengiriman baru): begitu ada input/select/textarea yang diubah, menutup halaman (tombol Batal atau pindah menu) akan menanyakan konfirmasi *"...belum disimpan. Ada perubahan yang akan hilang — lanjut keluar?"*. Sebelumnya semua isian hilang senyap.
+- **Anti dobel-submit yang benar-benar bekerja** (`guardSubmit`): tombol simpan langsung terkunci + berubah teks ("Menyimpan…"/"Memproses…") selama proses, dan **kunci baru dibuka pada tick berikutnya** — penting karena `saveJualBaru` berjalan sinkron sehingga klik ganda pada frame yang sama dulu bisa mencatat dua transaksi. Berlaku untuk Penjualan, Pembelian, dan Pengiriman.
+- Uji regresi `tests/no-double-submit.test.js`: dua klik cepat pada Simpan → **satu** penjualan dan stok berkurang **sekali**. Uji ini gagal pada percobaan pertama dan menangkap bug tersebut sebelum dirilis.
+- Uji: **396 lulus** (25 berkas).
+
 ## [2.31.0] - 2026-09-17 — Sprint 1: buang kode mati + penjaga integritas DOM
 
 ### Dihapus (181+ baris, tanpa perubahan perilaku)

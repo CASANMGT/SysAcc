@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.31.0';
+const APP_VERSION = '2.32.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -4403,6 +4403,49 @@ let tempAttachRerender = null;
 
 /* ===== Pengiriman baru (halaman penuh, mengikuti mockup) ===== */
 let kirimState = null;
+/* ===== Penjaga perubahan belum tersimpan (form halaman penuh) ===== */
+// Menandai form halaman penuh "kotor" saat pengguna mengubah apa pun, dan menahan
+// dirinya sebelum keluar agar pekerjaan tidak hilang senyap. Skrip build-friendly:
+// satu flag global + pemasangan listener di dalam halaman, bukan framework.
+let dirtyForm = '';   // '' | 'jual' | 'beli' | 'kirim'
+function markDirty(which) { dirtyForm = which; }
+function clearDirty() { dirtyForm = ''; }
+function confirmLeaveDirty(label = 'Halaman') {
+  if (!dirtyForm) return true;
+  try {
+    return confirm(`${label} belum disimpan. Ada perubahan yang akan hilang — lanjut keluar?`);
+  } catch { return true; }
+}
+// Pasang penanda otomatis pada wadah form: setiap input/change menandai kotor.
+function watchDirty(rootEl, which) {
+  if (!rootEl) return;
+  const mark = (e) => {
+    const t = e.target;
+    if (!t || !t.matches || !t.matches('input,select,textarea')) return;
+    if (t.type === 'search') return;          // pencarian bukan data form
+    markDirty(which);
+  };
+  rootEl.addEventListener('input', mark, true);
+  rootEl.addEventListener('change', mark, true);
+}
+
+// Tombol simpan: cegah klik ganda (penyebab utama transaksi dobel) dan beri umpan balik.
+// Mengembalikan fungsi "selesai"; dipanggil di semua jalur (sukses maupun gagal).
+function guardSubmit(btn, busyText = 'Menyimpan…') {
+  if (!btn) return () => {};
+  if (btn.dataset.busy === '1') return null;   // sudah berjalan → abaikan klik kedua
+  btn.dataset.busy = '1';
+  const prev = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = busyText;
+  // Buka kunci pada tick berikutnya, bukan seketika: satu klik ganda pada frame yang
+  // sama harus tetap dihitung satu transaksi meski simpan berjalan sinkron.
+  return () => {
+    const unlock = () => { btn.dataset.busy = '0'; btn.disabled = false; btn.textContent = prev; };
+    if (typeof setTimeout === 'function') setTimeout(unlock, 0); else unlock();
+  };
+}
+
 function openKirimBaru(orderId = '') {
   const orders = Storage.getPreorders().filter((p) => p.stage !== 'cancelled')
     .concat(Storage.getCreditSales().filter((c) => c.stage !== 'done'))
@@ -4419,6 +4462,7 @@ function openKirimBaru(orderId = '') {
   renderKirimBaru();
   document.querySelectorAll('.view-section').forEach((v) => v.classList.add('hidden'));
   document.getElementById('viewKirimBaru')?.classList.remove('hidden');
+  clearDirty();
   try { window.scrollTo(0, 0); } catch {}
 }
 function kirimLinesFor(orderId) {
@@ -4426,7 +4470,11 @@ function kirimLinesFor(orderId) {
   if (!order) return [];
   return Storage.readyToShipLines(order).map((l) => ({ ...l, send: l.ready, checked: l.ready > 0 }));
 }
-function closeKirimBaru() { document.getElementById('muatanBtnSidebar')?.click(); }
+function closeKirimBaru() {
+  if (!confirmLeaveDirty('Pengiriman baru')) return;
+  clearDirty();
+  document.getElementById('muatanBtnSidebar')?.click();
+}
 
 function renderKirimBaru() {
   const host = document.getElementById('viewKirimBaru');
@@ -4600,6 +4648,8 @@ function saveKirim(asDraft) {
   const lines = s.lines.filter((l) => l.checked && Number(l.send) > 0);
   if (!lines.length) return err('Pilih minimal satu barang dan jumlah yang dikirim.');
   if (!s.recipient.trim()) return err('Penerima wajib diisi.');
+  const done = guardSubmit(document.getElementById(asDraft ? 'kirimSaveDraft' : 'kirimConfirm'), asDraft ? 'Menyimpan…' : 'Memproses…');
+  if (!done) return;
   try {
     const rec = Storage.createShipment({
       kind: 'customer', orderId: s.orderId, orderNo: (s.orders.find((o) => o.id === s.orderId) || {}).no || '',
@@ -4622,11 +4672,13 @@ function saveKirim(asDraft) {
       try { queueMirror(); } catch {}
       return;
     }
+    clearDirty();
     closeKirimBaru();
     try { renderSalesPage(); } catch {}
     try { refresh(); } catch {}
     try { queueMirror(); } catch {}
   } catch (e) { err(e && e.message ? e.message : 'Gagal menyimpan pengiriman'); }
+  finally { done(); }
 }
 
 /* ===== Penjualan baru (halaman penuh, mengikuti mockup) ===== */
@@ -4646,9 +4698,16 @@ function openJualBaru(presetMode = 'ready') {
   // Pastikan halaman yang sedang tampil disembunyikan dulu agar overlay tidak tersisa.
   try { window.scrollTo(0, 0); } catch {}
   renderJualBaru();
+  clearDirty();
+  watchDirty(document.getElementById('viewJualBaru'), 'jual');
   try { (window.requestAnimationFrame || ((f) => setTimeout(f, 16)))(() => { try { renderJualBaru(); } catch {} }); } catch {}
 }
-function closeJualBaru() { document.getElementById('salesBtnSidebar')?.click(); showSalesTab(salesTab); }
+function closeJualBaru() {
+  if (!confirmLeaveDirty('Penjualan baru')) return;
+  clearDirty();
+  document.getElementById('salesBtnSidebar')?.click();
+  showSalesTab(salesTab);
+}
 
 function renderJualBaru() {
   const host = document.getElementById('viewJualBaru');
@@ -4830,6 +4889,8 @@ function refreshJualSummary() {
 function saveJualBaru(asDraft) {
   const s = jualState; if (!s) return;
   const err = (m) => UI.showError(m);
+  const done = guardSubmit(document.getElementById(asDraft ? 'jualSaveDraft' : 'jualSave'), asDraft ? 'Menyimpan…' : 'Menyimpan…');
+  if (!done) return;
   if (s.mode === 'preorder' && !String(s.customer || '').trim()) return err('Preorder wajib mencantumkan pelanggan.');
   const lines = s.lines.filter((l) => (l.itemId || String(l.name || '').trim()) && Number(l.qty) > 0 && Number(l.price) > 0);
   if (!lines.length) return err('Tambahkan minimal satu barang dengan jumlah dan harga > 0.');
@@ -4877,11 +4938,13 @@ function saveJualBaru(asDraft) {
       });
       UI.showSuccess(`Tercatat sebagai piutang ${Reports.formatCurrency(subtotal)} — jatuh tempo 30 hari`);
     }
+    clearDirty();
     closeJualBaru();
     try { renderSalesPage(); } catch {}
     try { refresh(); } catch {}
     try { queueMirror(); } catch {}
   } catch (e) { err(e && e.message ? e.message : 'Gagal menyimpan penjualan'); }
+  finally { done(); }
 }
 
 /* ===== Pembelian baru (halaman penuh, mengikuti mockup) ===== */
@@ -4904,9 +4967,15 @@ function openBeliBaru(preorderId = null) {
   document.querySelectorAll('.view-section').forEach((v) => v.classList.add('hidden'));
   const target = document.getElementById('viewBeliBaru');
   if (target) target.classList.remove('hidden');
+  clearDirty();
+  watchDirty(target, 'beli');
   try { window.scrollTo(0, 0); } catch {}
 }
-function closeBeliBaru() { document.getElementById('pembelianBtnSidebar')?.click(); }
+function closeBeliBaru() {
+  if (!confirmLeaveDirty('Pembelian baru')) return;
+  clearDirty();
+  document.getElementById('pembelianBtnSidebar')?.click();
+}
 
 function renderBeliBaru() {
   const host = document.getElementById('viewBeliBaru');
@@ -5080,6 +5149,8 @@ function refreshBeliSummary() {
 function saveBeliBaru(asDraft) {
   const s = beliState; if (!s) return;
   const err = (m) => UI.showError(m);
+  const done = guardSubmit(document.getElementById(asDraft ? 'beliSaveDraft' : 'beliSaveFinal'), asDraft ? 'Menyimpan…' : 'Menyimpan…');
+  if (!done) return;
   if (!s.seller.trim()) return err('Nama toko wajib diisi');
   const lines = s.lines.filter((l) => (l.name || l.itemId) && Number(l.qty) > 0);
   if (!lines.length) return err('Tambahkan minimal satu barang dengan jumlah > 0');
@@ -5109,12 +5180,14 @@ function saveBeliBaru(asDraft) {
     UI.showSuccess(asDraft
       ? `Draft pembelian ${b.no} disimpan — kas belum berubah`
       : `Pembelian ${b.no} disimpan — ${payNow > 0 ? 'dibayar ' + Reports.formatCurrency(payNow) : 'belum dibayar'}`);
+    clearDirty();
     closeBeliBaru();
     try { renderPembelianPage(); } catch {}
     try { renderMuatanPage(); } catch {}
     try { refresh(); } catch {}
     try { queueMirror(); } catch {}
   } catch (e) { err(e && e.message ? e.message : 'Gagal menyimpan pembelian'); }
+  finally { done(); }
 }
 
 function renderPembelianPage() {
