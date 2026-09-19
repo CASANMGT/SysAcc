@@ -8,6 +8,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.33.0] - 2026-09-17 — Sprint 3: temukan draft & gaji
+
+### Diperbaiki
+- **Draft Belanja akhirnya terbaca sebagai draft.** Sebelumnya chip statusnya menampilkan "Dipesan" walau belum dijurnal sama sekali — kini **"Draft — belum dijurnal"** (oranye), sejalan dengan tombol **Finalkan** di baris yang sama.
+- **Subjudul daftar Belanja** menyebut jumlah draft: *"12 belanja • 3 masih draft (belum dijurnal) — tekan Finalkan untuk memposting"*, jadi draft tidak tenggelam di antara pembelian final.
+
+### Ditambahkan
+- **Pencarian global mencakup penggajian**: ketik nama karyawan atau bulan (mis. "Budi" atau "2026-09") pada kotak cari header → grup **Gaji** menampilkan take-home dan PPh 21 yang dipotong, klik untuk membuka halaman penggajian. Sebelumnya slip hanya bisa ditemukan dengan membuka payroll dan memilih bulan.
+- Uji: **396 lulus** (25 berkas).
+
 ## [2.32.0] - 2026-09-17 — Sprint 2: jangan kehilangan pekerjaan
 
 ### Ditambahkan

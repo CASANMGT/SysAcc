@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.32.0';
+const APP_VERSION = '2.33.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -891,6 +891,16 @@ function globalSearchDocs(q) {
     });
     Storage.getAllItems().forEach((it) => {
       if (has(it.name, it.sku, it.barcode)) push('Produk', it.id, Storage.fullItemName(it), `stok ${it.stock} • ${it.sku || ''}${it.status === 'draft' ? ' • Draft' : ''}`, () => { if (typeof openStockActionSheet === 'function') openStockActionSheet(it.id); else document.getElementById('stockBtnSidebar')?.click(); });
+    });
+    // Payroll (gaji) — dicari lewat nama karyawan, bulan, dan angka take-home.
+    Storage.getAllEntries().filter((e) => e.category === 'gaji-out').forEach((e) => {
+      const p = e.payroll || {};
+      const month = p.month || String(e.date || '').slice(0, 7);
+      if (has(e.person, month, e.description)) {
+        push('Gaji', e.id, `${e.person || '—'} — ${month}`, `${Reports.formatCurrency(Number(e.amount) || 0)} diterima${p.ded && p.ded.pph21 ? ' • PPh 21 ' + Reports.formatCurrency(p.ded.pph21) : ''}`, () => {
+          document.getElementById('payrollBtnSidebar')?.click();
+        });
+      }
     });
     Storage.getAllPeople().forEach((p) => {
       if (has(p.name, p.phone)) push('Kontak', p.id, p.name, p.phone || p.type || '', () => { document.getElementById('contactsBtnSidebar')?.click(); });
@@ -5419,6 +5429,13 @@ function renderMuatanPageUnsafe() {
     const STAGE = { paid: 'Dipesan', china: 'Di gudang China', batch: 'Muat ke muatan', ship: 'Di kapal', arrived: 'Sampai gudang', done: 'Selesai' };
     const COLOR = { paid: '#94a3b8', china: '#f59e0b', batch: '#8b5cf6', ship: '#3b82f6', arrived: '#059669', done: '#64748b' };
     const pos = Storage.getPreorders();
+    // Ringkas draft (belum dijurnal) supaya tidak tersembunyi di antara pembelian final.
+    const drafts = bels.filter((b) => b.status === 'draft');
+    const belanjaSub = document.getElementById('pembelianBelanjaSubtitle');
+    if (belanjaSub) belanjaSub.textContent = drafts.length
+      ? `${bels.length} belanja • ${drafts.length} masih draft (belum dijurnal) — tekan Finalkan untuk memposting`
+      : `${bels.length} belanja • semua sudah final`;
+
     listBox.innerHTML = bels.length ? `<div style="overflow-x:auto"><table class="report-table"><thead><tr>
       <th>Tanggal</th><th>Nomor</th><th>Marketplace / Seller</th><th>Untuk</th><th class="amount-col">¥ Total</th><th class="amount-col">Rp Total</th><th class="amount-col">Mother cost</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
       ${bels.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).map((b) => {
@@ -5434,7 +5451,7 @@ function renderMuatanPageUnsafe() {
         <td class="amount-col">${fmtCnyLoc(b.totalCny)} <span style="font-size:10px;color:#64748b">@${b.kursAgen}</span></td>
         <td class="amount-col">${fmt(b.totalIdr)}</td>
         <td class="amount-col">${b.landedTotal != null ? fmt(b.landedTotal) : '—'}</td>
-        <td style="font-size:11px">${chip(STAGE[b.stage] || b.stage, COLOR[b.stage] || '#94a3b8')}</td>
+        <td style="font-size:11px">${b.status === 'draft' ? chip('Draft — belum dijurnal', '#b45309') : chip(STAGE[b.stage] || b.stage, COLOR[b.stage] || '#94a3b8')}</td>
         <td style="white-space:nowrap">
           ${!b.koliId ? `<button type="button" class="btn btn-ghost belanja-koli" data-id="${b.id}" style="font-size:11px;padding:2px 8px">🧾 Koli</button>` : ''}
           ${b.stage !== 'done' ? `<button type="button" class="btn btn-ghost belanja-refund" data-id="${b.id}" style="font-size:11px;padding:2px 8px" title="Refund seller / kurang kirim">↩️</button>` : ''}
