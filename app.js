@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.27.0';
+const APP_VERSION = '2.28.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1522,7 +1522,6 @@ function bindEvents() {
   UI.bindBuy(handleBuySave);
   UI.bindSupplierList(handleSupplierPay, handleSupplierDelete);
   UI.bindSupplierPay(handleSupplierPaySubmit);
-  UI.bindSale(handleSaleSave);
   // Status Pesanan (jual + titip beli): delegasi klik untuk aksi per tahap
   document.getElementById('orderStatusList')?.addEventListener('click', (e) => {
     const ship = e.target.closest('.order-ship');
@@ -1981,7 +1980,7 @@ function bindEvents() {
   document.getElementById('saAdjust')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); openStockAdjust(id); });
   document.getElementById('saTransfer')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); openTransfer(id); });
   document.getElementById('saHistory')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); handleStockHistory(id); });
-  document.getElementById('saJual')?.addEventListener('click', () => { closeStockActionSheet(); UI.openSale(); });
+  document.getElementById('saJual')?.addEventListener('click', () => { closeStockActionSheet(); openJualBaru('ready'); });
   document.getElementById('saEdit')?.addEventListener('click', () => { const id = stockActionId; const it = Storage.getItemById(id); closeStockActionSheet(); if (it) { UI.fillStockForm(it); UI.openStock(); } });
   document.getElementById('saDelete')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); handleStockDelete(id); });
   document.getElementById('saBarcode')?.addEventListener('click', () => { const id = stockActionId; closeStockActionSheet(); openBarcode(id); });
@@ -4820,12 +4819,17 @@ function openJualBaru(presetMode = 'ready') {
     lines: [{ itemId: '', name: '', qty: 1, price: 0 }],
     dpPlanned: 0, received: false, payAccount: 'transfer', etaDate: '',
   };
-  renderJualBaru();
   document.querySelectorAll('.view-section').forEach((v) => v.classList.add('hidden'));
   document.getElementById('viewJualBaru')?.classList.remove('hidden');
+  // Tandai nav Penjualan aktif (halaman penuh, di luar showView).
+  document.querySelectorAll('.sidebar-item').forEach((b) => b.classList.remove('active'));
+  document.getElementById('salesBtnSidebar')?.classList.add('active');
+  // Pastikan halaman yang sedang tampil disembunyikan dulu agar overlay tidak tersisa.
   try { window.scrollTo(0, 0); } catch {}
+  renderJualBaru();
+  try { (window.requestAnimationFrame || ((f) => setTimeout(f, 16)))(() => { try { renderJualBaru(); } catch {} }); } catch {}
 }
-function closeJualBaru() { document.getElementById('salesBtnSidebar')?.click(); }
+function closeJualBaru() { document.getElementById('salesBtnSidebar')?.click(); showSalesTab(salesTab); }
 
 function renderJualBaru() {
   const host = document.getElementById('viewJualBaru');
@@ -8426,88 +8430,6 @@ function handleBankImport() {
 }
 
 /* ===== Penjualan ===== */
-function handleSaleSave() {
-  const d = UI.getSaleData();
-  if (!d.lines.length) return UI.showError('Pilih dulu barang + isi qty dan harga');
-  if (!d.date) return UI.showError('Tanggal wajib diisi');
-  if (Storage.isMonthLocked(d.date)) return UI.showError(`Bulan ${String(d.date).slice(0, 7)} terkunci — buka di Pengaturan`);
-  // Cek stok dulu biar pesan jelas sekaligus (per toko aktif) — preorder luar negeri tidak pakai stok.
-  const items = Storage.getAllItems();
-  const shopId = Storage.getActiveShopId();
-  if (d.mode !== 'preorder') {
-    for (const l of d.lines) {
-      const it = items.find(x => x.id === l.itemId);
-      if (!it) return UI.showError('Ada barang yang tidak dikenal — pilih ulang');
-      const avail = Storage.shopStockOf(it, shopId);
-      if (l.qty > avail) return UI.showError(`Stok ${it.name} di toko ini kurang (sisa ${avail}, mau ${l.qty})`);
-    }
-  }
-  const fmt = (v) => Reports.formatCurrency(v);
-  const descBase = d.note || `Jual: ${d.lines.map(l => `${l.qty}× ${l.name}`).join(', ')}`;
-  const desc = d.discount > 0 ? `${descBase} • diskon ${fmt(d.discount)}` : descBase;
-  // Penjualan KREDIT / prepaid: satu alur — barang ready OR preorder luar negeri.
-  const isPreorder = d.mode === 'preorder';
-  if (d.credit || isPreorder) {
-    if (!d.customer) return UI.showError('Isi nama pelanggan dulu');
-    // Preorder (beli dari luar negeri): tanpa ambil stok — barang dibeli setelah DP.
-    if (isPreorder) {
-      try {
-        const poTarget = document.getElementById('salePoTarget')?.value === 'stock' ? 'stock' : 'customer';
-        const poChannel = document.getElementById('salePoChannel')?.value === 'lokal' ? 'lokal' : 'luar';
-        if (poTarget === 'stock' && d.lines.some(l => !l.itemId)) return UI.showError('Order stok: pilih barang dari daftar produk');
-        if (poTarget === 'stock' && !d.customer) return UI.showError('Order stok: isi nama supplier/toko pada kolom pelanggan');
-        const po = Storage.createPreorder({
-          target: poTarget, channel: poChannel, shopId: d.shopId,
-          date: d.date, customer: d.customer || (poTarget === 'stock' ? 'Pembelian stok' : ''), items: d.lines.map(l => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })),
-          deposit: d.deposit, payment: d.payment, note: d.note, months: d.monthsEta || 1, discount: d.discount, fx: d.fx,
-        });
-        UI.closeSale();
-        if (poTarget === 'stock') {
-          UI.showSuccess(`Order stok ${fmt(po.sellTotal)} tersimpan (${poChannel === 'lokal' ? 'lokal' : 'luar negeri'})  pantau di Pembelian → sisi beli`);
-        } else {
-        UI.showSuccess(`Preorder ${fmt(po.sellTotal)} tersimpan${po.deposit > 0 ? ` DP ${fmt(po.deposit)} masuk kas` : ''} est datang ${po.monthsEta || 1} bulan  pantau di Status Pesanan`);
-        }
-        refresh();
-        refreshSalesPage();
-      } catch (err) {
-        UI.showError(err && err.message ? err.message : 'Gagal menyimpan preorder');
-      }
-      return;
-    }
-    if (!d.dueDate) return UI.showError('Isi tanggal jatuh tempo');
-    try {
-      const cs = Storage.createCreditSale({
-        date: d.date, dueDate: d.dueDate, customer: d.customer, person: d.customer,
-        lines: d.lines.map(l => ({ itemId: l.itemId, qty: l.qty, price: l.price, name: l.name })),
-        discount: d.discount, ppn: d.ppn, deposit: d.deposit, depositPct: d.depositPct,
-        terms: d.terms, payment: d.payment, note: d.note, flow: 'order',
-      });
-      Storage.logAudit('create', 'credit-sale', cs.id, null, { total: cs.total, deposit: cs.deposit });
-      UI.closeSale();
-      UI.showSuccess(`Penjualan kredit ${fmt(cs.total)} tersimpan • sisa ${fmt(Storage.creditOutstanding(cs))} • pantau di Status Pesanan`);
-      refresh();
-    } catch (err) {
-      UI.showError(err && err.message ? err.message : 'Gagal menyimpan penjualan kredit');
-    }
-    return;
-  }
-  try {
-    const entry = Storage.createEntry({
-      date: d.date, type: 'income', category: 'jualan', payment: d.payment,
-      description: desc.slice(0, 120), amount: d.total,
-      person: d.customer, ppn: d.ppn,
-      sale: { lines: d.lines.map(l => ({ itemId: l.itemId, qty: l.qty, price: l.price })), total: d.total, subtotal: d.subtotal, discount: d.discount }
-    });
-    Storage.logAudit('create', 'sale', entry.id, null, { total: d.total, discount: d.discount, lines: d.lines.length });
-    UI.closeSale();
-    UI.showSuccess(`Penjualan ${fmt(d.total)} tersimpan — stok berkurang`);
-    UI.openReceipt(entry);
-    refresh();
-  } catch (err) {
-    UI.showError(err && err.message ? err.message : 'Gagal menyimpan penjualan');
-  }
-}
-
 /* ===== Halaman Karyawan & Gaji ===== */
 let payrollViewMonth = '';
 let payrollEmpSearch = '';

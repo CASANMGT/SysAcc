@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/* global process */
 // Regression: halaman Laporan harus tampil + semua tab render tanpa error.
 // Menangkap kelas bug "halaman putih": section hilang dari DOM / render melempar.
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -184,7 +185,7 @@ describe('aksesibilitas F9 (boot enhancements)', () => {
     ['kasKpi', 'kasWalletList', 'kasRecentList', 'pembelianKpi', 'pembelianList', 'biayaKpi', 'biayaCats', 'biayaList'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
     expect(document.getElementById('kasReconList')).toBeTruthy();
     expect(document.getElementById('kasReconSummary')).toBeTruthy();
-    ['kasReconMatchAllBtn', 'kasReconBankSelect', 'kasReconEndBal', 'kasReconDiff', 'bankRuleKeyword', 'bankRuleCode', 'bankRuleAddBtn', 'bankRulesList', 'kasReconRulesBtn', 'bankRulesModal', 'bankRuleDir', 'bankRulePresets', 'bankRuleSearch', 'bankRuleSeedAll', 'bankRulesClearAll', 'bankRuleCount', 'kasReconApplyRulesBtn', 'kasReconRulesCount', 'bankApplySuggestBtn', 'coaSearch', 'coaTypeFilter', 'bankRuleSuggestions', 'saleCredit', 'saleCreditFields', 'saleDepositPct', 'saleTerms', 'saleDueDate', 'creditKpi', 'creditList', 'creditPayModal', 'coaImportText', 'coaImportBtn'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
+    ['kasReconMatchAllBtn', 'kasReconBankSelect', 'kasReconEndBal', 'kasReconDiff', 'bankRuleKeyword', 'bankRuleCode', 'bankRuleAddBtn', 'bankRulesList', 'kasReconRulesBtn', 'bankRulesModal', 'bankRuleDir', 'bankRulePresets', 'bankRuleSearch', 'bankRuleSeedAll', 'bankRulesClearAll', 'bankRuleCount', 'kasReconApplyRulesBtn', 'kasReconRulesCount', 'bankApplySuggestBtn', 'coaSearch', 'coaTypeFilter', 'bankRuleSuggestions', 'creditKpi', 'creditList', 'creditPayModal', 'coaImportText', 'coaImportBtn', 'viewJualBaru'].forEach(id => expect(document.getElementById(id)).toBeTruthy());
   });
   it('segmented/chip punya aria-pressed; tab punya aria-selected', () => {
     const seg = document.querySelectorAll('#typeGroup .select-btn');

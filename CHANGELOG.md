@@ -8,6 +8,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.28.0] - 2026-09-17 — buang modal penjualan lama (kode mati)
+
+### Dihapus
+- **Modal "Jual Barang" lama dihapus total**: 274 baris di `ui.js` (`openSale`, `closeSale`, `addSaleRow`, `readSaleRows`, `getSaleData`, `recalcSale`, `updateSaleCreditInfo`, `applySaleMode`, `modeValue`, `bindSale`), 82 baris handler di `app.js` (`handleSaleSave`), dan 89 baris markup `#saleModal` di `index.html`. Satu pintu penjualan: **halaman Penjualan baru**.
+- Semua pemanggil dialihkan: Beranda (2 tombol), aksi "Jual" pada daftar produk, dan lembar aksi cepat produk → `openJualBaru('ready')`.
+- `openJualBaru` kini menandai nav Penjualan aktif, mengembalikan tab Penjualan saat ditutup, dan merender ulang sekali pada frame berikutnya (aman bila DOM baru siap).
+
+### Catatan
+- Satu uji regresi `laporan-page.test.js` menyebut id modal lama (`saleCredit`, `saleDepositPct`, `saleTerms`, `saleDueDate`) → diganti `viewJualBaru`.
+- Smoke test baru: **Penjualan ready** (simpan → transaksi + stok berkurang) dan **preorder** (draft tanpa jurnal kas), masing-masing di berkas terpisah karena `app.js` memanggil `init()` sekali per proses.
+- Uji: **387 lulus** (22 berkas). Komit ini hanya berisi penghapusan + penyesuaian; tidak ada fitur baru.
+
 ## [2.27.0] - 2026-09-17 — cari isi berkas & jelaskan batas penyimpanan
 
 - **Pencarian lampiran kini menyertakan isi berkas teks**: saat menyimpan berkas teks (txt/csv/tsv/md/json/log), 4.000 karakter pertama disimpan sebagai metadata dan ikut tercari — jadi "JX123456" (nomor resi di dalam CSV packing list) ketemu walaupun nama berkasnya "packing.csv". Gambar dan PDF **tidak** diekstrak (butuh OCR); dokumen PDF hanya bisa dicari lewat namanya.
