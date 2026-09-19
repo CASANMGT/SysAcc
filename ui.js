@@ -3373,7 +3373,6 @@ export function bindContactsSearch(handler) {
 }
 
 /* ===== Stok ===== */
-let stockSearchTerm = '';
 export function openStock() {
   const panel = document.getElementById('stockFormPanel');
   if (panel) panel.hidden = false;
@@ -3400,34 +3399,6 @@ export function closeSupplier() {
   if (!m) return;
   releaseFocus(m);
   if (m.open) { try { m.close(); } catch {} }
-}
-export function renderStock(items) {
-  const list = document.getElementById('stockList');
-  if (!list) return;
-  const term = stockSearchTerm.trim().toLowerCase();
-  const rows = term ? items.filter(i => (i.name || '').toLowerCase().includes(term) || (i.sku || '').toLowerCase().includes(term)) : items;
-  const low = items.filter(i => i.stock <= (i.minStock || 0) && (i.minStock || 0) > 0);
-  const alertBox = document.getElementById('stockAlert');
-  if (alertBox) alertBox.innerHTML = low.length ? `<div style="font-size:12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:8px 10px;margin-bottom:10px">⚠️ Stok menipis: ${low.map(i => escapeHtml(i.name)).join(', ')}</div>` : '';
-  if (!rows.length) {
-    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:24px;">Belum ada barang. Tambah di form atas.</p>';
-    return;
-  }
-  const fmt = (v) => formatCurrency(v);
-  list.innerHTML = rows.map(i => {
-    const isLow = (i.minStock || 0) > 0 && i.stock <= i.minStock;
-    const variant = [i.size, i.color].filter(Boolean).join(' / ');
-    const disc = Number(i.discountPct) || 0;
-    const net = disc > 0 ? Math.round(i.price * (1 - disc / 100)) : i.price;
-    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px">
-      <span style="font-size:18px">${isLow ? '⚠️' : '📦'}</span>
-      <span style="flex:1;min-width:0"><b>${escapeHtml(i.name)}</b>${variant ? ` <small style="color:#2563eb">${escapeHtml(variant)}</small>` : ''}${i.sku ? ` <small style="color:#94a3b8">${escapeHtml(i.sku)}</small>` : ''}<br>
-      <small style="color:#64748b">Stok ${i.stock} • Jual ${disc > 0 ? `<s>${fmt(i.price)}</s> ${fmt(net)} (−${disc}%)` : fmt(i.price)} • Modal ${fmt(i.cost)} • Nilai ${fmt(i.stock * i.cost)}</small></span>
-      <button class="btn btn-ghost stock-hist" data-id="${i.id}" aria-label="Kartu stok ${escapeHtml(i.name)}" title="Kartu stok (riwayat mutasi)" style="font-size:11px;padding:2px 8px">📜</button>
-      <button class="btn btn-ghost stock-edit" data-id="${i.id}" aria-label="Edit ${escapeHtml(i.name)}" title="Edit" style="font-size:11px;padding:2px 8px">✎</button>
-      <button class="btn btn-ghost stock-del" data-id="${i.id}" aria-label="Hapus ${escapeHtml(i.name)}" title="Hapus" style="font-size:11px;padding:2px 8px;color:#ef4444">✕</button>
-    </div>`;
-  }).join('');
 }
 // Halaman Stok: kartu produk dikelompokkan, varian sebagai chip + stok.
 export function renderStockPage(groups, { term = '', filter = 'all', shopId = '', shopName = '', view = 'cards', sort = null, showInactive = false, movesToday = 0 } = {}) {
@@ -3772,18 +3743,6 @@ export function bindStock(onSave, onEdit, onDelete, onHistory) {
   document.getElementById('variantTable')?.addEventListener('input', updateVariantTotal);
   document.getElementById('stockImage')?.addEventListener('change', (e) => handleStockImageFile(e.target.files && e.target.files[0]));
   document.getElementById('stockImageClear')?.addEventListener('click', () => { const fi = document.getElementById('stockImage'); if (fi) fi.value = ''; setStockImage(''); });
-  document.getElementById('stockSearch')?.addEventListener('input', (e) => {
-    stockSearchTerm = e.target.value;
-    document.dispatchEvent(new CustomEvent('wynara:stock-search'));
-  });
-  document.getElementById('stockList')?.addEventListener('click', (e) => {
-    const ed = e.target.closest('.stock-edit');
-    const del = e.target.closest('.stock-del');
-    const hs = e.target.closest('.stock-hist');
-    if (hs && onHistory) { onHistory(hs.dataset.id); return; }
-    if (ed) onEdit(ed.dataset.id);
-    if (del) onDelete(del.dataset.id);
-  });
 }
 
 /* ===== Gaji ===== */

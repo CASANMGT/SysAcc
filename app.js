@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.30.0';
+const APP_VERSION = '2.31.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1548,22 +1548,13 @@ function bindEvents() {
   document.getElementById('shipClose')?.addEventListener('click', closeOrderShip);
   document.getElementById('shipCancel')?.addEventListener('click', closeOrderShip);
   document.getElementById('shipSave')?.addEventListener('click', handleOrderShipSubmit);
-  // hint CBM: kirim × rate
-  ['shipCbm', 'shipCbmRate'].forEach(id => document.getElementById(id)?.addEventListener('input', () => {
-    const c = Math.max(Number(document.getElementById('shipCbm')?.value) || 0, 0);
-    const r = Math.max(Number(document.getElementById('shipCbmRate')?.value) || 0, 0);
-    const h = document.getElementById('shipCbmHint');
-    if (h) h.textContent = (c * r) > 0 ? `= Rp${Math.round(c * Math.max(Number(document.getElementById('shipCbmRate')?.value) || 0, 0)).toLocaleString('id-ID')}` : '';
-  }));
   document.getElementById('orderStatusClose')?.addEventListener('click', closeOrderStatus);
   document.getElementById('orderStatusCancel')?.addEventListener('click', closeOrderStatus);
   document.getElementById('orderStatusSave')?.addEventListener('click', handleOrderStatusSubmit);
-  // Titip beli (preorder)
-  bindPreorderUI();
-  // Kurs online untuk preorder: saat mode 🌏 dipilih → sinkronkan kurs (bulat ke atas 1.000)
-  document.querySelectorAll('input[name="saleMode"]').forEach(r => r.addEventListener('change', () => {
-    if (r.checked && r.value === 'preorder') kursCnyOnline().then(applyKursToSaleForm);
-  }));
+  // Modal biaya pesanan (dipakai aksi baris "Catat biaya" & Detail Pesanan)
+  document.getElementById('preorderCostClose')?.addEventListener('click', closePoCost);
+  document.getElementById('preorderCostCancel')?.addEventListener('click', closePoCost);
+  document.getElementById('preorderCostSave')?.addEventListener('click', handlePoCostSubmit);
   UI.bindCoa(handleCoaSave, handleCoaRename, handleCoaDelete);
   document.getElementById('assetOpenBtn')?.addEventListener('click', openAssets);
   document.getElementById('openingOpenBtn')?.addEventListener('click', openOpening);
@@ -1832,10 +1823,7 @@ function bindEvents() {
       UI.openReportModal();
     }
   });
-  document.getElementById('aksiTambahTransaksi')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
   document.getElementById('addEntryBtn2')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); });
-  document.getElementById('aksiTambahKontak')?.addEventListener('click', () => UI.openContacts(Storage.getAllPeople(), Storage.getAllLoans()));
-  document.getElementById('aksiLaporan')?.addEventListener('click', () => showView('viewLaporan'));
   document.getElementById('ownerToReports')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewLaporan'); });
   document.getElementById('topProductsMore')?.addEventListener('click', (e) => { e.preventDefault(); showView('viewSales'); });
   document.getElementById('reportJumpSales')?.addEventListener('click', () => showView('viewSales'));
@@ -1880,7 +1868,6 @@ function bindEvents() {
     renderPageReport();
     UI.showSuccess('Periode laporan diubah');
   });
-  document.getElementById('aksiKategori')?.addEventListener('click', () => UI.showInfo('Kelola kategori: pilih kategori saat tambah transaksi'));
   // Topbar search mirrors main search
   const topSearch = document.getElementById('searchInputTop');
   if (topSearch) {
@@ -1922,7 +1909,6 @@ function bindEvents() {
   document.getElementById('backupSelfTestBtn')?.addEventListener('click', handleBackupSelfTest);
   document.getElementById('dataHealthBtn')?.addEventListener('click', handleDataHealth);
   document.getElementById('importSalesBtn')?.addEventListener('click', () => openImport('sales'));
-  document.getElementById('importProductsBtn')?.addEventListener('click', () => openImport('products'));
   document.getElementById('importClose')?.addEventListener('click', closeImport);
   document.getElementById('importCancel')?.addEventListener('click', closeImport);
   document.getElementById('importParseBtn')?.addEventListener('click', handleImportParse);
@@ -3772,143 +3758,8 @@ function deleteCreditSalePrompt(id) {
   catch (e) { UI.showError(e && e.message ? e.message : 'Gagal menghapus'); }
 }
 function refreshSalesPage() { try { renderSalesPage(); } catch {} }
-// Kurs online CNY→IDR (round up ke 1000 terdekat), cache 12 jam — offline pakai terakhir / 2300
-const KURS_KEY = 'wynara_kurs_cny';
-async function kursCnyOnline() {
-  const cached = (() => { try { return JSON.parse(localStorage.getItem(KURS_KEY) || 'null'); } catch { return null; } })();
-  if (cached && Number(cached.rate) > 0 && Date.now() - Number(cached.updatedAt || 0) < 12 * 3600000) return cached;
-  try {
-    const r = await fetch('https://open.er-api.com/v6/latest/CNY');
-    const j = await r.json();
-    const idr = Number(j?.rates?.IDR) || 0;
-    if (idr <= 0) throw new Error('no-rate');
-    const rec = { rate: Math.ceil(idr / 100) * 100, raw: Math.round(idr), updatedAt: Date.now(), source: 'online' };
-    try { localStorage.setItem(KURS_KEY, JSON.stringify(rec)); } catch {}
-    return rec;
-  } catch {
-    return cached || { rate: 2300, updatedAt: 0, source: 'default' };
-  }
-}
-function applyKursToSaleForm(rec) {
-  const fx = document.getElementById('saleFx');
-  if (!fx) return;
-  if (rec && rec.rate > 0) {
-    fx.value = String(rec.rate);
-    const hint = document.getElementById('saleFxHint');
-    if (hint) hint.textContent = rec.source === 'online'
-      ? `✅ Kurs online ¥1 = Rp${rec.rate.toLocaleString('id-ID')} (dibulatkan ke atas ke 100, asli ${rec.raw.toLocaleString('id-ID')}, ${new Date(rec.updatedAt).toLocaleString('id-ID')})`
-      : rec.source === 'default' ? 'Kurs default — nyalakan internet untuk rate online' : `Kurs terakhir ¥1 = Rp${rec.rate.toLocaleString('id-ID')}`;
-  }
-}
-
-/* ===== Titip Beli / Preorder (beli atas nama pelanggan) ===== */
 // 5.6 Satu format uang: "Rp 105.000" (spasi setelah Rp, tanpa desimal) dari reports.formatCurrency.
 function preorderFmt(v) { return Reports.formatCurrency(v); }
-function openPreorder() {
-  const m = document.getElementById('preorderModal');
-  if (!m) return;
-  document.getElementById('preorderCustomer').value = '';
-  document.getElementById('preorderDate').value = new Date().toISOString().split('T')[0];
-  const eta = document.getElementById('preorderEta');
-  if (eta) {
-    const d = new Date(); d.setDate(d.getDate() + 30); // estimasi datang ~1 bulan (boleh diubah)
-    eta.value = d.toISOString().split('T')[0];
-  }
-  const dep = document.getElementById('preorderDeposit'); if (dep) { dep.value = ''; delete dep.dataset.touched; }
-  document.getElementById('preorderRows').innerHTML = '';
-  addPreorderRow();
-  addPreorderRow();
-  renderPreorderInfo();
-  const er = document.getElementById('preorderError'); if (er) er.textContent = '';
-  if (!m.open) { try { m.showModal(); } catch {} }
-  setTimeout(() => document.getElementById('preorderCustomer')?.focus(), 60);
-}
-function closePreorder() { const m = document.getElementById('preorderModal'); if (m && m.open) { try { m.close(); } catch {} } }
-function addPreorderRow(preselectId) {
-  const box = document.getElementById('preorderRows');
-  if (!box) return;
-  const items = (Storage.getAllItems() || []).filter(i => i && i.active !== false);
-  const row = document.createElement('div');
-  row.className = 'preorder-row';
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px';
-  row.innerHTML = `
-    <select class="preorder-item-sel" style="flex:2;min-width:130px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
-      <option value="">— Pilih barang*</option>
-      ${items.map(i => { return `<option value="${i.id}">${escapeHtml(Storage.fullItemName(i))}</option>`; }).join('')}
-      <option value="__custom">✏️ Tulis manual / barang lain</option>
-    </select>
-    <input type="number" class="preorder-item-qty" min="1" step="1" value="1" title="Qty" style="width:60px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 6px;font-size:13px;text-align:center">
-    <input type="text" class="preorder-item-price" inputmode="decimal" placeholder="Rp/pcs (harga jual)" style="flex:1;min-width:120px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px">
-    <button type="button" class="btn btn-ghost preorder-row-del" aria-label="Hapus baris" style="font-size:12px;padding:4px 8px;color:#ef4444">✕</button>`;
-  const sel = row.querySelector('.preorder-item-sel');
-  const qty = row.querySelector('.preorder-item-qty');
-  const price = row.querySelector('.preorder-item-price');
-  const syncPrice = () => {
-    if (sel.value === '__custom') {
-      const inp = document.createElement('input');
-      inp.type = 'text'; inp.className = 'preorder-item-name'; inp.placeholder = 'Nama barang'; inp.maxLength = 80;
-      inp.style.cssText = 'flex:2;min-width:140px;height:40px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:13px';
-      sel.replaceWith(inp);
-      inp.addEventListener('input', renderPreorderInfo);
-      inp.focus();
-      return;
-    }
-    const it = items.find(x => x.id === sel.value);
-    if (it && !price.dataset.touched && Storage.itemNetPrice) price.value = Storage.itemNetPrice(it) ? String(Storage.itemNetPrice(it)) : '';
-    renderPreorderInfo();
-    maybeAddPoRow(); // UX: baris baru otomatis muncul saat barang pilihan terisi lengkap
-  };
-  sel.addEventListener('change', syncPrice);
-  price.addEventListener('blur', () => { const v = UI.parseIdrInput(price.value); price.value = v ? (UI.formatIdrInput ? UI.formatIdrInput(v) : String(v)) : ''; renderPreorderInfo(); });
-  qty.addEventListener('input', () => { renderPreorderInfo(); maybeAddPoRow(); });
-  price.addEventListener('input', () => { price.dataset.touched = '1'; renderPreorderInfo(); maybeAddPoRow(); });
-  row.querySelector('.preorder-row-del').addEventListener('click', () => { row.remove(); renderPreorderInfo(); });
-  box.appendChild(row);
-  if (preselectId) sel.value = preselectId;
-  syncPrice();
-}
-function maybeAddPoRow() {
-  const box = document.getElementById('preorderRows');
-  if (!box) return;
-  const rows = [...box.querySelectorAll('.preorder-row')];
-  const last = rows[rows.length - 1];
-  if (!last) return;
-  const filled = !!((last.querySelector('.preorder-item-name')?.value || '').trim()
-    || (last.querySelector('.preorder-item-sel')?.value || '').trim());
-  const qty = last.querySelector('.preorder-item-qty');
-  const price = last.querySelector('.preorder-item-price');
-  if (filled && Number(qty.value) > 0 && UI.parseIdrInput(price.value || '') > 0 && rows.length < 30) addPreorderRow();
-}
-function readPreorderRows() {
-  const rows = [...document.querySelectorAll('#preorderRows .preorder-row')];
-  const items = Storage.getAllItems() || [];
-  return rows.map(row => {
-    const nameInp = row.querySelector('.preorder-item-name');
-    let itemId = '';
-    let nm = '';
-    if (nameInp) { nm = (nameInp.value || '').trim(); }
-    else {
-      const sel = row.querySelector('.preorder-item-sel');
-      const it = items.find(x => x.id === (sel?.value || ''));
-      itemId = sel?.value || '';
-      nm = it ? Storage.fullItemName(it) : '';
-    }
-    const qty = Math.max(parseInt(row.querySelector('.preorder-item-qty')?.value || '0', 10) || 0, 0);
-    const price = Math.round(Number(UI.parseIdrInput(row.querySelector('.preorder-item-price')?.value || '')) || 0);
-    return { itemId, name: nm, qty, price };
-  }).filter(l => l.name && l.qty > 0 && l.price > 0);
-}
-function renderPreorderInfo() {
-  const el = document.getElementById('preorderInfo');
-  if (!el) return;
-  const lines = readPreorderRows();
-  const total = lines.reduce((s, l) => s + l.qty * l.price, 0);
-  const depEl = document.getElementById('preorderDeposit');
-  const dep = Math.min(Math.max(Number(UI.parseIdrInput(depEl?.value || '')) || 0, 0), total);
-  el.innerHTML = total > 0
-    ? `Total ke pelanggan: <b>${preorderFmt(total)}</b>${dep > 0 ? ` • DP ${preorderFmt(dep)} → masuk kas, sisa dibayar saat barang datang (${preorderFmt(total - dep)})` : ' • tanpa DP'}`
-    : '<span style="color:var(--text-muted)">Isi min 1 baris: pilih barang dari Produk (atau tulis manual), qty, dan harga jual ke pelanggan. Estimasi tanggal datang bisa diubah.</span>';
-}
 function openPoPay(id) {
   const po = Storage.getPreorderById(id);
   if (!po) return;
@@ -3956,39 +3807,6 @@ function handlePoCostSubmit() {
     else UI.showError(e && e.message ? e.message : 'Gagal menyimpan biaya');
   }
 }
-function handlePreorderSubmit() {
-  const d = {
-    customer: document.getElementById('preorderCustomer')?.value.trim() || '',
-    date: document.getElementById('preorderDate')?.value || new Date().toISOString().split('T')[0],
-    eta: document.getElementById('preorderEta')?.value.trim() || '',
-    deposit: Number(UI.parseIdrInput(document.getElementById('preorderDeposit')?.value || '')) || 0,
-    payment: document.getElementById('preorderPayment')?.value || 'cash',
-  };
-  d.items = readPreorderRows();
-  if (!d.customer) { const er = document.getElementById('preorderError'); if (er) er.textContent = 'Isi nama pelanggan'; else UI.showError('Isi nama pelanggan'); return; }
-  if (!d.items.length) { const er = document.getElementById('preorderError'); if (er) er.textContent = 'Isi min 1 barang (nama + qty + harga)'; else UI.showError('Isi min 1 barang'); return; }
-  try {
-    const po = Storage.createPreorder(d);
-    closePreorder();
-    UI.showSuccess(`Pesanan ${po.no || po.id} tersimpan — ${preorderFmt(Storage.preorderSellTotal ? Storage.preorderSellTotal(po) : po.sellTotal)} — sisa dibayar saat barang datang`);
-    refreshSalesPage();
-  } catch (e) {
-    const er = document.getElementById('preorderError');
-    if (er) er.textContent = e && e.message ? e.message : 'Gagal menyimpan pesanan';
-    else UI.showError(e && e.message ? e.message : 'Gagal menyimpan pesanan');
-  }
-}
-function bindPreorderUI() {
-  document.getElementById('preorderNewBtn')?.addEventListener('click', openPreorder);
-  document.getElementById('preorderClose')?.addEventListener('click', closePreorder);
-  document.getElementById('preorderCancel')?.addEventListener('click', closePreorder);
-  document.getElementById('preorderAddRow')?.addEventListener('click', addPreorderRow);
-  document.getElementById('preorderSave')?.addEventListener('click', handlePreorderSubmit);
-  document.getElementById('preorderDeposit')?.addEventListener('input', renderPreorderInfo);
-  document.getElementById('preorderCostClose')?.addEventListener('click', closePoCost);
-  document.getElementById('preorderCostCancel')?.addEventListener('click', closePoCost);
-  document.getElementById('preorderCostSave')?.addEventListener('click', handlePoCostSubmit);
-}
 function orderArrivePrompt(id) {
   const po = Storage.getPreorderById(id);
   if (!po) return;
@@ -4005,8 +3823,9 @@ function orderDeletePrompt(id) {
 }
 function printSalesPage() {
   const src = document.getElementById('salesContent');
-  const label = document.getElementById('salesPeriod')?.selectedOptions?.[0]?.textContent || '';
-  const ok = UI.printReportHTML('Laporan Penjualan', src ? src.innerHTML : '', 'Periode: ' + label);
+  // Periode mengikuti kontrol global di header (dulu memakai select #salesPeriod yang sudah dihapus).
+  const label = (() => { try { return (document.getElementById('topbarPeriod')?.textContent || '').replace('▾', '').trim(); } catch { return ''; } })();
+  const ok = UI.printReportHTML('Laporan Penjualan', src ? src.innerHTML : '', 'Periode: ' + (label || 'Semua'));
   if (!ok) UI.showError('Izinkan pop-up untuk mencetak');
 }
 function exportSalesExcel() {
@@ -5522,7 +5341,7 @@ function renderMuatanPageUnsafe() {
   }
 
   // Daftar belanja
-  const listBox = document.getElementById('pembelianBelanjaList') || document.getElementById('muatanBelanjaList');
+  const listBox = document.getElementById('pembelianBelanjaList');
   if (listBox) {
     const STAGE = { paid: 'Dipesan', china: 'Di gudang China', batch: 'Muat ke muatan', ship: 'Di kapal', arrived: 'Sampai gudang', done: 'Selesai' };
     const COLOR = { paid: '#94a3b8', china: '#f59e0b', batch: '#8b5cf6', ship: '#3b82f6', arrived: '#059669', done: '#64748b' };
@@ -7340,7 +7159,6 @@ function handleCoaDelete(code) {
 
 /* ===== Stok ===== */
 function refreshStock() {
-  UI.renderStock(Storage.getAllItems());
   refreshSuppliers();
   refreshStockPage();
 }

@@ -8,6 +8,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.31.0] - 2026-09-17 — Sprint 1: buang kode mati + penjaga integritas DOM
+
+### Dihapus (181+ baris, tanpa perubahan perilaku)
+- **Modal preorder lama** yang markup-nya sudah tidak ada di `index.html`: `openPreorder`, `closePreorder` (+44 baris), `addPreorderRow` (+43), `maybeAddPoRow`, `readPreorderRows`, `renderPreorderInfo`, `handlePreorderSubmit`, `bindPreorderUI` — semuanya mengembalikan `null` sejak markup dihapus.
+- **Helper yang hanya melayani modal lama**: `applyKursToSaleForm` (field `saleFx` sudah hilang), `kursCnyOnline()` + `KURS_KEY` (kurs ¥ kini di Pengaturan → Impor), blok hint CBM (`shipCbm`/`shipCbmRate`/`shipCbmHint` — markup dihapus di 4.2).
+- **`UI.renderStock()`** + `stockSearchTerm` di `ui.js` (halaman stok memakai `renderStockPage`), dan listener `#stockList`/`#stockSearch` yang tak pernah ada.
+- **11 referensi DOM basi** di `app.js`: `aksiTambahTransaksi`, `aksiTambahKontak`, `aksiLaporan`, `aksiKategori`, `importProductsBtn`, `salesPeriod`, `muatanBelanjaList`.
+
+### Diperbaiki
+- **Listener modal biaya pesanan dipasang ulang** (`preorderCostClose/Cancel/Save`) — sebelumnya hilang bersama `bindPreorderUI` padahal modalnya masih ada; aksi "Catat biaya" kini tidak lagi gagal senyap.
+- `printSalesPage()` memakai label periode global di header (bukan select `#salesPeriod` yang sudah dihapus).
+
+### Ditambahkan
+- **`tests/dom-integrity.test.js`** — penjaga permanen: setiap `getElementById()` di `app.js` & `ui.js` harus menunjuk elemen yang ada di `index.html` atau dibuat template JS; dan tidak boleh ada listener yang dipasang ke elemen yang tak pernah ada. Uji ini yang menemukan seluruh daftar di atas.
+- Uji: **395 lulus** (24 berkas).
+
 ## [2.30.0] - 2026-09-17 — penjaga konsistensi + sapuan emoji konservatif
 
 ### Ditambahkan
