@@ -4108,3 +4108,57 @@ input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px
 .gsearch-item .gs-title { font-size: 13px; font-weight: 600; color: #1f2937; }
 .gsearch-item .gs-sub { font-size: 11px; color: #64748b; }
 .gsearch-empty { font-size: 12px; color: #64748b; padding: 12px; }
+
+/* ============================================================
+   KONSISTENSI DESAIN — satu bahasa visual untuk semua halaman.
+   1) Satu header halaman (.view-header) untuk semua view.
+   2) Satu kartu KPI (.stock-kpi) untuk semua ringkasan angka.
+   3) Ringkasan dashboard memakai token yang sama (radius, border, bayangan).
+   Ditambahkan di akhir berkas agar menimpa aturan lama tanpa menghapusnya.
+   ============================================================ */
+
+/* 1) Dashboard memakai header halaman yang sama (dulu .dashboard-head 28px, tanpa subtitle). */
+.dashboard-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.dashboard-head h1 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.dashboard-head p { font-size: 13px; color: var(--m-text-2, #5b6b7c); margin-top: 4px; }
+.dashboard-head .topbar-cta { min-height: 40px; }
+
+/* 2) Kartu metrik dashboard memakai token yang sama dengan kartu lain. */
+.metric-card {
+  background: var(--m-surface, #fff);
+  border: 1px solid var(--m-border, #e3e8ef);
+  border-radius: var(--m-radius, 14px);
+  box-shadow: var(--m-shadow, 0 1px 2px rgba(16,24,40,.05));
+  padding: 16px;
+}
+
+/* 3) KPI strip seragam: tinggi kartu, angka, dan label sama di semua halaman. */
+.stock-kpi { gap: 10px; margin-bottom: 12px; }
+.stock-kpi button {
+  border-radius: var(--m-radius, 14px);
+  border-color: var(--m-border, #e3e8ef);
+  box-shadow: var(--m-shadow, 0 1px 2px rgba(16,24,40,.05));
+  padding: 10px 12px;
+  font-size: 11.5px;
+  min-height: 62px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.stock-kpi button:hover { border-color: #bfdbfe; background: #f8fbff; }
+.stock-kpi button.active { border-color: var(--m-primary, #2563eb); box-shadow: 0 0 0 2px #dbeafe inset; }
+.stock-kpi b { font-size: 17px; font-weight: 800; margin-top: 2px; }
+@media (max-width: 480px) { .stock-kpi { gap: 8px; } .stock-kpi button { min-height: 56px; } }
+
+/* 4) Kartu ringkasan Penjualan memakai token yang sama (dulu radius/ukuran berbeda). */
+.sales-card {
+  border-color: var(--m-border, #e3e8ef);
+  border-radius: var(--m-radius, 14px);
+  box-shadow: var(--m-shadow, 0 1px 2px rgba(16,24,40,.05));
+  padding: 12px 14px;
+  min-height: 62px;
+}
+.sales-card-val { font-size: 20px; }
+
+/* 5) Subjudul halaman konsisten (semua view punya baris penjelas). */
+.view-header > div:first-child > p { font-size: 13px; color: var(--m-text-2, #5b6b7c); margin-top: 4px; }

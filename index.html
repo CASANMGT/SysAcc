@@ -224,7 +224,7 @@
       </div>
       <div class="sidebar-foot">
         <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.28.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.29.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -267,12 +267,12 @@
 
       <main id="main-content" class="dashboard-main">
         <div id="viewRingkasan" class="view-section">
-        <div class="dashboard-head">
+        <div class="view-header">
           <div>
-            <h1>Selamat datang, Admin 👋</h1>
-            <p>Ringkasan keuangan Anda untuk periode ini</p>
+            <h1>Ringkasan</h1>
+            <p id="ringkasanSubtitle">Ringkasan keuangan Anda untuk periode ini</p>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="view-actions">
             <button class="btn btn-primary topbar-cta" id="addEntryBtn">＋ Tambah transaksi</button>
             <button class="btn btn-ghost" id="saleEntryBtn" title="Jual barang dari stok">🧾 Jual</button>
           </div>
@@ -546,7 +546,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.28.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.29.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -611,7 +611,7 @@
         <div id="viewSales" class="view-section hidden">
           <div class="view-header">
             <div>
-              <h1>🛒 Penjualan</h1>
+              <h1>Penjualan</h1>
               <p id="salesSubtitle">Semua laporan penjualan dalam satu halaman</p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -687,7 +687,7 @@
 
         <div id="viewKas" class="view-section hidden">
           <div class="view-header">
-            <div><h1>💳 Kas &amp; Bank</h1><p id="kasSubtitle">Saldo dompet, transfer, dan rekonsiliasi bank</p></div>
+            <div><h1>Kas &amp; Bank</h1><p id="kasSubtitle">Saldo dompet, transfer, dan rekonsiliasi bank</p></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-primary" id="kasPageAddBtn">＋ Transaksi</button>
               <button class="btn btn-ghost" id="kasPageKasBtn">⇄ Kas &amp; Transfer</button>
@@ -723,7 +723,7 @@
 
         <div id="viewPembelian" class="view-section hidden">
           <div class="view-header">
-            <div><h1>🧺 Pembelian</h1><p id="pembelianSubtitle">Pembelian marketplace &amp; supplier lokal — hutang dan pembayarannya</p></div>
+            <div><h1>Pembelian</h1><p id="pembelianSubtitle">Pembelian marketplace &amp; supplier lokal — hutang dan pembayarannya</p></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-primary" id="pembelianMarketBtn">🛍 Beli dari marketplace</button>
               <button class="btn btn-ghost" id="pembelianBuyBtn" title="Beli lokal tunai/hutang atau stok awal">＋ Beli lokal</button>
@@ -755,7 +755,7 @@
 
         <div id="viewMuatan" class="view-section hidden">
           <div class="view-header">
-            <div><h1>🧭 Pengiriman</h1><p id="muatanSubtitle">Koli di gudang China, muatan LCL, dan biaya mendarat</p></div>
+            <div><h1>Pengiriman</h1><p id="muatanSubtitle">Koli di gudang China, muatan LCL, dan biaya mendarat</p></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-primary" id="pengirimanBaruBtn">＋ Pengiriman baru</button>
               <button class="btn btn-ghost" id="muatanKoliBtn">🧾 Cek-in koli</button>
@@ -795,7 +795,7 @@
 
         <div id="viewBiaya" class="view-section hidden">
           <div class="view-header">
-            <div><h1>💸 Biaya</h1><p id="biayaSubtitle">Pengeluaran operasional usaha</p></div>
+            <div><h1>Biaya</h1><p id="biayaSubtitle">Pengeluaran operasional usaha</p></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <span style="font-size:11px;color:#64748b;align-self:center">Periode mengikuti kontrol di kanan atas</span>
               <button class="btn btn-primary" id="biayaAddBtn">＋ Catat Biaya</button>
@@ -812,7 +812,7 @@
         <div id="viewStock" class="view-section hidden">
           <div class="view-header">
             <div>
-              <h1>Stok &amp; Produk</h1>
+              <h1>Produk &amp; Stok</h1>
               <p id="stockPageSubtitle">0 produk</p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -928,7 +928,8 @@
         <div id="viewPayroll" class="view-section hidden">
           <div class="view-header">
             <div>
-              <h1>Karyawan & Gaji</h1>
+              <h1>Karyawan &amp; Gaji</h1>
+              <p id="payrollPageSubtitle">Karyawan, penggajian TER, THR, dan kasbon</p>
               <p>Kelola data tim dan komponen penggajian.</p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1037,6 +1038,7 @@
           <div class="view-header">
             <div>
               <h1>Laporan</h1>
+              <p id="laporanSubtitle">Laba rugi, neraca, arus kas, pajak, dan gaji dalam satu tempat</p>
               <p>Semua laporan keuangan dalam satu halaman — nyaman dibaca di HP.</p>
             </div>
             <div class="view-actions">
@@ -1098,7 +1100,7 @@
         <div id="viewChangelog" class="view-section hidden">
           <div class="view-header">
             <div>
-              <h1>📜 Changelog</h1>
+              <h1>Changelog</h1>
               <p>Riwayat perubahan Wynara — versi terbaru paling atas.</p>
             </div>
           </div>
@@ -2703,7 +2705,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.28.0';
+    window.__htmlVersion = '2.29.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /* global __dirname */
-// Smoke: halaman Penjualan (ready + preorder) setelah modal penjualan lama dihapus.
+// Smoke: halaman Penjualan ready setelah modal penjualan lama dihapus.
 // Satu alur per berkas karena app.js memanggil init() sekali (module di-cache antar test).
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';

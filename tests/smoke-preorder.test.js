@@ -18,7 +18,6 @@ describe('smoke penjualan preorder', () => {
     document.getElementById('salesBtnSidebar')?.click();
     document.getElementById('salesNewBtn')?.click();
     const q = (sel) => document.getElementById('viewJualBaru').querySelector(sel);
-    // pindah ke preorder
     q('[data-set="mode=preorder"]')?.click();
     const nameInp = q('input[data-f="name"]');
     expect(nameInp, 'kolom nama barang baru').toBeTruthy();
@@ -32,6 +31,6 @@ describe('smoke penjualan preorder', () => {
     expect(pos.length).toBe(1);
     expect(pos[0].status).toBe('draft');
     expect(pos[0].customer).toBe('Andi');
-    expect(Storage.getAllJournals().length).toBe(j0); // draft: kas tidak bergerak
+    expect(Storage.getAllJournals().length).toBe(j0);
   });
 });

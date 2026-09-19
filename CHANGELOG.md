@@ -8,6 +8,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.29.0] - 2026-09-17 — konsistensi desain seluruh halaman
+
+### Diperbaiki
+- **Satu header halaman untuk semua view.** Ringkasan memakai `.dashboard-head` (28 px, tanpa subjudul) sementara 10 halaman lain memakai `.view-header` (24 px) → Ringkasan kini memakai `.view-header` dengan judul **"Ringkasan"** (bukan "Selamat datang, Admin") dan subjudul ber-id `ringkasanSubtitle`.
+- **Judul halaman bebas emoji**: Penjualan · Kas & Bank · Pembelian · Pengiriman · Biaya · Changelog (sebelumnya masing-masing diawali emoji sebagai label utama) — emoji tetap boleh ada di dalam konten. "Stok & Produk" → **"Produk & Stok"** agar sejalan dengan nama menu.
+- **Subjudul ditambahkan** pada halaman yang belum punya: **Laporan** dan **Karyawan & Gaji** (kini semua 11 halaman punya baris penjelas).
+- **Satu bahasa kartu.** Tiga sistem kartu yang berbeda (`.metric-card` radius 20 px, `.stock-kpi` radius 12 px, `.sales-card` radius 14 px dengan tinggi/ukuran angka berbeda) kini memakai token yang sama: radius 14, border `#e3e8ef`, bayangan `--m-shadow`, padding 16, dan **angka KPI seragam 17 px / label 11,5 px dengan tinggi kartu minimum 62 px** di semua halaman.
+- Aksi header memakai `.view-actions` (Ringkasan dan Laporan), bukan `div` dengan gaya inline.
+
+### Catatan
+- Kotak catatan di dalam modal (`background:#f8fafc` + radius 8–12 px) sengaja dibiarkan inline — itu komponen *callout*, bukan kartu halaman, dan memang lebih kecil dari kartu.
+- Uji: **387 lulus** (22 berkas), lint bersih.
+
 ## [2.28.0] - 2026-09-17 — buang modal penjualan lama (kode mati)
 
 ### Dihapus
