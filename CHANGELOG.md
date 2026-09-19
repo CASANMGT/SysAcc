@@ -8,6 +8,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.34.0] - 2026-09-17 — Sprint 4: poles & ekspor daftar
+
+### Ditambahkan
+- **Ekspor CSV pada daftar operasional**: tombol **⬇️ CSV** di halaman **Pengiriman** (No, Status, Tanggal, Penerima, Alamat, Kurir, Layanan, Resi, Qty, Barang, Biaya kirim, Ditanggung) dan di halaman **Biaya** (Tanggal, Kategori, Cara bayar, Deskripsi, Person, Jumlah, **status verifikasi**, daftar lampiran). Sebelumnya hanya Laporan yang bisa diekspor, jadi permintaan "kirim daftar pengiriman/biaya" harus disalin manual.
+- **Default tanggal yang masuk akal**: estimasi tiba preorder kini terisi **+30 hari** (siklus laut 3–4 minggu) alih-alih kosong, dan form muatan baru mengisi **ETD hari ini / ETA +30 hari**.
+
+### Diperbaiki
+- **Copy empty state menuntun ke langkah berikutnya**: "Belum ada struk" → *"…Catat penjualan lewat ＋ Jual."*, "Belum ada mutasi kas/bank" → *"…Catat transaksi atau impor mutasi bank."*
+
+### Catatan audit
+- Copy "Belum ada …" (daftar kosong) vs "Tidak ada …" (hasil pencarian/filter kosong) ternyata **sudah konsisten dan sengaja dibedakan** — dua makna berbeda, bukan drift. Tidak diubah.
+- Uji: **396 lulus** (25 berkas); penjaga `dom-integrity` & `design-consistency` tetap hijau.
+
 ## [2.33.0] - 2026-09-17 — Sprint 3: temukan draft & gaji
 
 ### Diperbaiki

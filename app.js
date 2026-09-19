@@ -42,7 +42,7 @@ try {
 } catch {}
 window.__selectedIds = window.__selectedIds instanceof Set ? window.__selectedIds : new Set();
 
-const APP_VERSION = '2.33.0';
+const APP_VERSION = '2.34.0';
 // Penanda versi untuk inline skew-check di index.html (deteksi HTML/JS campur aduk).
 window.__APP_VERSION = APP_VERSION;
 const LOAN_CATEGORIES = ['Piutang', 'Hutang'];
@@ -1745,6 +1745,7 @@ function bindEvents() {
     if (sel) handleStockReceive(sel.value);
   });
   document.getElementById('biayaAddBtn')?.addEventListener('click', () => { UI.renderPeopleDatalist(Storage.getAllPeople()); UI.openModal(); setTimeout(() => { const b = document.querySelector('#typeGroup .select-btn[data-value="expense"], #typeGroup .chip[data-value="expense"]'); if (b) b.click(); }, 30); });
+  document.getElementById('biayaExportCsv')?.addEventListener('click', exportBiayaCsv);
   document.getElementById('salesNewBtn')?.addEventListener('click', () => openJualBaru('ready'));
   document.getElementById('salesExcel')?.addEventListener('click', exportSalesExcel);
   document.getElementById('salesPrint')?.addEventListener('click', printSalesPage);
@@ -3387,7 +3388,7 @@ function renderSalesPage() {
         <td style="font-size:12px">${nOf(e)} pcs</td>
         <td style="font-size:11.5px;color:#475569">${PAY_LABEL[e.payment] || escapeHtml(e.payment || '')}</td>
         <td class="amount-col">${fmt(e.amount)}</td></tr>`).join('')}
-      </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada struk.</p>';
+      </tbody></table></div>` : '<p style="color:var(--text-muted);font-size:12px">Belum ada struk. Catat penjualan lewat ＋ Jual.</p>';
   }
   renderCreditSection();
   renderOrdersPanel();
@@ -3770,6 +3771,12 @@ function deleteCreditSalePrompt(id) {
 function refreshSalesPage() { try { renderSalesPage(); } catch {} }
 // 5.6 Satu format uang: "Rp 105.000" (spasi setelah Rp, tanpa desimal) dari reports.formatCurrency.
 function preorderFmt(v) { return Reports.formatCurrency(v); }
+// Tanggal ISO hari ini, atau hari ini+N. Dipakai untuk default ETD/ETA (siklus laut 3–4 minggu).
+function isoPlus(days = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + Math.round(Number(days) || 0));
+  return d.toISOString().split('T')[0];
+}
 function openPoPay(id) {
   const po = Storage.getPreorderById(id);
   if (!po) return;
@@ -3917,7 +3924,7 @@ function renderKasPage() {
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
         <div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.memo || 'Jurnal')}${(j.ref || '') === 'preorder' ? ' <span style="font-size:10px;color:#a16207;font-weight:700">🌏 titip beli</span>' : ''}</div><div style="font-size:10px;color:#64748b">${escapeHtml(j.date || '')}${cpLabel ? ' • <b style="color:#334155">' + escapeHtml(cpLabel) + '</b>' : ''}</div></div>
         <b style="font-size:12px;white-space:nowrap;color:${amt < 0 ? '#ef4444' : '#0f172a'}">${fmt(amt)}</b></div>`;
-    }).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi kas/bank.</p>';
+    }).join('') : '<p style="color:var(--text-muted);font-size:12px">Belum ada mutasi kas/bank. Catat transaksi atau impor mutasi bank.</p>';
   }
   renderBankRecon();
 }
@@ -4619,6 +4626,7 @@ function bindKirimBaru() {
       renderKirimBaru(); try { renderSalesPage(); } catch {} try { refresh(); } catch {} try { queueMirror(); } catch {}
     } catch (err) { UI.showError(err && err.message ? err.message : 'Gagal konfirmasi'); }
   }));
+  host.querySelectorAll('#kirimExportCsv').forEach((b) => b.addEventListener('click', exportShipmentsCsv));
   host.querySelectorAll('input[data-f]').forEach((el) => el.addEventListener('change', () => {
     const i = Number(el.dataset.i); const f = el.dataset.f;
     if (f === 'checked') s.lines[i].checked = el.checked;
@@ -4628,13 +4636,59 @@ function bindKirimBaru() {
 }
 
 // Daftar pengiriman terbaru + lampiran (surat jalan / invoice) untuk tiap pengiriman.
+// Ekspor CSV generik (untuk daftar operasional: pengiriman, belanja, biaya).
+function exportRowsCsv(headers, rows, filename) {
+  try {
+    const cell = (v) => {
+      const s = String(v == null ? '' : v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const csv = [headers].concat(rows).map((r) => r.map(cell).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  } catch (e) { UI.showError('Gagal menyiapkan CSV'); return false; }
+}
+function exportShipmentsCsv() {
+  const list = (() => { try { return Storage.getShipments(); } catch { return []; } })();
+  if (!list.length) return UI.showInfo('Belum ada pengiriman untuk diekspor');
+  const rows = list.map((s) => [
+    s.no, s.status === 'draft' ? 'Draft' : 'Terkirim', s.date, s.recipient || '', s.address || '',
+    s.courier || '', s.service || '', s.tracking || '',
+    (s.lines || []).reduce((a, l) => a + (Number(l.qty) || 0), 0),
+    (s.lines || []).map((l) => `${l.name} x${l.qty}`).join('; '),
+    s.shippingCost || 0, s.borneBy === 'customer' ? 'Pelanggan' : 'Perusahaan',
+  ]);
+  if (exportRowsCsv(['No', 'Status', 'Tanggal', 'Penerima', 'Alamat', 'Kurir', 'Layanan', 'Resi', 'Qty', 'Barang', 'Biaya kirim', 'Ditanggung'], rows, `wynara-pengiriman-${new Date().toISOString().split('T')[0]}.csv`)) {
+    UI.showSuccess(`${list.length} pengiriman diekspor ke CSV`);
+  }
+}
+function exportBiayaCsv() {
+  const _pp = pagePeriodOpts();
+  const entries = Reports.filterEntries(Storage.getAllEntries(), { period: _pp.period, startDate: _pp.startDate, endDate: _pp.endDate, type: 'expense' });
+  if (!entries.length) return UI.showInfo('Belum ada biaya pada periode ini');
+  const rows = entries.map((e) => [
+    e.date, Reports.getCategoryLabel(e.category), e.payment || '', e.description || '', e.person || '', e.amount,
+    e.verified ? 'Sudah' : 'Belum',
+    (e.attachments || []).map((a) => a.name).join('; '),
+  ]);
+  if (exportRowsCsv(['Tanggal', 'Kategori', 'Cara bayar', 'Deskripsi', 'Person', 'Jumlah', 'Verifikasi', 'Lampiran'], rows, `wynara-biaya-${new Date().toISOString().split('T')[0]}.csv`)) {
+    UI.showSuccess(`${entries.length} biaya diekspor ke CSV`);
+  }
+}
+
 function renderKirimListHtml() {
   const list = (() => { try { return Storage.getShipments(); } catch { return []; } })();
   const recent = list.slice().reverse().slice(0, 10);
   const fmt = (v) => Reports.formatCurrency(v);
   if (!recent.length) return '';
   return `<section class="beli-card-box">
-    <div class="beli-step"><span>📦</span> Pengiriman terbaru — tempel surat jalan / invoice</div>
+    <div class="beli-step"><span>📦</span> Pengiriman terbaru — tempel surat jalan / invoice
+      <button type="button" id="kirimExportCsv" class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:3px 10px">⬇️ CSV</button></div>
     <div style="display:flex;flex-direction:column;gap:10px">
       ${recent.map((s) => `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
@@ -4698,7 +4752,7 @@ function openJualBaru(presetMode = 'ready') {
     mode: presetMode === 'preorder' ? 'preorder' : 'ready',
     customer: '', date: new Date().toISOString().split('T')[0], ref: '',
     lines: [{ itemId: '', name: '', qty: 1, price: 0 }],
-    dpPlanned: 0, received: false, payAccount: 'transfer', etaDate: '',
+    dpPlanned: 0, received: false, payAccount: 'transfer', etaDate: isoPlus(30),
   };
   document.querySelectorAll('.view-section').forEach((v) => v.classList.add('hidden'));
   document.getElementById('viewJualBaru')?.classList.remove('hidden');
@@ -5742,6 +5796,7 @@ function openKoliModal() {
 }
 
 function openMuatanCreateModal() {
+  const today = isoPlus(0), plus30 = isoPlus(30);
   const html = `<form id="muatanCreateForm" style="display:flex;flex-direction:column;gap:10px">
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <label style="flex:1;min-width:110px;font-size:12px">Kode batch<br><input id="mutCode" placeholder="LCL-2026-04" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
@@ -5753,8 +5808,8 @@ function openMuatanCreateModal() {
       <label style="flex:1;min-width:110px;font-size:12px">CBM minimum<br><input type="number" id="mutMin" step="0.01" min="0" value="0.5" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <label style="flex:1;min-width:120px;font-size:12px">ETD<br><input type="date" id="mutEtd" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
-      <label style="flex:1;min-width:120px;font-size:12px">ETA<br><input type="date" id="mutEta" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:120px;font-size:12px">ETD<br><input type="date" id="mutEtd" value="${today}" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
+      <label style="flex:1;min-width:120px;font-size:12px">ETA<br><input type="date" id="mutEta" value="${plus30}" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;padding:0 8px"></label>
     </div>
     <button type="submit" class="btn btn-primary">🚢 Simpan muatan</button>
   </form>`;
