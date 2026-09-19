@@ -156,7 +156,7 @@
           <div class="form-group">
             <label for="loginUser">Email</label>
             <div class="login-input-wrap">
-              <span class="login-input-icon" aria-hidden="true">✉️</span>
+              <span class="login-input-icon" aria-hidden="true">✉</span>
               <input type="email" id="loginUser" placeholder="nama@email.com" required autocomplete="username">
             </div>
           </div>
@@ -165,7 +165,7 @@
             <div class="login-input-wrap">
               <span class="login-input-icon" aria-hidden="true">🔒</span>
               <input type="password" id="loginPass" placeholder="Masukkan kata sandi" required autocomplete="current-password">
-              <button type="button" class="login-eye" id="loginEye" aria-label="Tampilkan atau sembunyikan kata sandi" aria-pressed="false">👁️</button>
+              <button type="button" class="login-eye" id="loginEye" aria-label="Tampilkan atau sembunyikan kata sandi" aria-pressed="false">👁</button>
             </div>
           </div>
           <div class="login-row">
@@ -223,8 +223,8 @@
         </div>
       </div>
       <div class="sidebar-foot">
-        <button class="sidebar-item" id="logoutBtn"><span>↩️</span> Keluar</button>
-        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.29.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
+        <button class="sidebar-item" id="logoutBtn"><span>↩</span> Keluar</button>
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px">v<span id="appVersionSidebar">2.30.0</span> • <a href="#" id="changelogLink" style="color:#2563eb;text-decoration:none">Changelog</a></div>
         <!-- hidden functional buttons for JS compatibility -->
         <button id="loanBtn" hidden></button>
         <button id="contactsBtn" hidden></button>
@@ -252,7 +252,7 @@
             <div id="globalSearchResults" class="gsearch-panel hidden" role="listbox" aria-label="Hasil pencarian dokumen"></div>
           </div>
           <span id="backupDot" title="Cadangan otomatis" aria-label="Status cadangan" style="cursor:default">💾</span>
-          <span id="cloudDot" title="Sinkron online: mati" aria-label="Status sinkron online" style="cursor:default;opacity:.35">☁️</span>
+          <span id="cloudDot" title="Sinkron online: mati" aria-label="Status sinkron online" style="cursor:default;opacity:.35">☁</span>
           <button type="button" id="storageState" class="topbar-storage" title="Menyatakan dengan jujur di mana data buku Anda disimpan" aria-label="Status penyimpanan data">Memeriksa…</button>
           <button class="topbar-icon-btn" id="notifBtn" aria-label="Notifikasi"><span>🔔</span><span class="notif-badge" style="display:none">0</span></button>
           <div class="topbar-avatar-main" role="img" title="Profil pemilik" aria-label="Profil pemilik">AD</div>
@@ -274,7 +274,7 @@
           </div>
           <div class="view-actions">
             <button class="btn btn-primary topbar-cta" id="addEntryBtn">＋ Tambah transaksi</button>
-            <button class="btn btn-ghost" id="saleEntryBtn" title="Jual barang dari stok">🧾 Jual</button>
+            <button class="btn btn-ghost" id="saleEntryBtn" title="Jual barang dari stok">Jual</button>
           </div>
         </div>
 
@@ -285,9 +285,9 @@
           <h3 style="margin-bottom:4px">👋 Selamat datang — 3 pekerjaan harian yang paling penting</h3>
           <p style="font-size:13px;color:#475569;margin-bottom:12px">Baru mulai? Cukup mulai dari sini — stok & produk bisa diisi belakangan, laporan tetap berhitung otomatis.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-primary" id="onboardAddBtn">1️⃣ 🧾 Jual barang</button>
-            <button class="btn btn-ghost" id="onboardLoanBtn">2️⃣ 🧺 Beli stok / preorder</button>
-            <button class="btn btn-ghost" id="onboardReportBtn">3️⃣ 💸 Bayar supplier</button>
+            <button class="btn btn-primary" id="onboardAddBtn">Jual barang</button>
+            <button class="btn btn-ghost" id="onboardLoanBtn">Beli stok / preorder</button>
+            <button class="btn btn-ghost" id="onboardReportBtn">Bayar supplier</button>
           </div>
         </div>
 
@@ -466,7 +466,7 @@
             <h4>💳 Saldo per Dompet</h4>
             <div style="display:flex;gap:6px">
               <button class="btn btn-ghost" id="kasOpenBtn" style="font-size:11px;padding:4px 10px">Kas & Transfer</button>
-              <button class="btn btn-ghost" id="bankOpenBtn" style="font-size:11px;padding:4px 10px">🏦 Mutasi</button>
+              <button class="btn btn-ghost" id="bankOpenBtn" style="font-size:11px;padding:4px 10px">Mutasi</button>
             </div>
           </div>
           <div id="walletList" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -546,7 +546,7 @@
           <div id="categoryList"></div>
         </div>
 
-        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.29.0</span> • Dibuat untuk UMKM Indonesia</div>
+        <div class="dashboard-footer">© 2026 Wynara Accounting • v<span id="appVersionFooter">2.30.0</span> • Dibuat untuk UMKM Indonesia</div>
         </div><!-- /viewRingkasan -->
 
         <div id="viewTransaksi" class="view-section hidden">
@@ -557,8 +557,8 @@
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-primary" id="addEntryBtn2">＋ Tambah transaksi</button>
-              <button class="btn btn-ghost" id="saleEntryBtn2" title="Jual barang dari stok">🧾 Jual</button>
-              <button class="btn btn-ghost" id="importSalesBtn" title="Import pesanan Shopee/TikTok atau tempel order WhatsApp">📥 Import penjualan</button>
+              <button class="btn btn-ghost" id="saleEntryBtn2" title="Jual barang dari stok">Jual</button>
+              <button class="btn btn-ghost" id="importSalesBtn" title="Import pesanan Shopee/TikTok atau tempel order WhatsApp">Import penjualan</button>
             </div>
           </div>
           <div class="transaksi-toolbar">
@@ -617,8 +617,8 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <span style="font-size:11px;color:#64748b;align-self:center">Periode mengikuti kontrol di kanan atas</span>
               <button class="btn btn-primary" id="salesNewBtn">＋ Jual</button>
-              <button class="btn btn-ghost" id="salesExcel" title="Unduh tabel penjualan ke Excel">⬇️ Excel</button>
-              <button class="btn btn-secondary" id="salesPrint" title="Cetak / simpan PDF">🖨️ Cetak</button>
+              <button class="btn btn-ghost" id="salesExcel" title="Unduh tabel penjualan ke Excel">Excel</button>
+              <button class="btn btn-secondary" id="salesPrint" title="Cetak / simpan PDF">Cetak</button>
             </div>
           </div>
           <div id="salesContent">
@@ -690,8 +690,8 @@
             <div><h1>Kas &amp; Bank</h1><p id="kasSubtitle">Saldo dompet, transfer, dan rekonsiliasi bank</p></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-primary" id="kasPageAddBtn">＋ Transaksi</button>
-              <button class="btn btn-ghost" id="kasPageKasBtn">⇄ Kas &amp; Transfer</button>
-              <button class="btn btn-ghost" id="kasPageBankBtn">🏦 Mutasi Bank</button>
+              <button class="btn btn-ghost" id="kasPageKasBtn">Kas &amp; Transfer</button>
+              <button class="btn btn-ghost" id="kasPageBankBtn">Mutasi Bank</button>
             </div>
           </div>
           <div id="kasKpi" class="stock-kpi" aria-label="Ringkasan kas dan bank"></div>
@@ -699,10 +699,10 @@
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
               <h3 style="flex:1;margin:0">🔗 Rekonsiliasi Bank</h3>
               <span id="kasReconSummary" style="font-size:11px;color:#64748b"></span>
-              <button class="btn btn-ghost" id="kasReconMatchAllBtn" style="font-size:12px;padding:4px 10px">✓ Cocokkan semua saran</button>
-              <button class="btn btn-ghost" id="kasReconApplyRulesBtn" style="font-size:12px;padding:4px 10px" title="Isi akun COA baris yang belum diposting memakai aturan bank">⚡ Isi akun dari aturan</button>
-              <button class="btn btn-ghost" id="kasReconRulesBtn" style="font-size:12px;padding:4px 10px">⚙️ Aturan bank <span id="kasReconRulesCount" style="opacity:.6"></span></button>
-              <button class="btn btn-ghost" id="kasReconImportBtn" style="font-size:12px;padding:4px 10px">📂 Import mutasi</button>
+              <button class="btn btn-ghost" id="kasReconMatchAllBtn" style="font-size:12px;padding:4px 10px">Cocokkan semua saran</button>
+              <button class="btn btn-ghost" id="kasReconApplyRulesBtn" style="font-size:12px;padding:4px 10px" title="Isi akun COA baris yang belum diposting memakai aturan bank">Isi akun dari aturan</button>
+              <button class="btn btn-ghost" id="kasReconRulesBtn" style="font-size:12px;padding:4px 10px">⚙ Aturan bank <span id="kasReconRulesCount" style="opacity:.6"></span></button>
+              <button class="btn btn-ghost" id="kasReconImportBtn" style="font-size:12px;padding:4px 10px">Import mutasi</button>
             </div>
             <div id="kasReconList"></div>
             <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;border-top:1px solid #f1f5f9;padding-top:12px">
@@ -725,9 +725,9 @@
           <div class="view-header">
             <div><h1>Pembelian</h1><p id="pembelianSubtitle">Pembelian marketplace &amp; supplier lokal — hutang dan pembayarannya</p></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-primary" id="pembelianMarketBtn">🛍 Beli dari marketplace</button>
+              <button class="btn btn-primary" id="pembelianMarketBtn">Beli dari marketplace</button>
               <button class="btn btn-ghost" id="pembelianBuyBtn" title="Beli lokal tunai/hutang atau stok awal">＋ Beli lokal</button>
-              <button class="btn btn-ghost" id="pembelianSupplierBtn">🧾 Hutang &amp; Bayar</button>
+              <button class="btn btn-ghost" id="pembelianSupplierBtn">Hutang &amp; Bayar</button>
             </div>
           </div>
           <div id="pembelianKpi" class="stock-kpi" aria-label="Ringkasan pembelian lokal"></div>
@@ -758,8 +758,8 @@
             <div><h1>Pengiriman</h1><p id="muatanSubtitle">Koli di gudang China, muatan LCL, dan biaya mendarat</p></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-primary" id="pengirimanBaruBtn">＋ Pengiriman baru</button>
-              <button class="btn btn-ghost" id="muatanKoliBtn">🧾 Cek-in koli</button>
-              <button class="btn btn-ghost" id="muatanBatchBtn">🚢 Muatan baru</button>
+              <button class="btn btn-ghost" id="muatanKoliBtn">Cek-in koli</button>
+              <button class="btn btn-ghost" id="muatanBatchBtn">Muatan baru</button>
             </div>
           </div>
           <div class="chip-group" id="muatanTabs" role="tablist" aria-label="Bagian pengiriman" style="margin:4px 0 12px;flex-wrap:wrap">
@@ -818,10 +818,10 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <select id="shopSelect" title="Toko / lokasi aktif" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px;background:white"></select>
               <button class="btn btn-primary" id="stockAddBtn">＋ Tambah produk</button>
-              <button class="btn btn-ghost" id="stockImportPageBtn">📥 Import produk</button>
-              <button class="btn btn-ghost" id="supplierOpenBtn" title="Belanja / hutang ke supplier">🧾 Supplier</button>
-              <button class="btn btn-ghost" id="stockAdjustOpenBtn" title="Penyesuaian stok (selisih/rusak/hilang)">⚖️ Penyesuaian</button>
-              <button class="btn btn-ghost" id="transferOpenBtn" title="Pindah stok antar toko">🔁 Transfer</button>
+              <button class="btn btn-ghost" id="stockImportPageBtn">Import produk</button>
+              <button class="btn btn-ghost" id="supplierOpenBtn" title="Belanja / hutang ke supplier">Supplier</button>
+              <button class="btn btn-ghost" id="stockAdjustOpenBtn" title="Penyesuaian stok (selisih/rusak/hilang)">Penyesuaian</button>
+              <button class="btn btn-ghost" id="transferOpenBtn" title="Pindah stok antar toko">Transfer</button>
             </div>
           </div>
           <div id="stockFormPanel" class="stock-form-panel" hidden>
@@ -837,12 +837,12 @@
                 <div style="display:flex;gap:10px;flex-wrap:wrap">
                   <label style="flex:1 1 100%;font-size:11px;color:#64748b">📦 Nama barang* <input type="text" id="stockName" placeholder="mis. Kopi susu 250ml" maxlength="60" required autofocus style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:14px;margin-top:3px"></label>
                   <label style="flex:1 1 160px;font-size:11px;color:#64748b">Kode <span style="opacity:.6">(opsional)</span> <input type="text" id="stockSku" placeholder="mis. KPS-01" maxlength="30" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
-                  <label style="flex:1 1 140px;font-size:11px;color:#64748b">🏷️ Kategori <input type="text" id="stockCategory" placeholder="mis. Minuman" maxlength="30" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
+                  <label style="flex:1 1 140px;font-size:11px;color:#64748b">🏷 Kategori <input type="text" id="stockCategory" placeholder="mis. Minuman" maxlength="30" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
                   <label style="flex:1 1 130px;font-size:11px;color:#64748b">📦 Satuan <input type="text" id="stockUnit" placeholder="pcs / box / kg" maxlength="12" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
                   <label style="flex:1 1 160px;font-size:11px;color:#64748b">🔖 Barcode <span style="opacity:.6">(ops.)</span> <input type="text" id="stockBarcode" placeholder="scan / ketik" maxlength="40" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
                 </div>
                 <details style="margin-top:10px">
-                  <summary style="cursor:pointer;font-size:11px;color:#64748b;user-select:none">🖼️ Foto &amp; pengiriman <span style="opacity:.6">(opsional — untuk ekspedisi/marketplace)</span></summary>
+                  <summary style="cursor:pointer;font-size:11px;color:#64748b;user-select:none">🖼 Foto &amp; pengiriman <span style="opacity:.6">(opsional — untuk ekspedisi/marketplace)</span></summary>
                   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;margin-top:6px">
                     <label style="flex:0 0 120px;font-size:11px;color:#64748b">Foto produk <input type="file" id="stockImage" accept="image/*" style="width:100%;font-size:11px;margin-top:3px"><span id="stockImagePreview" style="display:block;margin-top:4px"></span><button type="button" class="btn btn-ghost" id="stockImageClear" hidden style="font-size:11px;padding:2px 8px;margin-top:4px">Hapus foto</button></label>
                     <label style="flex:1 1 110px;font-size:11px;color:#64748b">Berat (gram) <input type="number" id="stockWeight" placeholder="mis. 250" min="0" step="1" style="width:100%;height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
@@ -863,7 +863,7 @@
                   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
                     <label style="flex:1 1 160px;font-size:11px;color:#64748b">💰 Harga jual / pcs <input type="text" id="stockPrice" placeholder="Rp" inputmode="decimal" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
                     <label style="flex:1 1 160px;font-size:11px;color:#64748b">🛒 Modal / pcs <input type="text" id="stockCost" placeholder="Rp" inputmode="decimal" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
-                    <label style="flex:1 1 110px;font-size:11px;color:#64748b">🏷️ Diskon (%) <input type="number" id="stockDiscount" min="0" max="100" step="1" placeholder="0" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
+                    <label style="flex:1 1 110px;font-size:11px;color:#64748b">🏷 Diskon (%) <input type="number" id="stockDiscount" min="0" max="100" step="1" placeholder="0" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
                   </div>
                   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
                     <label style="flex:1 1 120px;font-size:11px;color:#64748b">📐 Ukuran <span style="opacity:.6">(ops.)</span> <input type="text" id="stockSize" placeholder="mis. M" maxlength="20" style="width:100%;height:42px;border:1px solid #e2e8f0;border-radius:10px;padding:0 12px;font-size:13px;margin-top:3px"></label>
@@ -885,9 +885,9 @@
               <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:12px;margin-top:12px">
                 <button type="button" class="btn btn-ghost" id="stockFormReset">Batal</button>
                 <div style="display:flex;gap:8px">
-                  <button type="button" class="btn btn-ghost" id="stockStepBack" hidden>← Kembali</button>
-                  <button type="button" class="btn btn-primary" id="stockStepNext">Lanjut →</button>
-                  <button type="submit" class="btn btn-primary" id="stockStepSave" hidden>💾 Simpan</button>
+                  <button type="button" class="btn btn-ghost" id="stockStepBack" hidden>Kembali</button>
+                  <button type="button" class="btn btn-primary" id="stockStepNext">Lanjut</button>
+                  <button type="submit" class="btn btn-primary" id="stockStepSave" hidden>Simpan</button>
                 </div>
               </div>
             </form>
@@ -899,7 +899,7 @@
             </div>
             <div class="chip-group" id="stockPageFilter" role="group" aria-label="Filter stok">
               <button type="button" class="chip selected" data-f="all">Semua</button>
-              <button type="button" class="chip" data-f="low">⚠️ Menipis</button>
+              <button type="button" class="chip" data-f="low">⚠ Menipis</button>
               <button type="button" class="chip" data-f="out">🚫 Habis</button>
             </div>
           </div>
@@ -909,7 +909,7 @@
               <button type="button" class="chip selected" data-v="cards">🃏 Kartu</button>
               <button type="button" class="chip" data-v="table">📋 Tabel</button>
             </div>
-            <button type="button" class="btn btn-ghost" id="reorderBtn" style="font-size:12px;padding:6px 12px" title="Daftar perlu restock">📋 Perlu restock</button>
+            <button type="button" class="btn btn-ghost" id="reorderBtn" style="font-size:12px;padding:6px 12px" title="Daftar perlu restock">Perlu restock</button>
             <label class="login-check" style="font-size:12px"><input type="checkbox" id="stockShowInactive"> Tampilkan arsip</label>
           </div>
           <div id="stockBulkBar" hidden style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 10px;margin-bottom:10px">
@@ -917,9 +917,9 @@
             <button type="button" class="btn btn-ghost" id="bulkActivate" style="font-size:12px;padding:4px 10px">Aktifkan</button>
             <button type="button" class="btn btn-ghost" id="bulkArchive" style="font-size:12px;padding:4px 10px">Nonaktifkan</button>
             <select id="bulkCategory" style="height:32px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;padding:0 8px"><option value="">Set kategori…</option></select>
-            <button type="button" class="btn btn-ghost" id="bulkStockEditBtn" style="font-size:12px;padding:4px 10px">✎ Edit massal</button>
-            <button type="button" class="btn btn-ghost" id="bulkExport" style="font-size:12px;padding:4px 10px">⬇️ Export CSV</button>
-            <button type="button" class="btn btn-ghost" id="bulkStockDeleteBtn" style="font-size:12px;padding:4px 10px;color:#ef4444">🗑 Hapus</button>
+            <button type="button" class="btn btn-ghost" id="bulkStockEditBtn" style="font-size:12px;padding:4px 10px">Edit massal</button>
+            <button type="button" class="btn btn-ghost" id="bulkExport" style="font-size:12px;padding:4px 10px">Export CSV</button>
+            <button type="button" class="btn btn-ghost" id="bulkStockDeleteBtn" style="font-size:12px;padding:4px 10px;color:#ef4444">Hapus</button>
             <button type="button" class="btn btn-ghost" id="bulkCancel" style="font-size:12px;padding:4px 10px">Batal</button>
           </div>
           <div id="stockPageList"></div>
@@ -933,7 +933,7 @@
               <p>Kelola data tim dan komponen penggajian.</p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-ghost" id="severanceBtn" title="Hitung pesangon/PHK (PP 35/2021)">📄 Kalkulator Pesangon/PHK</button>
+              <button class="btn btn-ghost" id="severanceBtn" title="Hitung pesangon/PHK (PP 35/2021)">Kalkulator Pesangon/PHK</button>
             </div>
           </div>
           <div class="chip-group" id="payrollTabs" role="tablist" aria-label="Tab gaji" style="margin-bottom:12px">
@@ -948,7 +948,7 @@
                 <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
                   <h3 id="empTableTitle" style="flex:1">Daftar karyawan</h3>
                   <div style="display:flex;gap:8px">
-                    <button class="btn btn-ghost" id="empImportBtn" style="font-size:12px" title="Impor dari Excel">📥 Impor</button>
+                    <button class="btn btn-ghost" id="empImportBtn" style="font-size:12px" title="Impor dari Excel">Impor</button>
                     <input type="file" id="empImportFile" accept=".xlsx,.xls,.csv" hidden>
                     <button class="btn btn-primary" id="empAddBtn" style="font-size:12px">＋ Tambah karyawan</button>
                   </div>
@@ -978,7 +978,7 @@
                 <p style="margin:0;font-size:12px;color:#64748b">Cek dulu angkanya. Kalau sudah pas, tekan Finalisasi — gaji tercatat otomatis.</p>
               </div>
               <label style="font-size:12px">Periode <input type="month" id="payrollPeriod" style="height:40px;border:1px solid #e2e8f0;border-radius:12px;padding:0 10px;font-size:13px"></label>
-              <button type="button" class="btn btn-ghost" id="payrollCopyBtn" title="Salin lembur/bonus/pengaturan dari bulan sebelumnya">📋 Salin bulan lalu</button>
+              <button type="button" class="btn btn-ghost" id="payrollCopyBtn" title="Salin lembur/bonus/pengaturan dari bulan sebelumnya">Salin bulan lalu</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px" id="payrollCards"></div>
             <div style="display:flex;align-items:center;gap:0;margin:4px 0 14px;font-size:12px" id="payrollSteps">
@@ -1003,7 +1003,7 @@
                 <tbody id="payrollTableBody"></tbody>
               </table>
             </div>
-            <div style="padding:0 16px 12px;font-size:11px;color:#64748b">ℹ️ THR otomatis: kerja ≥12 bulan = 1× gaji+tunjangan; kurang dari itu proporsional n/12. PPh 21 = tarif TER atas <b>netto</b> (PMK 168/2023); tanpa NPWP +20%.</div>
+            <div style="padding:0 16px 12px;font-size:11px;color:#64748b">ℹ THR otomatis: kerja ≥12 bulan = 1× gaji+tunjangan; kurang dari itu proporsional n/12. PPh 21 = tarif TER atas <b>netto</b> (PMK 168/2023); tanpa NPWP +20%.</div>
             <div id="payrollRatesPanel"></div>
             <div id="payrollDecPanel"></div>
               <div id="payrollDetail"></div>
@@ -1011,8 +1011,8 @@
                 <span id="payrollFootNote" style="font-size:12px;color:#64748b"></span>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                   <span style="font-size:12px">Total gaji bersih<br><strong id="payrollFootTotal" style="font-size:18px">Rp0</strong></span>
-                  <button type="button" class="btn btn-ghost" id="payrollBuktiBtn" title="Bukti potong PPh 21 bulan ini" style="font-size:12px">🧾 Bukti potong PPh 21</button>
-                  <button type="button" class="btn btn-ghost" id="payrollA1Btn" title="Bukti potong tahunan 1721-A1" style="font-size:12px">📅 A1 tahunan</button>
+                  <button type="button" class="btn btn-ghost" id="payrollBuktiBtn" title="Bukti potong PPh 21 bulan ini" style="font-size:12px">Bukti potong PPh 21</button>
+                  <button type="button" class="btn btn-ghost" id="payrollA1Btn" title="Bukti potong tahunan 1721-A1" style="font-size:12px">A1 tahunan</button>
                   <select id="payrollViewPayment" title="Bayar dari kas" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 8px;font-size:12px">
                     <option value="transfer">🏦 Transfer</option>
                     <option value="cash">💵 Tunai</option>
@@ -1021,8 +1021,8 @@
                     <option value="debit">💳 Debit</option>
                     <option value="other">📦 Lainnya</option>
                   </select>
-                  <button class="btn btn-ghost" id="payrollDraftBtn">💾 Simpan draft</button>
-                  <button class="btn btn-primary" id="payrollFinalBtn">✓ Finalisasi</button>
+                  <button class="btn btn-ghost" id="payrollDraftBtn">Simpan draft</button>
+                  <button class="btn btn-primary" id="payrollFinalBtn">Finalisasi</button>
                 </div>
               </div>
             </div>
@@ -1049,9 +1049,9 @@
                 <option value="last-quarter">Kuartal lalu (3 bulan)</option>
                 <option value="this-year">Tahun ini</option>
               </select>
-              <button type="button" class="btn btn-primary" id="pageReportPack" title="Paket laporan bulanan: L/R + Neraca + Neraca Saldo + Pajak + Daftar Gaji">📦 Paket bulanan</button>
-              <button type="button" class="btn btn-ghost" id="pageReportExcel" title="Unduh laporan aktif ke Excel (.xlsx)">⬇️ Excel</button>
-              <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">🖨️ Cetak / Simpan PDF</button>
+              <button type="button" class="btn btn-primary" id="pageReportPack" title="Paket laporan bulanan: L/R + Neraca + Neraca Saldo + Pajak + Daftar Gaji">Paket bulanan</button>
+              <button type="button" class="btn btn-ghost" id="pageReportExcel" title="Unduh laporan aktif ke Excel (.xlsx)">Excel</button>
+              <button type="button" class="btn btn-secondary" id="pageReportPrint" title="Cetak atau simpan PDF (pilih 'Save as PDF' di dialog print)">Cetak / Simpan PDF</button>
             </div>
           </div>
           <div class="chip-group" id="pageReportTabs" role="tablist" aria-label="Jenis laporan" style="margin-bottom:8px">
@@ -1062,7 +1062,7 @@
             <button type="button" class="chip page-report-tab" data-report="top-expenses">Top Pengeluaran</button>
             <button type="button" class="chip page-report-tab" data-report="pengeluaran">Pengeluaran</button>
             <button type="button" class="chip page-report-tab" data-report="grossprofit">💹 Laba Kotor</button>
-            <button type="button" class="chip" id="reportJumpSales">🛒 Halaman Penjualan →</button>
+            <button type="button" class="chip" id="reportJumpSales">Halaman Penjualan</button>
           </div>
           <div class="chip-group" role="group" aria-label="Laporan resmi" style="margin-bottom:8px">
             <div style="font-size:10px;font-weight:700;color:var(--text-muted);flex-basis:100%">LAPORAN RESMI</div>
@@ -1085,7 +1085,7 @@
             <input type="search" id="reportSearchInput" placeholder="🔍 Cari akun / memo (Jurnal & Buku Besar)" aria-label="Cari akun atau memo" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:12px;min-width:180px;flex:1;max-width:320px" hidden>
             <span style="flex:1"></span>
             <button type="button" class="btn btn-ghost" id="adjustOpenBtn" data-accountant-only title="Catat jurnal penyesuaian manual (debit/kredit)">＋ Jurnal penyesuaian</button>
-            <button type="button" class="btn btn-ghost" id="closingBtn" data-accountant-only title="Tutup bulan: pendapatan & beban → Laba Ditahan (idempoten)">🔒 Penutupan bulan</button>
+            <button type="button" class="btn btn-ghost" id="closingBtn" data-accountant-only title="Tutup bulan: pendapatan & beban → Laba Ditahan (idempoten)">Penutupan bulan</button>
           </div>
           <details id="pageReportHealthWrap" style="margin-bottom:12px" open>
             <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#475569;user-select:none">🧾 Ringkasan keadaan pembukuan (kertas kerja ringkas)</summary>
@@ -1101,7 +1101,7 @@
           <div class="view-header">
             <div>
               <h1>Changelog</h1>
-              <p>Riwayat perubahan Wynara — versi terbaru paling atas.</p>
+              <p id="changelogSubtitle">Riwayat perubahan Wynara — versi terbaru paling atas.</p>
             </div>
           </div>
           <div class="dash-panel" style="padding:16px;overflow-x:auto">
@@ -1451,7 +1451,7 @@
       <header class="modal-header">
         <h2>📊 Laporan</h2>
         <div class="modal-header-actions" style="display:flex;gap:6px;align-items:center">
-          <button type="button" class="btn btn-ghost" id="printReportBtn" title="Cetak laporan ini">🖨️ Cetak</button>
+          <button type="button" class="btn btn-ghost" id="printReportBtn" title="Cetak laporan ini">Cetak</button>
           <button type="button" class="modal-close" aria-label="Tutup" id="closeReportBtn">&times;</button>
         </div>
       </header>
@@ -1605,7 +1605,7 @@
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="receiptModalCancel">Tutup</button>
-        <button type="button" class="btn btn-primary" id="receiptPrintBtn">🖨️ Cetak</button>
+        <button type="button" class="btn btn-primary" id="receiptPrintBtn">Cetak</button>
       </footer>
     </div>
   </dialog>
@@ -1638,7 +1638,7 @@
             <option value="debit">💳 Debit</option>
             <option value="other">📦 Lainnya</option>
           </select>
-          <button type="button" class="btn btn-primary" id="payrollRunBtn">▶️ Proses bulan ini</button>
+          <button type="button" class="btn btn-primary" id="payrollRunBtn">▶Proses bulan ini</button>
           <button type="button" class="modal-close" aria-label="Tutup" id="closePayrollBtn">&times;</button>
         </div>
       </header>
@@ -1724,7 +1724,7 @@
   <dialog id="bankRulesModal" class="modal">
     <div class="modal-content modal-lg">
       <header class="modal-header">
-        <h2>⚙️ Aturan Bank <span id="bankRuleCount" style="font-size:12px;color:#64748b;font-weight:400"></span></h2>
+        <h2>⚙ Aturan Bank <span id="bankRuleCount" style="font-size:12px;color:#64748b;font-weight:400"></span></h2>
         <button type="button" class="modal-close" id="bankRulesClose" aria-label="Tutup">&times;</button>
       </header>
       <div class="modal-body">
@@ -1753,8 +1753,8 @@
 
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <input type="search" id="bankRuleSearch" placeholder="🔍 Cari kata kunci / akun..." style="flex:1;min-width:160px;height:36px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px">
-          <button type="button" class="btn btn-ghost" id="bankRuleSeedAll" style="height:36px;font-size:12px" title="Tambah semua contoh sekaligus">⚡ Pakai semua contoh</button>
-          <button type="button" class="btn btn-ghost" id="bankRulesClearAll" style="height:36px;font-size:12px;color:#ef4444" title="Hapus semua aturan">🗑 Hapus semua</button>
+          <button type="button" class="btn btn-ghost" id="bankRuleSeedAll" style="height:36px;font-size:12px" title="Tambah semua contoh sekaligus">Pakai semua contoh</button>
+          <button type="button" class="btn btn-ghost" id="bankRulesClearAll" style="height:36px;font-size:12px;color:#ef4444" title="Hapus semua aturan">Hapus semua</button>
         </div>
 
         <div style="font-size:12px;font-weight:700;color:#475569;margin:10px 0 6px">📋 Aturan tersimpan</div>
@@ -1776,9 +1776,9 @@
         <p style="font-size:12px;color:#64748b">CSV BCA / Mandiri / BRI (atau umum: Tanggal, Keterangan, Debit, Kredit). Baris yang cocok nominal+tanggal (±3 hari) otomatis ditandai. Tiap baris direkonsiliasi ke <b>akun COA</b> (disarankan otomatis dari keterangan — bisa diubah).</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
           <input type="file" id="bankFile" accept=".csv" hidden>
-          <button type="button" class="btn btn-ghost" id="bankPickBtn">📂 Pilih file CSV</button>
+          <button type="button" class="btn btn-ghost" id="bankPickBtn">Pilih file CSV</button>
           <select id="bankAccount" style="height:38px;border:1px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:13px"></select>
-          <button type="button" class="btn btn-ghost" id="bankApplySuggestBtn" title="Isi akun COA semua baris memakai saran otomatis">⚡ Terapkan saran ke semua</button>
+          <button type="button" class="btn btn-ghost" id="bankApplySuggestBtn" title="Isi akun COA semua baris memakai saran otomatis">Terapkan saran ke semua</button>
           <button type="button" class="btn btn-primary" id="bankImportBtn" disabled>Import terpilih (<span id="bankCount">0</span>)</button>
         </div>
         <div id="bankPreview" style="max-height:50vh;overflow:auto"></div>
@@ -1829,7 +1829,7 @@
           </div>
         </details>
         <div style="margin-top:8px">
-          <button type="button" class="btn btn-ghost" id="coaRenumberBtn" style="font-size:12px;color:#b45309">🔄 Renumber COA ke chart perusahaan (pratinjau)</button>
+          <button type="button" class="btn btn-ghost" id="coaRenumberBtn" style="font-size:12px;color:#b45309">Renumber COA ke chart perusahaan (pratinjau)</button>
         </div>
       </div>
     </div>
@@ -1868,7 +1868,7 @@
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="creditPayCancel">Batal</button>
-        <button type="button" class="btn btn-primary" id="creditPaySave">💰 Simpan Pembayaran</button>
+        <button type="button" class="btn btn-primary" id="creditPaySave">Simpan Pembayaran</button>
       </footer>
     </div>
   </dialog>
@@ -1897,7 +1897,7 @@
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="shipCancel">Batal</button>
-        <button type="button" class="btn btn-primary" id="shipSave">🚚 Simpan — Sedang Dikirim</button>
+        <button type="button" class="btn btn-primary" id="shipSave">Simpan — Sedang Dikirim</button>
       </footer>
     </div>
   </dialog>
@@ -1957,7 +1957,7 @@
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="orderStatusCancel">Batal</button>
-        <button type="button" class="btn btn-primary" id="orderStatusSave">🔄 Simpan Status</button>
+        <button type="button" class="btn btn-primary" id="orderStatusSave">Simpan Status</button>
       </footer>
     </div>
   </dialog>
@@ -1995,7 +1995,7 @@
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="preorderCostCancel">Batal</button>
-        <button type="button" class="btn btn-primary" id="preorderCostSave">💾 Simpan Biaya</button>
+        <button type="button" class="btn btn-primary" id="preorderCostSave">Simpan Biaya</button>
       </footer>
     </div>
   </dialog>
@@ -2027,7 +2027,7 @@
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="buyCancel">Batal</button>
-        <button type="button" class="btn btn-primary" id="buySave">📥 Simpan Pembelian</button>
+        <button type="button" class="btn btn-primary" id="buySave">Simpan Pembelian</button>
       </footer>
     </div>
   </dialog>
@@ -2131,7 +2131,7 @@
   <dialog id="settingsModal" class="modal">
     <div class="modal-content" style="max-width:520px">
       <header class="modal-header">
-        <h2>⚙️ Pengaturan</h2>
+        <h2>⚙ Pengaturan</h2>
         <button type="button" class="modal-close" aria-label="Tutup" id="closeSettingsBtn">&times;</button>
       </header>
       <div class="modal-body">
@@ -2146,7 +2146,7 @@
             <input type="text" id="equityInput" inputmode="numeric" placeholder="0" autocomplete="off">
             <div style="font-size:11px;color:#64748b;margin-top:4px">Untuk Neraca (Laporan → Neraca). Kosongkan bila tidak tahu.</div>
             <div style="margin-top:8px">
-              <button type="button" class="btn btn-ghost" id="openingOpenBtn" title="Isi saldo awal tiap akun — untuk pindah dari pembukuan lain ke Wynara">⚖️ Saldo awal per akun</button>
+              <button type="button" class="btn btn-ghost" id="openingOpenBtn" title="Isi saldo awal tiap akun — untuk pindah dari pembukuan lain ke Wynara">Saldo awal per akun</button>
             </div>
           </div>
         </div>
@@ -2176,9 +2176,9 @@
         <div class="form-group">
           <label>Arsip (riwayat, tidak dipakai lagi)</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            <button type="button" class="btn btn-ghost" id="loansArchiveBtn">🤝 Riwayat pinjaman lama</button>
-            <button type="button" class="btn btn-ghost" id="filesSyncBtn" title="Unggah lampiran ke Supabase Storage (bucket wynara-files)">☁️ Sinkron lampiran ke server</button>
-            <button type="button" class="btn btn-ghost" id="multiStoreArchiveBtn" hidden>🏪 Multi-toko</button>
+            <button type="button" class="btn btn-ghost" id="loansArchiveBtn">Riwayat pinjaman lama</button>
+            <button type="button" class="btn btn-ghost" id="filesSyncBtn" title="Unggah lampiran ke Supabase Storage (bucket wynara-files)">Sinkron lampiran ke server</button>
+            <button type="button" class="btn btn-ghost" id="multiStoreArchiveBtn" hidden>Multi-toko</button>
             <span id="filesSyncLabel" style="font-size:11px;color:#64748b;align-self:center"></span>
           </div>
         </div>
@@ -2216,17 +2216,17 @@
         </div>
         <div class="form-group">
           <label>Backup &amp; Restore</label>          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button type="button" class="btn btn-ghost" id="exportJsonBtn">⬇️ JSON Backup</button>
-            <button type="button" class="btn btn-ghost" id="backupShareBtn">📤 Kirim via WA/Email</button>
-            <button type="button" class="btn btn-ghost" id="importJsonBtn">⬆️ Restore JSON</button>
-            <button type="button" class="btn btn-ghost" id="backupSelfTestBtn" title="Cek file backup benar-benar bisa dipulihkan">🧪 Uji backup</button>
-            <button type="button" class="btn btn-ghost" id="dataHealthBtn" title="Periksa integritas data (jurnal, stok, backup)">🩺 Kesehatan data</button>
+            <button type="button" class="btn btn-ghost" id="exportJsonBtn">JSON Backup</button>
+            <button type="button" class="btn btn-ghost" id="backupShareBtn">Kirim via WA/Email</button>
+            <button type="button" class="btn btn-ghost" id="importJsonBtn">Restore JSON</button>
+            <button type="button" class="btn btn-ghost" id="backupSelfTestBtn" title="Cek file backup benar-benar bisa dipulihkan">Uji backup</button>
+            <button type="button" class="btn btn-ghost" id="dataHealthBtn" title="Periksa integritas data (jurnal, stok, backup)">Kesehatan data</button>
             <input type="file" id="importJsonFile" accept=".json" hidden>
           </div>
           <div style="font-size:11px;color:#64748b;margin-top:4px" id="lastBackupLabel">Belum pernah backup</div>
         </div>
         <div class="form-group" data-owner-only>
-          <label>☁️ Sinkron Online (Supabase) — multi-HP</label>
+          <label>☁ Sinkron Online (Supabase) — multi-HP</label>
           <details style="margin-top:8px">
             <summary style="font-size:11px;color:#64748b;cursor:pointer">Pengaturan lanjutan (hanya untuk teknisi)</summary>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
@@ -2236,9 +2236,9 @@
             <div style="font-size:11px;color:#b45309;margin-top:4px">Tempel <b>anon/public key</b> saja — JANGAN service_role key (dapat membuka seluruh database). Umumnya tidak perlu diisi: aplikasi sudah membawa kunci bawaannya.</div>
           </details>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            <button type="button" class="btn" id="cloudAnonBtn">👻 Masuk tanpa email</button>
-            <button type="button" class="btn btn-ghost" id="cloudSyncBtn">🔄 Sinkron sekarang</button>
-            <button type="button" class="btn btn-ghost" id="cloudPingBtn">🔌 Uji koneksi</button>
+            <button type="button" class="btn" id="cloudAnonBtn">Masuk tanpa email</button>
+            <button type="button" class="btn btn-ghost" id="cloudSyncBtn">Sinkron sekarang</button>
+            <button type="button" class="btn btn-ghost" id="cloudPingBtn">Uji koneksi</button>
             <button type="button" class="btn btn-ghost" id="cloudOffBtn">Putuskan</button>
           </div>
           <div style="font-size:11px;color:#64748b;margin-top:4px" id="cloudStatusLabel">Belum terhubung — data hanya di HP ini. Pakai <b>anon/public key</b>, JANGAN service_role key.</div>
@@ -2264,19 +2264,19 @@
         <div class="form-group">
           <label>Export / Import / Cetak</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button type="button" class="btn btn-ghost" id="exportExcelBtn2">📊 Excel</button>
-            <button type="button" class="btn btn-ghost" id="exportCsvBtn2">📄 CSV</button>
-            <button type="button" class="btn btn-ghost" id="importAnyBtn">⬆️ Import File</button>
+            <button type="button" class="btn btn-ghost" id="exportExcelBtn2">Excel</button>
+            <button type="button" class="btn btn-ghost" id="exportCsvBtn2">CSV</button>
+            <button type="button" class="btn btn-ghost" id="importAnyBtn">Import File</button>
             <input type="file" id="importAnyFile" accept=".xlsx,.xls,.csv,.json" hidden>
-            <button type="button" class="btn btn-ghost" id="printBtn2">🖨️ Cetak</button>
+            <button type="button" class="btn btn-ghost" id="printBtn2">Cetak</button>
           </div>
           <div style="font-size:11px;color:#64748b;margin-top:4px">Export mengikuti filter &amp; pencarian yang aktif. Import: Excel / CSV / JSON.</div>
         </div>
         <div class="form-group">
           <label>🔒 Kunci Periode</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            <button type="button" class="btn btn-ghost" id="lockPrevBtn">🔒 Kunci bulan lalu</button>
-            <button type="button" class="btn btn-ghost" id="lockCurBtn">🔒 Kunci bulan ini</button>
+            <button type="button" class="btn btn-ghost" id="lockPrevBtn">Kunci bulan lalu</button>
+            <button type="button" class="btn btn-ghost" id="lockCurBtn">Kunci bulan ini</button>
           </div>
           <div id="lockList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
           <div style="font-size:11px;color:#64748b;margin-top:4px">Bulan terkunci tak bisa tambah/ubah/hapus. Untuk laporan ke akuntan & pajak.</div>
@@ -2409,7 +2409,7 @@
       <button type="button" class="btn btn-secondary" id="assetAddBtn">＋ Tambah aset</button>
       <div style="flex:1"></div>
       <button type="button" class="btn btn-ghost" id="assetModalCancel">Tutup</button>
-      <button type="button" class="btn btn-primary" id="assetPostBtn">📤 Posting penyusutan bulan ini</button>
+      <button type="button" class="btn btn-primary" id="assetPostBtn">Posting penyusutan bulan ini</button>
     </div>
   </div>
 </dialog>
@@ -2437,7 +2437,7 @@
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" id="adjustCancel">Batal</button>
-      <button type="button" class="btn btn-primary" id="adjustPostBtn">✓ Posting</button>
+      <button type="button" class="btn btn-primary" id="adjustPostBtn">Posting</button>
     </div>
   </div>
 </dialog>
@@ -2445,7 +2445,7 @@
 <dialog id="openingModal" class="modal">
   <div class="modal-content" style="max-width:600px">
     <div class="modal-header">
-      <h2>⚖️ Saldo Awal per Akun</h2>
+      <h2>⚖ Saldo Awal per Akun</h2>
       <button type="button" class="modal-close" id="openingModalClose" aria-label="Tutup">×</button>
     </div>
     <div class="modal-body" style="padding:16px">
@@ -2469,7 +2469,7 @@
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" id="openingCancel">Batal</button>
-      <button type="button" class="btn btn-primary" id="openingPostBtn">✓ Posting saldo awal</button>
+      <button type="button" class="btn btn-primary" id="openingPostBtn">Posting saldo awal</button>
     </div>
   </div>
 </dialog>
@@ -2520,7 +2520,7 @@
 <dialog id="returnModal" class="modal">
     <div class="modal-content" style="max-width:520px">
       <header class="modal-header">
-        <h2>↩️ Retur Penjualan</h2>
+        <h2>↩ Retur Penjualan</h2>
         <button type="button" class="modal-close" id="returnClose" aria-label="Tutup">×</button>
       </header>
       <div class="modal-body">
@@ -2550,14 +2550,14 @@
         <div id="stockActionInfo" style="font-size:12px;color:#475569;margin-bottom:10px"></div>
         <div class="stock-action-grid">
           <button type="button" class="btn btn-primary" id="saAdd">＋ Tambah stok</button>
-          <button type="button" class="btn btn-ghost" id="saAdjust">⚖️ Koreksi</button>
-          <button type="button" class="btn btn-ghost" id="saTransfer">🔁 Pindah</button>
-          <button type="button" class="btn btn-ghost" id="saHistory">📜 Kartu stok</button>
-          <button type="button" class="btn btn-ghost" id="saJual">🧾 Jual</button>
-          <button type="button" class="btn btn-ghost" id="saEdit">✎ Edit</button>
-          <button type="button" class="btn btn-ghost" id="saBarcode">🏷️ Barcode</button>
+          <button type="button" class="btn btn-ghost" id="saAdjust">Koreksi</button>
+          <button type="button" class="btn btn-ghost" id="saTransfer">Pindah</button>
+          <button type="button" class="btn btn-ghost" id="saHistory">Kartu stok</button>
+          <button type="button" class="btn btn-ghost" id="saJual">Jual</button>
+          <button type="button" class="btn btn-ghost" id="saEdit">Edit</button>
+          <button type="button" class="btn btn-ghost" id="saBarcode">Barcode</button>
         </div>
-        <button type="button" class="btn btn-ghost" id="saDelete" style="margin-top:8px;color:#ef4444;width:100%">🗑 Hapus produk</button>
+        <button type="button" class="btn btn-ghost" id="saDelete" style="margin-top:8px;color:#ef4444;width:100%">Hapus produk</button>
       </div>
     </div>
   </dialog>
@@ -2565,7 +2565,7 @@
 <dialog id="barcodeModal" class="modal">
     <div class="modal-content" style="max-width:380px">
       <header class="modal-header">
-        <h2 id="barcodeTitle">🏷️ Barcode</h2>
+        <h2 id="barcodeTitle">🏷 Barcode</h2>
         <button type="button" class="modal-close" id="barcodeClose" aria-label="Tutup">&times;</button>
       </header>
       <div class="modal-body" style="text-align:center">
@@ -2575,7 +2575,7 @@
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn btn-secondary" id="barcodeCloseBtn">Tutup</button>
-        <button type="button" class="btn btn-primary" id="barcodePrint">🖨️ Cetak</button>
+        <button type="button" class="btn btn-primary" id="barcodePrint">Cetak</button>
       </footer>
     </div>
   </dialog>
@@ -2583,7 +2583,7 @@
 <dialog id="stockAdjustModal" class="modal">
     <div class="modal-content" style="max-width:440px">
       <header class="modal-header">
-        <h2>⚖️ Penyesuaian Stok</h2>
+        <h2>⚖ Penyesuaian Stok</h2>
         <button type="button" class="modal-close" id="stockAdjustClose" aria-label="Tutup">×</button>
       </header>
       <div class="modal-body">
@@ -2664,15 +2664,15 @@
       <div class="modal-body">
         <div id="importIntro">
           <div class="chip-group" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-            <button type="button" class="chip selected" id="importModeSales" data-mode="sales">🛍️ Pesanan marketplace (CSV)</button>
-            <button type="button" class="chip" id="importModeWa" data-mode="wa">💬 WhatsApp / offline</button>
-            <button type="button" class="chip" id="importModeProducts" data-mode="products">📦 Daftar produk</button>
+            <button type="button" class="chip selected" id="importModeSales" data-mode="sales">Pesanan marketplace (CSV)</button>
+            <button type="button" class="chip" id="importModeWa" data-mode="wa">WhatsApp / offline</button>
+            <button type="button" class="chip" id="importModeProducts" data-mode="products">Daftar produk</button>
           </div>
           <label style="font-size:12px;color:#475569">Tempel data (untuk pesanan/produk) atau pilih file CSV/Excel:</label>
           <textarea id="importText" rows="5" placeholder="Tempel di sini… (mis. baris WhatsApp: 2x Kopi 15000)" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font-size:12px;font-family:ui-monospace,monospace;margin-top:4px"></textarea>
           <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="file" id="importModalFile" accept=".csv,.txt,.tsv,.xlsx,.xls">
-            <button type="button" class="btn btn-ghost" id="importParseBtn" style="font-size:12px">🔎 Baca &amp; pratinjau</button>
+            <button type="button" class="btn btn-ghost" id="importParseBtn" style="font-size:12px">Baca &amp; pratinjau</button>
             <span style="font-size:11px;color:var(--text-muted)">Shopee: Seller Centre → Pesanan → Export. Boleh tempel langsung.</span>
           </div>
         </div>
@@ -2705,7 +2705,7 @@
     window.__bootError = null;
     // Versi HTML ini — dibandingkan dengan window.__APP_VERSION dari app.js.
     // Bila beda = file campur aduk (cache basi) → purge otomatis di bawah.
-    window.__htmlVersion = '2.29.0';
+    window.__htmlVersion = '2.30.0';
     window.addEventListener('error', function (e) {
       if (!window.__appBooted && e && e.message) window.__bootError = e.message;
     }, true);

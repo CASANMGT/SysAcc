@@ -8,6 +8,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and th
 
 ---
 
+## [2.30.0] - 2026-09-17 — penjaga konsistensi + sapuan emoji konservatif
+
+### Ditambahkan
+- **`tests/design-consistency.test.js`** — penjaga permanen agar drift desain tidak kembali diam-diam: setiap `.view-section` wajib punya `.view-header`, satu `<h1>`, dan subjudul ber-id; dan **tidak ada `<h1>` yang memuat emoji**. Uji ini langsung menangkap satu halaman yang terlewat (Changelog) saat pertama dijalankan — subjudulnya kini ditambahkan.
+
+### Diubah
+- **Sapuan emoji konservatif (87 tombol)**: emoji dihapus dari tombol ber-id di level halaman (tombol header, simpan/batal modal, CTA, tombol panel) — mis. `🧾 Jual` → `Jual`, `⬇️ Excel` → `Excel`, `1️⃣ 🧾 Jual barang` → `Jual barang`. **Chip/tab daftar, badge baris tabel, dan ikon navigasi tidak disentuh** (emoji di sana masih berguna sebagai penanda cepat).
+- Tombol **ikon-saja** dipertahankan apa adanya (mata lihat sandi, hamburger sidebar, tombol tutup ✕).
+- Uji: **391 lulus** (23 berkas), lint bersih.
+
 ## [2.29.0] - 2026-09-17 — konsistensi desain seluruh halaman
 
 ### Diperbaiki
